@@ -206,9 +206,7 @@ int GlobalAstrometrySolution::blindSolve()
     return(_solver->best_match_solves);
 }
 
-
-
-
+    
 bool GlobalAstrometrySolution::verifyRaDec(const double ra,   ///<Right ascension in decimal degrees
                                            const double dec   ///<Declination in decimal degrees
                                           ) throw(logic_error)  
