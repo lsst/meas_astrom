@@ -1,0 +1,5 @@
+# -*- python -*-
+Import("env")
+
+env.CheckSwig("python", ilang="c++", includedProducts="utils daf_base pex_policy daf_persistence daf_data security afw")
+env.LoadableModuleIncomplete("_netLib", Split("netLib.i"), LIBS=env.getlibs("meas_astrom"))
