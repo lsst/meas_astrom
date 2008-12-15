@@ -610,17 +610,37 @@ class GlobalAstrometrySolution(_object):
         """getNumIndices(self) -> int"""
         return _netLib.GlobalAstrometrySolution_getNumIndices(*args)
 
-    def getIndexPath(*args):
-        """getIndexPath(self, int i) -> string"""
-        return _netLib.GlobalAstrometrySolution_getIndexPath(*args)
+    def getIndexPaths(*args):
+        """getIndexPaths(self) -> TableList"""
+        return _netLib.GlobalAstrometrySolution_getIndexPaths(*args)
 
     def addIndexFile(*args):
         """addIndexFile(self, string path)"""
         return _netLib.GlobalAstrometrySolution_addIndexFile(*args)
 
+    def setDefaultSolverValues(*args):
+        """setDefaultSolverValues(self)"""
+        return _netLib.GlobalAstrometrySolution_setDefaultSolverValues(*args)
+
     def setHpRange(*args):
         """setHpRange(self, double range)"""
         return _netLib.GlobalAstrometrySolution_setHpRange(*args)
+
+    def setImageScaleArcsecPerPixel(*args):
+        """setImageScaleArcsecPerPixel(self, double scale)"""
+        return _netLib.GlobalAstrometrySolution_setImageScaleArcsecPerPixel(*args)
+
+    def setMinimumImageScale(*args):
+        """setMinimumImageScale(self, double scale)"""
+        return _netLib.GlobalAstrometrySolution_setMinimumImageScale(*args)
+
+    def setMaximumImageScale(*args):
+        """setMaximumImageScale(self, double scale)"""
+        return _netLib.GlobalAstrometrySolution_setMaximumImageScale(*args)
+
+    def allowDistortion(*args):
+        """allowDistortion(self, bool distort)"""
+        return _netLib.GlobalAstrometrySolution_allowDistortion(*args)
 
     def blindSolve(*args):
         """blindSolve(self) -> int"""

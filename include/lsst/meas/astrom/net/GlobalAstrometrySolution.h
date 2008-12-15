@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <vector>
+//#include <string>
 
 #include "boost/cstdint.hpp"
 #include "boost/shared_ptr.hpp"
@@ -18,6 +19,7 @@ namespace lsst { namespace meas { namespace astrom { namespace net {
 extern "C" {
 #include "blind/backend.h"
 #include "blind/solver.h"
+#include "blind/index.h"
 #include "util/healpix.h"
 #include "util/bl.h"
 }
@@ -26,7 +28,6 @@ extern "C" {
 
 // Function declarations marked //o are not yet implemented
 
-//!\class 
 //!\brief Stores the indices of the star catalogue for the 
 //!\brief astrometry.net code
 ///
@@ -45,25 +46,31 @@ public:
     //Initialisation routines, for those who prefer fine grained control
     int parseConfigStream(FILE* fconf);                     
     int parseConfigFile(const std::string filename);        
-    void setStarlist(std::vector<lsst::afw::detection::Source::Ptr> src); //o
+    void setStarlist(std::vector<lsst::afw::detection::Source::Ptr> src) throw(std::domain_error);
 
     //Accessors
-    lsst::afw::image::Wcs getWcs();
-
+    lsst::afw::image::Wcs getWcs() throw(std::domain_error);
+        
     //The following accessors are mostly for debugging, and let you know what's going on inside
     //the object
     int getNumIndices();
-    //vector<string> getIndexPaths();//o Postponed until I learn how to implement vectors in swig
-    string getIndexPath(int i);
+    std::vector<std::string> getIndexPaths();//o Postponed until I learn how to implement vectors in swig
+    //string getIndexPath(int i);
 
     //Mutators, mostly for tweaking parameters
     void addIndexFile(const std::string path);
+    void setDefaultSolverValues() {    solver_set_default_values(_solver);}
     inline void setHpRange(const double range) { _hprange=range;}
+    void setImageScaleArcsecPerPixel(double scale);
+    void setMinimumImageScale(double scale){   _solver->funits_lower=scale;}
+    void setMaximumImageScale(double scale){   _solver->funits_upper=scale;}
+    void allowDistortion(bool distort);
+
     
     //Solve and verify functions.
     int blindSolve();    
-    bool verifyRaDec(const double ra, const double dec);
-    bool verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr);
+    bool verifyRaDec(const double ra, const double dec) throw(std::logic_error);
+    bool verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr) throw(std::logic_error);
     
 private:
     backend_t *_backend;
@@ -73,7 +80,7 @@ private:
     
     double _hprange;
     
-    sip_t *convertWcsToSipt(const lsst::afw::image::Wcs::Ptr);
+    sip_t *convertWcsToSipt(const lsst::afw::image::Wcs::Ptr) throw(std::logic_error);
     void findNearbyIndices(const double ra, const double dec);
 };
 
