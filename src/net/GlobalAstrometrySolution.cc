@@ -117,7 +117,10 @@ void GlobalAstrometrySolution::setStarlist(std::vector<lsst::afw::detection::Sou
 }
 
 
+void GlobalAstrometrySolution::tmpStarlist(std::vector<lsst::afw::detection::Source> src) {
+    cout << "Cp" << endl;
 
+}
 
 
 //
@@ -161,7 +164,7 @@ vector<string> GlobalAstrometrySolution::getIndexPaths() {
      for(int i=0; i<size; ++i){
          bl_get(_backend->indexmetas, i, meta);
          string x(meta->indexname);
-         cout << x << endl;
+         strList.push_back(x);
      }
      free(meta);
 
