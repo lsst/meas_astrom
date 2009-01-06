@@ -27,7 +27,7 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string filename) {
 
 
 GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string filename,  ///< Name of backend configuration file
-                                                   std::vector<lsst::afw::detection::Source::Ptr> src) { ///< Points
+                                                   lsst::afw::detection::SourceVector vec) { ///< Points
     ///<indicating pixel coords of detected objects
     _backend  = backend_new();
     _solver   = solver_new();
@@ -37,7 +37,7 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string filename,  
     _hprange = 0;
 
     parseConfigFile(filename);
-    setStarlist(src);
+    setStarlist(vec);
 
 }
 
@@ -91,35 +91,30 @@ int GlobalAstrometrySolution::parseConfigStream(FILE* fconf) {
 
 // ********************************************************************
 ///Init an object using a vector of sources
-void GlobalAstrometrySolution::setStarlist(std::vector<lsst::afw::detection::Source::Ptr> src) throw(domain_error) {
-    if (src.empty()) {
+void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceVector vec) throw(std::domain_error) {
+    cout << "tmpStarList: " << vec.size() << endl;
+
+    if (vec.empty()) {
         throw(domain_error("Src list contains no objects"));
     }
 
     //This number is conservative. A bare minimum of 4 objects is needed, although the
     //search probably won't be unique with that few objects
-    if (src.size() < 20) {
+    if (vec.size() < 20) {
         throw(domain_error("Src list should contain at least 20 objects"));
     }
-
-    int const size = src.size(); 
+    
+    int const size = vec.size(); 
     _starlist = starxy_new(size, true, false);   
 
     int i=0;
-    for (std::vector<lsst::afw::detection::Source::Ptr>::iterator ptr = src.begin(); ptr != src.end(); ++ptr) {
-        lsst::afw::detection::Source::Ptr obj = *ptr;
-        double const col = obj->getColc();
-        double const row = obj->getRowc();
+    for (lsst::afw::detection::SourceVector::iterator ptr = vec.begin(); 
+         ptr != vec.end(); 
+         ++ptr) {
+        double const col = ptr->getColc();
+        double const row = ptr->getRowc();
         starxy_set(_starlist, i++, col, row);
     }
-
-    solver_set_field(_solver, _starlist);
-}
-
-
-void GlobalAstrometrySolution::tmpStarlist(std::vector<lsst::afw::detection::Source> src) {
-    cout << "Cp" << endl;
-
 }
 
 
@@ -225,6 +220,8 @@ void GlobalAstrometrySolution::allowDistortion(bool distort) {
 ///false otherwise
 int GlobalAstrometrySolution::blindSolve() {
 
+    //Throw exceptions if setup is correct
+    
     //Move all the indices from the backend structure to the solver structure.
     int size=pl_size(_backend->indexes);
     for(int i=0; i<size; ++i){
@@ -234,7 +231,7 @@ int GlobalAstrometrySolution::blindSolve() {
 
     //I don't know what this setting does, but see control-program.c
     _solver->distance_from_quad_bonus = true;
-
+    cout << "Cp1" << endl;
     solver_run( _solver);
 
     return(_solver->best_match_solves);

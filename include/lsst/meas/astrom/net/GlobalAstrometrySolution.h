@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include <vector>
-//#include <string>
+#include <string>
 
 #include "boost/cstdint.hpp"
 #include "boost/shared_ptr.hpp"
@@ -38,7 +38,7 @@ public:
 
     //Constructors
     GlobalAstrometrySolution(const std::string filename); 
-    GlobalAstrometrySolution(const std::string filename,  std::vector<lsst::afw::detection::Source::Ptr> src);
+    GlobalAstrometrySolution(const std::string filename,  lsst::afw::detection::SourceVector vec);
     
     //Destructor
     ~GlobalAstrometrySolution();
@@ -46,15 +46,15 @@ public:
     //Initialisation routines, for those who prefer fine grained control
     int parseConfigStream(FILE* fconf);                     
     int parseConfigFile(const std::string filename);        
-    void setStarlist(std::vector<lsst::afw::detection::Source::Ptr> src) throw(std::domain_error);
-
+    void setStarlist(lsst::afw::detection::SourceVector vec) throw (std::domain_error);
+        
     //Accessors
     lsst::afw::image::Wcs getWcs() throw(std::domain_error);
         
     //The following accessors are mostly for debugging, and let you know what's going on inside
     //the object
     int getNumIndices();
-    std::vector<std::string> getIndexPaths();//o Postponed until I learn how to implement vectors in swig
+    std::vector<std::string> getIndexPaths();
     //string getIndexPath(int i);
 
     //Mutators, mostly for tweaking parameters

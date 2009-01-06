@@ -9,14 +9,14 @@ Python interface to lsst::afw::meas::astrom::net classes
 %module(package="lsst.meas.astrom.net",docstring=netLib_DOCSTRING) netLib
 
 %{
-#   include "lsst/daf/base.h"
-#   include "lsst/pex/policy/Policy.h"
-#   include "lsst/pex/policy/PolicyFile.h"
-#   include "lsst/afw/image.h"
 #   include "lsst/meas/astrom/net/GlobalAstrometrySolution.h"
 %}
 
 %include "lsst/p_lsstSwig.i"
+%include "std_string.i"
+%include "std_vector.i"
+//Did you declare the std::vector<std::string> using %template?
+
 
 %pythoncode %{
 import lsst.utils
@@ -27,11 +27,9 @@ def version(HeadURL = r"$HeadURL: svn+ssh://svn.lsstcorp.org/DMS/afw/trunk/pytho
     return HeadURL
 %}
 
-//%template(vectorF) std::vector<float>;
-
 %import "lsst/afw/image/imageLib.i"
+%import "lsst/afw/detection/detectionLib.i"
 
 %lsst_exceptions();
 
 %include "lsst/meas/astrom/net/GlobalAstrometrySolution.h"
-
