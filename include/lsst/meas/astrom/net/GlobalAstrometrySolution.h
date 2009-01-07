@@ -22,6 +22,7 @@ extern "C" {
 #include "blind/index.h"
 #include "util/healpix.h"
 #include "util/bl.h"
+#include "util/log.h"
 }
 
 
@@ -55,17 +56,18 @@ public:
     //the object
     int getNumIndices();
     std::vector<std::string> getIndexPaths();
-    //string getIndexPath(int i);
+    void printStarlist();
 
     //Mutators, mostly for tweaking parameters
     void addIndexFile(const std::string path);
-    void setDefaultSolverValues() {    solver_set_default_values(_solver);}
     inline void setHpRange(const double range) { _hprange=range;}
     void setImageScaleArcsecPerPixel(double scale);
+    void setLogLevel(const int level);
     void setMinimumImageScale(double scale){   _solver->funits_lower=scale;}
     void setMaximumImageScale(double scale){   _solver->funits_upper=scale;}
     void allowDistortion(bool distort);
 
+    void setNumberStars(const int num)  { _solver->endobj = num;}
     
     //Solve and verify functions.
     int blindSolve();    

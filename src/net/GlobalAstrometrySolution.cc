@@ -69,7 +69,6 @@ int GlobalAstrometrySolution::parseConfigFile(const std::string filename) { ///<
     int len = filename.length();
     char *fn = (char *) malloc((len+1)*sizeof(char));
     strncpy(fn, filename.c_str(), len);
-    cout << "Converted " << filename << "  to " << fn << endl;
 
     //Tells the backend to load all index files that it finds. Due to a 
     //bug in the astrometry.net code, this line is required to load
@@ -107,14 +106,27 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceVector ve
     int const size = vec.size(); 
     _starlist = starxy_new(size, true, false);   
 
+    //Need to add flux information to _starlist, and sort by it.
     int i=0;
     for (lsst::afw::detection::SourceVector::iterator ptr = vec.begin(); 
          ptr != vec.end(); 
          ++ptr) {
+        
         double const col = ptr->getColc();
         double const row = ptr->getRowc();
-        starxy_set(_starlist, i++, col, row);
+        double const flux= ptr->getFlux();
+        
+        cout << "Adding " << col << ", " << row << endl;
+        starxy_set(_starlist, i, col, row);
+        //There's no function to set the flux, so do it explicitly.
+        //This would be a good improvement for the code
+        _starlist->flux[i] = flux;
+        ++i;
     }
+    
+    //Now sort the list and add to the solver
+    starxy_sort_by_flux(_starlist);
+    solver_set_field(_solver, _starlist);    
 }
 
 
@@ -167,6 +179,25 @@ vector<string> GlobalAstrometrySolution::getIndexPaths() {
 }
         
 
+/// Print the coordinates and fluxes of all objects used to make a match. Primarily
+/// a debugging function
+void GlobalAstrometrySolution::printStarlist() {
+    if ( ! _solver->fieldxy) {
+        throw(logic_error("Starlist hasn't been set yet"));
+    }
+    
+    int max;
+    max = starxy_n(_solver->fieldxy);
+    cout << "endobj is " << _solver->endobj << endl;
+    max = (_solver->endobj == 0) ? max : _solver->endobj;
+    
+    for(int i=0; i<max; ++i){
+        const double x = starxy_getx(_solver->fieldxy, i);
+        const double y = starxy_gety(_solver->fieldxy, i);
+        cout << x << ", " << y << endl;
+    }
+}
+
     
 
 //
@@ -189,11 +220,22 @@ void GlobalAstrometrySolution::addIndexFile(const std::string path) { ///< Path 
     //of success or failure
 #if 0                                   // needs to be declare publicly visible before this will compile
     add_index(_backend, path);
+#else
+    throw(runtime_error("This function doesn't work with version 0.24 of astrometry.net"));
 #endif
     free(fn);
 }
 
 
+
+void GlobalAstrometrySolution::setLogLevel(const int level) {
+    if (level < 0 || level > 4) {
+        throw( logic_error("Logging level must be between 0 and 4") );
+    }
+    
+    
+    log_init((enum log_level) level);
+}
 
 ///Set the size of the image. At some point, when I know how to determine what my inputs are
 ///I may include this in the default constructor
@@ -221,7 +263,10 @@ void GlobalAstrometrySolution::allowDistortion(bool distort) {
 int GlobalAstrometrySolution::blindSolve() {
 
     //Throw exceptions if setup is correct
-    
+    if (! _solver->fieldxy) {
+        throw logic_error("No field has been set yet");
+    }
+
     //Move all the indices from the backend structure to the solver structure.
     int size=pl_size(_backend->indexes);
     for(int i=0; i<size; ++i){
