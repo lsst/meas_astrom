@@ -1,4 +1,5 @@
 
+
 #ifndef GLOBAL_ASTROMETRY_SOLUTION_H
 #define GLOBAL_ASTROMETRY_SOLUTION_H
 
@@ -29,8 +30,7 @@ extern "C" {
 
 // Function declarations marked //o are not yet implemented
 
-//!\brief Stores the indices of the star catalogue for the 
-//!\brief astrometry.net code
+//!\brief Solve for WCS based only on the positions of stars in an image 
 ///
 class GlobalAstrometrySolution {
 public:
@@ -38,6 +38,7 @@ public:
     typedef boost::shared_ptr<GlobalAstrometrySolution const> ConstPtr;
 
     //Constructors
+    GlobalAstrometrySolution();
     GlobalAstrometrySolution(const std::string filename); 
     GlobalAstrometrySolution(const std::string filename,  lsst::afw::detection::SourceVector vec);
     
@@ -50,8 +51,14 @@ public:
     void setStarlist(lsst::afw::detection::SourceVector vec) throw (std::domain_error);
         
     //Accessors
-    lsst::afw::image::Wcs getWcs() throw(std::domain_error);
-        
+    double getMatchThreshold();
+    inline double getMinimumImageScale() {    return _solver->funits_lower; }
+    inline double getMaximumImageScale() {    return _solver->funits_upper; }
+    std::pair<double, double> xy2RaDec(double x, double y) throw(std::logic_error);
+    std::pair<double, double> raDec2Xy(double ra, double dec) throw(std::logic_error);
+    lsst::afw::image::Wcs getWcs() throw(std::logic_error);
+
+    
     //The following accessors are mostly for debugging, and let you know what's going on inside
     //the object
     int getNumIndices();
@@ -60,14 +67,18 @@ public:
 
     //Mutators, mostly for tweaking parameters
     void addIndexFile(const std::string path);
-    inline void setHpRange(const double range) { _hprange=range;}
+    void reset();
+    void setDefaultValues();
+    void setHpRange(const double range) { _hprange=range;}
     void setImageScaleArcsecPerPixel(double scale);
     void setLogLevel(const int level);
-    void setMinimumImageScale(double scale){   _solver->funits_lower=scale;}
-    void setMaximumImageScale(double scale){   _solver->funits_upper=scale;}
+    void setMatchThreshold(const double threshold);
+    ///Note than minimum image scale should be strictly less than Maximum scale
+    inline void setMinimumImageScale(double scale){   _solver->funits_lower=scale;}
+    inline void setMaximumImageScale(double scale){   _solver->funits_upper=scale;}
     void allowDistortion(bool distort);
 
-    void setNumberStars(const int num)  { _solver->endobj = num;}
+    inline void setNumberStars(const int num)  { _solver->endobj = num;}
     
     //Solve and verify functions.
     int blindSolve();    
@@ -78,7 +89,6 @@ private:
     backend_t *_backend;
     solver_t *_solver;
     starxy_t *_starlist;
-    sip_t *_sip;
     
     double _hprange;
     
