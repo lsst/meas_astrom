@@ -23,23 +23,9 @@ GlobalAstrometrySolution::GlobalAstrometrySolution() {
 }
 
     
-GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string filename) { ///< Name of backend configuration file
-
-    _backend  = backend_new();
-    _solver   = solver_new();
-    _starlist = NULL;
-
-    _hprange = 0;
-
-    setDefaultValues();
-
-    parseConfigFile(filename);
-}
-
-
-
-GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string filename,  ///< Name of backend configuration file
-                                                   lsst::afw::detection::SourceVector vec) { ///< Points indicating pixel coords of detected objects
+GlobalAstrometrySolution::GlobalAstrometrySolution(
+       lsst::afw::detection::SourceVector vec) { ///< Points indicating pixel coords of detected objects
+    
     _backend  = backend_new();
     _solver   = solver_new();
     _starlist = NULL;
@@ -48,9 +34,7 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string filename,  
 
     setDefaultValues();
     
-    parseConfigFile(filename);
     setStarlist(vec);
-
 }
 
 
@@ -75,9 +59,24 @@ GlobalAstrometrySolution::~GlobalAstrometrySolution() {
 //
 // Initialisation (Mutators)
 //
+///    
+///Adds a single index file to the backend.
+void GlobalAstrometrySolution::addIndexFile(const std::string path) { ///< Path of index file
+    //Copy a constant string into a non-const C style string
+    //so it can be passed into a C function without complaint.
+    int len = (int) path.length(); 
+    char *fn = (char *) malloc((len+1)*sizeof(char));
+    strncpy(fn, path.c_str(), len+1);
+
+
+    //May have to add some error checking. add_index always returns zero regardless
+    //of success or failure
+    backend_add_index(_backend, fn);
+    free(fn);
+}
 
 ///Read a configuration file that contains a list of indices
-///from a stream and load them into memory
+///from a stream and load them into memory. Useful for debugging code, but not for production
 int GlobalAstrometrySolution::parseConfigFile(const std::string filename) { ///< Name of backend configuration file
     //Copy a constant string into a non-const C style string
     //so it can be passed into a C function without complaint.
@@ -103,7 +102,6 @@ int GlobalAstrometrySolution::parseConfigStream(FILE* fconf) {
 
 
 
-// ********************************************************************
 ///Set the image to be solved. The image is abstracted as a list of positions in pixel space
 ///
 void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceVector vec) ///<List of Sources
@@ -154,21 +152,31 @@ double GlobalAstrometrySolution::getMatchThreshold(){
     return _solver->logratio_record_threshold;
 }
 
-///    
-///Convert pixels to right ascension declination    
-pair<double, double> GlobalAstrometrySolution::xy2RaDec(double x, double y)  throw(std::logic_error) {
-    if (! _solver->best_match_solves) {
-        throw( logic_error("No solution found yet. Run blindSolve()") );
+
+///              
+///After solving, return a linear Wcs (i.e without distortion terms)
+lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs() throw(logic_error) {
+    if (_solver == NULL) {
+        throw(logic_error("No solution found yet. Run blindSolve()"));
+    }
+    
+    lsst::afw::image::PointD crpix(_solver->best_match.wcstan.crpix[0],
+                                   _solver->best_match.wcstan.crpix[1]);
+    lsst::afw::image::PointD crval(_solver->best_match.wcstan.crval[0],
+                                   _solver->best_match.wcstan.crval[1]);
+    
+    int naxis = 2;   //This is hardcoded into the sip_t structure
+    boost::numeric::ublas::matrix<double> CD(2,2);
+    for (int i=0; i<naxis; ++i) {
+        for (int j=0; j<naxis; ++j) {
+            CD.insert_element(i, j, _solver->best_match.wcstan.cd[i][j]);
+        }
     }
 
-    double ra, dec;
-    tan_pixelxy2radec( &_solver->best_match.wcstan, x, y, &ra, &dec);
+    lsst::afw::image::Wcs::Ptr wcsPtr = lsst::afw::image::Wcs::Ptr( new(lsst::afw::image::Wcs));
+    *wcsPtr = lsst::afw::image::Wcs(crval, crpix, CD);
     
-    pair<double, double> ret;
-    ret.first = ra;
-    ret.second=dec;
-    
-    return ret ;
+    return wcsPtr;
 }
 
 
@@ -190,48 +198,25 @@ pair<double, double> GlobalAstrometrySolution::raDec2Xy(double ra, double dec)  
     ret.second=y;
     return ret;
 }
-
-        
-///              
-///After solving, return a linear Wcs (i.e without distortion terms)
-lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs() throw(logic_error) {
-    if (_solver == NULL) {
-        throw(logic_error("No solution found yet. Run blindSolve()"));
+    
+    
+///    
+///Convert pixels to right ascension declination    
+pair<double, double> GlobalAstrometrySolution::xy2RaDec(double x, double y)  throw(std::logic_error) {
+    if (! _solver->best_match_solves) {
+        throw( logic_error("No solution found yet. Run blindSolve()") );
     }
-    cout << "cp1" << endl;
-    
-    //lsst::afw::image::PointD crval(sip->wcstan.crval[0], sip->wcstan.crval[1]);
-    //lsst::afw::image::PointD crpix(sip->wcstan.crpix[1], sip->wcstan.crpix[0]);
-    lsst::afw::image::PointD crpix(_solver->best_match.wcstan.crpix[0],
-                                   _solver->best_match.wcstan.crpix[1]);
-    lsst::afw::image::PointD crval(_solver->best_match.wcstan.crval[0],
-                                   _solver->best_match.wcstan.crval[1]);
-    
-    cout << "cp2" << endl;
 
-    int naxis = 2;   //This is hardcoded into the sip_t structure
-    boost::numeric::ublas::matrix<double> CD(2,2);
-    for (int i=0; i<naxis; ++i) {
-        for (int j=0; j<naxis; ++j) {
-            CD.insert_element(i, j, _solver->best_match.wcstan.cd[i][j]);
-        }
-    }
-    cout << "cp3" << endl;
-    lsst::afw::image::Wcs::Ptr wcsPtr = lsst::afw::image::Wcs::Ptr( new(lsst::afw::image::Wcs));
-    *wcsPtr = lsst::afw::image::Wcs(crval, crpix, CD);
-    //lsst::afw::image::Wcs debugWcs = lsst::afw::image::Wcs(crval, crpix, CD);
+    double ra, dec;
+    tan_pixelxy2radec( &_solver->best_match.wcstan, x, y, &ra, &dec);
     
-    cout << "cp4" << endl;
-    return wcsPtr;
+    pair<double, double> ret;
+    ret.first = ra;
+    ret.second=dec;
+    
+    return ret ;
 }
 
-void GlobalAstrometrySolution::testGetWcs() {
-    lsst::afw::image::Wcs::Ptr wcsPtr = getWcs();
-
-    lsst::afw::image::PointD p =wcsPtr.get()->getRaDecCenter();
-}
-    
-    
 ///    
 /// Return the number of indices loaded from disk thus far   
 int GlobalAstrometrySolution::getNumIndices() {
@@ -282,27 +267,11 @@ void GlobalAstrometrySolution::printStarlist() {
 //
 // Mutators
 //
-
-//This function is commented out because it used the add_index() routine from astrometry.net
-//but that function is not declared in a header file. Until if figure out what to do, this
-//code won't compile. This is fixed in version 0.25, but 0.25 not installed yet.
-
-///    
-///Adds a single index file to the backend.
-void GlobalAstrometrySolution::addIndexFile(const std::string path) { ///< Path of index file
-    //Copy a constant string into a non-const C style string
-    //so it can be passed into a C function without complaint.
-    int len = (int) path.length(); 
-    char *fn = (char *) malloc((len+1)*sizeof(char));
-    strncpy(fn, path.c_str(), len+1);
-
-
-    //May have to add some error checking. add_index always returns zero regardless
-    //of success or failure
-    backend_add_index(_backend, fn);
-    free(fn);
+///Inform the solver that the image may suffer from some distortion. Turn this on if a purely linear
+///wcs solution will get the postions of some stars wrong by more than 1 pixel
+void GlobalAstrometrySolution::allowDistortion(bool distort) {
+    _solver->distance_from_quad_bonus = (distort) ? true : false;
 }
-
 
 ///Reset the objet so it's ready to match another field, but leave the backend alone because
 ///it doesn't need to be reset, and it is expensive to do so.
@@ -366,19 +335,13 @@ void GlobalAstrometrySolution::setLogLevel(const int level) {
 
 
 ///    
-///How good does a match need to be to be accepted. Typical value is log(1e12) \approx 27
+///How good does a match need to be to be accepted. Typical value is log(1e12) approximately 27
 void GlobalAstrometrySolution::setMatchThreshold(const double threshold) {
     _solver->logratio_record_threshold = threshold;
 }
         
 
-///Inform the solver that the image may suffer from some distortion. Turn this on if a purely linear
-///wcs solution will get the postions of some stars wrong by more than 1 pixel
-void GlobalAstrometrySolution::allowDistortion(bool distort) {
-    _solver->distance_from_quad_bonus = (distort) ? true : false;
-}
     
-        
 
 //
 // Solve and verify functions
@@ -412,10 +375,14 @@ int GlobalAstrometrySolution::blindSolve() {
     return(_solver->best_match_solves);
 }
 
+
+    
+///    
 ///This function isn't working yet because I need to set _hprange first
 bool GlobalAstrometrySolution::verifyRaDec(const double ra,   ///<Right ascension in decimal degrees
                                            const double dec   ///<Declination in decimal degrees
                                           ) throw(logic_error)  {
+    assert(false);
     //Test that a field has been assigned
     if (! _solver-> fieldxy) {
         throw logic_error("No field has been set yet");
@@ -428,6 +395,7 @@ bool GlobalAstrometrySolution::verifyRaDec(const double ra,   ///<Right ascensio
 }
 
 
+///This function isn't working yet    
 ///Verify that a previously calculated WCS (world coordinate solution) 
 ///matches the positions of the point sources in the image.
 ///Returns true if the Wcs matches
@@ -438,7 +406,7 @@ bool GlobalAstrometrySolution::verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr
         throw logic_error("No field has been set yet");
     }
 
-
+    assert(false);
     //Extract information from the WCS object and stuff it into
     //a tan_t structure from astrometry.net
     sip_t *sip = convertWcsToSipt(wcsPtr);

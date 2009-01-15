@@ -28,10 +28,10 @@ extern "C" {
 
 
 
-// Function declarations marked //o are not yet implemented
 
 //!\brief Solve for WCS based only on the positions of stars in an image 
 ///
+///See the tests/ directory for an example of how to use
 class GlobalAstrometrySolution {
 public:
     typedef boost::shared_ptr<GlobalAstrometrySolution> Ptr;
@@ -39,26 +39,27 @@ public:
 
     //Constructors
     GlobalAstrometrySolution();
-    GlobalAstrometrySolution(const std::string filename); 
-    GlobalAstrometrySolution(const std::string filename,  lsst::afw::detection::SourceVector vec);
+    GlobalAstrometrySolution(lsst::afw::detection::SourceVector vec);
+
     
     //Destructor
     ~GlobalAstrometrySolution();
 
-    //Initialisation routines, for those who prefer fine grained control
-    int parseConfigStream(FILE* fconf);                     
+    //Initialisation routines, for those who prefer fine grained control.
+    void addIndexFile(const std::string path);        
     int parseConfigFile(const std::string filename);        
+    int parseConfigStream(FILE* fconf);                     
     void setStarlist(lsst::afw::detection::SourceVector vec) throw (std::domain_error);
-        
+
+
     //Accessors
     double getMatchThreshold();
     inline double getMinimumImageScale() {    return _solver->funits_lower; }
     inline double getMaximumImageScale() {    return _solver->funits_upper; }
-    std::pair<double, double> xy2RaDec(double x, double y) throw(std::logic_error);
-    std::pair<double, double> raDec2Xy(double ra, double dec) throw(std::logic_error);
     lsst::afw::image::Wcs::Ptr getWcs() throw(std::logic_error);
+    std::pair<double, double> raDec2Xy(double ra, double dec) throw(std::logic_error);
+    std::pair<double, double> xy2RaDec(double x, double y) throw(std::logic_error);
 
-    
     //The following accessors are mostly for debugging, and let you know what's going on inside
     //the object
     int getNumIndices();
@@ -66,7 +67,7 @@ public:
     void printStarlist();
 
     //Mutators, mostly for tweaking parameters
-    void addIndexFile(const std::string path);
+    void allowDistortion(bool distort);
     void reset();
     void setDefaultValues();
     void setHpRange(const double range) { _hprange=range;}
@@ -76,8 +77,6 @@ public:
     ///Note than minimum image scale should be strictly less than Maximum scale
     inline void setMinimumImageScale(double scale){   _solver->funits_lower=scale;}
     inline void setMaximumImageScale(double scale){   _solver->funits_upper=scale;}
-    void allowDistortion(bool distort);
-
     inline void setNumberStars(const int num)  { _solver->endobj = num;}
     
     //Solve and verify functions.
