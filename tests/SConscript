@@ -9,7 +9,7 @@ if False:
 import lsst.tests
 
 #don't run tests for the moment
-if False:
+if True:
     tests = lsst.tests.Control(env)
     tests.run("*.cc")
 
