@@ -194,7 +194,7 @@ pair<double, double> GlobalAstrometrySolution::raDec2Xy(double ra, double dec)  
         
 ///              
 ///After solving, return a linear Wcs (i.e without distortion terms)
-lsst::afw::image::Wcs GlobalAstrometrySolution::getWcs() throw(logic_error) {
+lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs() throw(logic_error) {
     if (_solver == NULL) {
         throw(logic_error("No solution found yet. Run blindSolve()"));
     }
@@ -217,11 +217,21 @@ lsst::afw::image::Wcs GlobalAstrometrySolution::getWcs() throw(logic_error) {
         }
     }
     cout << "cp3" << endl;
-    lsst::afw::image::Wcs::Wcs wcs(crval, crpix, CD);
+    lsst::afw::image::Wcs::Ptr wcsPtr = lsst::afw::image::Wcs::Ptr( new(lsst::afw::image::Wcs));
+    *wcsPtr = lsst::afw::image::Wcs(crval, crpix, CD);
+    //lsst::afw::image::Wcs debugWcs = lsst::afw::image::Wcs(crval, crpix, CD);
+    
     cout << "cp4" << endl;
-    return wcs;
+    return wcsPtr;
 }
 
+void GlobalAstrometrySolution::testGetWcs() {
+    lsst::afw::image::Wcs::Ptr wcsPtr = getWcs();
+
+    lsst::afw::image::PointD p =wcsPtr.get()->getRaDecCenter();
+}
+    
+    
 ///    
 /// Return the number of indices loaded from disk thus far   
 int GlobalAstrometrySolution::getNumIndices() {
@@ -285,6 +295,7 @@ void GlobalAstrometrySolution::addIndexFile(const std::string path) { ///< Path 
     int len = (int) path.length(); 
     char *fn = (char *) malloc((len+1)*sizeof(char));
     strncpy(fn, path.c_str(), len+1);
+
 
     //May have to add some error checking. add_index always returns zero regardless
     //of success or failure
