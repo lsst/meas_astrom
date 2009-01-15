@@ -17,6 +17,7 @@ env = scons.makeEnv("meas_astrom",
                      ["xpa", "xpa.h", "xpa", "XPAPuts"],
                      ["utils", "lsst/utils/Utils.h", "utils:C++"],
                      ["daf_base", "lsst/daf/base/DataProperty.h", "daf_base:C++"],
+                     ["daf_base", "lsst/daf/base/Citizen.h"],
                      ["pex_policy", "lsst/pex/policy/Policy.h", "pex_policy:C++"],
                      ["pex_exceptions", "lsst/pex/exceptions.h", "pex_exceptions:C++"],
                      ["pex_logging", "lsst/pex/logging/Trace.h", "pex_logging:C++"],
@@ -30,7 +31,8 @@ env = scons.makeEnv("meas_astrom",
                      ["astrometry_net", "blind/pnpoly.h", "gsl-an"], 
                      ["astrometry_net", "blind/pnpoly.h", "kd"], 
                      ["afw", "lsst/afw/image/MaskedImage.h", "afw"],
-                     ["afw", "lsst/afw/image/Wcs.h", "afw"]
+                     ["afw", "lsst/afw/image/Wcs.h", "afw"],
+                     ["afw", "lsst/afw/detection/Source.h", "afw"],
                     ]
                    )
 
