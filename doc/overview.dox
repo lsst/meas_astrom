@@ -1,0 +1,37 @@
+/**
+\mainpage lsst::meas::astrom::net
+
+//\brief Solve for right ascension declination of an image based solely on the patterns of stars in the image
+
+\section Description
+
+The GlobalAstrometrySolution determines the world coordinate system of an image by comparing asterisms (patterns of stars) with a database of known stars. By this technique, it can determine the right ascension and declination of an image with no external information. This is useful, e.g to verify the pointing position of the telescope. This class provides an interface to the astrometry.net package (http://astrometry.net).
+
+
+Usage is quite simple. A typical python session would be as follows
+#Create a new object. The file argument contains a list of index files. 
+#Each index file contains a database of asterism at a given scale for a 
+#region of the sky.
+gas = GlobalAstrometrySolution("backend.cfg")
+
+#Create a vector of sources (i.e stars in the image)
+import lsst.afw.detection.detectionLib as detect
+starlist=  detect.SourceVec()
+starlist.append( detect.Source(x, y, 0, 0) )
+
+#Add this "image" to the gas object
+gas.setStarlist(starlist)
+
+#If you know the size of the image, you can speed the time it takes
+#to make a match
+gas.setImageScaleArcsecPerPixel(.3)
+
+#Find the ra/dec. Returns true on success
+flag=gas.blindSolve()
+
+if flag:
+    print gas.xy2RaDec(1,1)
+
+#Reset the object before solving a 2nd image
+gas.reset()
+
