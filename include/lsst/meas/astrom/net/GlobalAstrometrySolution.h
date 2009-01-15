@@ -56,7 +56,7 @@ public:
     inline double getMaximumImageScale() {    return _solver->funits_upper; }
     std::pair<double, double> xy2RaDec(double x, double y) throw(std::logic_error);
     std::pair<double, double> raDec2Xy(double ra, double dec) throw(std::logic_error);
-    lsst::afw::image::Wcs getWcs() throw(std::logic_error);
+    lsst::afw::image::Wcs::Ptr getWcs() throw(std::logic_error);
 
     
     //The following accessors are mostly for debugging, and let you know what's going on inside
