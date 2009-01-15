@@ -53,7 +53,7 @@ class WCSTestCaseNet(unittest.TestCase):
 	print gas.getNumIndices()
 	
 	#Read in a list of object positions in an image
-	starlist = loadXYFromFile("gd66.xy.txt")
+	starlist = loadXYFromFile(os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt"))
 	gas.setStarlist(starlist)
 
 	#To speed the test, tell the GAS what the size of the image is
