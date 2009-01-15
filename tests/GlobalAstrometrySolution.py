@@ -41,7 +41,7 @@ class WCSTestCaseNet(unittest.TestCase):
     def testFindGD66(self):
 	"""Pass the positions of objects near the white dwarf GD66 and test that the correct position is returned
 	"""
-	gas = net.GlobalAstrometrySolution("backend.cfg");
+	gas = net.GlobalAstrometrySolution();
 
 	#Read in the indices (i.e the files containing the positions of known asterisms
 	#and add them to the gas object
