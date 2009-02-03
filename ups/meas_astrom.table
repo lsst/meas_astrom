@@ -4,3 +4,4 @@ setupRequired(astrometry_net_data)
 
 envPrepend(PYTHONPATH, ${PRODUCT_DIR}/python)
 envPrepend(LD_LIBRARY_PATH, ${PRODUCT_DIR}/lib)
+envPrepend(DYLD_LIBRARY_PATH, ${PRODUCT_DIR}/lib)
