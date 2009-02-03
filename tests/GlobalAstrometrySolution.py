@@ -65,24 +65,11 @@ class WCSTestCaseNet(unittest.TestCase):
 	if flag:
 	    radec = gas.xy2RaDec(890, 890)
 
-	    #RA
-	    deltaRa = math.fabs(radec[0]-80.159783)
-	    if deltaRa > 1e-6:
-		print "Ra doesn't match"
-		assert(deltaRa < 1e-6)
-
-
-	    #Dec
-	    deltaDec = math.fabs(radec[1]-30.805249)
-	    if deltaDec > 1e-6:
-		print "Dec doesn't match"
-		assert(deltaDec < 1e-6)
-
-	    return True
+	    self.assertAlmostEqual(radec[0], 80.15978319, 7, "Ra doesn't match")
+            self.assertAlmostEqual(radec[1], 30.80524999, 7, "Dec doesn't match")
 	else:
 	    #If we didn't get a match, that's a failure
-	    print "Failed to find a match"
-	    assert(flag == 1)
+            self.assertEqual(flag, 1, "Failed to find a match")
 	    
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 

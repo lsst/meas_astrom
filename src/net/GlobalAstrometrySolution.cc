@@ -436,11 +436,11 @@ bool GlobalAstrometrySolution::verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr
 sip_t* GlobalAstrometrySolution::convertWcsToSipt(const lsst::afw::image::Wcs::Ptr wcsPtr) throw(logic_error) {
     sip_t *sip = sip_create();
 
-    lsst::afw::image::PointD radec = (*wcsPtr).getRaDecCenter();
+    lsst::afw::image::PointD radec = (*wcsPtr).getOriginRaDec();
     sip->wcstan.crval[0] = radec.getX();
     sip->wcstan.crval[1] = radec.getY();
 
-    lsst::afw::image::PointD rowCol = (*wcsPtr).getXYCenter();
+    lsst::afw::image::PointD rowCol = (*wcsPtr).getOriginXY();
     sip->wcstan.crpix[0] = rowCol.getY();    //Check this.
     sip->wcstan.crpix[1] = rowCol.getX();    //Check this.
 

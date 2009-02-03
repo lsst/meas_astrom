@@ -18,12 +18,12 @@
 namespace lsst { namespace meas { namespace astrom { namespace net {
 
 extern "C" {
-#include "blind/backend.h"
-#include "blind/solver.h"
-#include "blind/index.h"
-#include "util/healpix.h"
-#include "util/bl.h"
-#include "util/log.h"
+#include "backend.h"
+#include "solver.h"
+#include "index.h"
+#include "healpix.h"
+#include "bl.h"
+#include "log.h"
 }
 
 
