@@ -11,6 +11,7 @@ namespace pexLogging = lsst::pex::logging;
  * Include concrete implementations
  */
 #include "lsst/meas/astrom/centroid/NaiveCentroid.h"
+#include "lsst/meas/astrom/centroid/SdssCentroid.h"
 
 namespace lsst { namespace meas { namespace astrom { namespace centroid {
 
@@ -38,6 +39,8 @@ Centroider<ImageT>* make_Centroider(centroidType type) {
     switch (type) {
       case NAIVE:
         return NaiveCentroider<ImageT>::getInstance();
+      case SDSS:
+        return SdssCentroider<ImageT>::getInstance();
       default:
         throw LSST_EXCEPT(pexExceptions::NotFoundException, 
                           (boost::format("Centroider of type %d is not implemented") % type).str());

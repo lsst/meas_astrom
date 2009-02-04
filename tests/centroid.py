@@ -63,6 +63,14 @@ class CentroidTestCase(unittest.TestCase):
         c.setYErr(tmp); self.assertEqual(c.getYErr(), tmp); tmp += 0.5
         c.setCovar(tmp); self.assertEqual(c.getCovar(), tmp); tmp += 0.5
 
+    def testInvalidCentroider(self):
+        """Test that we cannot instantiate an unknown Centroider"""
+
+        def getInvalid():
+            centroider = centroid.make_Centroider(-1)
+
+        utilsTests.assertRaisesLsstCpp(self, pexExceptions.NotFoundException, getInvalid)
+
     def testNaiveCentroider(self):
         """Test that we can instantiate and play with NaiveCentroider"""
         centroider = centroid.make_Centroider(centroid.NAIVE)
@@ -90,10 +98,7 @@ class CentroidTestCase(unittest.TestCase):
     def testSDSSCentroider(self):
         """Test that we can instantiate and play with SDSSCentroider"""
 
-        def getSDSS():
-            centroider = centroid.make_Centroider(centroid.SDSS)
-
-        utilsTests.assertRaisesLsstCpp(self, pexExceptions.NotFoundException, getSDSS)
+        centroider = centroid.make_Centroider(centroid.SDSS)
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
