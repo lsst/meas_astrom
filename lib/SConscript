@@ -4,7 +4,7 @@ import glob
 import os
 
 env.SharedLibrary(
-    'meas_astrom',
-    glob.glob("../src/*/*.cc"),
+    "meas_astrom",
+    glob.glob(os.path.join("..", "src", "*", "*.cc")),
     LIBS=filter(lambda p: p != "meas_astrom", env.getlibs("meas_astrom")),
-)
+    )
