@@ -45,12 +45,12 @@ class WCSTestCaseNet(unittest.TestCase):
 
 	#Read in the indices (i.e the files containing the positions of known asterisms
 	#and add them to the gas object
-	print "Loading indices..."
-	indices=glob.glob( os.path.join(eups.productDir("astrometry_net_data"), "index-2*.fits") )
-	gas.setLogLevel(2)
-	for f in indices:
-	    gas.addIndexFile(f)
-	print gas.getNumIndices()
+        print "Loading indices..."
+        indices=glob.glob( os.path.join(eups.productDir("astrometry_net_data"), "index-2*.fits") )
+        gas.setLogLevel(2)
+        for f in indices:
+            gas.addIndexFile(f)
+        print gas.getNumIndices()
 	
 	#Read in a list of object positions in an image
 	starlist = loadXYFromFile(os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt"))
@@ -73,6 +73,38 @@ class WCSTestCaseNet(unittest.TestCase):
 	    
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
+def loadXYFromFile(filename):
+    """Load a list of positions from a file"""
+    f= open(filename)
+    
+    s1=detect.SourceContainer()
+    i=0
+    for line in f:
+        #Split the row into an array
+        line = re.sub("^\s+", "", line)
+        elts = re.split("\s+", line)
+        
+        #Swig requires floats, but elts is an array of strings
+        x=float(elts[0])
+        y=float(elts[1])
+        flux=float(elts[2])
+
+        source = detect.Source()
+
+        source.setSourceId(i)
+        source.setXAstrom(x); source.setXAstromErr(0.1)
+        source.setYAstrom(y); source.setYAstromErr(0.1)
+        source.setPsfMag(flux)
+
+        s1.append(source)
+        
+        i=i + 1
+    f.close()
+    
+    return s1
+
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
 def suite():
     """Returns a suite containing all the test cases in this module."""
     utilsTests.init()
@@ -86,32 +118,6 @@ def suite():
 def run(exit=False):
     """Run the tests"""
     utilsTests.run(suite(), exit)
-
-
-def loadXYFromFile(filename):
-    """Load a list of positions from a file"""
-    f= open(filename)
-    
-    s1=detect.SourceVec()
-    i=0
-    for line in f:
-        #Split the row into an array
-        line = re.sub("^\s+", "", line)
-        elts = re.split("\s+", line)
-        
-        #Swig requires floats, but elts is an array of strings
-        x=float(elts[0])
-        y=float(elts[1])
-        flux=float(elts[2])
-
-        source = detect.Source(i, x,y, .1, .1)
-        source.setFlux(flux)
-        s1.append(source)
-        i=i+1
-    f.close()
-    
-    return s1
-
  
 if __name__ == "__main__":
     run(True)

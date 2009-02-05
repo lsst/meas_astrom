@@ -122,15 +122,13 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceVector ve
 
     //Need to add flux information to _starlist, and sort by it.
     int i=0;
-    for (lsst::afw::detection::SourceVector::iterator ptr = vec.begin(); 
-         ptr != vec.end(); 
-         ++ptr) {
+    for (lsst::afw::detection::SourceVector::iterator ptr = vec.begin(); ptr != vec.end(); ++ptr) {
         
-        double const col = ptr->getColc();
-        double const row = ptr->getRowc();
-        double const flux= ptr->getFlux();
+        double const x = (*ptr)->getXAstrom();
+        double const y = (*ptr)->getYAstrom();
+        double const flux= (*ptr)->getPsfMag();
         
-        starxy_set(_starlist, i, col, row);
+        starxy_set(_starlist, i, x, y);
         //There's no function to set the flux, so do it explicitly.
         //This would be a good improvement for the code
         _starlist->flux[i] = flux;
