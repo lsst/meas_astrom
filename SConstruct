@@ -23,7 +23,7 @@ env = scons.makeEnv("meas_astrom",
                      ["security", "lsst/security/Security.h", "security:C++"],
                      ["daf_persistence", "lsst/daf/persistence/Persistence.h", "daf_persistence:C++"],
                      ["daf_data", "lsst/daf/data/LsstBase.h", "daf_data:C++"],
-                     ["astrometry_net", "pnpoly.h", "backend"], 
+                     ["astrometry_net", "pnpoly.h", "pthread backend"], 
                      ["afw", "lsst/afw/image/MaskedImage.h", "afw"],
                     ]
                    )
