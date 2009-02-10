@@ -56,6 +56,7 @@ public:
     double getMatchThreshold();
     inline double getMinimumImageScale() {    return _solver->funits_lower; }
     inline double getMaximumImageScale() {    return _solver->funits_upper; }
+    lsst::afw::image::Wcs::Ptr getDistortedWcs() throw(std::logic_error);
     lsst::afw::image::Wcs::Ptr getWcs() throw(std::logic_error);
     std::pair<double, double> raDec2Xy(double ra, double dec) throw(std::logic_error);
     std::pair<double, double> xy2RaDec(double x, double y) throw(std::logic_error);

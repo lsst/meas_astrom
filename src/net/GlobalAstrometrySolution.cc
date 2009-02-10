@@ -151,6 +151,74 @@ double GlobalAstrometrySolution::getMatchThreshold(){
 }
 
 
+///
+///After solving, return a full Wcs including SIP distortion matrics
+lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs() throw(logic_error){
+    if (_solver == NULL) {
+        throw(logic_error("No solution found yet. Run blindSolve()"));
+    }
+
+    lsst::afw::image::PointD crpix(_solver->best_match.wcstan.crpix[0],
+                                   _solver->best_match.wcstan.crpix[1]);
+    lsst::afw::image::PointD crval(_solver->best_match.wcstan.crval[0],
+                                   _solver->best_match.wcstan.crval[1]);
+
+    //Linear conversion matrix
+    int naxis = 2;   //This is hardcoded into the sip_t structure
+    boost::numeric::ublas::matrix<double> CD(2,2);
+    for (int i=0; i<naxis; ++i) {
+        for (int j=0; j<naxis; ++j) {
+            CD.insert_element(i, j, _solver->best_match.wcstan.cd[i][j]);
+        }
+    }
+
+    //Forward distortion terms. In the SIP notation, these matrices are referred to
+    //as A and B. I can find no documentation that insists that these matrices be
+    //the same size, so I assume they aren't.
+    int aSize = _solver->best_match.sip->a_order;
+    boost::numeric::ublas::matrix<double> sipA(aSize, aSize);
+    for (int i=0; i<aSize; ++i){
+        for (int j=0; j<aSize; ++j){
+            sipA.insert_element(i, j, _solver->best_match.sip->a[i][j]);
+        }
+    }
+
+    //Repeat for B
+    int bSize = _solver->best_match.sip->b_order;
+    boost::numeric::ublas::matrix<double> sipB(bSize, bSize);
+    for (int i=0; i<bSize; ++i){
+        for (int j=0; j<bSize; ++j){
+            sipB.insert_element(i, j, _solver->best_match.sip->b[i][j]);
+        }
+    }
+
+    //Repeat for Ap, for the reverse transform
+    int apSize = _solver->best_match.sip->ap_order;
+    boost::numeric::ublas::matrix<double> sipAp(apSize, apSize);
+    for (int i=0; i<apSize; ++i){
+        for (int j=0; j<apSize; ++j){
+            sipAp.insert_element(i, j, _solver->best_match.sip->ap[i][j]);
+        }
+    }
+
+    //And finally, Bp, also part of the reverse transform
+    int bpSize = _solver->best_match.sip->bp_order;
+    boost::numeric::ublas::matrix<double> sipBp(bpSize, bpSize);
+    for (int i=0; i<bpSize; ++i){
+        for (int j=0; j<bpSize; ++j){
+            sipBp.insert_element(i, j, _solver->best_match.sip->bp[i][j]);
+        }
+    }    
+        
+    
+    lsst::afw::image::Wcs::Ptr wcsPtr = lsst::afw::image::Wcs::Ptr( new(lsst::afw::image::Wcs));
+    *wcsPtr = lsst::afw::image::Wcs(crval, crpix, CD, sipA, sipB, sipAp, sipBp);
+    
+    return wcsPtr;   
+}    
+
+            
+
 ///              
 ///After solving, return a linear Wcs (i.e without distortion terms)
 lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs() throw(logic_error) {
