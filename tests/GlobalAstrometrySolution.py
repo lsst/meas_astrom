@@ -77,7 +77,7 @@ def loadXYFromFile(filename):
     """Load a list of positions from a file"""
     f= open(filename)
     
-    s1=detect.SourceContainer()
+    s1=detect.SourceSet()
     i=0
     for line in f:
         #Split the row into an array
