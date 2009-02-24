@@ -31,6 +31,15 @@ class WCSTestCaseNet(unittest.TestCase):
     def setUp(self):
 	self.gas = net.GlobalAstrometrySolution()
 
+	#Read in the indices (i.e the files containing the positions of known asterisms
+	#and add them to the gas object
+        print "Loading indices..."
+        indices=glob.glob( os.path.join(eups.productDir("astrometry_net_data"), "index-20*.fits") )
+        self.gas.setLogLevel(2)
+        for f in indices:
+            self.gas.addIndexFile(f)
+        print self.gas.getNumIndices()
+
     def tearDown(self):
         del self.gas
 
@@ -41,36 +50,39 @@ class WCSTestCaseNet(unittest.TestCase):
     def testFindGD66(self):
 	"""Pass the positions of objects near the white dwarf GD66 and test that the correct position is returned
 	"""
-	gas = net.GlobalAstrometrySolution();
-
-	#Read in the indices (i.e the files containing the positions of known asterisms
-	#and add them to the gas object
-        print "Loading indices..."
-        indices=glob.glob( os.path.join(eups.productDir("astrometry_net_data"), "index-2*.fits") )
-        gas.setLogLevel(2)
-        for f in indices:
-            gas.addIndexFile(f)
-        print gas.getNumIndices()
 	
 	#Read in a list of object positions in an image
 	starlist = loadXYFromFile(os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt"))
-	gas.setStarlist(starlist)
+	self.gas.setStarlist(starlist)
 
 	#To speed the test, tell the GAS what the size of the image is
 	#The image is 1780 pixels on a side and covers half a square degree on the sky
-	gas.setImageScaleArcsecPerPixel(.5*3600/1780.)
+	self.gas.setImageScaleArcsecPerPixel(.5*3600/1780.)
 
-	flag = gas.blindSolve()
+	flag = self.gas.blindSolve()
 
 	if flag:
-	    radec = gas.xy2RaDec(890, 890)
+	    radec = self.gas.xy2RaDec(890, 890)
+	    pscale = self.gas.getSolvedImageScale()
 
 	    self.assertAlmostEqual(radec[0], 80.15978319, 7, "Ra doesn't match")
             self.assertAlmostEqual(radec[1], 30.80524999, 7, "Dec doesn't match")
+	    print pscale
+	    self.assertAlmostEqual(pscale, .5*3600/1780, 2, "Plate scale doesn't match");
 	else:
 	    #If we didn't get a match, that's a failure
             self.assertEqual(flag, 1, "Failed to find a match")
-	    
+	self.gas.reset()
+
+    def findTwice(self):
+	"""The purpose of this test is to ensure that you can use the same GAS object twice without
+	crashing, so long as you call reset() in between"""
+	self.testFindGD66()
+	self.testFindGD66()
+
+
+	
+    
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def loadXYFromFile(filename):
