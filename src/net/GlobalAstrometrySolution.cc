@@ -433,6 +433,10 @@ int GlobalAstrometrySolution::blindSolve() {
         throw logic_error("No field has been set yet");
     }
 
+    if (_solver->best_match_solves){
+        throw logic_error("Solver indicated that a match has already been found. Do you need to reset?");
+    }
+
     //Check that minimum image scale != max scale, or the solver will do all the work and
     //then fail
     if( _solver->funits_lower >= _solver->funits_upper) {
