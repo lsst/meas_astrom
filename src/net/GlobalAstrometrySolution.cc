@@ -151,11 +151,20 @@ double GlobalAstrometrySolution::getMatchThreshold(){
 }
 
 
+double GlobalAstrometrySolution::getSolvedImageScale(){
+    if (_solver == NULL) {
+        throw(logic_error("No solution found yet. Did you run blindSolve()?"));
+    }
+
+    return(_solver->best_matrch.scale);
+} 
+        
+
 ///
 ///After solving, return a full Wcs including SIP distortion matrics
 lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs() throw(logic_error){
     if (_solver == NULL) {
-        throw(logic_error("No solution found yet. Run blindSolve()"));
+        throw(logic_error("No solution found yet. Did you run blindSolve()?"));
     }
 
     lsst::afw::image::PointD crpix(_solver->best_match.wcstan.crpix[0],
@@ -223,7 +232,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs() throw(log
 ///After solving, return a linear Wcs (i.e without distortion terms)
 lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs() throw(logic_error) {
     if (_solver == NULL) {
-        throw(logic_error("No solution found yet. Run blindSolve()"));
+        throw(logic_error("No solution found yet. Did you run blindSolve()?"));
     }
     
     lsst::afw::image::PointD crpix(_solver->best_match.wcstan.crpix[0],
@@ -250,7 +259,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs() throw(logic_error)
 ///Convert ra dec to pixel coordinates    
 pair<double, double> GlobalAstrometrySolution::raDec2Xy(double ra, double dec)  throw(std::logic_error) {
     if (! _solver->best_match_solves) {
-        throw( logic_error("No solution found yet. Run blindSolve()") );
+        throw( logic_error("No solution found yet. Did you run blindSolve()?") );
     }
 
     double x, y;
@@ -270,7 +279,7 @@ pair<double, double> GlobalAstrometrySolution::raDec2Xy(double ra, double dec)  
 ///Convert pixels to right ascension declination    
 pair<double, double> GlobalAstrometrySolution::xy2RaDec(double x, double y)  throw(std::logic_error) {
     if (! _solver->best_match_solves) {
-        throw( logic_error("No solution found yet. Run blindSolve()") );
+        throw( logic_error("No solution found yet. Did you run blindSolve()?") );
     }
 
     double ra, dec;
@@ -343,6 +352,7 @@ void GlobalAstrometrySolution::allowDistortion(bool distort) {
 ///it doesn't need to be reset, and it is expensive to do so.
 void GlobalAstrometrySolution::reset() {
     starxy_free(_starlist);
+    _starlist=NULL;
 
     solver_free(_solver);
     _solver = solver_new();
@@ -442,13 +452,14 @@ int GlobalAstrometrySolution::blindSolve() {
 }
 
 
-    
+#if 0    
 ///    
 ///This function isn't working yet because I need to set _hprange first
 bool GlobalAstrometrySolution::verifyRaDec(const double ra,   ///<Right ascension in decimal degrees
                                            const double dec   ///<Declination in decimal degrees
                                           ) throw(logic_error)  {
-    assert(false);
+    
+    assert(false);  //Make sure the function can't be called yet because it isn't working
     //Test that a field has been assigned
     if (! _solver-> fieldxy) {
         throw logic_error("No field has been set yet");
@@ -472,7 +483,7 @@ bool GlobalAstrometrySolution::verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr
         throw logic_error("No field has been set yet");
     }
 
-    assert(false);
+    assert(false);  //Make sure the function can't be called because it isn't working yet
     //Extract information from the WCS object and stuff it into
     //a tan_t structure from astrometry.net
     sip_t *sip = convertWcsToSipt(wcsPtr);
@@ -488,6 +499,7 @@ bool GlobalAstrometrySolution::verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr
     return(_solver->best_match_solves);
 }
 
+    #endif
 
 
 //
