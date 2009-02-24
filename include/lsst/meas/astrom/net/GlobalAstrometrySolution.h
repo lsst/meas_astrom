@@ -82,9 +82,12 @@ public:
     inline void setNumberStars(const int num)  { _solver->endobj = num;}
     
     //Solve and verify functions.
-    int blindSolve();    
+    int blindSolve();
+    //The functions aren't implemented yet
+    #if 0
     bool verifyRaDec(const double ra, const double dec) throw(std::logic_error);
     bool verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr) throw(std::logic_error);
+    #endif
     
 private:
     backend_t *_backend;

@@ -156,7 +156,7 @@ double GlobalAstrometrySolution::getSolvedImageScale(){
         throw(logic_error("No solution found yet. Did you run blindSolve()?"));
     }
 
-    return(_solver->best_matrch.scale);
+    return(_solver->best_match.scale);
 } 
         
 
