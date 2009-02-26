@@ -56,11 +56,14 @@ public:
     double getMatchThreshold();
     inline double getMinimumImageScale() {    return _solver->funits_lower; }
     inline double getMaximumImageScale() {    return _solver->funits_upper; }
+    inline double getMinQuadScale(){    return _solver->quadsize_min;}
+    inline double getParity(){    return _solver->parity;};
+    
     double getSolvedImageScale();
     lsst::afw::image::Wcs::Ptr getDistortedWcs() throw(std::logic_error);
     lsst::afw::image::Wcs::Ptr getWcs() throw(std::logic_error);
-    std::pair<double, double> raDec2Xy(double ra, double dec) throw(std::logic_error);
-    std::pair<double, double> xy2RaDec(double x, double y) throw(std::logic_error);
+    lsst::afw::image::PointD raDec2Xy(double ra, double dec) throw(std::logic_error);
+    lsst::afw::image::PointD xy2RaDec(double x, double y) throw(std::logic_error);
 
     //The following accessors are mostly for debugging, and let you know what's going on inside
     //the object
@@ -79,13 +82,15 @@ public:
     ///Note than minimum image scale should be strictly less than Maximum scale
     inline void setMinimumImageScale(double scale){   _solver->funits_lower=scale;}
     inline void setMaximumImageScale(double scale){   _solver->funits_upper=scale;}
-    inline void setNumberStars(const int num)  { _solver->endobj = num;}
+    inline void setNumberStars(const int num)  {    _solver->endobj = num;}
+    inline void setMinQuadScale(const double scale){    _solver->quadsize_min = scale;}
+    void setParity(const int parity);
     
     //Solve and verify functions.
     int blindSolve();
     //The functions aren't implemented yet
+    bool verifyRaDec(const afw::image::PointD raDec) throw(std::logic_error);
     #if 0
-    bool verifyRaDec(const double ra, const double dec) throw(std::logic_error);
     bool verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr) throw(std::logic_error);
     #endif
     
@@ -97,7 +102,7 @@ private:
     double _hprange;
     
     sip_t *convertWcsToSipt(const lsst::afw::image::Wcs::Ptr) throw(std::logic_error);
-    void findNearbyIndices(const double ra, const double dec);
+    void loadNearbyIndices(std::vector<double> unitVector);
 };
 
 }}}}

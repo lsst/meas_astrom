@@ -136,8 +136,11 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceVector ve
     }
     
     //Now sort the list and add to the solver
-    starxy_sort_by_flux(_starlist);
-    solver_set_field(_solver, _starlist);    
+    //starxy_sort_by_flux(_starlist);
+    solver_set_field(_solver, _starlist);
+
+    //Find field boundaries and precompute kdtree
+    solver_preprocess_field(_solver);
 }
 
 
@@ -150,6 +153,7 @@ double GlobalAstrometrySolution::getMatchThreshold(){
     return _solver->logratio_record_threshold;
 }
 
+ 
 
 double GlobalAstrometrySolution::getSolvedImageScale(){
     if (_solver == NULL) {
@@ -257,7 +261,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs() throw(logic_error)
 
 ///    
 ///Convert ra dec to pixel coordinates    
-pair<double, double> GlobalAstrometrySolution::raDec2Xy(double ra, double dec)  throw(std::logic_error) {
+lsst::afw::image::PointD GlobalAstrometrySolution::raDec2Xy(double ra, double dec)  throw(std::logic_error) {
     if (! _solver->best_match_solves) {
         throw( logic_error("No solution found yet. Did you run blindSolve()?") );
     }
@@ -268,16 +272,16 @@ pair<double, double> GlobalAstrometrySolution::raDec2Xy(double ra, double dec)  
     //I don't think this conversion can ever fail
     assert(flag==true);
 
-    pair<double, double> ret;
-    ret.first = x;
-    ret.second=y;
+    lsst::afw::image::PointD ret;
+    ret[0] = x;
+    ret[1] = y;
     return ret;
 }
     
     
 ///    
 ///Convert pixels to right ascension declination    
-pair<double, double> GlobalAstrometrySolution::xy2RaDec(double x, double y)  throw(std::logic_error) {
+lsst::afw::image::PointD GlobalAstrometrySolution::xy2RaDec(double x, double y)  throw(std::logic_error) {
     if (! _solver->best_match_solves) {
         throw( logic_error("No solution found yet. Did you run blindSolve()?") );
     }
@@ -285,9 +289,9 @@ pair<double, double> GlobalAstrometrySolution::xy2RaDec(double x, double y)  thr
     double ra, dec;
     tan_pixelxy2radec( &_solver->best_match.wcstan, x, y, &ra, &dec);
     
-    pair<double, double> ret;
-    ret.first = ra;
-    ret.second=dec;
+    lsst::afw::image::PointD ret;
+    ret[0] = ra;
+    ret[1] = dec;
     
     return ret ;
 }
@@ -368,6 +372,8 @@ void GlobalAstrometrySolution::reset() {
 ///solver object.
 void GlobalAstrometrySolution::setDefaultValues() {
 
+    solver_set_default_values(_solver);
+    
     //Set image scale boundaries (in arcseconds per pixel) to non-zero and non-infinity.
     //These values still exceed anything you'll find in a real image
     setMinimumImageScale(1e-6);
@@ -375,6 +381,7 @@ void GlobalAstrometrySolution::setDefaultValues() {
 
     //A typical image will have thousands of stars, but a match will proceed satisfactorily
     //with only the brightest subset. The number below is arbitary, but seems to work.
+    _solver->startobj=0;
     setNumberStars(50);
 
     //Do we allow the solver to assume the image may have some distortion in it?
@@ -386,6 +393,14 @@ void GlobalAstrometrySolution::setDefaultValues() {
 
     //This must be set to true to ensure data is loaded from the index files
     _backend->inparallel = true;
+
+    //From blind_run() in blind.c
+    _solver->numtries=0;
+    _solver->nummatches=0;
+    _solver->numscaleok=0;
+    _solver->num_cxdx_skipped=0;
+    _solver->num_verified=0;
+    _solver->quit_now = FALSE;
         
 }
         
@@ -415,6 +430,20 @@ void GlobalAstrometrySolution::setLogLevel(const int level) {
 void GlobalAstrometrySolution::setMatchThreshold(const double threshold) {
     _solver->logratio_record_threshold = threshold;
 }
+
+
+void GlobalAstrometrySolution::setParity(const int parity){
+
+    //Insist on legal values.
+    switch (parity){
+      case PARITY_BOTH:
+      case PARITY_FLIP:
+      case PARITY_NORMAL:
+        _solver->parity = parity;
+      default:
+        throw( logic_error("Illegal parity setting\n"));
+    }
+}
         
 
     
@@ -429,16 +458,18 @@ void GlobalAstrometrySolution::setMatchThreshold(const double threshold) {
 int GlobalAstrometrySolution::blindSolve() {
 
     //Throw exceptions if setup is correct
-    if (! _solver->fieldxy) {
+    if(! _solver->fieldxy) {
         throw logic_error("No field has been set yet");
     }
 
-    if (_solver->best_match_solves){
+    if(pl_size(_solver->indexes) == 0) {
+        throw logic_error("No indices have been set yet");
+    }
+    
+    if(_solver->best_match_solves){
         throw logic_error("Solver indicated that a match has already been found. Do you need to reset?");
     }
 
-    //Check that minimum image scale != max scale, or the solver will do all the work and
-    //then fail
     if( _solver->funits_lower >= _solver->funits_upper) {
         throw domain_error("Minimum image scale must be strictly less than max scale");
     }
@@ -456,26 +487,51 @@ int GlobalAstrometrySolution::blindSolve() {
 }
 
 
-#if 0    
+
 ///    
-///This function isn't working yet because I need to set _hprange first
-bool GlobalAstrometrySolution::verifyRaDec(const double ra,   ///<Right ascension in decimal degrees
-                                           const double dec   ///<Declination in decimal degrees
+bool GlobalAstrometrySolution::verifyRaDec(const afw::image::PointD raDec   ///<Right ascension/declination
+                                               ///in decimal degrees
                                           ) throw(logic_error)  {
-    
-    assert(false);  //Make sure the function can't be called yet because it isn't working
-    //Test that a field has been assigned
-    if (! _solver-> fieldxy) {
+
+    //Throw exceptions if setup is correct
+    if(! _solver->fieldxy) {
         throw logic_error("No field has been set yet");
     }
 
-    findNearbyIndices(ra, dec);
+    if(pl_size(_solver->indexes) == 0) {
+        throw logic_error("No indices have been set yet");
+    }
+    
+    if(_solver->best_match_solves){
+        throw logic_error("Solver indicated that a match has already been found. Do you need to reset?");
+    }
+
+    if( _solver->funits_lower >= _solver->funits_upper) {
+        throw domain_error("Minimum image scale must be strictly less than max scale");
+    }
+    
+    //Create a unit vector from the postion to be passed to loadNearbyIndices
+    double xyz[3];
+    radecdeg2xyzarr(raDec[0], raDec[1], xyz);
+    vector<double> unitVector(3);
+    for(int i=0; i<3; ++i){
+        unitVector[i] = xyz[i];
+    }
+
+    loadNearbyIndices(unitVector);
     solver_run( _solver);
 
+    if(_solver->best_match_solves){
+        logmsg("Position (%.7f %.7f) verified\n", raDec[0], raDec[1]);
+    }
+    else {
+        logmsg("Failed to verify position (%.7f %.7f)\n", raDec[0], raDec[1]);
+    }
+    
     return(_solver->best_match_solves);
 }
 
-
+#if 0    
 ///This function isn't working yet    
 ///Verify that a previously calculated WCS (world coordinate solution) 
 ///matches the positions of the point sources in the image.
@@ -510,6 +566,16 @@ bool GlobalAstrometrySolution::verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr
 // Private functions
 //    
 
+///Astrometry.net defines these in a weird place, and it seems easier to redefine them here
+#ifndef MIN
+#define MIN(a,b) ((a) > (b) ? (b) : (a))
+#endif
+
+#ifndef MAX
+#define MAX(a,b) ((a) < (b) ? (b) : (a))
+#endif   
+
+    
 /// Astro.net's Wcs object consists of a very small subset of the 
 /// elements of a wcsprm object, plus some fields that define a SIP
 /// transformation (used to describe distortions in the image, see Shupe et al.
@@ -544,45 +610,66 @@ sip_t* GlobalAstrometrySolution::convertWcsToSipt(const lsst::afw::image::Wcs::P
 
 ///For a given position in the sky, figure out which of the (large) index
 ///fits files need to be read in from disk, and load them into the object
-void GlobalAstrometrySolution::findNearbyIndices(double ra,    ///<Right ascension in decimal degrees
-                                                 double dec) { ///<Declination in decimal degrees
-    //Leave this assertion in for the moment until I decide what the best way of setting hprange is.
-    //Currently you have to call a separate function, which is unecessary work for the programmer
-    assert( _hprange != 0);
+    void GlobalAstrometrySolution::loadNearbyIndices(std::vector<double> unitVector) {
+    
+    if(unitVector.size() != 3){
+        throw( logic_error("Input vector should have exactly 3 elements") );
+    }
+    
+    //Translate the vector into a C array that astrometry.net can understand
+    double xyz[3];
+    xyz[0] = unitVector[0];
+    xyz[1] = unitVector[1];
+    xyz[2] = unitVector[2];
+    
+    //Don't look at very small quads    
+    //FIXME: use _solver->field_max[x,y] instead of recomputing
+    double x1,x2, y1, y2;
+    x1 = x2 = _solver->fieldxy->x[0];
+    y1 = y2 = _solver->fieldxy->y[0];    
+    for(int i=0; i< _solver->fieldxy->N; ++i){
+        x1 = MIN(x1, _solver->fieldxy->x[i]);
+        x2 = MAX(x2, _solver->fieldxy->x[i]);
 
-    //Convert ra,dec to a 3 dimensional cartesian unit vector
-    double centerxyz[3]; 
-    radecdeg2xyzarr(ra, dec, centerxyz);
+        y1 = MIN(y1, _solver->fieldxy->y[i]);
+        y2 = MAX(y2, _solver->fieldxy->y[i]);
+    }
+    double xSize = x2-x1;
+    double ySize = y2-y1;
+    _solver->quadsize_min = 0.1*MIN(xSize, ySize);
 
-    //Each healpix represents a patch of sky, so we load the one pointed to by radec, and each
-    //one around it
-    int healpixes[9];
+    //What is the largest size we'll want to look at.
+    //This function is defined in starutil.h
+    double hprange = arcsec2dist(_solver->funits_upper*hypot(xSize,ySize)/2.);
+    
+    //Each index file contains blocks of healpixes, each containing 
+    //a list of star positions of a given region of sky. Different index
+    //files contain healpixes of different sized solid angles (i.e large 
+    //regions , of sky, or small regions of sky). 
+    //In any one index file there should be one healpix covering the position of
+    //interest, and 8 surrounding ones. The area of interest will cover
+    //one or more of those healpixes.
+    int N = pl_size(_backend->indexes);
+    
+    for(int i=0; i<N; ++i){
+        index_t* index = (index_t*) pl_get(_backend->indexes, i);
+        index_meta_t* meta = &(index->meta);
+        int healpixes[9];
+        il* hplist = il_new(9);
+        
+        int nhp = healpix_get_neighbours_within_range(xyz, hprange, healpixes, meta->hpnside);
 
-    //Linked list of arrays
-    il* hplist = il_new(4);
-
-    //Number of index files listed in the configuration file
-    int nIndex = getNumIndices();
-    for(int i=0; i<nIndex; ++i){
-        index_t* index = (index_t *) pl_get( _backend->indexes, i);
-        int nHealPixSides = index->meta.hpnside;
-
-        int nHealpix = healpix_get_neighbours_within_range(centerxyz, _hprange, healpixes, nHealPixSides);
-
-        il_append_array(hplist, healpixes, nHealpix);
-
-        //If the index is nearby, add it
-        if(il_contains(hplist, index->meta.healpix)){
+        //Decide which ones are of interest, and add those to the solver
+        il_append_array(hplist, healpixes, nhp);
+        if(il_contains(hplist, meta->healpix)) {
+            logmsg("Adding index %s\n", meta->indexname);
             solver_add_index(_solver, index);
         }
-
         il_remove_all(hplist);
     }
+}    
 
-    il_free(hplist);
 
-
-}
 
 
 }}}}
