@@ -261,7 +261,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs() throw(logic_error)
 
 ///    
 ///Convert ra dec to pixel coordinates    
-lsst::afw::image::PointD GlobalAstrometrySolution::raDec2Xy(double ra, double dec)  throw(std::logic_error) {
+lsst::afw::image::PointD GlobalAstrometrySolution::raDecToXY(double ra, double dec)  throw(std::logic_error) {
     if (! _solver->best_match_solves) {
         throw( logic_error("No solution found yet. Did you run blindSolve()?") );
     }
@@ -281,7 +281,7 @@ lsst::afw::image::PointD GlobalAstrometrySolution::raDec2Xy(double ra, double de
     
 ///    
 ///Convert pixels to right ascension declination    
-lsst::afw::image::PointD GlobalAstrometrySolution::xy2RaDec(double x, double y)  throw(std::logic_error) {
+lsst::afw::image::PointD GlobalAstrometrySolution::xyToRaDec(double x, double y)  throw(std::logic_error) {
     if (! _solver->best_match_solves) {
         throw( logic_error("No solution found yet. Did you run blindSolve()?") );
     }
@@ -462,7 +462,7 @@ int GlobalAstrometrySolution::blindSolve() {
         throw logic_error("No field has been set yet");
     }
 
-    if(pl_size(_solver->indexes) == 0) {
+    if(pl_size(_backend->indexes) == 0) {
         throw logic_error("No indices have been set yet");
     }
     
@@ -498,7 +498,7 @@ bool GlobalAstrometrySolution::verifyRaDec(const afw::image::PointD raDec   ///<
         throw logic_error("No field has been set yet");
     }
 
-    if(pl_size(_solver->indexes) == 0) {
+    if(pl_size(_backend->indexes) == 0) {
         throw logic_error("No indices have been set yet");
     }
     

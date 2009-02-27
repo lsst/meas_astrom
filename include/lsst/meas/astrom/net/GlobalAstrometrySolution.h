@@ -62,8 +62,8 @@ public:
     double getSolvedImageScale();
     lsst::afw::image::Wcs::Ptr getDistortedWcs() throw(std::logic_error);
     lsst::afw::image::Wcs::Ptr getWcs() throw(std::logic_error);
-    lsst::afw::image::PointD raDec2Xy(double ra, double dec) throw(std::logic_error);
-    lsst::afw::image::PointD xy2RaDec(double x, double y) throw(std::logic_error);
+    lsst::afw::image::PointD raDecToXY(double ra, double dec) throw(std::logic_error);
+    lsst::afw::image::PointD xyToRaDec(double x, double y) throw(std::logic_error);
 
     //The following accessors are mostly for debugging, and let you know what's going on inside
     //the object

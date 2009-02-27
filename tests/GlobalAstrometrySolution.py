@@ -10,7 +10,6 @@ import eups
 import lsst.afw.image as afwImage
 import lsst.meas.astrom.net as net
 import lsst.utils.tests as utilsTests
-import lsst.meas.astrom.net as net
 import lsst.afw.image.imageLib as img
 import lsst.afw.detection.detectionLib as detect
 try:
@@ -21,70 +20,9 @@ except NameError:
 if False:
     dataDir = eups.productDir("afwdata")
     if not dataDir:
-	raise RuntimeError("Must set up afwdata to run these tests")
+        raise RuntimeError("Must set up afwdata to run these tests")
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-class WCSTestCaseNet(unittest.TestCase):
-    """A test case for WCS from astrometry.net"""
-
-    def setUp(self):
-	self.gas = net.GlobalAstrometrySolution()
-
-	#Read in the indices (i.e the files containing the positions of known asterisms
-	#and add them to the gas object
-        print "Loading indices..."
-        indices=glob.glob( os.path.join(eups.productDir("astrometry_net_data"), "index-20*.fits") )
-        self.gas.setLogLevel(2)
-        for f in indices:
-            self.gas.addIndexFile(f)
-        print self.gas.getNumIndices()
-
-    def tearDown(self):
-        del self.gas
-
-    def testCleanup(self):
-        """Test that tearDown does"""
-        pass
-
-    def testFindGD66(self):
-	"""Pass the positions of objects near the white dwarf GD66 and test that the correct position is returned
-	"""
-	
-	#Read in a list of object positions in an image
-	starlist = loadXYFromFile(os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt"))
-	self.gas.setStarlist(starlist)
-
-	#To speed the test, tell the GAS what the size of the image is
-	#The image is 1780 pixels on a side and covers half a square degree on the sky
-	self.gas.setImageScaleArcsecPerPixel(.5*3600/1780.)
-
-	flag = self.gas.blindSolve()
-
-	if flag:
-	    radec = self.gas.xy2RaDec(890, 890)
-	    pscale = self.gas.getSolvedImageScale()
-
-	    self.assertAlmostEqual(radec[0], 80.15978319, 7, "Ra doesn't match")
-            self.assertAlmostEqual(radec[1], 30.80524999, 7, "Dec doesn't match")
-	    print pscale
-	    self.assertAlmostEqual(pscale, .5*3600/1780, 2, "Plate scale doesn't match");
-	else:
-	    #If we didn't get a match, that's a failure
-            self.assertEqual(flag, 1, "Failed to find a match")
-	self.gas.reset()
-
-    def findTwice(self):
-	"""The purpose of this test is to ensure that you can use the same GAS object twice without
-	crashing, so long as you call reset() in between"""
-	self.testFindGD66()
-	self.testFindGD66()
-
-
-	
-    
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
 def loadXYFromFile(filename):
     """Load a list of positions from a file"""
     f= open(filename)
@@ -115,7 +53,155 @@ def loadXYFromFile(filename):
     
     return s1
 
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+
+class WCSTestCaseNet(unittest.TestCase):
+    """A test case for WCS from astrometry.net"""
+
+
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        gas.reset()
+
+
+    def solveOrVerify(self, starlist, crval, crpix,  plateScale=0, verify=False):
+        """Test the blindSolve() function
+        
+            Input: 
+            starlist    List of objects as returned by loadXYFromFile
+            crval       lsst.afw.image.PointD ra/dec of a known position
+                        on the image
+            crpix       lsst.afw.image.PointD xy of a known position
+                        on the image
+            plateScale  Size of image in arcsec/pixel. Specifing this 
+                        dramatically improves search time
+        """
+        
+        #Set plate scale
+        if plateScale > 0:
+            gas.setImageScaleArcsecPerPixel(plateScale)
+        
+        #Set starlist    
+        starlist = loadXYFromFile(starlist)
+        gas.setStarlist(starlist)
+        
+        #Run solver
+        if verify:
+            flag = gas.verifyRaDec(crval)
+        else:
+            flag = gas.blindSolve()
+
+        if flag:
+            #Test xy->radec
+            radec = gas.xyToRaDec(crpix.getX(), crpix.getY())
+            self.assertAlmostEqual(radec.getX(), crval.getX(), 6, "Ra doesn't match")
+            self.assertAlmostEqual(radec.getY(), crval.getY(), 6, "Dec doesn't match")
+
+            #Test the reverse operation
+            xy = gas.raDecToXY(crval.getX(), crval.getY())
+            self.assertAlmostEqual(xy.getX(), crpix.getX(), 2, "X pos doesn't match")
+            self.assertAlmostEqual(xy.getY(), crpix.getY(), 2, "Y pos doesn't match")
+
+        else:
+            #If we didn't get a match, that's a failure
+            self.assertEqual(flag, 1, "Failed to find a match")
+        
+        
+    #def testVerify(self, starlist, crval, crpix,  plateScale=0):
+        #pass
+        
+    def testSolveGD66(self):
+        """Pass the positions of objects near the white dwarf GD66 and test that the correct position is returned
+    """
+        crval = afwImage.PointD(80.15978319,30.80524999)
+        crpix = afwImage.PointD(890,890)
+        listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
+        #To speed the test, tell the GAS what the size of the image is
+        #The image is 1780 pixels on a side and covers half a square degree 
+        #on the sky
+        plateScale = .5*3600/1780.
+        self.solveOrVerify(listFile, crval, crpix, plateScale)
+
+    def testSolveG117(self):
+        crval = afwImage.PointD(141.063590, +35.280919)
+        crpix = afwImage.PointD(446, 447)
+        listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "g117.xy.txt")
+        #To speed the test, tell the GAS what the size of the image is
+        #The image is 1780 pixels on a side and covers half a square degree 
+        #on the sky
+        plateScale = .5*3600/1780.
+        self.solveOrVerify(listFile, crval, crpix, plateScale)
+    #
+    def testVerifyCFHTField(self):
+        crval = afwImage.PointD(334.303012, -17.233988)
+        crpix = afwImage.PointD(512,512)
+        listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
+        #To speed the test, tell the GAS what the size of the image is
+        #The image is 1780 pixels on a side and covers half a square degree 
+        #on the sky
+        plateScale = .1844
+        self.solveOrVerify(listFile, crval, crpix, plateScale, verify=True)
+
+
+    def testMultiple(self):
+        """Test that solver can handle doing two solves in a row"""
+        
+        
+        #GD66
+        crval = afwImage.PointD(80.15978319,30.80524999)
+        crpix = afwImage.PointD(890,890)
+        listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
+        #To speed the test, tell the GAS what the size of the image is
+        #The image is 1780 pixels on a side and covers half a square degree 
+        #on the sky
+        plateScale = .5*3600/1780.
+        self.solveOrVerify(listFile, crval, crpix, plateScale)
+
+        gas.reset()
+        
+        #G117
+        crval = afwImage.PointD(141.063590, +35.280919)
+        crpix = afwImage.PointD(446, 447)
+        listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "g117.xy.txt")
+        #To speed the test, tell the GAS what the size of the image is
+        #The image is 1780 pixels on a side and covers half a square degree 
+        #on the sky
+        plateScale = .5*3600/1780.
+        self.solveOrVerify(listFile, crval, crpix, plateScale)
+
+    #def getWcsForGD66(self):
+        #"""Test the functions that return wcs structures for a field"""
+#
+        ##Read in a list of object positions in an image
+        #starlist = loadXYFromFile(os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt"))
+        #self.gas.setStarlist(starlist)
+#
+        ##To speed the test, tell the GAS what the size of the image is
+        ##The image is 1780 pixels on a side and covers half a square degree on the sky
+        #self.gas.setImageScaleArcsecPerPixel(.5*3600/1780.)
+#
+        #flag = self.gas.blindSolve()
+        #self.assertEqual(1,0)
+#
+#
+        #if flag:
+            #print "Testing wcs structures"
+            #wcs1 = self.gas.getWcs();
+            #print wcs1.CD
+        #else:
+            #self.assertEqual(flag, 1, "Failed to find a match")
+
+    
+
+
+    
+    
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
 
 def suite():
     """Returns a suite containing all the test cases in this module."""
@@ -130,6 +216,16 @@ def suite():
 def run(exit=False):
     """Run the tests"""
     utilsTests.run(suite(), exit)
+
+
+#Create a globally accessible instance of a GAS
+gas = net.GlobalAstrometrySolution()
+print "Loading indices..."
+indices=glob.glob( os.path.join(eups.productDir("astrometry_net_data"), "index-*.fits") )
+gas.setLogLevel(2)
+for f in indices:
+    print f
+    gas.addIndexFile(f)
  
 if __name__ == "__main__":
     run(True)
