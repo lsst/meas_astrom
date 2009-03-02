@@ -69,7 +69,7 @@ class WCSTestCaseNet(unittest.TestCase):
 
 
     def solveOrVerify(self, starlist, crval, crpix,  plateScale=0, verify=False):
-        """Test the blindSolve() function
+        """Test the solve() function
         
             Input: 
             starlist    List of objects as returned by loadXYFromFile
@@ -79,6 +79,8 @@ class WCSTestCaseNet(unittest.TestCase):
                         on the image
             plateScale  Size of image in arcsec/pixel. Specifing this 
                         dramatically improves search time
+            verify      If True, crval is passed to to solve() to speed up the match,
+                        otherwise a solution is found with no inital guess at the position
         """
         
         #Set plate scale
@@ -91,9 +93,9 @@ class WCSTestCaseNet(unittest.TestCase):
         
         #Run solver
         if verify:
-            flag = gas.verifyRaDec(crval)
+            flag = gas.solve(crval)
         else:
-            flag = gas.blindSolve()
+            flag = gas.solve()
 
         if flag:
             #Test xy->radec
@@ -135,7 +137,7 @@ class WCSTestCaseNet(unittest.TestCase):
         #on the sky
         plateScale = .5*3600/1780.
         self.solveOrVerify(listFile, crval, crpix, plateScale)
-    #
+    ##
     def testVerifyCFHTField(self):
         crval = afwImage.PointD(334.303012, -17.233988)
         crpix = afwImage.PointD(512,512)
@@ -145,8 +147,8 @@ class WCSTestCaseNet(unittest.TestCase):
         #on the sky
         plateScale = .1844
         self.solveOrVerify(listFile, crval, crpix, plateScale, verify=True)
-
-
+#
+#
     def testMultiple(self):
         """Test that solver can handle doing two solves in a row"""
         
@@ -173,31 +175,42 @@ class WCSTestCaseNet(unittest.TestCase):
         plateScale = .5*3600/1780.
         self.solveOrVerify(listFile, crval, crpix, plateScale)
 
-    #def getWcsForGD66(self):
-        #"""Test the functions that return wcs structures for a field"""
-#
-        ##Read in a list of object positions in an image
-        #starlist = loadXYFromFile(os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt"))
-        #self.gas.setStarlist(starlist)
-#
-        ##To speed the test, tell the GAS what the size of the image is
-        ##The image is 1780 pixels on a side and covers half a square degree on the sky
-        #self.gas.setImageScaleArcsecPerPixel(.5*3600/1780.)
-#
-        #flag = self.gas.blindSolve()
-        #self.assertEqual(1,0)
-#
-#
-        #if flag:
-            #print "Testing wcs structures"
-            #wcs1 = self.gas.getWcs();
-            #print wcs1.CD
-        #else:
-            #self.assertEqual(flag, 1, "Failed to find a match")
-
     
+        def testGetWcs(self):
+            """Test the functions that return wcs structures for a field"""
+     
+            crval = afwImage.PointD(80.15978319,30.80524999)
+            crpix = afwImage.PointD(890,890)
+            listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
+            plateScale = .5*3600/1780.
+            
+            flag = self.solveOrVerify(listFile, crval, crpix, plateScale)
+            
+            if flag:
+                wcs1 = gas.getWcs();
+                radec = wcs1.xyToRaDec(crpix.getX(), crpix.getY())
+                print radec
+                
+                #Test xy->radec
+                radec = gas.xyToRaDec(crpix.getX(), crpix.getY())
+                self.assertAlmostEqual(radec.getX(), crval.getX(), 6, "Ra doesn't match")
+                self.assertAlmostEqual(radec.getY(), crval.getY(), 6, "Dec doesn't match")
+    
+                #Test the reverse operation
+                xy = gas.raDecToXY(crval.getX(), crval.getY())
+                self.assertAlmostEqual(xy.getX(), crpix.getX(), 2, "X pos doesn't match")
+                self.assertAlmostEqual(xy.getY(), crpix.getY(), 2, "Y pos doesn't match")
+    
+            else:
+                #If we didn't get a match, that's a failure
+                self.assertEqual(flag, 1, "Failed to find a match")
+            
+            #wcs2= gas.getDistortedWcs()
+            #radec = wcs2.xyToRaDec(crpix.getX(), crpix.getY())
+            #print radec
+            
 
-
+        
     
     
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -221,7 +234,7 @@ def run(exit=False):
 #Create a globally accessible instance of a GAS
 gas = net.GlobalAstrometrySolution()
 print "Loading indices..."
-indices=glob.glob( os.path.join(eups.productDir("astrometry_net_data"), "index-*.fits") )
+indices=glob.glob( os.path.join(eups.productDir("astrometry_net_data"), "index-20*.fits") )
 gas.setLogLevel(2)
 for f in indices:
     print f
