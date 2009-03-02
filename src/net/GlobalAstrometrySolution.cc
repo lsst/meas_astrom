@@ -157,7 +157,7 @@ double GlobalAstrometrySolution::getMatchThreshold(){
 
 double GlobalAstrometrySolution::getSolvedImageScale(){
     if (_solver == NULL) {
-        throw(logic_error("No solution found yet. Did you run blindSolve()?"));
+        throw(logic_error("No solution found yet. Did you run solve()?"));
     }
 
     return(_solver->best_match.scale);
@@ -166,22 +166,44 @@ double GlobalAstrometrySolution::getSolvedImageScale(){
 
 ///
 ///After solving, return a full Wcs including SIP distortion matrics
-lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs() throw(logic_error){
-    if (_solver == NULL) {
-        throw(logic_error("No solution found yet. Did you run blindSolve()?"));
+lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) throw(std::logic_error, std::runtime_error) {
+    if (! _solver->best_match_solves) {
+        throw(logic_error("No solution found yet. Did you run solve()?"));
     }
 
-    lsst::afw::image::PointD crpix(_solver->best_match.wcstan.crpix[0],
-                                   _solver->best_match.wcstan.crpix[1]);
-    lsst::afw::image::PointD crval(_solver->best_match.wcstan.crval[0],
-                                   _solver->best_match.wcstan.crval[1]);
+    
+    double jitter_arcsec=1.0;
+    int inverse_order = order;
+    int iterations = 5;        //Taken from blind.c:628
+    //bool weighted = true;
+    //int skip_shift = true;
+    bool weighted = false;
+    int skip_shift = false;
+    
+    sip_t *sip = tweak_just_do_it(&_solver->best_match.wcstan, _starlist, 
+                                  NULL,
+                                  NULL, NULL,
+                                  _solver->best_match.wcstan.crval,
+                                  _starlist->N, jitter_arcsec, 
+                                  order, inverse_order, iterations,
+                                  weighted, skip_shift);
+
+    //Check that tweaking worked.
+    if (sip == NULL) {
+        throw(runtime_error("Warning. Tweaking failed."));
+    }
+    
+    lsst::afw::image::PointD crpix(sip->wcstan.crpix[0],
+                                   sip->wcstan.crpix[1]);
+    lsst::afw::image::PointD crval(sip->wcstan.crval[0],
+                                   sip->wcstan.crval[1]);
 
     //Linear conversion matrix
     int naxis = 2;   //This is hardcoded into the sip_t structure
     boost::numeric::ublas::matrix<double> CD(2,2);
     for (int i=0; i<naxis; ++i) {
         for (int j=0; j<naxis; ++j) {
-            CD.insert_element(i, j, _solver->best_match.wcstan.cd[i][j]);
+            CD.insert_element(i, j, sip->wcstan.cd[i][j]);
         }
     }
 
@@ -192,7 +214,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs() throw(log
     boost::numeric::ublas::matrix<double> sipA(aSize, aSize);
     for (int i=0; i<aSize; ++i){
         for (int j=0; j<aSize; ++j){
-            sipA.insert_element(i, j, _solver->best_match.sip->a[i][j]);
+            sipA.insert_element(i, j, sip->a[i][j]);
         }
     }
 
@@ -201,7 +223,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs() throw(log
     boost::numeric::ublas::matrix<double> sipB(bSize, bSize);
     for (int i=0; i<bSize; ++i){
         for (int j=0; j<bSize; ++j){
-            sipB.insert_element(i, j, _solver->best_match.sip->b[i][j]);
+            sipB.insert_element(i, j, sip->b[i][j]);
         }
     }
 
@@ -210,7 +232,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs() throw(log
     boost::numeric::ublas::matrix<double> sipAp(apSize, apSize);
     for (int i=0; i<apSize; ++i){
         for (int j=0; j<apSize; ++j){
-            sipAp.insert_element(i, j, _solver->best_match.sip->ap[i][j]);
+            sipAp.insert_element(i, j, sip->ap[i][j]);
         }
     }
 
@@ -219,7 +241,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs() throw(log
     boost::numeric::ublas::matrix<double> sipBp(bpSize, bpSize);
     for (int i=0; i<bpSize; ++i){
         for (int j=0; j<bpSize; ++j){
-            sipBp.insert_element(i, j, _solver->best_match.sip->bp[i][j]);
+            sipBp.insert_element(i, j, sip->bp[i][j]);
         }
     }    
         
@@ -227,7 +249,9 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs() throw(log
     lsst::afw::image::Wcs::Ptr wcsPtr = lsst::afw::image::Wcs::Ptr( new(lsst::afw::image::Wcs));
     *wcsPtr = lsst::afw::image::Wcs(crval, crpix, CD, sipA, sipB, sipAp, sipBp);
     
-    return wcsPtr;   
+    
+    sip_free(sip);
+    return wcsPtr;
 }    
 
             
@@ -235,8 +259,8 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs() throw(log
 ///              
 ///After solving, return a linear Wcs (i.e without distortion terms)
 lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs() throw(logic_error) {
-    if (_solver == NULL) {
-        throw(logic_error("No solution found yet. Did you run blindSolve()?"));
+    if (! _solver->best_match_solves) {
+        throw(logic_error("No solution found yet. Did you run solve()?"));
     }
     
     lsst::afw::image::PointD crpix(_solver->best_match.wcstan.crpix[0],
@@ -263,7 +287,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs() throw(logic_error)
 ///Convert ra dec to pixel coordinates    
 lsst::afw::image::PointD GlobalAstrometrySolution::raDecToXY(double ra, double dec)  throw(std::logic_error) {
     if (! _solver->best_match_solves) {
-        throw( logic_error("No solution found yet. Did you run blindSolve()?") );
+        throw( logic_error("No solution found yet. Did you run solve()?") );
     }
 
     double x, y;
@@ -283,7 +307,7 @@ lsst::afw::image::PointD GlobalAstrometrySolution::raDecToXY(double ra, double d
 ///Convert pixels to right ascension declination    
 lsst::afw::image::PointD GlobalAstrometrySolution::xyToRaDec(double x, double y)  throw(std::logic_error) {
     if (! _solver->best_match_solves) {
-        throw( logic_error("No solution found yet. Did you run blindSolve()?") );
+        throw( logic_error("No solution found yet. Did you run solve()?") );
     }
 
     double ra, dec;
@@ -331,13 +355,12 @@ void GlobalAstrometrySolution::printStarlist() {
     
     int max;
     max = starxy_n(_solver->fieldxy);
-    cout << "endobj is " << _solver->endobj << endl;
     max = (_solver->endobj == 0) ? max : _solver->endobj;
     
     for(int i=0; i<max; ++i){
         const double x = starxy_getx(_solver->fieldxy, i);
         const double y = starxy_gety(_solver->fieldxy, i);
-        cout << x << ", " << y << endl;
+        cout << x << " " << y << endl;
     }
 }
 
@@ -455,7 +478,7 @@ void GlobalAstrometrySolution::setParity(const int parity){
 ///Having correctly set up your GAS object, find the ra dec of your 
 ///image with no prior information. Returns true if a match was found,
 ///false otherwise
-int GlobalAstrometrySolution::blindSolve() {
+bool GlobalAstrometrySolution::solve() {
 
     //Throw exceptions if setup is correct
     if(! _solver->fieldxy) {
@@ -489,10 +512,16 @@ int GlobalAstrometrySolution::blindSolve() {
 
 
 ///    
-bool GlobalAstrometrySolution::verifyRaDec(const afw::image::PointD raDec   ///<Right ascension/declination
+bool GlobalAstrometrySolution::solve(const afw::image::PointD raDec   ///<Right ascension/declination
                                                ///in decimal degrees
                                           ) throw(logic_error)  {
+    return solve(raDec[0], raDec[1]);
+}
+    
 
+bool GlobalAstrometrySolution::solve(const double ra, const double dec   ///<Right ascension/declination
+                                               ///in decimal degrees
+                                          ) throw(logic_error)  {    
     //Throw exceptions if setup is correct
     if(! _solver->fieldxy) {
         throw logic_error("No field has been set yet");
@@ -512,7 +541,7 @@ bool GlobalAstrometrySolution::verifyRaDec(const afw::image::PointD raDec   ///<
     
     //Create a unit vector from the postion to be passed to loadNearbyIndices
     double xyz[3];
-    radecdeg2xyzarr(raDec[0], raDec[1], xyz);
+    radecdeg2xyzarr(ra, dec, xyz);
     vector<double> unitVector(3);
     for(int i=0; i<3; ++i){
         unitVector[i] = xyz[i];
@@ -522,10 +551,10 @@ bool GlobalAstrometrySolution::verifyRaDec(const afw::image::PointD raDec   ///<
     solver_run( _solver);
 
     if(_solver->best_match_solves){
-        logmsg("Position (%.7f %.7f) verified\n", raDec[0], raDec[1]);
+        logmsg("Position (%.7f %.7f) verified\n", ra, dec);
     }
     else {
-        logmsg("Failed to verify position (%.7f %.7f)\n", raDec[0], raDec[1]);
+        logmsg("Failed to verify position (%.7f %.7f)\n", ra, dec);
     }
     
     return(_solver->best_match_solves);

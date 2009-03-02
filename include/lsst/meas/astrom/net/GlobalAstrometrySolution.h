@@ -21,6 +21,7 @@ extern "C" {
 #include "backend.h"
 #include "solver.h"
 #include "index.h"
+#include "tweak.h"
 #include "healpix.h"
 #include "bl.h"
 #include "log.h"
@@ -60,7 +61,7 @@ public:
     inline double getParity(){    return _solver->parity;};
     
     double getSolvedImageScale();
-    lsst::afw::image::Wcs::Ptr getDistortedWcs() throw(std::logic_error);
+    lsst::afw::image::Wcs::Ptr getDistortedWcs(int order=3) throw(std::logic_error, std::runtime_error);
     lsst::afw::image::Wcs::Ptr getWcs() throw(std::logic_error);
     lsst::afw::image::PointD raDecToXY(double ra, double dec) throw(std::logic_error);
     lsst::afw::image::PointD xyToRaDec(double x, double y) throw(std::logic_error);
@@ -87,9 +88,10 @@ public:
     void setParity(const int parity);
     
     //Solve and verify functions.
-    int blindSolve();
-    //The functions aren't implemented yet
-    bool verifyRaDec(const afw::image::PointD raDec) throw(std::logic_error);
+    bool solve();
+    bool solve(const afw::image::PointD raDec) throw(std::logic_error);
+    bool solve(const double ra, const double dec) throw(std::logic_error);
+    //Not implemented yet
     #if 0
     bool verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr) throw(std::logic_error);
     #endif
