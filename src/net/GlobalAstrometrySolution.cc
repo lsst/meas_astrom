@@ -4,7 +4,8 @@ using namespace std;
 
 #include "lsst/meas/astrom/net/GlobalAstrometrySolution.h"
 
-//namespace net = lsst::meas::astrom::net;
+namespace Except = lsst::pex::exceptions;
+
 namespace lsst { namespace meas { namespace astrom { namespace net {
 
 //
@@ -104,17 +105,16 @@ int GlobalAstrometrySolution::parseConfigStream(FILE* fconf) {
 
 ///Set the image to be solved. The image is abstracted as a list of positions in pixel space
 ///
-void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceVector vec) ///<List of Sources
-        throw(std::domain_error) {
+void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceVector vec)  {///<List of Sources
 
     if (vec.empty()) {
-        throw(domain_error("Src list contains no objects"));
+        throw(LSST_EXCEPT(Except::LengthErrorException, "Src list contains no objects"));
     }
 
     //This number is conservative. A bare minimum of 4 objects is needed, although the
     //search probably won't be unique with that few objects
     if (vec.size() < 20) {
-        throw(domain_error("Src list should contain at least 20 objects"));
+        throw(LSST_EXCEPT(Except::LengthErrorException, "Src list should contain at least 20 objects"));
     }
     
     int const size = vec.size(); 
@@ -156,8 +156,8 @@ double GlobalAstrometrySolution::getMatchThreshold(){
  
 
 double GlobalAstrometrySolution::getSolvedImageScale(){
-    if (_solver == NULL) {
-        throw(logic_error("No solution found yet. Did you run solve()?"));
+    if (! _solver->best_match_solves) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
     }
 
     return(_solver->best_match.scale);
@@ -166,9 +166,9 @@ double GlobalAstrometrySolution::getSolvedImageScale(){
 
 ///
 ///After solving, return a full Wcs including SIP distortion matrics
-lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) throw(std::logic_error, std::runtime_error) {
+lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order)  {
     if (! _solver->best_match_solves) {
-        throw(logic_error("No solution found yet. Did you run solve()?"));
+        throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
     }
 
     
@@ -207,8 +207,9 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
 
     //Check that tweaking worked.
     if (sip == NULL) {
-        throw(runtime_error("Warning. Tweaking failed."));
+        throw(LSST_EXCEPT(Except::RuntimeErrorException,"Tweaking failed"));
     }
+
     
     lsst::afw::image::PointD crpix(sip->wcstan.crpix[0],
                                    sip->wcstan.crpix[1]);
@@ -275,9 +276,9 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
 
 ///              
 ///After solving, return a linear Wcs (i.e without distortion terms)
-lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs() throw(logic_error) {
+lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs()  {
     if (! _solver->best_match_solves) {
-        throw(logic_error("No solution found yet. Did you run solve()?"));
+        throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
     }
     
     lsst::afw::image::PointD crpix(_solver->best_match.wcstan.crpix[0],
@@ -302,9 +303,9 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs() throw(logic_error)
 
 ///    
 ///Convert ra dec to pixel coordinates    
-lsst::afw::image::PointD GlobalAstrometrySolution::raDecToXY(double ra, double dec)  throw(std::logic_error) {
+lsst::afw::image::PointD GlobalAstrometrySolution::raDecToXY(double ra, double dec) {
     if (! _solver->best_match_solves) {
-        throw( logic_error("No solution found yet. Did you run solve()?") );
+        throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
     }
 
     double x, y;
@@ -322,9 +323,9 @@ lsst::afw::image::PointD GlobalAstrometrySolution::raDecToXY(double ra, double d
     
 ///    
 ///Convert pixels to right ascension declination    
-lsst::afw::image::PointD GlobalAstrometrySolution::xyToRaDec(double x, double y)  throw(std::logic_error) {
+lsst::afw::image::PointD GlobalAstrometrySolution::xyToRaDec(double x, double y)  {
     if (! _solver->best_match_solves) {
-        throw( logic_error("No solution found yet. Did you run solve()?") );
+        throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
     }
 
     double ra, dec;
@@ -367,8 +368,9 @@ vector<string> GlobalAstrometrySolution::getIndexPaths() {
 /// a debugging function
 void GlobalAstrometrySolution::printStarlist() {
     if ( ! _solver->fieldxy) {
-        throw(logic_error("Starlist hasn't been set yet"));
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
     }
+
     
     int max;
     max = starxy_n(_solver->fieldxy);
@@ -458,7 +460,7 @@ void GlobalAstrometrySolution::setImageScaleArcsecPerPixel(double scale) { ///< 
 ///1 and 2 are typically good values to use.
 void GlobalAstrometrySolution::setLogLevel(const int level) {
     if (level < 0 || level > 4) {
-        throw( domain_error("Logging level must be between 0 and 4") );
+        throw(LSST_EXCEPT(Except::DomainErrorException, "Logging level must be between 0 and 4"));
     }
     
     log_init((enum log_level) level);
@@ -481,7 +483,7 @@ void GlobalAstrometrySolution::setParity(const int parity){
       case PARITY_NORMAL:
         _solver->parity = parity;
       default:
-        throw( logic_error("Illegal parity setting\n"));
+        throw(LSST_EXCEPT(Except::DomainErrorException, "Illegal parity setting\n"));
     }
 }
         
@@ -497,21 +499,21 @@ void GlobalAstrometrySolution::setParity(const int parity){
 ///false otherwise
 bool GlobalAstrometrySolution::solve() {
 
-    //Throw exceptions if setup is correct
-    if(! _solver->fieldxy) {
-        throw logic_error("No field has been set yet");
+    //Throw exceptions if setup is incorrect
+    if ( ! _solver->fieldxy) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
     }
-
+    
     if(pl_size(_backend->indexes) == 0) {
-        throw logic_error("No indices have been set yet");
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No indices have been set yet"));
     }
     
     if(_solver->best_match_solves){
-        throw logic_error("Solver indicated that a match has already been found. Do you need to reset?");
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Solver indicated that a match has already been found. Do you need to reset?"));
     }
 
     if( _solver->funits_lower >= _solver->funits_upper) {
-        throw domain_error("Minimum image scale must be strictly less than max scale");
+        throw(LSST_EXCEPT(Except::DomainErrorException, "Minimum image scale must be strictly less than max scale"));
     }
     
     //Move all the indices from the backend structure to the solver structure.
@@ -531,29 +533,29 @@ bool GlobalAstrometrySolution::solve() {
 ///    
 bool GlobalAstrometrySolution::solve(const afw::image::PointD raDec   ///<Right ascension/declination
                                                ///in decimal degrees
-                                          ) throw(logic_error)  {
+                                          ) {
     return solve(raDec[0], raDec[1]);
 }
     
 
 bool GlobalAstrometrySolution::solve(const double ra, const double dec   ///<Right ascension/declination
                                                ///in decimal degrees
-                                          ) throw(logic_error)  {    
-    //Throw exceptions if setup is correct
-    if(! _solver->fieldxy) {
-        throw logic_error("No field has been set yet");
+                                          )  {    
+    //Throw exceptions if setup is incorrect
+    if ( ! _solver->fieldxy) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
     }
-
+    
     if(pl_size(_backend->indexes) == 0) {
-        throw logic_error("No indices have been set yet");
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No indices have been set yet"));
     }
     
     if(_solver->best_match_solves){
-        throw logic_error("Solver indicated that a match has already been found. Do you need to reset?");
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Solver indicated that a match has already been found. Do you need to reset?"));
     }
 
     if( _solver->funits_lower >= _solver->funits_upper) {
-        throw domain_error("Minimum image scale must be strictly less than max scale");
+        throw(LSST_EXCEPT(Except::DomainErrorException, "Minimum image scale must be strictly less than max scale"));
     }
     
     //Create a unit vector from the postion to be passed to loadNearbyIndices
@@ -583,7 +585,7 @@ bool GlobalAstrometrySolution::solve(const double ra, const double dec   ///<Rig
 ///matches the positions of the point sources in the image.
 ///Returns true if the Wcs matches
 ///This code is experimental, and probably won't compile
-bool GlobalAstrometrySolution::verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr) throw(logic_error) {
+bool GlobalAstrometrySolution::verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr)  {
     //Test that a field has been assigned
     if (! _solver-> fieldxy) {
         throw logic_error("No field has been set yet");
@@ -627,7 +629,7 @@ bool GlobalAstrometrySolution::verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr
 /// transformation (used to describe distortions in the image, see Shupe et al.
 /// 2005). We ignore the SIP in this function, and fill in the overlapping
 /// information as best we can.
-sip_t* GlobalAstrometrySolution::convertWcsToSipt(const lsst::afw::image::Wcs::Ptr wcsPtr) throw(logic_error) {
+sip_t* GlobalAstrometrySolution::convertWcsToSipt(const lsst::afw::image::Wcs::Ptr wcsPtr)  {
     sip_t *sip = sip_create();
 
     lsst::afw::image::PointD radec = (*wcsPtr).getOriginRaDec();
@@ -642,7 +644,7 @@ sip_t* GlobalAstrometrySolution::convertWcsToSipt(const lsst::afw::image::Wcs::P
     boost::numeric::ublas::matrix<double> CD = (*wcsPtr).getLinearTransformMatrix();
     //Test that a field has been assigned
     if (CD.size1() != CD.size2()) {
-        throw logic_error("Linear Transformation Matrix must be square");
+        throw(LSST_EXCEPT(Except::LengthErrorException, "Linear Transformation Matrix must be square"));
     }
 
     for (unsigned int i=0; i< CD.size1(); ++i) {
@@ -659,7 +661,7 @@ sip_t* GlobalAstrometrySolution::convertWcsToSipt(const lsst::afw::image::Wcs::P
     void GlobalAstrometrySolution::loadNearbyIndices(std::vector<double> unitVector) {
     
     if(unitVector.size() != 3){
-        throw( logic_error("Input vector should have exactly 3 elements") );
+        throw(LSST_EXCEPT(Except::LengthErrorException, "Input vector should have exactly 3 elements") );
     }
     
     //Translate the vector into a C array that astrometry.net can understand
