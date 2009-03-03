@@ -205,13 +205,36 @@ class WCSTestCaseNet(unittest.TestCase):
                 #If we didn't get a match, that's a failure
                 self.assertEqual(flag, 1, "Failed to find a match")
             
-            #wcs2= gas.getDistortedWcs()
-            #radec = wcs2.xyToRaDec(crpix.getX(), crpix.getY())
-            #print radec
-            
 
-        
+        def testGetDistortedWcs(self):
+            """Test the functions that return wcs structures for a field"""
+     
+            crval = afwImage.PointD(80.15978319,30.80524999)
+            crpix = afwImage.PointD(890,890)
+            listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
+            plateScale = .5*3600/1780.
+            
+            flag = self.solveOrVerify(listFile, crval, crpix, plateScale)
+            
+            if flag:
+                wcs1 = gas.getDistortedWcs();
+                radec = wcs1.xyToRaDec(crpix.getX(), crpix.getY())
+                print radec
+                
+                #Test xy->radec
+                radec = gas.xyToRaDec(crpix.getX(), crpix.getY())
+                self.assertAlmostEqual(radec.getX(), crval.getX(), 6, "Ra doesn't match")
+                self.assertAlmostEqual(radec.getY(), crval.getY(), 6, "Dec doesn't match")
     
+                #Test the reverse operation
+                xy = gas.raDecToXY(crval.getX(), crval.getY())
+                self.assertAlmostEqual(xy.getX(), crpix.getX(), 2, "X pos doesn't match")
+                self.assertAlmostEqual(xy.getY(), crpix.getY(), 2, "Y pos doesn't match")
+    
+            else:
+                #If we didn't get a match, that's a failure
+                self.assertEqual(flag, 1, "Failed to find a match")
+
     
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 

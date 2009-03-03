@@ -172,21 +172,38 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     }
 
     
+
+    //Generate an array of radec of positions in the field
+
+    //radius of bounding circle of healpix of best match
+    double radius = _solver->best_match.radius;
+    radius = 1.05*radius;  //Add in a margin of safety
+    double radius2 = radius*radius;
+    
+    //Don't free this pointer. It points to memory that will still exist
+    //when this function goes out of scope.
+    double *center = _solver->best_match.center;
+
+    //Generate array
+    double *radec=NULL;
+    int nstars=0;
+    startree_search(_solver->index->starkd, center, radius2, NULL, &radec, &nstars);
+
+    //Call the tweaking algorthim to generate the distortion coeffecients
     double jitter_arcsec=1.0;
     int inverse_order = order;
     int iterations = 5;        //Taken from blind.c:628
-    //bool weighted = true;
-    //int skip_shift = true;
-    bool weighted = false;
-    int skip_shift = false;
-    
+    bool weighted = true;
+    int skip_shift = true;
+
     sip_t *sip = tweak_just_do_it(&_solver->best_match.wcstan, _starlist, 
                                   NULL,
                                   NULL, NULL,
-                                  _solver->best_match.wcstan.crval,
-                                  _starlist->N, jitter_arcsec, 
+                                  radec,
+                                  nstars, jitter_arcsec, 
                                   order, inverse_order, iterations,
                                   weighted, skip_shift);
+
 
     //Check that tweaking worked.
     if (sip == NULL) {
@@ -210,7 +227,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     //Forward distortion terms. In the SIP notation, these matrices are referred to
     //as A and B. I can find no documentation that insists that these matrices be
     //the same size, so I assume they aren't.
-    int aSize = _solver->best_match.sip->a_order;
+    int aSize = sip->a_order;
     boost::numeric::ublas::matrix<double> sipA(aSize, aSize);
     for (int i=0; i<aSize; ++i){
         for (int j=0; j<aSize; ++j){
@@ -219,7 +236,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     }
 
     //Repeat for B
-    int bSize = _solver->best_match.sip->b_order;
+    int bSize = sip->b_order;
     boost::numeric::ublas::matrix<double> sipB(bSize, bSize);
     for (int i=0; i<bSize; ++i){
         for (int j=0; j<bSize; ++j){
@@ -228,7 +245,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     }
 
     //Repeat for Ap, for the reverse transform
-    int apSize = _solver->best_match.sip->ap_order;
+    int apSize = sip->ap_order;
     boost::numeric::ublas::matrix<double> sipAp(apSize, apSize);
     for (int i=0; i<apSize; ++i){
         for (int j=0; j<apSize; ++j){
@@ -237,7 +254,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     }
 
     //And finally, Bp, also part of the reverse transform
-    int bpSize = _solver->best_match.sip->bp_order;
+    int bpSize = sip->bp_order;
     boost::numeric::ublas::matrix<double> sipBp(bpSize, bpSize);
     for (int i=0; i<bpSize; ++i){
         for (int j=0; j<bpSize; ++j){
