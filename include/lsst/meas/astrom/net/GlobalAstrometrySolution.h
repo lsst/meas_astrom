@@ -33,7 +33,7 @@ extern "C" {
 
 //!\brief Solve for WCS based only on the positions of stars in an image 
 ///
-///See the tests/ directory for an example of how to use
+///See the examples/ directory for an example of how to use
 class GlobalAstrometrySolution {
 public:
     typedef boost::shared_ptr<GlobalAstrometrySolution> Ptr;

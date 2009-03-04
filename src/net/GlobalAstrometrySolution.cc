@@ -24,8 +24,9 @@ GlobalAstrometrySolution::GlobalAstrometrySolution() {
 }
 
     
-GlobalAstrometrySolution::GlobalAstrometrySolution(
-       lsst::afw::detection::SourceVector vec) { ///< Points indicating pixel coords of detected objects
+GlobalAstrometrySolution::GlobalAstrometrySolution(lsst::afw::detection::SourceVector vec ///< Points indicating pixel
+                                                                                          ///<coords of detected objects
+                                                  ){
     
     _backend  = backend_new();
     _solver   = solver_new();
@@ -62,7 +63,8 @@ GlobalAstrometrySolution::~GlobalAstrometrySolution() {
 //
 ///    
 ///Adds a single index file to the backend.
-void GlobalAstrometrySolution::addIndexFile(const std::string path) { ///< Path of index file
+void GlobalAstrometrySolution::addIndexFile(const std::string path ///< Path of index file
+                                           ){
     //Copy a constant string into a non-const C style string
     //so it can be passed into a C function without complaint.
     int len = (int) path.length(); 
@@ -78,7 +80,8 @@ void GlobalAstrometrySolution::addIndexFile(const std::string path) { ///< Path 
 
 ///Read a configuration file that contains a list of indices
 ///from a stream and load them into memory. Useful for debugging code, but not for production
-int GlobalAstrometrySolution::parseConfigFile(const std::string filename) { ///< Name of backend configuration file
+int GlobalAstrometrySolution::parseConfigFile(const std::string filename ///< Name of backend configuration file
+                                             ) {
     //Copy a constant string into a non-const C style string
     //so it can be passed into a C function without complaint.
     int len = filename.length();
@@ -105,8 +108,8 @@ int GlobalAstrometrySolution::parseConfigStream(FILE* fconf) {
 
 ///Set the image to be solved. The image is abstracted as a list of positions in pixel space
 ///
-void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceVector vec)  {///<List of Sources
-
+void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceVector vec ///<List of Sources
+                                          ) {
     if (vec.empty()) {
         throw(LSST_EXCEPT(Except::LengthErrorException, "Src list contains no objects"));
     }
@@ -154,7 +157,8 @@ double GlobalAstrometrySolution::getMatchThreshold(){
 }
 
  
-
+///Plate scale of solution in arcsec/pixel. Note this is different than getMin(Max)ImageScale()
+///which return the intial guesses of platescale.
 double GlobalAstrometrySolution::getSolvedImageScale(){
     if (! _solver->best_match_solves) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
@@ -170,8 +174,6 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     if (! _solver->best_match_solves) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
     }
-
-    
 
     //Generate an array of radec of positions in the field
 
@@ -302,7 +304,10 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs()  {
 
 
 ///    
-///Convert ra dec to pixel coordinates    
+///Convert ra dec to pixel coordinates assuming a linear Wcs.
+///    
+///In general, it is better to create a Wcs object using getDistortedWcs() and use it
+///to perform conversions    
 lsst::afw::image::PointD GlobalAstrometrySolution::raDecToXY(double ra, double dec) {
     if (! _solver->best_match_solves) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
@@ -322,7 +327,10 @@ lsst::afw::image::PointD GlobalAstrometrySolution::raDecToXY(double ra, double d
     
     
 ///    
-///Convert pixels to right ascension declination    
+///Convert pixels to right ascension, declination
+///
+///In general, it is better to create a Wcs object using getDistortedWcs() and use it
+///to perform conversions  
 lsst::afw::image::PointD GlobalAstrometrySolution::xyToRaDec(double x, double y)  {
     if (! _solver->best_match_solves) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
@@ -389,7 +397,7 @@ void GlobalAstrometrySolution::printStarlist() {
 // Mutators
 //
 ///Inform the solver that the image may suffer from some distortion. Turn this on if a purely linear
-///wcs solution will get the postions of some stars wrong by more than 1 pixel
+///wcs solution will get the postions of some stars wrong by more than 1 pixel. Turned on by default
 void GlobalAstrometrySolution::allowDistortion(bool distort) {
     _solver->distance_from_quad_bonus = (distort) ? true : false;
 }
@@ -409,9 +417,7 @@ void GlobalAstrometrySolution::reset() {
 }
 
 ///astrometry.net intialises the solver with some default values that garauntee failure in any
-///attempted match. These values are more reasonable. Note that this function does not call
-///solver_set_default_values() in solver.h, which is called automatically when you create a new
-///solver object.
+///attempted match. These values are more reasonable. 
 void GlobalAstrometrySolution::setDefaultValues() {
 
     solver_set_default_values(_solver);
@@ -447,17 +453,17 @@ void GlobalAstrometrySolution::setDefaultValues() {
 }
         
        
-///Set the size of the image. At some point, when I know how to determine what my inputs are
-///I may include this in the default constructor.
-///Note that the solver will fail if min==max, so we make them different by a small amount.    
-void GlobalAstrometrySolution::setImageScaleArcsecPerPixel(double scale) { ///< Plate scale of image
+///Set the plate scale of the image in arcsec per pixel
+void GlobalAstrometrySolution::setImageScaleArcsecPerPixel(double scale ///< Plate scale of image
+                                                          ) {
+    //Note that the solver will fail if min==max, so we make them different by a small amount.    
     setMinimumImageScale(.99*scale);
     setMaximumImageScale(1.01*scale);
 }
 
 
 ///Set the verbosity level for astrometry.net. The higher the level the more information is returned.
-///1 and 2 are typically good values to use.
+///1 and 2 are typically good values to use. 4 will print so much to the screen that it slows execution
 void GlobalAstrometrySolution::setLogLevel(const int level) {
     if (level < 0 || level > 4) {
         throw(LSST_EXCEPT(Except::DomainErrorException, "Logging level must be between 0 and 4"));
@@ -474,6 +480,9 @@ void GlobalAstrometrySolution::setMatchThreshold(const double threshold) {
 }
 
 
+///You can double the speed of a match if you know the parity, i.e whether the image is flipped or not.
+///North up and East right (or some rotation thereof) is parity==0, the opposite is parity==1. If you
+///don't know in advance, set parity==2 (the default)
 void GlobalAstrometrySolution::setParity(const int parity){
 
     //Insist on legal values.
@@ -530,14 +539,14 @@ bool GlobalAstrometrySolution::solve() {
 
 
 
-///    
+///Find a solution with an initial guess at the position    
 bool GlobalAstrometrySolution::solve(const afw::image::PointD raDec   ///<Right ascension/declination
                                                ///in decimal degrees
                                           ) {
     return solve(raDec[0], raDec[1]);
 }
     
-
+///Find a solution with an initial guess at the position    
 bool GlobalAstrometrySolution::solve(const double ra, const double dec   ///<Right ascension/declination
                                                ///in decimal degrees
                                           )  {    
@@ -580,11 +589,11 @@ bool GlobalAstrometrySolution::solve(const double ra, const double dec   ///<Rig
 }
 
 #if 0    
-///This function isn't working yet    
-///Verify that a previously calculated WCS (world coordinate solution) 
-///matches the positions of the point sources in the image.
-///Returns true if the Wcs matches
-///This code is experimental, and probably won't compile
+//This function isn't working yet    
+//Verify that a previously calculated WCS (world coordinate solution) 
+//matches the positions of the point sources in the image.
+//Returns true if the Wcs matches
+//This code is experimental, and probably won't compile
 bool GlobalAstrometrySolution::verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr)  {
     //Test that a field has been assigned
     if (! _solver-> fieldxy) {
