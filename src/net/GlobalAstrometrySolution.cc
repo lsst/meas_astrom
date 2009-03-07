@@ -24,10 +24,10 @@ GlobalAstrometrySolution::GlobalAstrometrySolution() {
 }
 
     
-GlobalAstrometrySolution::GlobalAstrometrySolution(lsst::afw::detection::SourceVector vec ///< Points indicating pixel
-                                                                                          ///<coords of detected objects
+GlobalAstrometrySolution::GlobalAstrometrySolution(lsst::afw::detection::SourceSet vec ///< Points indicating pixel
+                                                                                          ///<coords of detected
+                                                                                          /// objects
                                                   ){
-    
     _backend  = backend_new();
     _solver   = solver_new();
     _starlist = NULL;
@@ -108,7 +108,7 @@ int GlobalAstrometrySolution::parseConfigStream(FILE* fconf) {
 
 ///Set the image to be solved. The image is abstracted as a list of positions in pixel space
 ///
-void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceVector vec ///<List of Sources
+void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec ///<List of Sources
                                           ) {
     if (vec.empty()) {
         throw(LSST_EXCEPT(Except::LengthErrorException, "Src list contains no objects"));
@@ -130,7 +130,7 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceVector ve
 
     //Need to add flux information to _starlist, and sort by it.
     int i=0;
-    for (lsst::afw::detection::SourceVector::iterator ptr = vec.begin(); ptr != vec.end(); ++ptr) {
+    for (lsst::afw::detection::SourceSet::iterator ptr = vec.begin(); ptr != vec.end(); ++ptr) {
         
         double const x = (*ptr)->getXAstrom();
         double const y = (*ptr)->getYAstrom();

@@ -41,7 +41,7 @@ public:
 
     //Constructors
     GlobalAstrometrySolution();
-    GlobalAstrometrySolution(lsst::afw::detection::SourceVector vec);
+    GlobalAstrometrySolution(lsst::afw::detection::SourceSet vec);
 
     
     //Destructor
@@ -51,7 +51,7 @@ public:
     void addIndexFile(const std::string path);        
     int parseConfigFile(const std::string filename);        
     int parseConfigStream(FILE* fconf);                     
-    void setStarlist(lsst::afw::detection::SourceVector vec);
+    void setStarlist(lsst::afw::detection::SourceSet vec);
 
 
     //Accessors

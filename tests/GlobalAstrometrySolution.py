@@ -27,7 +27,7 @@ def loadXYFromFile(filename):
     """Load a list of positions from a file"""
     f= open(filename)
     
-    s1=detect.SourceContainer()
+    s1=detect.SourceSet()
     i=0
     for line in f:
         #Split the row into an array
@@ -145,7 +145,7 @@ class WCSTestCaseNet(unittest.TestCase):
         #To speed the test, tell the GAS what the size of the image is
         #The image is 1780 pixels on a side and covers half a square degree 
         #on the sky
-        plateScale = .1844
+        plateScale = .185
         self.solveOrVerify(listFile, crval, crpix, plateScale, verify=True)
 #
 #
