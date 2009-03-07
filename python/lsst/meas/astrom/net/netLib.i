@@ -31,5 +31,5 @@ def version(HeadURL = r"$HeadURL: svn+ssh://svn.lsstcorp.org/DMS/afw/trunk/pytho
 %import "lsst/afw/detection/detectionLib.i"
 
 %lsst_exceptions();
-%template(pairDD) std::pair<double,double>;
+//template(PointD) lsst::afw::image::PointD<double,double>;
 %include "lsst/meas/astrom/net/GlobalAstrometrySolution.h"
