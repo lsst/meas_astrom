@@ -120,7 +120,12 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceVector ve
         throw(LSST_EXCEPT(Except::LengthErrorException, "Src list should contain at least 20 objects"));
     }
     
-    int const size = vec.size(); 
+    //If this value was previously set, free the memory before reassigning.
+    if(_starlist != NULL) {
+        starxy_free(_starlist);
+    }
+
+    int const size = vec.size();
     _starlist = starxy_new(size, true, false);   
 
     //Need to add flux information to _starlist, and sort by it.
