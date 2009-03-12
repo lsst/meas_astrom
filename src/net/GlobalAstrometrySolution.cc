@@ -134,7 +134,7 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
         
         double const x = (*ptr)->getXAstrom();
         double const y = (*ptr)->getYAstrom();
-        double const flux= (*ptr)->getPsfMag();
+        double const flux= (*ptr)->getPsfFlux();
         
         starxy_set(_starlist, i, x, y);
         //There's no function to set the flux, so do it explicitly.
