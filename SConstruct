@@ -37,25 +37,23 @@ for d in Split("doc examples include/lsst/meas/astrom/net python/lsst/meas/astro
 
 env['IgnoreFiles'] = r"(~$|\.pyc$|^\.svn$|\.o$)"
 
-if False:
-    Alias("install", env.Install(env['prefix'], "python"))
-    Alias("install", env.Install(env['prefix'], "include"))
-    Alias("install", env.Install(env['prefix'], "lib"))
-    #Alias("install", env.Install(env['prefix'], "pipeline"))
-    Alias("install", env.Install(env['prefix'] + "/bin", glob.glob("bin/*.py")))
-    Alias("install", env.InstallEups(env['prefix'] + "/ups", glob.glob("ups/*.table")))
+Alias("install", [
+    env.Install(env['prefix'], "python"),
+    env.Install(env['prefix'], "include"),
+    env.Install(env['prefix'], "lib"),
+    env.InstallAs(os.path.join(env['prefix'], "doc", "doxygen"), os.path.join("doc", "htmlDir")),
+    env.InstallEups(os.path.join(env['prefix'], "ups"), glob.glob(os.path.join("ups", "*.table")))
+])
 
-    scons.CleanTree(r"*~ core *.so *.os *.o")
-    #
-    # Build TAGS files
-    #
-    files = scons.filesToTag()
-    if files:
-        env.Command("TAGS", files, "etags -o $TARGET $SOURCES")
-
+scons.CleanTree(r"*~ core *.so *.os *.o")
+#
+# Build TAGS files
+#
+files = scons.filesToTag()
+if files:
+    env.Command("TAGS", files, "etags -o $TARGET $SOURCES")
 
 env.Declare()
 env.Help("""
-LSST FrameWork packages
+Wcs determination
 """)
-
