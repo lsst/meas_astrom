@@ -44,7 +44,7 @@ def loadXYFromFile(filename):
         source.setSourceId(i)
         source.setXAstrom(x); source.setXAstromErr(0.1)
         source.setYAstrom(y); source.setYAstromErr(0.1)
-        source.setPsfMag(flux)
+        source.setPsfFlux(flux)
 
         s1.append(source)
         
