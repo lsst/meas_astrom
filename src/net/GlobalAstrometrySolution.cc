@@ -157,6 +157,21 @@ double GlobalAstrometrySolution::getMatchThreshold(){
     return _solver->logratio_record_threshold;
 }
 
+
+///Returns true is image is flipped, i.e the wcs solution has east pointed in the opposite sense (relative
+///to north, than the astronomical convenction (which is north is up, east is left)
+///Precondition: Image is already solved    
+bool GlobalAstrometrySolution::isFlipped() {
+    if (! _solver->best_match_solves) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
+    }
+
+    if(_solver->parity == PARITY_FLIP) {
+        return(true);
+    }
+    return(false);
+}
+
  
 ///Plate scale of solution in arcsec/pixel. Note this is different than getMin(Max)ImageScale()
 ///which return the intial guesses of platescale.

@@ -59,7 +59,7 @@ public:
     inline double getMinimumImageScale() {    return _solver->funits_lower; }
     inline double getMaximumImageScale() {    return _solver->funits_upper; }
     inline double getMinQuadScale(){    return _solver->quadsize_min;}
-    inline double getParity(){    return _solver->parity;};
+    bool isFlipped(); 
     
     double getSolvedImageScale();
     lsst::afw::image::Wcs::Ptr getDistortedWcs(int order=3);
