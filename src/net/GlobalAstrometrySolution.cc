@@ -18,8 +18,6 @@ GlobalAstrometrySolution::GlobalAstrometrySolution() {
     _solver   = solver_new();
     _starlist = NULL;
 
-    _hprange = 0;
-
     setDefaultValues();
 }
 
@@ -31,8 +29,6 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(lsst::afw::detection::SourceS
     _backend  = backend_new();
     _solver   = solver_new();
     _starlist = NULL;
-
-    _hprange = 0;
 
     setDefaultValues();
     

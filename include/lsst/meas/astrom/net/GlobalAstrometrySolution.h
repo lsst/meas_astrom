@@ -77,7 +77,6 @@ public:
     void allowDistortion(bool distort);
     void reset();
     void setDefaultValues();
-    void setHpRange(const double range) { _hprange=range;}
     void setImageScaleArcsecPerPixel(double scale);
     void setLogLevel(const int level);
     void setMatchThreshold(const double threshold);
@@ -101,8 +100,6 @@ private:
     backend_t *_backend;
     solver_t *_solver;
     starxy_t *_starlist;
-    
-    double _hprange;
     
     sip_t *convertWcsToSipt(const lsst::afw::image::Wcs::Ptr);
     void loadNearbyIndices(std::vector<double> unitVector);
