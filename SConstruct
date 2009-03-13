@@ -6,7 +6,7 @@ import glob, os.path, re, os
 import lsst.SConsUtils as scons
 
 env = scons.makeEnv("meas_astrom",
-                    r"$HeadURL: svn+ssh://svn.lsstcorp.org/DMS/meas/astrom/trunk/SConstruct $",
+                    r"$HeadURL$",
                     [["boost", "boost/version.hpp", "boost_system:C++"],
                      ["boost", "boost/version.hpp", "boost_filesystem:C++"],
                      ["boost", "boost/regex.hpp", "boost_regex:C++"],
