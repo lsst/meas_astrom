@@ -6,6 +6,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <cmath>
 
 #include "boost/cstdint.hpp"
 #include "boost/shared_ptr.hpp"
@@ -29,6 +30,16 @@ extern "C" {
 }
 
 
+///Define variables to indicate tha parity of the image (i.e whether, when the image is rotated so that North is
+///up, East is to the left (Normal), or to the right, (FLIPPED)). The constants PARITY_* are defined
+///in solver.h, but not visible to Python. The default setting is UNKNOWN_PARITY. Setting the parity correctly
+///reduces the time taken to solve an image by about a factor of two.
+enum {
+    NORMAL_PARITY = PARITY_NORMAL,
+    FLIPPED_PARITY = PARITY_FLIP,
+    UNKNOWN_PARITY = PARITY_BOTH
+};
+    
 
 
 //!\brief Solve for WCS based only on the positions of stars in an image 
@@ -89,7 +100,7 @@ public:
     ///is a good number to choose
     inline void setNumberStars(const int num)  {    _solver->endobj = num;}
 
-    ///Set the scale (in arcsec) of the smallest quad (group of 4 stars) to match
+    ///Set the scale (in pixels) of the smallest quad (group of 4 stars) to match
     ///against the database. You don't ususually need to use this function, but it
     ///can be useful in debugging
     inline void setMinQuadScale(const double scale){    _solver->quadsize_min = scale;}
@@ -99,6 +110,7 @@ public:
     bool solve();
     bool solve(const afw::image::PointD raDec);
     bool solve(const double ra, const double dec);
+    bool solve(const lsst::afw::image::Wcs::Ptr wcsPtr, const double imageScaleUncertaintyPercent=2);
     //Not implemented yet
     #if 0
     bool verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr);
