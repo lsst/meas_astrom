@@ -496,8 +496,9 @@ void GlobalAstrometrySolution::setParity(const int parity){
       case PARITY_FLIP:
       case PARITY_NORMAL:
         _solver->parity = parity;
+        return;
       default:
-        throw(LSST_EXCEPT(Except::DomainErrorException, "Illegal parity setting\n"));
+        throw LSST_EXCEPT(Except::DomainErrorException, "Illegal parity setting");
     }
 }
         
