@@ -112,14 +112,42 @@ class WCSTestCaseNet(unittest.TestCase):
             #If we didn't get a match, that's a failure
             self.assertEqual(flag, 1, "Failed to find a match")
         
+
+    def solveWcs(self, wcsPtr, starlist):
+        """Test that the solve(wcs) function works correctly.
+        """
+
+        gas.setStarlist(starlist)
+        gas.setLogLevel(2)
+        return gas.solve(wcsPtr)
+
+
+    def testSolveGD66Wcs(self):
+        """Run solveWcs on GD66"""
+
+        #This Wcs solution is taken from the header of the image.
+        crval = afwImage.PointD(80.1601717554, 30.8060971075)
+        crpix = afwImage.PointD(890,890)
+        wcsPtr = afwImage.createWcs(crval, crpix, -0.0002802350, -0.0000021800, -0.0000022507, 0.0002796878)
+
+        starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
+        starlist = loadXYFromFile(starlist)
+
+        flag = self.solveWcs(wcsPtr, starlist)
+
+        if flag:
+            radec = gas.xyToRaDec(890,890)
+            self.assertAlmostEqual(crval.getX(), radec.getX(), 6, "Ra doesn't match")
+            self.assertAlmostEqual(crval.getY(), radec.getY(), 6, "Dec doesn't match")
+        else:
+            self.assertEqual(flag, 1, "Failed to find a match")
         
-    #def testVerify(self, starlist, crval, crpix,  plateScale=0):
-        #pass
+        gas.reset()
         
     def testSolveGD66(self):
         """Pass the positions of objects near the white dwarf GD66 and test that the correct position is returned
     """
-        crval = afwImage.PointD(80.15978319,30.80524999)
+        crval = afwImage.PointD(80.15978319, 30.80524999)
         crpix = afwImage.PointD(890,890)
         listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
         #To speed the test, tell the GAS what the size of the image is
@@ -127,6 +155,7 @@ class WCSTestCaseNet(unittest.TestCase):
         #on the sky
         plateScale = .5*3600/1780.
         self.solveOrVerify(listFile, crval, crpix, plateScale)
+        gas.reset()
 
     def testSolveG117(self):
         crval = afwImage.PointD(141.063590, +35.280919)
@@ -137,7 +166,7 @@ class WCSTestCaseNet(unittest.TestCase):
         #on the sky
         plateScale = .5*3600/1780.
         self.solveOrVerify(listFile, crval, crpix, plateScale)
-    ##
+    #
     def testVerifyCFHTField(self):
         crval = afwImage.PointD(334.303012, -17.233988)
         crpix = afwImage.PointD(512,512)
@@ -147,7 +176,7 @@ class WCSTestCaseNet(unittest.TestCase):
         #on the sky
         plateScale = .185
         self.solveOrVerify(listFile, crval, crpix, plateScale, verify=True)
-#
+
 #
     def testMultiple(self):
         """Test that solver can handle doing two solves in a row"""
@@ -189,7 +218,6 @@ class WCSTestCaseNet(unittest.TestCase):
             if flag:
                 wcs1 = gas.getWcs();
                 radec = wcs1.xyToRaDec(crpix.getX(), crpix.getY())
-                print radec
                 
                 #Test xy->radec
                 radec = gas.xyToRaDec(crpix.getX(), crpix.getY())

@@ -6,6 +6,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <cmath>
 
 #include "boost/cstdint.hpp"
 #include "boost/shared_ptr.hpp"
@@ -29,6 +30,16 @@ extern "C" {
 }
 
 
+///Define variables to indicate tha parity of the image (i.e whether, when the image is rotated so that North is
+///up, East is to the left (Normal), or to the right, (FLIPPED)). The constants PARITY_* are defined
+///in solver.h, but not visible to Python. The default setting is UNKNOWN_PARITY. Setting the parity correctly
+///reduces the time taken to solve an image by about a factor of two.
+enum {
+    NORMAL_PARITY = PARITY_NORMAL,
+    FLIPPED_PARITY = PARITY_FLIP,
+    UNKNOWN_PARITY = PARITY_BOTH
+};
+    
 
 
 //!\brief Solve for WCS based only on the positions of stars in an image 
@@ -59,7 +70,7 @@ public:
     inline double getMinimumImageScale() {    return _solver->funits_lower; }
     inline double getMaximumImageScale() {    return _solver->funits_upper; }
     inline double getMinQuadScale(){    return _solver->quadsize_min;}
-    inline double getParity(){    return _solver->parity;};
+    bool isFlipped(); 
     
     double getSolvedImageScale();
     lsst::afw::image::Wcs::Ptr getDistortedWcs(int order=3);
@@ -77,14 +88,21 @@ public:
     void allowDistortion(bool distort);
     void reset();
     void setDefaultValues();
-    void setHpRange(const double range) { _hprange=range;}
     void setImageScaleArcsecPerPixel(double scale);
     void setLogLevel(const int level);
     void setMatchThreshold(const double threshold);
     ///Note than minimum image scale should be strictly less than Maximum scale
     inline void setMinimumImageScale(double scale){   _solver->funits_lower=scale;}
     inline void setMaximumImageScale(double scale){   _solver->funits_upper=scale;}
+    
+    ///Set the maximum number of stars to pass to the solver. Fewer stars means a faster
+    ///solution, more stars means a greater chance of finding a match. In practice, 50
+    ///is a good number to choose
     inline void setNumberStars(const int num)  {    _solver->endobj = num;}
+
+    ///Set the scale (in pixels) of the smallest quad (group of 4 stars) to match
+    ///against the database. You don't ususually need to use this function, but it
+    ///can be useful in debugging
     inline void setMinQuadScale(const double scale){    _solver->quadsize_min = scale;}
     void setParity(const int parity);
     
@@ -92,6 +110,7 @@ public:
     bool solve();
     bool solve(const afw::image::PointD raDec);
     bool solve(const double ra, const double dec);
+    bool solve(const lsst::afw::image::Wcs::Ptr wcsPtr, const double imageScaleUncertaintyPercent=20);
     //Not implemented yet
     #if 0
     bool verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr);
@@ -101,8 +120,6 @@ private:
     backend_t *_backend;
     solver_t *_solver;
     starxy_t *_starlist;
-    
-    double _hprange;
     
     sip_t *convertWcsToSipt(const lsst::afw::image::Wcs::Ptr);
     void loadNearbyIndices(std::vector<double> unitVector);

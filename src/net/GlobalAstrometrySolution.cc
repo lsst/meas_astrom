@@ -18,8 +18,6 @@ GlobalAstrometrySolution::GlobalAstrometrySolution() {
     _solver   = solver_new();
     _starlist = NULL;
 
-    _hprange = 0;
-
     setDefaultValues();
 }
 
@@ -31,8 +29,6 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(lsst::afw::detection::SourceS
     _backend  = backend_new();
     _solver   = solver_new();
     _starlist = NULL;
-
-    _hprange = 0;
 
     setDefaultValues();
     
@@ -159,6 +155,21 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
 ///How good must a match be to be accepted.
 double GlobalAstrometrySolution::getMatchThreshold(){
     return _solver->logratio_record_threshold;
+}
+
+
+///Returns true is image is flipped, i.e the wcs solution has east pointed in the opposite sense (relative
+///to north, than the astronomical convenction (which is north is up, east is left)
+///Precondition: Image is already solved    
+bool GlobalAstrometrySolution::isFlipped() {
+    if (! _solver->best_match_solves) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
+    }
+
+    if(_solver->parity == FLIPPED_PARITY) {
+        return(true);
+    }
+    return(false);
 }
 
  
@@ -454,7 +465,8 @@ void GlobalAstrometrySolution::setDefaultValues() {
     _solver->num_cxdx_skipped=0;
     _solver->num_verified=0;
     _solver->quit_now = FALSE;
-        
+
+    setParity(UNKNOWN_PARITY);
 }
         
        
@@ -486,16 +498,17 @@ void GlobalAstrometrySolution::setMatchThreshold(const double threshold) {
 
 
 ///You can double the speed of a match if you know the parity, i.e whether the image is flipped or not.
-///North up and East right (or some rotation thereof) is parity==0, the opposite is parity==1. If you
-///don't know in advance, set parity==2 (the default)
+///North up and East right (or some rotation thereof) is parity==NORMAL_PARITY, the opposite is parity==FLIPPED_PARITY.
+///The default is UNKNOWN_PARITY
 void GlobalAstrometrySolution::setParity(const int parity){
 
     //Insist on legal values.
     switch (parity){
-      case PARITY_BOTH:
-      case PARITY_FLIP:
-      case PARITY_NORMAL:
-        _solver->parity = parity;
+      case UNKNOWN_PARITY:
+      case FLIPPED_PARITY:
+      case NORMAL_PARITY:
+          _solver->parity = parity;
+          break;
         return;
       default:
         throw LSST_EXCEPT(Except::DomainErrorException, "Illegal parity setting");
@@ -594,6 +607,39 @@ bool GlobalAstrometrySolution::solve(const double ra, const double dec   ///<Rig
     return(_solver->best_match_solves);
 }
 
+
+bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr, const double imageScaleUncertaintyPercent) {
+
+    //Rename the variable to something shorter to make the code easier to read
+    double unc = imageScaleUncertaintyPercent/100.;
+
+    //Find the centre of the image
+    //test that a field has been assigned
+    if ( ! _solver->fieldxy) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
+    }
+    double xc = (_solver->field_maxx + _solver->field_minx)/2.0;
+    double yc = (_solver->field_maxy + _solver->field_miny)/2.0;
+
+    //Get the central ra/dec and plate scale
+    lsst::afw::image::PointD raDec = wcsPtr->xyToRaDec(xc, yc);
+    lsst::afw::image::PointD raDec2 = wcsPtr->xyToRaDec(xc+1, yc);
+    double plateScale = hypot(raDec2.getX()-raDec.getX(), raDec2.getY()-raDec.getY());  //In degrees
+    plateScale *= 3600;    //In arcseconds per pixel
+
+    setMinimumImageScale(plateScale*(1-unc));
+    setMaximumImageScale(plateScale*(1+unc));
+
+    if( wcsPtr->isFlipped()) {
+        setParity(FLIPPED_PARITY);
+    } else {
+        setParity(NORMAL_PARITY);
+    }
+        
+    return(solve(raDec.getX(), raDec.getY()));
+}
+
+    
 #if 0    
 //This function isn't working yet    
 //Verify that a previously calculated WCS (world coordinate solution) 
@@ -699,7 +745,7 @@ sip_t* GlobalAstrometrySolution::convertWcsToSipt(const lsst::afw::image::Wcs::P
     }
     double xSize = x2-x1;
     double ySize = y2-y1;
-    _solver->quadsize_min = 0.1*MIN(xSize, ySize);
+    setMinQuadScale(0.1*MIN(xSize, ySize));
 
     //What is the largest size we'll want to look at.
     //This function is defined in starutil.h
