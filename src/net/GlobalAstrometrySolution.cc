@@ -634,7 +634,7 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr, co
     } else {
         setParity(NORMAL_PARITY);
     }
-
+        
     return(solve(raDec.getX(), raDec.getY()));
 }
 

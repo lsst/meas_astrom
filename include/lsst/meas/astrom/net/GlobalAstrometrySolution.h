@@ -110,7 +110,7 @@ public:
     bool solve();
     bool solve(const afw::image::PointD raDec);
     bool solve(const double ra, const double dec);
-    bool solve(const lsst::afw::image::Wcs::Ptr wcsPtr, const double imageScaleUncertaintyPercent=2);
+    bool solve(const lsst::afw::image::Wcs::Ptr wcsPtr, const double imageScaleUncertaintyPercent=20);
     //Not implemented yet
     #if 0
     bool verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr);
