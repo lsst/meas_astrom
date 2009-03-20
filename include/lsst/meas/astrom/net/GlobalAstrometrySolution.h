@@ -111,6 +111,8 @@ public:
     bool solve(const afw::image::PointD raDec);
     bool solve(const double ra, const double dec);
     bool solve(const lsst::afw::image::Wcs::Ptr wcsPtr, const double imageScaleUncertaintyPercent=20);
+    lsst::afw::image::Wcs::Ptr solve(const lsst::afw::detection::SourceSet vec, const lsst::afw::image::Wcs::Ptr wcsPtr);
+    
     //Not implemented yet
     #if 0
     bool verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr);
