@@ -638,6 +638,28 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr, co
     return(solve(raDec.getX(), raDec.getY()));
 }
 
+
+///An "all-in-one" function. Take a starlist, and an initial guess at a Wcs, and do everything necessary
+///to solve the field using the Wcs as an initial guess. The reset the solver so it's ready to be
+///used again and return a pointer to the new Wcs
+lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::solve(const lsst::afw::detection::SourceSet vec, const lsst::afw::image::Wcs::Ptr wcsPtr) {
+
+    setStarlist(vec);
+
+    bool flag = solve(wcsPtr);
+
+    if(!flag) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found"));
+    }
+
+    lsst::afw::image::Wcs::Ptr wcsOutPtr = getDistortedWcs();
+
+    //reset so we're ready to do the next match
+    reset();
+
+    return(wcsOutPtr);
+}
+    
     
 #if 0    
 //This function isn't working yet    
