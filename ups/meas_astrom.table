@@ -1,6 +1,6 @@
 setupRequired(afw >= 3.3.4)
 setupRequired(astrometry_net >= 0.25)
-setupRequired(astrometry_net_data)
+setupOptional(astrometry_net_data)
 
 envPrepend(PYTHONPATH, ${PRODUCT_DIR}/python)
 envPrepend(LD_LIBRARY_PATH, ${PRODUCT_DIR}/lib)
