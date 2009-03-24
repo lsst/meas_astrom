@@ -228,9 +228,10 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
         throw(LSST_EXCEPT(Except::RuntimeErrorException,"Tweaking failed"));
     }
 
-    
-    lsst::afw::image::PointD crpix(sip->wcstan.crpix[0],
-                                   sip->wcstan.crpix[1]);
+    ///Astro.net conforms with wcslib in assuming that images are 1-indexed (i.e the bottom left-most pixel
+    ///is (1,1). LSST is zero indexed, so we add 1 to the crpix values returned by _solver to convert
+    lsst::afw::image::PointD crpix(sip->wcstan.crpix[0]+1,
+                                   sip->wcstan.crpix[1]+1);
     lsst::afw::image::PointD crval(sip->wcstan.crval[0],
                                    sip->wcstan.crval[1]);
 
@@ -298,9 +299,11 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs()  {
     if (! _solver->best_match_solves) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
     }
-    
-    lsst::afw::image::PointD crpix(_solver->best_match.wcstan.crpix[0],
-                                   _solver->best_match.wcstan.crpix[1]);
+
+    ///Astro.net conforms with wcslib in assuming that images are 1-indexed (i.e the bottom left-most pixel
+    ///is (1,1). LSST is zero indexed, so we add 1 to the crpix values returned by _solver to convert
+    lsst::afw::image::PointD crpix(_solver->best_match.wcstan.crpix[0]+1,
+                                   _solver->best_match.wcstan.crpix[1]+1);   
     lsst::afw::image::PointD crval(_solver->best_match.wcstan.crval[0],
                                    _solver->best_match.wcstan.crval[1]);
     
