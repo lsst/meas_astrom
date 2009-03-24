@@ -12,31 +12,20 @@ namespace lsst { namespace meas { namespace astrom { namespace net {
 // Constructors
 //
 
-GlobalAstrometrySolution::GlobalAstrometrySolution() {
+GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath) {
  
     _backend  = backend_new();
     _solver   = solver_new();
     _starlist = NULL;
 
+    lsst::pex::policy::Policy pol(policyPath);
+    _equinox = pol.getDouble("equinox");
+    _raDecSys = pol.getString("raDecSys");
+    
     setDefaultValues();
 }
 
     
-GlobalAstrometrySolution::GlobalAstrometrySolution(lsst::afw::detection::SourceSet vec ///< Points indicating pixel
-                                                                                          ///<coords of detected
-                                                                                          /// objects
-                                                  ){
-    _backend  = backend_new();
-    _solver   = solver_new();
-    _starlist = NULL;
-
-    setDefaultValues();
-    
-    setStarlist(vec);
-}
-
-
-
 //
 // Destructor
 //
@@ -244,6 +233,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
         }
     }
 
+
     //Forward distortion terms. In the SIP notation, these matrices are referred to
     //as A and B. I can find no documentation that insists that these matrices be
     //the same size, so I assume they aren't.
@@ -285,7 +275,8 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     
     lsst::afw::image::Wcs::Ptr wcsPtr = lsst::afw::image::Wcs::Ptr( new(lsst::afw::image::Wcs));
     *wcsPtr = lsst::afw::image::Wcs(crval, crpix, CD, sipA, sipB, sipAp, sipBp);
-    
+
+
     
     sip_free(sip);
     return wcsPtr;

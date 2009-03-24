@@ -283,7 +283,10 @@ def run(exit=False):
 
 
 #Create a globally accessible instance of a GAS
-gas = net.GlobalAstrometrySolution()
+policyFile=eups.productDir("astrometry_net_data")
+policyFile=os.path.join(policyFile, "astrometry_net_data.paf")
+
+gas = net.GlobalAstrometrySolution(policyFile)
 print "Loading indices..."
 indices=glob.glob( os.path.join(eups.productDir("astrometry_net_data"), "index-20*.fits") )
 gas.setLogLevel(2)
@@ -292,4 +295,6 @@ for f in indices:
     gas.addIndexFile(f)
  
 if __name__ == "__main__":
+    #print "Warning, tests turned off"
+    #return 0
     run(True)
