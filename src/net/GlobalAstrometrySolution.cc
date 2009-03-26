@@ -18,11 +18,21 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
     _solver   = solver_new();
     _starlist = NULL;
 
+    setDefaultValues();
+    
     lsst::pex::policy::Policy pol(policyPath);
     _equinox = pol.getDouble("equinox");
     _raDecSys = pol.getString("raDecSys");
+
+    std::string pkgDir = lsst::utils::eups::productDir("ASTROMETRY_NET_DATA");
+
+    std::vector<std::string> indexArray = pol.getStringArray("indexFile");
+    for(unsigned int i=0; i<indexArray.size(); ++i){
+        cout << "Adding index file: " << pkgDir+"/"+indexArray[i] << endl;
+        addIndexFile(pkgDir+"/"+indexArray[i]);
+    }
     
-    setDefaultValues();
+
 }
 
     
@@ -55,7 +65,6 @@ void GlobalAstrometrySolution::addIndexFile(const std::string path ///< Path of 
     int len = (int) path.length(); 
     char *fn = (char *) malloc((len+1)*sizeof(char));
     strncpy(fn, path.c_str(), len+1);
-
 
     //May have to add some error checking. add_index always returns zero regardless
     //of success or failure
@@ -237,7 +246,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     //Forward distortion terms. In the SIP notation, these matrices are referred to
     //as A and B. I can find no documentation that insists that these matrices be
     //the same size, so I assume they aren't.
-    int aSize = sip->a_order;
+    int aSize = sip->a_order+1;
     boost::numeric::ublas::matrix<double> sipA(aSize, aSize);
     for (int i=0; i<aSize; ++i){
         for (int j=0; j<aSize; ++j){
@@ -246,7 +255,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     }
 
     //Repeat for B
-    int bSize = sip->b_order;
+    int bSize = sip->b_order+1;
     boost::numeric::ublas::matrix<double> sipB(bSize, bSize);
     for (int i=0; i<bSize; ++i){
         for (int j=0; j<bSize; ++j){
@@ -255,7 +264,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     }
 
     //Repeat for Ap, for the reverse transform
-    int apSize = sip->ap_order;
+    int apSize = sip->ap_order+1;
     boost::numeric::ublas::matrix<double> sipAp(apSize, apSize);
     for (int i=0; i<apSize; ++i){
         for (int j=0; j<apSize; ++j){
@@ -264,7 +273,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     }
 
     //And finally, Bp, also part of the reverse transform
-    int bpSize = sip->bp_order;
+    int bpSize = sip->bp_order+1;
     boost::numeric::ublas::matrix<double> sipBp(bpSize, bpSize);
     for (int i=0; i<bpSize; ++i){
         for (int j=0; j<bpSize; ++j){
@@ -273,9 +282,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     }    
         
     
-    lsst::afw::image::Wcs::Ptr wcsPtr = lsst::afw::image::Wcs::Ptr( new(lsst::afw::image::Wcs));
-    *wcsPtr = lsst::afw::image::Wcs(crval, crpix, CD, sipA, sipB, sipAp, sipBp);
-
+    lsst::afw::image::Wcs::Ptr wcsPtr(new lsst::afw::image::Wcs(crval, crpix, CD, sipA, sipB, sipAp, sipBp, _equinox, _raDecSys));
 
     
     sip_free(sip);
@@ -306,9 +313,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs()  {
         }
     }
 
-    lsst::afw::image::Wcs::Ptr wcsPtr = lsst::afw::image::Wcs::Ptr( new(lsst::afw::image::Wcs));
-    *wcsPtr = lsst::afw::image::Wcs(crval, crpix, CD);
-    
+    lsst::afw::image::Wcs::Ptr wcsPtr(new lsst::afw::image::Wcs(crval, crpix, CD, _equinox, _raDecSys)); 
     return wcsPtr;
 }
 

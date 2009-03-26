@@ -263,6 +263,41 @@ class WCSTestCaseNet(unittest.TestCase):
                 #If we didn't get a match, that's a failure
                 self.assertEqual(flag, 1, "Failed to find a match")
 
+
+        def testWcsSinglePixelOffset(self):
+
+            mastrom = eups.productDir("meas_astrom")
+            imageFilename = "gd66.fits"
+            starlist = os.path.join(mastrom, "tests", "gd66.xy.txt")
+
+
+            #filename = eups.productDir("afwdata")
+            #filename = os.path.join(filename, "CFHT", "D4", imageFilename)
+            filename = os.path.join(mastrom, "tests", "gd66.fits")
+
+            starlist = loadXYFromFile(starlist)
+
+            #Get Wcs from image header
+            exposure = readExposure(filename)
+            origWcs = exposure.getWcs()
+
+            #Get Wcs from astrometry.net
+            gasWcs = gas.solve(starlist, origWcs)
+
+            #Pick an radec. The xy values corresponding to this radec should
+            #differ by sqrt(2) between the two wcs'. Also, the values for
+            #gasWcs should be larger in both axes
+            radec = afwImage.PointD(80.139800, +30.7864306)
+            origPix = origWcs.raDecToXY(radec)
+            gasPix = gasWcs.raDecToXY(radec)
+
+            
+            self.assertTrue(origPix.getX() <= gasPix.getX(), "GAS Wcs moved in wrong direction in X")
+            self.assertTrue(origPix.getY() <= gasPix.getY(), "GAS Wcs moved in wrong direction in Y")
+            
+            ds = origPix-gasPix
+            ds = math.hypot(ds.getX(), ds.getY() )
+            self.assertAlmostEqual(ds, Math.sqrt(2), 1, "Distance moved not 1 pixel")    
     
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -285,14 +320,7 @@ def run(exit=False):
 #Create a globally accessible instance of a GAS
 policyFile=eups.productDir("astrometry_net_data")
 policyFile=os.path.join(policyFile, "metadata.paf")
-
 gas = net.GlobalAstrometrySolution(policyFile)
-print "Loading indices..."
-indices=glob.glob( os.path.join(eups.productDir("astrometry_net_data"), "index-20*.fits") )
-gas.setLogLevel(2)
-for f in indices:
-    print f
-    gas.addIndexFile(f)
  
 if __name__ == "__main__":
     #print "Warning, tests turned off"

@@ -16,6 +16,7 @@
 #include "lsst/afw/image/Wcs.h"
 #include "lsst/afw/image/Utils.h"
 #include "lsst/pex/policy/Policy.h"
+#include "lsst/utils/Utils.h"
 
 #include "wcslib/wcs.h"
 
