@@ -101,7 +101,7 @@ int GlobalAstrometrySolution::parseConfigStream(FILE* fconf) {
 
 
 ///Set the image to be solved. The image is abstracted as a list of positions in pixel space
-///
+///Only sources with psfFlux > minFlux are added, and the number of sources added is returned.
 void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec ///<List of Sources
                                           ) {
     if (vec.empty()) {
@@ -122,30 +122,76 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
     int const size = vec.size();
     _starlist = starxy_new(size, true, false);   
 
-    //Need to add flux information to _starlist, and sort by it.
     int i=0;
     for (lsst::afw::detection::SourceSet::iterator ptr = vec.begin(); ptr != vec.end(); ++ptr) {
         
         double const x = (*ptr)->getXAstrom();
         double const y = (*ptr)->getYAstrom();
         double const flux= (*ptr)->getPsfFlux();
-        
+
         starxy_set(_starlist, i, x, y);
         //There's no function to set the flux, so do it explicitly.
-        //This would be a good improvement for the code
+        //This would be a good improvement for the astrometry.net code
         _starlist->flux[i] = flux;
         ++i;
     }
-    
+
     //Now sort the list and add to the solver
-    //starxy_sort_by_flux(_starlist);
+    starxy_sort_by_flux(_starlist);
     solver_set_field(_solver, _starlist);
 
     //Find field boundaries and precompute kdtree
     solver_preprocess_field(_solver);
+
 }
 
 
+///Reducing the number of sources in the solution list can reduce the time taken to solve the image    
+double GlobalAstrometrySolution::onlyUseBrightestNObjects(const int N) {
+
+    if (_solver->fieldxy == NULL) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No field set yet."));
+    }
+
+    if (N <= 0) {
+        throw(LSST_EXCEPT(Except::RangeErrorException, "Illegal request. N must be greater than zero"));
+    }
+        
+    if (N > _starlist->N) {
+        throw(LSST_EXCEPT(Except::RangeErrorException, "Request exceeds number of available sources"));
+    }
+
+//    if(_starlist != NULL){
+//        starxy_free(_starlist);
+//    }
+        
+    //Create a new starlist structure, and copy the first N stars across. Remember, ->fieldxy is sorted, so
+    //the first N terms are the brightest N sources
+    starxy_t *shortlist = starxy_new(N, true, true); 
+    for(int i=0; i<N; ++i) {
+        double x = starxy_getx(_solver->fieldxy, i);
+        double y = starxy_gety(_solver->fieldxy, i);
+        double f = _solver->fieldxy->flux[i];   //flux has no accessor function
+
+        starxy_setx(shortlist, i, x);
+        starxy_sety(shortlist, i, y);
+        shortlist->flux[i] = f;
+    }
+
+    //Free the old structure stored in the solver
+    starxy_free(_solver->fieldxy);
+    _starlist = NULL;
+
+    //Add the new, smaller struture
+    solver_set_field(_solver, shortlist);
+    
+    //Find field boundaries and precompute kdtree
+    solver_preprocess_field(_solver);
+
+    //Return the flux of the faintest object
+    return _solver->fieldxy->flux[N-1];
+}
+    
 //
 // Accessors
 //
@@ -402,7 +448,7 @@ void GlobalAstrometrySolution::printStarlist() {
     for(int i=0; i<max; ++i){
         const double x = starxy_getx(_solver->fieldxy, i);
         const double y = starxy_gety(_solver->fieldxy, i);
-        cout << x << " " << y << endl;
+        cout << x << " " << y << " " << _solver->fieldxy->flux[i] << endl;
     }
 }
 
@@ -420,11 +466,16 @@ void GlobalAstrometrySolution::allowDistortion(bool distort) {
 ///Reset the objet so it's ready to match another field, but leave the backend alone because
 ///it doesn't need to be reset, and it is expensive to do so.
 void GlobalAstrometrySolution::reset() {
-    starxy_free(_starlist);
-    _starlist=NULL;
+    if(_starlist != NULL) {
+        starxy_free(_starlist);
+        _starlist=NULL;
+    }
 
-    solver_free(_solver);
-    _solver = solver_new();
+    if(_solver != NULL) {
+        solver_free(_solver);
+        _solver = solver_new();
+    }
+    
     //I should probably be smarter than this and remember the actual values of
     //the settings instead of just resetting the defaults
     setDefaultValues();
@@ -441,11 +492,6 @@ void GlobalAstrometrySolution::setDefaultValues() {
     //These values still exceed anything you'll find in a real image
     setMinimumImageScale(1e-6);
     setMaximumImageScale(3600*360);  //2pi radians per pixel
-
-    //A typical image will have thousands of stars, but a match will proceed satisfactorily
-    //with only the brightest subset. The number below is arbitary, but seems to work.
-    _solver->startobj=0;
-    setNumberStars(50);
 
     //Do we allow the solver to assume the image may have some distortion in it?
     allowDistortion(true);
@@ -542,7 +588,7 @@ bool GlobalAstrometrySolution::solve() {
     if( _solver->funits_lower >= _solver->funits_upper) {
         throw(LSST_EXCEPT(Except::DomainErrorException, "Minimum image scale must be strictly less than max scale"));
     }
-    
+
     //Move all the indices from the backend structure to the solver structure.
     int size=pl_size(_backend->indexes);
     for(int i=0; i<size; ++i){
@@ -593,6 +639,7 @@ bool GlobalAstrometrySolution::solve(const double ra, const double dec   ///<Rig
         unitVector[i] = xyz[i];
     }
 
+      
     loadNearbyIndices(unitVector);
     solver_run( _solver);
 

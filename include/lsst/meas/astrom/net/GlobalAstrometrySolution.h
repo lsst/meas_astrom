@@ -64,6 +64,8 @@ public:
     int parseConfigFile(const std::string filename);        
     int parseConfigStream(FILE* fconf);                     
     void setStarlist(lsst::afw::detection::SourceSet vec);
+    double onlyUseBrightestNObjects(const int N);
+    //int  onlyUseObjectsBrighterThan(const double minFlux);
 
 
     //Accessors
@@ -96,10 +98,6 @@ public:
     inline void setMinimumImageScale(double scale){   _solver->funits_lower=scale;}
     inline void setMaximumImageScale(double scale){   _solver->funits_upper=scale;}
     
-    ///Set the maximum number of stars to pass to the solver. Fewer stars means a faster
-    ///solution, more stars means a greater chance of finding a match. In practice, 50
-    ///is a good number to choose
-    inline void setNumberStars(const int num)  {    _solver->endobj = num;}
 
     ///Set the scale (in pixels) of the smallest quad (group of 4 stars) to match
     ///against the database. You don't ususually need to use this function, but it
