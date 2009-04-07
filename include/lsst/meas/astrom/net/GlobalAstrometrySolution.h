@@ -120,7 +120,6 @@ public:
 private:
     backend_t *_backend;
     solver_t *_solver;
-    starxy_t *_starlist;
 
     //Variables indicating the coordinate system of the solution
     double _equinox;

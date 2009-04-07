@@ -16,7 +16,6 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
  
     _backend  = backend_new();
     _solver   = solver_new();
-    _starlist = NULL;
 
     setDefaultValues();
     
@@ -40,15 +39,16 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
 // Destructor
 //
 GlobalAstrometrySolution::~GlobalAstrometrySolution() {
-    backend_free(_backend);
+
+    if( _backend != NULL) {
+        backend_free(_backend);
+        _backend = NULL;
+    }
+    
     if(_solver != NULL){
         solver_free(_solver);
+        _solver = NULL;
     }
-
-    if(_starlist != NULL){
-        starxy_free(_starlist);
-    }
-
 }
 
 
@@ -114,13 +114,8 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
         throw(LSST_EXCEPT(Except::LengthErrorException, "Src list should contain at least 20 objects"));
     }
     
-    //If this value was previously set, free the memory before reassigning.
-    if(_starlist != NULL) {
-        starxy_free(_starlist);
-    }
-
     int const size = vec.size();
-    _starlist = starxy_new(size, true, false);   
+    starxy_t *starlist = starxy_new(size, true, false);   
 
     int i=0;
     for (lsst::afw::detection::SourceSet::iterator ptr = vec.begin(); ptr != vec.end(); ++ptr) {
@@ -129,20 +124,23 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
         double const y = (*ptr)->getYAstrom();
         double const flux= (*ptr)->getPsfFlux();
 
-        starxy_set(_starlist, i, x, y);
+        starxy_set(starlist, i, x, y);
         //There's no function to set the flux, so do it explicitly.
         //This would be a good improvement for the astrometry.net code
-        _starlist->flux[i] = flux;
+        starlist->flux[i] = flux;
         ++i;
     }
 
-    //Now sort the list and add to the solver
-    starxy_sort_by_flux(_starlist);
-    solver_set_field(_solver, _starlist);
+    //Now sort the list and add to the solver, freeing any previously assigned lists if necessary
+    //Sorting is necessary so that the user can later select only the brightest stars from this list
+    starxy_sort_by_flux(starlist);
+    if( _solver->fieldxy != NULL) {
+        starxy_free(_solver->fieldxy);
+    }
+    solver_set_field(_solver, starlist);
 
     //Find field boundaries and precompute kdtree
     solver_preprocess_field(_solver);
-
 }
 
 
@@ -157,14 +155,10 @@ double GlobalAstrometrySolution::onlyUseBrightestNObjects(const int N) {
         throw(LSST_EXCEPT(Except::RangeErrorException, "Illegal request. N must be greater than zero"));
     }
         
-    if (N > _starlist->N) {
+    if (N > starxy_n(_solver->fieldxy) ) {
         throw(LSST_EXCEPT(Except::RangeErrorException, "Request exceeds number of available sources"));
     }
 
-//    if(_starlist != NULL){
-//        starxy_free(_starlist);
-//    }
-        
     //Create a new starlist structure, and copy the first N stars across. Remember, ->fieldxy is sorted, so
     //the first N terms are the brightest N sources
     starxy_t *shortlist = starxy_new(N, true, true); 
@@ -180,7 +174,6 @@ double GlobalAstrometrySolution::onlyUseBrightestNObjects(const int N) {
 
     //Free the old structure stored in the solver
     starxy_free(_solver->fieldxy);
-    _starlist = NULL;
 
     //Add the new, smaller struture
     solver_set_field(_solver, shortlist);
@@ -258,7 +251,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     bool weighted = true;
     int skip_shift = true;
 
-    sip_t *sip = tweak_just_do_it(&_solver->best_match.wcstan, _starlist, 
+    sip_t *sip = tweak_just_do_it(&_solver->best_match.wcstan, _solver->fieldxy, 
                                   NULL,
                                   NULL, NULL,
                                   radec,
@@ -466,10 +459,6 @@ void GlobalAstrometrySolution::allowDistortion(bool distort) {
 ///Reset the objet so it's ready to match another field, but leave the backend alone because
 ///it doesn't need to be reset, and it is expensive to do so.
 void GlobalAstrometrySolution::reset() {
-    if(_starlist != NULL) {
-        starxy_free(_starlist);
-        _starlist=NULL;
-    }
 
     if(_solver != NULL) {
         solver_free(_solver);
