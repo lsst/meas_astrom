@@ -64,8 +64,6 @@ public:
     int parseConfigFile(const std::string filename);        
     int parseConfigStream(FILE* fconf);                     
     void setStarlist(lsst::afw::detection::SourceSet vec);
-    double onlyUseBrightestNObjects(const int N);
-    //int  onlyUseObjectsBrighterThan(const double minFlux);
 
 
     //Accessors
@@ -97,6 +95,7 @@ public:
     ///Note than minimum image scale should be strictly less than Maximum scale
     inline void setMinimumImageScale(double scale){   _solver->funits_lower=scale;}
     inline void setMaximumImageScale(double scale){   _solver->funits_upper=scale;}
+    void setNumBrightObjects(const int N);
     
 
     ///Set the scale (in pixels) of the smallest quad (group of 4 stars) to match
@@ -120,6 +119,9 @@ public:
 private:
     backend_t *_backend;
     solver_t *_solver;
+    starxy_t *_starxy;   ///List of sources to solve for
+    int _numBrightObjects;   //Only use the brightest objects in solve.
+    
 
     //Variables indicating the coordinate system of the solution
     double _equinox;
@@ -127,6 +129,7 @@ private:
     
     sip_t *convertWcsToSipt(const lsst::afw::image::Wcs::Ptr);
     void loadNearbyIndices(std::vector<double> unitVector);
+    void solverSetField();
 };
 
 }}}}

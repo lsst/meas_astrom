@@ -12,7 +12,9 @@ namespace lsst { namespace meas { namespace astrom { namespace net {
 // Constructors
 //
 
-GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath) {
+GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath) :
+    _backend(NULL), _solver(NULL), _starxy(NULL), _numBrightObjects(-1)
+{
  
     _backend  = backend_new();
     _solver   = solver_new();
@@ -115,7 +117,10 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
     }
     
     int const size = vec.size();
-    starxy_t *starlist = starxy_new(size, true, false);   
+    if(_starxy != NULL) {
+        starxy_free(_starxy);
+    }
+    _starxy = starxy_new(size, true, false);   
 
     int i=0;
     for (lsst::afw::detection::SourceSet::iterator ptr = vec.begin(); ptr != vec.end(); ++ptr) {
@@ -124,65 +129,15 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
         double const y = (*ptr)->getYAstrom();
         double const flux= (*ptr)->getPsfFlux();
 
-        starxy_set(starlist, i, x, y);
+        starxy_set(_starxy, i, x, y);
         //There's no function to set the flux, so do it explicitly.
         //This would be a good improvement for the astrometry.net code
-        starlist->flux[i] = flux;
+        _starxy->flux[i] = flux;
         ++i;
     }
 
-    //Now sort the list and add to the solver, freeing any previously assigned lists if necessary
-    //Sorting is necessary so that the user can later select only the brightest stars from this list
-    starxy_sort_by_flux(starlist);
-    if( _solver->fieldxy != NULL) {
-        starxy_free(_solver->fieldxy);
-    }
-    solver_set_field(_solver, starlist);
-
-    //Find field boundaries and precompute kdtree
-    solver_preprocess_field(_solver);
-}
-
-
-///Reducing the number of sources in the solution list can reduce the time taken to solve the image    
-double GlobalAstrometrySolution::onlyUseBrightestNObjects(const int N) {
-
-    if (_solver->fieldxy == NULL) {
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No field set yet."));
-    }
-
-    if (N <= 0) {
-        throw(LSST_EXCEPT(Except::RangeErrorException, "Illegal request. N must be greater than zero"));
-    }
-        
-    if (N > starxy_n(_solver->fieldxy) ) {
-        throw(LSST_EXCEPT(Except::RangeErrorException, "Request exceeds number of available sources"));
-    }
-
-    //Create a new starlist structure, and copy the first N stars across. Remember, ->fieldxy is sorted, so
-    //the first N terms are the brightest N sources
-    starxy_t *shortlist = starxy_new(N, true, true); 
-    for(int i=0; i<N; ++i) {
-        double x = starxy_getx(_solver->fieldxy, i);
-        double y = starxy_gety(_solver->fieldxy, i);
-        double f = _solver->fieldxy->flux[i];   //flux has no accessor function
-
-        starxy_setx(shortlist, i, x);
-        starxy_sety(shortlist, i, y);
-        shortlist->flux[i] = f;
-    }
-
-    //Free the old structure stored in the solver
-    starxy_free(_solver->fieldxy);
-
-    //Add the new, smaller struture
-    solver_set_field(_solver, shortlist);
-    
-    //Find field boundaries and precompute kdtree
-    solver_preprocess_field(_solver);
-
-    //Return the flux of the faintest object
-    return _solver->fieldxy->flux[N-1];
+    //Sort the array
+    starxy_sort_by_flux(_starxy);
 }
     
 //
@@ -228,7 +183,11 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
         throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
     }
 
-    //Generate an array of radec of positions in the field
+    if(! _starxy){
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist isn't set"));
+    }
+
+        //Generate an array of radec of positions in the field
 
     //radius of bounding circle of healpix of best match
     double radius = _solver->best_match.radius;
@@ -464,7 +423,14 @@ void GlobalAstrometrySolution::reset() {
         solver_free(_solver);
         _solver = solver_new();
     }
-    
+
+    if(_starxy != NULL) {
+        starxy_free(_starxy);
+        _starxy= NULL;
+    }
+
+    _numBrightObjects = -1;
+        
     //I should probably be smarter than this and remember the actual values of
     //the settings instead of just resetting the defaults
     setDefaultValues();
@@ -502,7 +468,28 @@ void GlobalAstrometrySolution::setDefaultValues() {
 
     setParity(UNKNOWN_PARITY);
 }
+
+///\brief Only find a solution using the brightest N objects
+///Reducing the number of sources in the solution list can reduce the time taken to solve the image
+///The truncated list is used by solve() to get the linear wcs, but all input sources are used when
+///calculating the distortion terms of the SIP matrix.    
+void GlobalAstrometrySolution::setNumBrightObjects(const int N) {
+
+    if (_starxy == NULL) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No field set yet."));
+    }
+
+    if (N <= 0) {
+        throw(LSST_EXCEPT(Except::RangeErrorException, "Illegal request. N must be greater than zero"));
+    }
         
+    if (N > starxy_n(_starxy) ) {
+        throw(LSST_EXCEPT(Except::RangeErrorException, "Request exceeds number of available sources"));
+    }
+
+    _numBrightObjects = N;
+}
+    
        
 ///Set the plate scale of the image in arcsec per pixel
 void GlobalAstrometrySolution::setImageScaleArcsecPerPixel(double scale ///< Plate scale of image
@@ -562,7 +549,7 @@ void GlobalAstrometrySolution::setParity(const int parity){
 bool GlobalAstrometrySolution::solve() {
 
     //Throw exceptions if setup is incorrect
-    if ( ! _solver->fieldxy) {
+    if ( ! _starxy) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
     }
     
@@ -585,6 +572,9 @@ bool GlobalAstrometrySolution::solve() {
         solver_add_index(_solver, index);
     }
 
+    //Copies the brightest N objects from _starxy into _solver
+    solverSetField();
+    
     solver_run( _solver);
 
     return(_solver->best_match_solves);
@@ -599,12 +589,13 @@ bool GlobalAstrometrySolution::solve(const afw::image::PointD raDec   ///<Right 
     return solve(raDec[0], raDec[1]);
 }
     
-///Find a solution with an initial guess at the position    
+///Find a solution with an initial guess at the position.
+//Although the interface is the same as solve() it's actually quite a different function
 bool GlobalAstrometrySolution::solve(const double ra, const double dec   ///<Right ascension/declination
                                                ///in decimal degrees
                                           )  {    
     //Throw exceptions if setup is incorrect
-    if ( ! _solver->fieldxy) {
+    if ( ! _starxy) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
     }
     
@@ -628,7 +619,7 @@ bool GlobalAstrometrySolution::solve(const double ra, const double dec   ///<Rig
         unitVector[i] = xyz[i];
     }
 
-      
+    solverSetField();      
     loadNearbyIndices(unitVector);
     solver_run( _solver);
 
@@ -648,11 +639,13 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr, co
     //Rename the variable to something shorter to make the code easier to read
     double unc = imageScaleUncertaintyPercent/100.;
 
-    //Find the centre of the image
-    //test that a field has been assigned
-    if ( ! _solver->fieldxy) {
+    //This test is strictly unecessary as solverSetField throws the same exception
+    if ( ! _starxy) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
     }
+
+    solverSetField();
+    
     double xc = (_solver->field_maxx + _solver->field_minx)/2.0;
     double yc = (_solver->field_maxy + _solver->field_miny)/2.0;
 
@@ -781,6 +774,12 @@ sip_t* GlobalAstrometrySolution::convertWcsToSipt(const lsst::afw::image::Wcs::P
     if(unitVector.size() != 3){
         throw(LSST_EXCEPT(Except::LengthErrorException, "Input vector should have exactly 3 elements") );
     }
+
+    //This function should be called after solverSetField()
+    if ( ! _solver->fieldxy) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "_solver->fieldxy hasn't been set yet"));
+    }
+    
     
     //Translate the vector into a C array that astrometry.net can understand
     double xyz[3];
@@ -789,19 +788,8 @@ sip_t* GlobalAstrometrySolution::convertWcsToSipt(const lsst::afw::image::Wcs::P
     xyz[2] = unitVector[2];
     
     //Don't look at very small quads    
-    //FIXME: use _solver->field_max[x,y] instead of recomputing
-    double x1,x2, y1, y2;
-    x1 = x2 = _solver->fieldxy->x[0];
-    y1 = y2 = _solver->fieldxy->y[0];    
-    for(int i=0; i< _solver->fieldxy->N; ++i){
-        x1 = MIN(x1, _solver->fieldxy->x[i]);
-        x2 = MAX(x2, _solver->fieldxy->x[i]);
-
-        y1 = MIN(y1, _solver->fieldxy->y[i]);
-        y2 = MAX(y2, _solver->fieldxy->y[i]);
-    }
-    double xSize = x2-x1;
-    double ySize = y2-y1;
+    double xSize = _solver->field_maxx - _solver->field_minx;
+    double ySize = _solver->field_maxy - _solver->field_miny;
     setMinQuadScale(0.1*MIN(xSize, ySize));
 
     //What is the largest size we'll want to look at.
@@ -836,6 +824,43 @@ sip_t* GlobalAstrometrySolution::convertWcsToSipt(const lsst::afw::image::Wcs::P
 }    
 
 
+void GlobalAstrometrySolution::solverSetField() {
 
+    if ( ! _starxy) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
+    }
+
+    if( starxy_n(_starxy) == 0){
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist has zero elements"));
+    }
+        
+
+    //The default value, -1, indicates that all objects should be used
+    if (_numBrightObjects == -1) {
+        _numBrightObjects = starxy_n(_starxy);
+    }
+
+    int N = _numBrightObjects;  //Because I'm a lazy typist
+    starxy_t *shortlist = starxy_new(N, true, true);
+    for(int i=0; i<N; ++i) {
+        double x = starxy_getx(_starxy, i);
+        double y = starxy_gety(_starxy, i);
+        double f = _starxy->flux[i];   //flux has no accessor function
+
+        starxy_setx(shortlist, i, x);
+        starxy_sety(shortlist, i, y);
+        shortlist->flux[i] = f;
+    }
+
+    //Free the old structure stored in the solver, if necessary
+    starxy_free(_solver->fieldxy);
+
+    //Add the new, smaller, struture
+    solver_set_field(_solver, shortlist);
+
+    //Find field boundaries and precompute kdtree
+    solver_preprocess_field(_solver);
+
+}   
 
 }}}}
