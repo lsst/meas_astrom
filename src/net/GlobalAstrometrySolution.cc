@@ -187,7 +187,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist isn't set"));
     }
 
-        //Generate an array of radec of positions in the field
+    //Generate an array of radec of positions in the field
 
     //radius of bounding circle of healpix of best match
     double radius = _solver->best_match.radius;
@@ -204,13 +204,21 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     startree_search(_solver->index->starkd, center, radius2, NULL, &radec, &nstars);
 
     //Call the tweaking algorthim to generate the distortion coeffecients
-    double jitter_arcsec=1.0;
+    double jitter_arcsec=.05;
     int inverse_order = order;
-    int iterations = 5;        //Taken from blind.c:628
+    int iterations = 5;        //blind.c:628 uses 5
     bool weighted = true;
     int skip_shift = true;
 
-    sip_t *sip = tweak_just_do_it(&_solver->best_match.wcstan, _solver->fieldxy, 
+#if 0
+    //Debugging code. Move all the positions to the right some and see
+    //what happends
+    for(int i=0; i< starxy_n(_starxy); ++i) {
+        _starxy->x[i] += 10;
+    }
+#endif    
+    
+    sip_t *sip = tweak_just_do_it(&_solver->best_match.wcstan, _starxy, 
                                   NULL,
                                   NULL, NULL,
                                   radec,
