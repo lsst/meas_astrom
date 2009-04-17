@@ -15,6 +15,9 @@
 #include "lsst/afw/detection/Source.h"
 #include "lsst/afw/image/Wcs.h"
 #include "lsst/afw/image/Utils.h"
+#include "lsst/pex/policy/Policy.h"
+#include "lsst/utils/Utils.h"
+
 #include "wcslib/wcs.h"
 
 namespace lsst { namespace meas { namespace astrom { namespace net {
@@ -51,9 +54,7 @@ public:
     typedef boost::shared_ptr<GlobalAstrometrySolution const> ConstPtr;
 
     //Constructors
-    GlobalAstrometrySolution();
-    GlobalAstrometrySolution(lsst::afw::detection::SourceSet vec);
-
+    GlobalAstrometrySolution(const std::string policyPath);
     
     //Destructor
     ~GlobalAstrometrySolution();
@@ -121,10 +122,16 @@ public:
 private:
     backend_t *_backend;
     solver_t *_solver;
-    starxy_t *_starlist;
+    starxy_t *_starxy;   ///List of sources to solve for
+    int _numBrightObjects;   //Only use the brightest objects in solve.
+    
+    //Variables indicating the coordinate system of the solution
+    double _equinox;
+    std::string _raDecSys;
     
     sip_t *convertWcsToSipt(const lsst::afw::image::Wcs::Ptr);
     void loadNearbyIndices(std::vector<double> unitVector);
+    void solverSetField();
 };
 
 }}}}

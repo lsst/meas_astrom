@@ -17,10 +17,9 @@ try:
 except NameError:
     verbose = 0
 
-if False:
-    dataDir = eups.productDir("afwdata")
-    if not dataDir:
-        raise RuntimeError("Must set up afwdata to run these tests")
+dataDir = eups.productDir("astrometry_net_data")
+if not dataDir:
+    raise RuntimeError("Must set up afwdata to run these tests")
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 def loadXYFromFile(filename):
@@ -100,6 +99,8 @@ class WCSTestCaseNet(unittest.TestCase):
         if flag:
             #Test xy->radec
             radec = gas.xyToRaDec(crpix.getX(), crpix.getY())
+            print radec
+            print crval
             self.assertAlmostEqual(radec.getX(), crval.getX(), 6, "Ra doesn't match")
             self.assertAlmostEqual(radec.getY(), crval.getY(), 6, "Dec doesn't match")
 
@@ -141,7 +142,6 @@ class WCSTestCaseNet(unittest.TestCase):
             self.assertAlmostEqual(crval.getY(), radec.getY(), 6, "Dec doesn't match")
         else:
             self.assertEqual(flag, 1, "Failed to find a match")
-        
         gas.reset()
         
     def testSolveGD66(self):
@@ -263,6 +263,41 @@ class WCSTestCaseNet(unittest.TestCase):
                 #If we didn't get a match, that's a failure
                 self.assertEqual(flag, 1, "Failed to find a match")
 
+
+        def testWcsSinglePixelOffset(self):
+
+            mastrom = eups.productDir("meas_astrom")
+            imageFilename = "gd66.fits"
+            starlist = os.path.join(mastrom, "tests", "gd66.xy.txt")
+
+
+            #filename = eups.productDir("afwdata")
+            #filename = os.path.join(filename, "CFHT", "D4", imageFilename)
+            filename = os.path.join(mastrom, "tests", "gd66.fits")
+
+            starlist = loadXYFromFile(starlist)
+
+            #Get Wcs from image header
+            exposure = readExposure(filename)
+            origWcs = exposure.getWcs()
+
+            #Get Wcs from astrometry.net
+            gasWcs = gas.solve(starlist, origWcs)
+
+            #Pick an radec. The xy values corresponding to this radec should
+            #differ by sqrt(2) between the two wcs'. Also, the values for
+            #gasWcs should be larger in both axes
+            radec = afwImage.PointD(80.139800, +30.7864306)
+            origPix = origWcs.raDecToXY(radec)
+            gasPix = gasWcs.raDecToXY(radec)
+
+            
+            self.assertTrue(origPix.getX() <= gasPix.getX(), "GAS Wcs moved in wrong direction in X")
+            self.assertTrue(origPix.getY() <= gasPix.getY(), "GAS Wcs moved in wrong direction in Y")
+            
+            ds = origPix-gasPix
+            ds = math.hypot(ds.getX(), ds.getY() )
+            self.assertAlmostEqual(ds, Math.sqrt(2), 1, "Distance moved not 1 pixel")    
     
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -283,13 +318,12 @@ def run(exit=False):
 
 
 #Create a globally accessible instance of a GAS
-gas = net.GlobalAstrometrySolution()
-print "Loading indices..."
-indices=glob.glob( os.path.join(eups.productDir("astrometry_net_data"), "index-20*.fits") )
-gas.setLogLevel(2)
-for f in indices:
-    print f
-    gas.addIndexFile(f)
+#policyFile=eups.productDir("astrometry_net_data")
+policyFile="."
+policyFile=os.path.join(policyFile, "metadata.paf")
+gas = net.GlobalAstrometrySolution(policyFile)
  
 if __name__ == "__main__":
+    #print "Warning, tests turned off"
+    #return 0
     run(True)

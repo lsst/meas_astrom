@@ -12,44 +12,43 @@ namespace lsst { namespace meas { namespace astrom { namespace net {
 // Constructors
 //
 
-GlobalAstrometrySolution::GlobalAstrometrySolution() {
+GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath) :
+    _backend(NULL), _solver(NULL), _starxy(NULL), _numBrightObjects(-1)
+{
  
     _backend  = backend_new();
     _solver   = solver_new();
-    _starlist = NULL;
-
-    setDefaultValues();
-}
-
-    
-GlobalAstrometrySolution::GlobalAstrometrySolution(lsst::afw::detection::SourceSet vec ///< Points indicating pixel
-                                                                                          ///<coords of detected
-                                                                                          /// objects
-                                                  ){
-    _backend  = backend_new();
-    _solver   = solver_new();
-    _starlist = NULL;
 
     setDefaultValues();
     
-    setStarlist(vec);
+    lsst::pex::policy::Policy pol(policyPath);
+    _equinox = pol.getDouble("equinox");
+    _raDecSys = pol.getString("raDecSys");
+
+    std::string pkgDir = lsst::utils::eups::productDir("ASTROMETRY_NET_DATA");
+
+    std::vector<std::string> indexArray = pol.getStringArray("indexFile");
+    for(unsigned int i=0; i<indexArray.size(); ++i){
+        cout << "Adding index file: " << pkgDir+"/"+indexArray[i] << endl;
+        addIndexFile(pkgDir+"/"+indexArray[i]);
+    }
 }
 
-
-
+    
 //
 // Destructor
 //
 GlobalAstrometrySolution::~GlobalAstrometrySolution() {
-    backend_free(_backend);
+
+    if( _backend != NULL) {
+        backend_free(_backend);
+        _backend = NULL;
+    }
+    
     if(_solver != NULL){
         solver_free(_solver);
+        _solver = NULL;
     }
-
-    if(_starlist != NULL){
-        starxy_free(_starlist);
-    }
-
 }
 
 
@@ -66,7 +65,6 @@ void GlobalAstrometrySolution::addIndexFile(const std::string path ///< Path of 
     int len = (int) path.length(); 
     char *fn = (char *) malloc((len+1)*sizeof(char));
     strncpy(fn, path.c_str(), len+1);
-
 
     //May have to add some error checking. add_index always returns zero regardless
     //of success or failure
@@ -103,7 +101,7 @@ int GlobalAstrometrySolution::parseConfigStream(FILE* fconf) {
 
 
 ///Set the image to be solved. The image is abstracted as a list of positions in pixel space
-///
+///Only sources with psfFlux > minFlux are added, and the number of sources added is returned.
 void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec ///<List of Sources
                                           ) {
     if (vec.empty()) {
@@ -116,38 +114,30 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
         throw(LSST_EXCEPT(Except::LengthErrorException, "Src list should contain at least 20 objects"));
     }
     
-    //If this value was previously set, free the memory before reassigning.
-    if(_starlist != NULL) {
-        starxy_free(_starlist);
-    }
-
     int const size = vec.size();
-    _starlist = starxy_new(size, true, false);   
+    if(_starxy != NULL) {
+        starxy_free(_starxy);
+    }
+    _starxy = starxy_new(size, true, false);   
 
-    //Need to add flux information to _starlist, and sort by it.
     int i=0;
     for (lsst::afw::detection::SourceSet::iterator ptr = vec.begin(); ptr != vec.end(); ++ptr) {
         
         double const x = (*ptr)->getXAstrom();
         double const y = (*ptr)->getYAstrom();
         double const flux= (*ptr)->getPsfFlux();
-        
-        starxy_set(_starlist, i, x, y);
+
+        starxy_set(_starxy, i, x, y);
         //There's no function to set the flux, so do it explicitly.
-        //This would be a good improvement for the code
-        _starlist->flux[i] = flux;
+        //This would be a good improvement for the astrometry.net code
+        _starxy->flux[i] = flux;
         ++i;
     }
-    
-    //Now sort the list and add to the solver
-    //starxy_sort_by_flux(_starlist);
-    solver_set_field(_solver, _starlist);
 
-    //Find field boundaries and precompute kdtree
-    solver_preprocess_field(_solver);
+    //Sort the array
+    starxy_sort_by_flux(_starxy);
 }
-
-
+    
 //
 // Accessors
 //
@@ -191,6 +181,10 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
         throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
     }
 
+    if(! _starxy){
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist isn't set"));
+    }
+
     //Generate an array of radec of positions in the field
 
     //radius of bounding circle of healpix of best match
@@ -208,13 +202,21 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     startree_search(_solver->index->starkd, center, radius2, NULL, &radec, &nstars);
 
     //Call the tweaking algorthim to generate the distortion coeffecients
-    double jitter_arcsec=1.0;
+    double jitter_arcsec=.05;
     int inverse_order = order;
-    int iterations = 5;        //Taken from blind.c:628
+    int iterations = 5;        //blind.c:628 uses 5
     bool weighted = true;
     int skip_shift = true;
 
-    sip_t *sip = tweak_just_do_it(&_solver->best_match.wcstan, _starlist, 
+#if 0
+    //Debugging code. Move all the positions to the right some and see
+    //what happends
+    for(int i=0; i< starxy_n(_starxy); ++i) {
+        _starxy->x[i] += 10;
+    }
+#endif    
+    
+    sip_t *sip = tweak_just_do_it(&_solver->best_match.wcstan, _starxy, 
                                   NULL,
                                   NULL, NULL,
                                   radec,
@@ -228,9 +230,10 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
         throw(LSST_EXCEPT(Except::RuntimeErrorException,"Tweaking failed"));
     }
 
-    
-    lsst::afw::image::PointD crpix(sip->wcstan.crpix[0],
-                                   sip->wcstan.crpix[1]);
+    ///Astro.net conforms with wcslib in assuming that images are 1-indexed (i.e the bottom left-most pixel
+    ///is (1,1). LSST is zero indexed, so we add 1 to the crpix values returned by _solver to convert
+    lsst::afw::image::PointD crpix(sip->wcstan.crpix[0]+1,
+                                   sip->wcstan.crpix[1]+1);
     lsst::afw::image::PointD crval(sip->wcstan.crval[0],
                                    sip->wcstan.crval[1]);
 
@@ -243,10 +246,11 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
         }
     }
 
+
     //Forward distortion terms. In the SIP notation, these matrices are referred to
     //as A and B. I can find no documentation that insists that these matrices be
     //the same size, so I assume they aren't.
-    int aSize = sip->a_order;
+    int aSize = sip->a_order+1;
     boost::numeric::ublas::matrix<double> sipA(aSize, aSize);
     for (int i=0; i<aSize; ++i){
         for (int j=0; j<aSize; ++j){
@@ -255,7 +259,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     }
 
     //Repeat for B
-    int bSize = sip->b_order;
+    int bSize = sip->b_order+1;
     boost::numeric::ublas::matrix<double> sipB(bSize, bSize);
     for (int i=0; i<bSize; ++i){
         for (int j=0; j<bSize; ++j){
@@ -264,7 +268,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     }
 
     //Repeat for Ap, for the reverse transform
-    int apSize = sip->ap_order;
+    int apSize = sip->ap_order+1;
     boost::numeric::ublas::matrix<double> sipAp(apSize, apSize);
     for (int i=0; i<apSize; ++i){
         for (int j=0; j<apSize; ++j){
@@ -273,7 +277,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     }
 
     //And finally, Bp, also part of the reverse transform
-    int bpSize = sip->bp_order;
+    int bpSize = sip->bp_order+1;
     boost::numeric::ublas::matrix<double> sipBp(bpSize, bpSize);
     for (int i=0; i<bpSize; ++i){
         for (int j=0; j<bpSize; ++j){
@@ -282,9 +286,8 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     }    
         
     
-    lsst::afw::image::Wcs::Ptr wcsPtr = lsst::afw::image::Wcs::Ptr( new(lsst::afw::image::Wcs));
-    *wcsPtr = lsst::afw::image::Wcs(crval, crpix, CD, sipA, sipB, sipAp, sipBp);
-    
+    lsst::afw::image::Wcs::Ptr wcsPtr(new lsst::afw::image::Wcs(crval, crpix, CD, sipA, sipB, sipAp, sipBp, _equinox, _raDecSys));
+
     
     sip_free(sip);
     return wcsPtr;
@@ -298,9 +301,11 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs()  {
     if (! _solver->best_match_solves) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
     }
-    
-    lsst::afw::image::PointD crpix(_solver->best_match.wcstan.crpix[0],
-                                   _solver->best_match.wcstan.crpix[1]);
+
+    ///Astro.net conforms with wcslib in assuming that images are 1-indexed (i.e the bottom left-most pixel
+    ///is (1,1). LSST is zero indexed, so we add 1 to the crpix values returned by _solver to convert
+    lsst::afw::image::PointD crpix(_solver->best_match.wcstan.crpix[0]+1,
+                                   _solver->best_match.wcstan.crpix[1]+1);   
     lsst::afw::image::PointD crval(_solver->best_match.wcstan.crval[0],
                                    _solver->best_match.wcstan.crval[1]);
     
@@ -312,9 +317,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs()  {
         }
     }
 
-    lsst::afw::image::Wcs::Ptr wcsPtr = lsst::afw::image::Wcs::Ptr( new(lsst::afw::image::Wcs));
-    *wcsPtr = lsst::afw::image::Wcs(crval, crpix, CD);
-    
+    lsst::afw::image::Wcs::Ptr wcsPtr(new lsst::afw::image::Wcs(crval, crpix, CD, _equinox, _raDecSys)); 
     return wcsPtr;
 }
 
@@ -403,7 +406,7 @@ void GlobalAstrometrySolution::printStarlist() {
     for(int i=0; i<max; ++i){
         const double x = starxy_getx(_solver->fieldxy, i);
         const double y = starxy_gety(_solver->fieldxy, i);
-        cout << x << " " << y << endl;
+        cout << x << " " << y << " " << _solver->fieldxy->flux[i] << endl;
     }
 }
 
@@ -421,11 +424,19 @@ void GlobalAstrometrySolution::allowDistortion(bool distort) {
 ///Reset the objet so it's ready to match another field, but leave the backend alone because
 ///it doesn't need to be reset, and it is expensive to do so.
 void GlobalAstrometrySolution::reset() {
-    starxy_free(_starlist);
-    _starlist=NULL;
 
-    solver_free(_solver);
-    _solver = solver_new();
+    if(_solver != NULL) {
+        solver_free(_solver);
+        _solver = solver_new();
+    }
+
+    if(_starxy != NULL) {
+        starxy_free(_starxy);
+        _starxy= NULL;
+    }
+
+    _numBrightObjects = -1;
+        
     //I should probably be smarter than this and remember the actual values of
     //the settings instead of just resetting the defaults
     setDefaultValues();
@@ -442,11 +453,6 @@ void GlobalAstrometrySolution::setDefaultValues() {
     //These values still exceed anything you'll find in a real image
     setMinimumImageScale(1e-6);
     setMaximumImageScale(3600*360);  //2pi radians per pixel
-
-    //A typical image will have thousands of stars, but a match will proceed satisfactorily
-    //with only the brightest subset. The number below is arbitary, but seems to work.
-    _solver->startobj=0;
-    setNumberStars(50);
 
     //Do we allow the solver to assume the image may have some distortion in it?
     allowDistortion(true);
@@ -468,7 +474,28 @@ void GlobalAstrometrySolution::setDefaultValues() {
 
     setParity(UNKNOWN_PARITY);
 }
+
+///\brief Only find a solution using the brightest N objects
+///Reducing the number of sources in the solution list can reduce the time taken to solve the image
+///The truncated list is used by solve() to get the linear wcs, but all input sources are used when
+///calculating the distortion terms of the SIP matrix.    
+void GlobalAstrometrySolution::setNumBrightObjects(const int N) {
+
+    if (_starxy == NULL) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No field set yet."));
+    }
+
+    if (N <= 0) {
+        throw(LSST_EXCEPT(Except::RangeErrorException, "Illegal request. N must be greater than zero"));
+    }
         
+    if (N > starxy_n(_starxy) ) {
+        throw(LSST_EXCEPT(Except::RangeErrorException, "Request exceeds number of available sources"));
+    }
+
+    _numBrightObjects = N;
+}
+    
        
 ///Set the plate scale of the image in arcsec per pixel
 void GlobalAstrometrySolution::setImageScaleArcsecPerPixel(double scale ///< Plate scale of image
@@ -509,6 +536,7 @@ void GlobalAstrometrySolution::setParity(const int parity){
       case NORMAL_PARITY:
           _solver->parity = parity;
           break;
+          return;
       default:
         throw(LSST_EXCEPT(Except::DomainErrorException, "Illegal parity setting"));
     }
@@ -527,7 +555,7 @@ void GlobalAstrometrySolution::setParity(const int parity){
 bool GlobalAstrometrySolution::solve() {
 
     //Throw exceptions if setup is incorrect
-    if ( ! _solver->fieldxy) {
+    if ( ! _starxy) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
     }
     
@@ -542,7 +570,7 @@ bool GlobalAstrometrySolution::solve() {
     if( _solver->funits_lower >= _solver->funits_upper) {
         throw(LSST_EXCEPT(Except::DomainErrorException, "Minimum image scale must be strictly less than max scale"));
     }
-    
+
     //Move all the indices from the backend structure to the solver structure.
     int size=pl_size(_backend->indexes);
     for(int i=0; i<size; ++i){
@@ -550,6 +578,9 @@ bool GlobalAstrometrySolution::solve() {
         solver_add_index(_solver, index);
     }
 
+    //Copies the brightest N objects from _starxy into _solver
+    solverSetField();
+    
     solver_run( _solver);
 
     return(_solver->best_match_solves);
@@ -564,12 +595,13 @@ bool GlobalAstrometrySolution::solve(const afw::image::PointD raDec   ///<Right 
     return solve(raDec[0], raDec[1]);
 }
     
-///Find a solution with an initial guess at the position    
+///Find a solution with an initial guess at the position.
+//Although the interface is the same as solve() it's actually quite a different function
 bool GlobalAstrometrySolution::solve(const double ra, const double dec   ///<Right ascension/declination
                                                ///in decimal degrees
                                           )  {    
     //Throw exceptions if setup is incorrect
-    if ( ! _solver->fieldxy) {
+    if ( ! _starxy) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
     }
     
@@ -593,6 +625,7 @@ bool GlobalAstrometrySolution::solve(const double ra, const double dec   ///<Rig
         unitVector[i] = xyz[i];
     }
 
+    solverSetField();      
     loadNearbyIndices(unitVector);
     solver_run( _solver);
 
@@ -612,11 +645,13 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr, co
     //Rename the variable to something shorter to make the code easier to read
     double unc = imageScaleUncertaintyPercent/100.;
 
-    //Find the centre of the image
-    //test that a field has been assigned
-    if ( ! _solver->fieldxy) {
+    //This test is strictly unecessary as solverSetField throws the same exception
+    if ( ! _starxy) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
     }
+
+    solverSetField();
+    
     double xc = (_solver->field_maxx + _solver->field_minx)/2.0;
     double yc = (_solver->field_maxy + _solver->field_miny)/2.0;
 
@@ -745,6 +780,12 @@ sip_t* GlobalAstrometrySolution::convertWcsToSipt(const lsst::afw::image::Wcs::P
     if(unitVector.size() != 3){
         throw(LSST_EXCEPT(Except::LengthErrorException, "Input vector should have exactly 3 elements") );
     }
+
+    //This function should be called after solverSetField()
+    if ( ! _solver->fieldxy) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "_solver->fieldxy hasn't been set yet"));
+    }
+    
     
     //Translate the vector into a C array that astrometry.net can understand
     double xyz[3];
@@ -753,19 +794,8 @@ sip_t* GlobalAstrometrySolution::convertWcsToSipt(const lsst::afw::image::Wcs::P
     xyz[2] = unitVector[2];
     
     //Don't look at very small quads    
-    //FIXME: use _solver->field_max[x,y] instead of recomputing
-    double x1,x2, y1, y2;
-    x1 = x2 = _solver->fieldxy->x[0];
-    y1 = y2 = _solver->fieldxy->y[0];    
-    for(int i=0; i< _solver->fieldxy->N; ++i){
-        x1 = MIN(x1, _solver->fieldxy->x[i]);
-        x2 = MAX(x2, _solver->fieldxy->x[i]);
-
-        y1 = MIN(y1, _solver->fieldxy->y[i]);
-        y2 = MAX(y2, _solver->fieldxy->y[i]);
-    }
-    double xSize = x2-x1;
-    double ySize = y2-y1;
+    double xSize = _solver->field_maxx - _solver->field_minx;
+    double ySize = _solver->field_maxy - _solver->field_miny;
     setMinQuadScale(0.1*MIN(xSize, ySize));
 
     //What is the largest size we'll want to look at.
@@ -800,6 +830,43 @@ sip_t* GlobalAstrometrySolution::convertWcsToSipt(const lsst::afw::image::Wcs::P
 }    
 
 
+void GlobalAstrometrySolution::solverSetField() {
 
+    if ( ! _starxy) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
+    }
+
+    if( starxy_n(_starxy) == 0){
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist has zero elements"));
+    }
+        
+
+    //The default value, -1, indicates that all objects should be used
+    if (_numBrightObjects == -1) {
+        _numBrightObjects = starxy_n(_starxy);
+    }
+
+    int N = _numBrightObjects;  //Because I'm a lazy typist
+    starxy_t *shortlist = starxy_new(N, true, true);
+    for(int i=0; i<N; ++i) {
+        double x = starxy_getx(_starxy, i);
+        double y = starxy_gety(_starxy, i);
+        double f = _starxy->flux[i];   //flux has no accessor function
+
+        starxy_setx(shortlist, i, x);
+        starxy_sety(shortlist, i, y);
+        shortlist->flux[i] = f;
+    }
+
+    //Free the old structure stored in the solver, if necessary
+    starxy_free(_solver->fieldxy);
+
+    //Add the new, smaller, struture
+    solver_set_field(_solver, shortlist);
+
+    //Find field boundaries and precompute kdtree
+    solver_preprocess_field(_solver);
+
+}   
 
 }}}}
