@@ -21,10 +21,10 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
 
     setDefaultValues();
     
+    
     lsst::pex::policy::Policy pol(policyPath);
     _equinox = pol.getDouble("equinox");
     _raDecSys = pol.getString("raDecSys");
-
     std::string pkgDir = lsst::utils::eups::productDir("ASTROMETRY_NET_DATA");
 
     std::vector<std::string> indexArray = pol.getStringArray("indexFile");
@@ -32,8 +32,6 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
         cout << "Adding index file: " << pkgDir+"/"+indexArray[i] << endl;
         addIndexFile(pkgDir+"/"+indexArray[i]);
     }
-    
-
 }
 
     
@@ -210,14 +208,6 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     bool weighted = true;
     int skip_shift = true;
 
-#if 0
-    //Debugging code. Move all the positions to the right some and see
-    //what happends
-    for(int i=0; i< starxy_n(_starxy); ++i) {
-        _starxy->x[i] += 10;
-    }
-#endif    
-    
     sip_t *sip = tweak_just_do_it(&_solver->best_match.wcstan, _starxy, 
                                   NULL,
                                   NULL, NULL,
@@ -538,7 +528,7 @@ void GlobalAstrometrySolution::setParity(const int parity){
       case NORMAL_PARITY:
           _solver->parity = parity;
           break;
-        return;
+          return;
       default:
         throw LSST_EXCEPT(Except::DomainErrorException, "Illegal parity setting");
     }

@@ -97,7 +97,6 @@ public:
     inline void setMaximumImageScale(double scale){   _solver->funits_upper=scale;}
     void setNumBrightObjects(const int N);
     
-
     ///Set the scale (in pixels) of the smallest quad (group of 4 stars) to match
     ///against the database. You don't ususually need to use this function, but it
     ///can be useful in debugging
@@ -122,7 +121,6 @@ private:
     starxy_t *_starxy;   ///List of sources to solve for
     int _numBrightObjects;   //Only use the brightest objects in solve.
     
-
     //Variables indicating the coordinate system of the solution
     double _equinox;
     std::string _raDecSys;

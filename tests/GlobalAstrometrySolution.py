@@ -143,7 +143,6 @@ class WCSTestCaseNet(unittest.TestCase):
             #self.assertAlmostEqual(crval.getY(), radec.getY(), 6, "Dec doesn't match")
         #else:
             #self.assertEqual(flag, 1, "Failed to find a match")
-        
         #gas.reset()
         
     def testSolveGD66(self):
@@ -320,8 +319,7 @@ def run(exit=False):
 
 
 #Create a globally accessible instance of a GAS
-#policyFile=eups.productDir("astrometry_net_data")
-policyFile="."
+policyFile=eups.productDir("astrometry_net_data")
 policyFile=os.path.join(policyFile, "metadata.paf")
 gas = net.GlobalAstrometrySolution(policyFile)
  
