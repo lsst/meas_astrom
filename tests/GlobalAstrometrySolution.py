@@ -318,8 +318,8 @@ def run(exit=False):
 
 
 #Create a globally accessible instance of a GAS
-#policyFile=eups.productDir("astrometry_net_data")
-policyFile="."
+policyFile=eups.productDir("astrometry_net_data")
+#policyFile="."
 policyFile=os.path.join(policyFile, "metadata.paf")
 gas = net.GlobalAstrometrySolution(policyFile)
  

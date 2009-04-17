@@ -96,10 +96,7 @@ public:
     inline void setMinimumImageScale(double scale){   _solver->funits_lower=scale;}
     inline void setMaximumImageScale(double scale){   _solver->funits_upper=scale;}
     
-    ///Set the maximum number of stars to pass to the solver. Fewer stars means a faster
-    ///solution, more stars means a greater chance of finding a match. In practice, 50
-    ///is a good number to choose
-    inline void setNumberStars(const int num)  {    _solver->endobj = num;}
+    void setNumBrightObjects(const int N);
 
     ///Set the scale (in pixels) of the smallest quad (group of 4 stars) to match
     ///against the database. You don't ususually need to use this function, but it
