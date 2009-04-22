@@ -172,7 +172,39 @@ double GlobalAstrometrySolution::getSolvedImageScale(){
 
     return(_solver->best_match.scale);
 } 
-        
+
+///\brief Return a list of the stars used to solve the image.
+///After solving an image, use this function to return the set of objects that was used to determine a solution.
+///Typically this list will be about 4 or 5 objects long. The ra dec of each object is accessed using
+///src.getRa() and src.getDec(), while the chip coords are accessed with  getXAstrom(), getYAstrom()
+lsst::afw::detection::SourceSet GlobalAstrometrySolution::getMatchedSources(){
+    if (! _solver->best_match_solves) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
+    }
+
+    
+    lsst::afw::detection::SourceSet set;
+
+    for(int i =0; i< _solver->best_match.dimquads; ++i) {
+        lsst::afw::detection::Source::Ptr ptr(new lsst::afw::detection::Source());
+
+        ptr->setXAstrom(_solver->best_match.quadpix[2*i]);
+        ptr->setYAstrom(_solver->best_match.quadpix[2*i + 1]);
+
+        //This function is defined in astrometry.net. It converts the position of the star
+        //as a three dimensional unit vector to ra,dec.
+        double ra, dec;
+        xyzarr2radecdeg(&_solver->best_match.quadxyz[i*3], &ra, &dec);
+        ptr->setRa(ra);
+        ptr->setDec(dec);
+
+        set.push_back(ptr);
+    }
+
+    return set;
+}
+
+                          
 
 ///
 ///After solving, return a full Wcs including SIP distortion matrics

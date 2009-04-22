@@ -123,27 +123,46 @@ class WCSTestCaseNet(unittest.TestCase):
         return gas.solve(wcsPtr)
 
 
-    #def testSolveGD66Wcs(self):
-        #"""Run solveWcs on GD66"""
+    def testSolveGD66Wcs(self):
+        """Run solveWcs on GD66. Also does a sanity check on the list
+        returned by getMatchedSources()"""
 
-        ##This Wcs solution is taken from the header of the image.
-        #crval = afwImage.PointD(80.1601717554, 30.8060971075)
-        #crpix = afwImage.PointD(890,890)
-        #wcsPtr = afwImage.createWcs(crval, crpix, -0.0002802350, -0.0000021800, -0.0000022507, 0.0002796878)
+        #This Wcs solution is taken from the header of the image.
+        crval = afwImage.PointD(80.1601717554, 30.8060971075)
+        crpix = afwImage.PointD(890,890)
+        wcsPtr = afwImage.createWcs(crval, crpix, -0.0002802350, -0.0000021800, -0.0000022507, 0.0002796878)
 
-        #starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
-        #starlist = loadXYFromFile(starlist)
+        starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
+        starlist = loadXYFromFile(starlist)
 
-        #flag = self.solveWcs(wcsPtr, starlist)
+        flag = self.solveWcs(wcsPtr, starlist)
 
-        #if flag:
-            #radec = gas.xyToRaDec(890,890)
-            #print radec
-            #self.assertAlmostEqual(crval.getX(), radec.getX(), 6, "Ra doesn't match")
-            #self.assertAlmostEqual(crval.getY(), radec.getY(), 6, "Dec doesn't match")
-        #else:
-            #self.assertEqual(flag, 1, "Failed to find a match")
-        #gas.reset()
+        if flag:
+            radec = gas.xyToRaDec(890,890)
+            print radec
+            self.assertAlmostEqual(crval.getX(), radec.getX(), 6, "Ra doesn't match")
+            self.assertAlmostEqual(crval.getY(), radec.getY(), 6, "Dec doesn't match")
+        else:
+            self.assertEqual(flag, 1, "Failed to find a match")
+            
+        sourceSet = gas.getMatchedSources()
+        wcs = gas.getWcs()
+        for i in range(len(sourceSet)):
+            x = sourceSet[i].getXAstrom()
+            y = sourceSet[i].getYAstrom()
+            sXY = afwImage.PointD(x,y)
+            
+            x = sourceSet[i].getRa()
+            y = sourceSet[i].getDec()
+            sRaDec  = afwImage.PointD(x,y)
+            
+            wRaDec = wcs.xyToRaDec(sXY)
+            
+            print sRaDec.getX(), wRaDec.getX()
+            print sRaDec.getY(), wRaDec.getY()
+            self.assertAlmostEqual(sRaDec.getX(), wRaDec.getX(), 3, "x coord failed for getMatchedSources()")
+            self.assertAlmostEqual(sRaDec.getY(), wRaDec.getY(), 3, "y coord failed for getMatchedSources()")
+        gas.reset()
         
     def testSolveGD66(self):
         """Pass the positions of objects near the white dwarf GD66 and test that the correct position is returned
