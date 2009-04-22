@@ -123,183 +123,202 @@ class WCSTestCaseNet(unittest.TestCase):
         return gas.solve(wcsPtr)
 
 
-    #def testSolveGD66Wcs(self):
-        #"""Run solveWcs on GD66"""
+    def testSolveGD66Wcs(self):
+        """Run solveWcs on GD66. Also does a sanity check on the list
+        returned by getMatchedSources()"""
 
-        ##This Wcs solution is taken from the header of the image.
-        #crval = afwImage.PointD(80.1601717554, 30.8060971075)
+        #This Wcs solution is taken from the header of the image.
+        crval = afwImage.PointD(80.1601717554, 30.8060971075)
+        crpix = afwImage.PointD(890,890)
+        wcsPtr = afwImage.createWcs(crval, crpix, -0.0002802350, -0.0000021800, -0.0000022507, 0.0002796878)
+
+        starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
+        starlist = loadXYFromFile(starlist)
+
+        flag = self.solveWcs(wcsPtr, starlist)
+
+        if flag:
+            radec = gas.xyToRaDec(890,890)
+            print radec
+            self.assertAlmostEqual(crval.getX(), radec.getX(), 6, "Ra doesn't match")
+            self.assertAlmostEqual(crval.getY(), radec.getY(), 6, "Dec doesn't match")
+        else:
+            self.assertEqual(flag, 1, "Failed to find a match")
+            
+        sourceSet = gas.getMatchedSources()
+        wcs = gas.getWcs()
+        
+        for i in range(len(sourceSet)):
+            x = sourceSet[i].getXAstrom()
+            y = sourceSet[i].getYAstrom()
+            sXY = afwImage.PointD(x,y)
+            
+            x = sourceSet[i].getRa()
+            y = sourceSet[i].getDec()
+            sRaDec  = afwImage.PointD(x,y)
+            
+            wRaDec = wcs.xyToRaDec(sXY)
+            
+            print sRaDec.getX(), wRaDec.getX()
+            print sRaDec.getY(), wRaDec.getY()
+            self.assertAlmostEqual(sRaDec.getX(), wRaDec.getX(), 3, "x coord failed for getMatchedSources()")
+            self.assertAlmostEqual(sRaDec.getY(), wRaDec.getY(), 3, "y coord failed for getMatchedSources()")
+        gas.reset()
+        
+    #def testSolveGD66(self):
+        #"""Pass the positions of objects near the white dwarf GD66 and test that the correct position is returned
+    #"""
+        #crval = afwImage.PointD(80.15978319, 30.80524999)
         #crpix = afwImage.PointD(890,890)
-        #wcsPtr = afwImage.createWcs(crval, crpix, -0.0002802350, -0.0000021800, -0.0000022507, 0.0002796878)
-
-        #starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
-        #starlist = loadXYFromFile(starlist)
-
-        #flag = self.solveWcs(wcsPtr, starlist)
-
-        #if flag:
-            #radec = gas.xyToRaDec(890,890)
-            #print radec
-            #self.assertAlmostEqual(crval.getX(), radec.getX(), 6, "Ra doesn't match")
-            #self.assertAlmostEqual(crval.getY(), radec.getY(), 6, "Dec doesn't match")
-        #else:
-            #self.assertEqual(flag, 1, "Failed to find a match")
-        
+        #listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
+        ##To speed the test, tell the GAS what the size of the image is
+        ##The image is 1780 pixels on a side and covers half a square degree 
+        ##on the sky
+        #plateScale = .5*3600/1780.
+        #self.solveOrVerify(listFile, crval, crpix, plateScale)
         #gas.reset()
-        
-    def testSolveGD66(self):
-        """Pass the positions of objects near the white dwarf GD66 and test that the correct position is returned
-    """
-        crval = afwImage.PointD(80.15978319, 30.80524999)
-        crpix = afwImage.PointD(890,890)
-        listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
-        #To speed the test, tell the GAS what the size of the image is
-        #The image is 1780 pixels on a side and covers half a square degree 
-        #on the sky
-        plateScale = .5*3600/1780.
-        self.solveOrVerify(listFile, crval, crpix, plateScale)
-        gas.reset()
-
-    def testSolveG117(self):
-        crval = afwImage.PointD(141.063590, +35.280919)
-        crpix = afwImage.PointD(446, 447)
-        listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "g117.xy.txt")
-        #To speed the test, tell the GAS what the size of the image is
-        #The image is 1780 pixels on a side and covers half a square degree 
-        #on the sky
-        plateScale = .5*3600/1780.
-        self.solveOrVerify(listFile, crval, crpix, plateScale)
-    #
-    def testVerifyCFHTField(self):
-        crval = afwImage.PointD(334.303012, -17.233988)
-        crpix = afwImage.PointD(512,512)
-        listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
-        #To speed the test, tell the GAS what the size of the image is
-        #The image is 1780 pixels on a side and covers half a square degree 
-        #on the sky
-        plateScale = .185
-        self.solveOrVerify(listFile, crval, crpix, plateScale, verify=True)
-
 #
-    def testMultiple(self):
-        """Test that solver can handle doing two solves in a row"""
-        
-        
-        #GD66
-        crval = afwImage.PointD(80.15978319,30.80524999)
-        crpix = afwImage.PointD(890,890)
-        listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
-        #To speed the test, tell the GAS what the size of the image is
-        #The image is 1780 pixels on a side and covers half a square degree 
-        #on the sky
-        plateScale = .5*3600/1780.
-        self.solveOrVerify(listFile, crval, crpix, plateScale)
-
-        gas.reset()
-        
-        #G117
-        crval = afwImage.PointD(141.063590, +35.280919)
-        crpix = afwImage.PointD(446, 447)
-        listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "g117.xy.txt")
-        #To speed the test, tell the GAS what the size of the image is
-        #The image is 1780 pixels on a side and covers half a square degree 
-        #on the sky
-        plateScale = .5*3600/1780.
-        self.solveOrVerify(listFile, crval, crpix, plateScale)
-
-    
-        def testGetWcs(self):
-            """Test the functions that return wcs structures for a field"""
-     
-            crval = afwImage.PointD(80.15978319,30.80524999)
-            crpix = afwImage.PointD(890,890)
-            listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
-            plateScale = .5*3600/1780.
-            
-            flag = self.solveOrVerify(listFile, crval, crpix, plateScale)
-            
-            if flag:
-                wcs1 = gas.getWcs();
-                radec = wcs1.xyToRaDec(crpix.getX(), crpix.getY())
-                
-                #Test xy->radec
-                radec = gas.xyToRaDec(crpix.getX(), crpix.getY())
-                self.assertAlmostEqual(radec.getX(), crval.getX(), 6, "Ra doesn't match")
-                self.assertAlmostEqual(radec.getY(), crval.getY(), 6, "Dec doesn't match")
-    
-                #Test the reverse operation
-                xy = gas.raDecToXY(crval.getX(), crval.getY())
-                self.assertAlmostEqual(xy.getX(), crpix.getX(), 2, "X pos doesn't match")
-                self.assertAlmostEqual(xy.getY(), crpix.getY(), 2, "Y pos doesn't match")
-    
-            else:
-                #If we didn't get a match, that's a failure
-                self.assertEqual(flag, 1, "Failed to find a match")
-            
-
-        def testGetDistortedWcs(self):
-            """Test the functions that return wcs structures for a field"""
-     
-            crval = afwImage.PointD(80.15978319,30.80524999)
-            crpix = afwImage.PointD(890,890)
-            listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
-            plateScale = .5*3600/1780.
-            
-            flag = self.solveOrVerify(listFile, crval, crpix, plateScale)
-            
-            if flag:
-                wcs1 = gas.getDistortedWcs();
-                radec = wcs1.xyToRaDec(crpix.getX(), crpix.getY())
-                print radec
-                
-                #Test xy->radec
-                radec = gas.xyToRaDec(crpix.getX(), crpix.getY())
-                self.assertAlmostEqual(radec.getX(), crval.getX(), 6, "Ra doesn't match")
-                self.assertAlmostEqual(radec.getY(), crval.getY(), 6, "Dec doesn't match")
-    
-                #Test the reverse operation
-                xy = gas.raDecToXY(crval.getX(), crval.getY())
-                self.assertAlmostEqual(xy.getX(), crpix.getX(), 2, "X pos doesn't match")
-                self.assertAlmostEqual(xy.getY(), crpix.getY(), 2, "Y pos doesn't match")
-    
-            else:
-                #If we didn't get a match, that's a failure
-                self.assertEqual(flag, 1, "Failed to find a match")
-
-
-        def testWcsSinglePixelOffset(self):
-
-            mastrom = eups.productDir("meas_astrom")
-            imageFilename = "gd66.fits"
-            starlist = os.path.join(mastrom, "tests", "gd66.xy.txt")
-
-
-            #filename = eups.productDir("afwdata")
-            #filename = os.path.join(filename, "CFHT", "D4", imageFilename)
-            filename = os.path.join(mastrom, "tests", "gd66.fits")
-
-            starlist = loadXYFromFile(starlist)
-
-            #Get Wcs from image header
-            exposure = readExposure(filename)
-            origWcs = exposure.getWcs()
-
-            #Get Wcs from astrometry.net
-            gasWcs = gas.solve(starlist, origWcs)
-
-            #Pick an radec. The xy values corresponding to this radec should
-            #differ by sqrt(2) between the two wcs'. Also, the values for
-            #gasWcs should be larger in both axes
-            radec = afwImage.PointD(80.139800, +30.7864306)
-            origPix = origWcs.raDecToXY(radec)
-            gasPix = gasWcs.raDecToXY(radec)
-
-            
-            self.assertTrue(origPix.getX() <= gasPix.getX(), "GAS Wcs moved in wrong direction in X")
-            self.assertTrue(origPix.getY() <= gasPix.getY(), "GAS Wcs moved in wrong direction in Y")
-            
-            ds = origPix-gasPix
-            ds = math.hypot(ds.getX(), ds.getY() )
-            self.assertAlmostEqual(ds, Math.sqrt(2), 1, "Distance moved not 1 pixel")    
+    #def testSolveG117(self):
+        #crval = afwImage.PointD(141.063590, +35.280919)
+        #crpix = afwImage.PointD(446, 447)
+        #listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "g117.xy.txt")
+        ##To speed the test, tell the GAS what the size of the image is
+        ##The image is 1780 pixels on a side and covers half a square degree 
+        ##on the sky
+        #plateScale = .5*3600/1780.
+        #self.solveOrVerify(listFile, crval, crpix, plateScale)
+    ##
+    #def testVerifyCFHTField(self):
+        #crval = afwImage.PointD(334.303012, -17.233988)
+        #crpix = afwImage.PointD(512,512)
+        #listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
+        ##To speed the test, tell the GAS what the size of the image is
+        ##The image is 1780 pixels on a side and covers half a square degree 
+        ##on the sky
+        #plateScale = .185
+        #self.solveOrVerify(listFile, crval, crpix, plateScale, verify=True)
+#
+##
+    #def testMultiple(self):
+        #"""Test that solver can handle doing two solves in a row"""
+        #
+        #
+        ##GD66
+        #crval = afwImage.PointD(80.15978319,30.80524999)
+        #crpix = afwImage.PointD(890,890)
+        #listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
+        ##To speed the test, tell the GAS what the size of the image is
+        ##The image is 1780 pixels on a side and covers half a square degree 
+        ##on the sky
+        #plateScale = .5*3600/1780.
+        #self.solveOrVerify(listFile, crval, crpix, plateScale)
+#
+        #gas.reset()
+        #
+        ##G117
+        #crval = afwImage.PointD(141.063590, +35.280919)
+        #crpix = afwImage.PointD(446, 447)
+        #listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "g117.xy.txt")
+        ##To speed the test, tell the GAS what the size of the image is
+        ##The image is 1780 pixels on a side and covers half a square degree 
+        ##on the sky
+        #plateScale = .5*3600/1780.
+        #self.solveOrVerify(listFile, crval, crpix, plateScale)
+#
+    #
+        #def testGetWcs(self):
+            #"""Test the functions that return wcs structures for a field"""
+     #
+            #crval = afwImage.PointD(80.15978319,30.80524999)
+            #crpix = afwImage.PointD(890,890)
+            #listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
+            #plateScale = .5*3600/1780.
+            #
+            #flag = self.solveOrVerify(listFile, crval, crpix, plateScale)
+            #
+            #if flag:
+                #wcs1 = gas.getWcs();
+                #radec = wcs1.xyToRaDec(crpix.getX(), crpix.getY())
+                #
+                ##Test xy->radec
+                #radec = gas.xyToRaDec(crpix.getX(), crpix.getY())
+                #self.assertAlmostEqual(radec.getX(), crval.getX(), 6, "Ra doesn't match")
+                #self.assertAlmostEqual(radec.getY(), crval.getY(), 6, "Dec doesn't match")
+    #
+                ##Test the reverse operation
+                #xy = gas.raDecToXY(crval.getX(), crval.getY())
+                #self.assertAlmostEqual(xy.getX(), crpix.getX(), 2, "X pos doesn't match")
+                #self.assertAlmostEqual(xy.getY(), crpix.getY(), 2, "Y pos doesn't match")
+    #
+            #else:
+                ##If we didn't get a match, that's a failure
+                #self.assertEqual(flag, 1, "Failed to find a match")
+            #
+#
+        #def testGetDistortedWcs(self):
+            #"""Test the functions that return wcs structures for a field"""
+     #
+            #crval = afwImage.PointD(80.15978319,30.80524999)
+            #crpix = afwImage.PointD(890,890)
+            #listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
+            #plateScale = .5*3600/1780.
+            #
+            #flag = self.solveOrVerify(listFile, crval, crpix, plateScale)
+            #
+            #if flag:
+                #wcs1 = gas.getDistortedWcs();
+                #radec = wcs1.xyToRaDec(crpix.getX(), crpix.getY())
+                #print radec
+                #
+                ##Test xy->radec
+                #radec = gas.xyToRaDec(crpix.getX(), crpix.getY())
+                #self.assertAlmostEqual(radec.getX(), crval.getX(), 6, "Ra doesn't match")
+                #self.assertAlmostEqual(radec.getY(), crval.getY(), 6, "Dec doesn't match")
+    #
+                ##Test the reverse operation
+                #xy = gas.raDecToXY(crval.getX(), crval.getY())
+                #self.assertAlmostEqual(xy.getX(), crpix.getX(), 2, "X pos doesn't match")
+                #self.assertAlmostEqual(xy.getY(), crpix.getY(), 2, "Y pos doesn't match")
+    #
+            #else:
+                ##If we didn't get a match, that's a failure
+                #self.assertEqual(flag, 1, "Failed to find a match")
+#
+#
+        #def testWcsSinglePixelOffset(self):
+#
+            #mastrom = eups.productDir("meas_astrom")
+            #imageFilename = "gd66.fits"
+            #starlist = os.path.join(mastrom, "tests", "gd66.xy.txt")
+#
+#
+            ##filename = eups.productDir("afwdata")
+            ##filename = os.path.join(filename, "CFHT", "D4", imageFilename)
+            #filename = os.path.join(mastrom, "tests", "gd66.fits")
+#
+            #starlist = loadXYFromFile(starlist)
+#
+            ##Get Wcs from image header
+            #exposure = readExposure(filename)
+            #origWcs = exposure.getWcs()
+#
+            ##Get Wcs from astrometry.net
+            #gasWcs = gas.solve(starlist, origWcs)
+#
+            ##Pick an radec. The xy values corresponding to this radec should
+            ##differ by sqrt(2) between the two wcs'. Also, the values for
+            ##gasWcs should be larger in both axes
+            #radec = afwImage.PointD(80.139800, +30.7864306)
+            #origPix = origWcs.raDecToXY(radec)
+            #gasPix = gasWcs.raDecToXY(radec)
+#
+            #
+            #self.assertTrue(origPix.getX() <= gasPix.getX(), "GAS Wcs moved in wrong direction in X")
+            #self.assertTrue(origPix.getY() <= gasPix.getY(), "GAS Wcs moved in wrong direction in Y")
+            #
+            #ds = origPix-gasPix
+            #ds = math.hypot(ds.getX(), ds.getY() )
+            #self.assertAlmostEqual(ds, Math.sqrt(2), 1, "Distance moved not 1 pixel")    
     
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -320,8 +339,7 @@ def run(exit=False):
 
 
 #Create a globally accessible instance of a GAS
-#policyFile=eups.productDir("astrometry_net_data")
-policyFile="."
+policyFile=eups.productDir("astrometry_net_data")
 policyFile=os.path.join(policyFile, "metadata.paf")
 gas = net.GlobalAstrometrySolution(policyFile)
  
