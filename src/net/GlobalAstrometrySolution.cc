@@ -834,7 +834,10 @@ sip_t* GlobalAstrometrySolution::convertWcsToSipt(const lsst::afw::image::Wcs::P
     //interest, and 8 surrounding ones. The area of interest will cover
     //one or more of those healpixes.
     int N = pl_size(_backend->indexes);
-    
+    if ( N < 1) {   //Paranoia...
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No indices in backend"));
+    }
+        
     for(int i=0; i<N; ++i){
         index_t* index = (index_t*) pl_get(_backend->indexes, i);
         index_meta_t* meta = &(index->meta);
@@ -851,6 +854,12 @@ sip_t* GlobalAstrometrySolution::convertWcsToSipt(const lsst::afw::image::Wcs::P
         }
         il_remove_all(hplist);
     }
+
+    //Check that at least one index was added
+    if ( pl_size(_solver->indexes) < 1) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No matching indices found for this field"));
+    }
+        
 }    
 
 
