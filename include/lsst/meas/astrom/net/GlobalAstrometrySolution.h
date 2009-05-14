@@ -75,6 +75,7 @@ public:
     
     double getSolvedImageScale();
     lsst::afw::detection::SourceSet getMatchedSources();
+    //lsst::afw::image::Wcs::Ptr getDistortedWcs(int order=3, double jitter_arcsec=0.1);
     lsst::afw::image::Wcs::Ptr getDistortedWcs(int order=3);
     lsst::afw::image::Wcs::Ptr getWcs();
     lsst::afw::image::PointD raDecToXY(double ra, double dec);

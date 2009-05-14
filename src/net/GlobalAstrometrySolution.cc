@@ -234,7 +234,11 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     startree_search(_solver->index->starkd, center, radius2, NULL, &radec, &nstars);
 
     //Call the tweaking algorthim to generate the distortion coeffecients
-    double jitter_arcsec=.05;
+
+    //jitter is a measure of how much we can expect the xy of stars to scatter from the expected
+    //radec due to noise in our measurments.
+    double jitter_arcsec = tan_pixel_scale(&_solver->best_match.wcstan) * _solver->verify_pix;
+    jitter_arcsec = hypot(jitter_arcsec, _solver->index->meta.index_jitter);
     int inverse_order = order;
     int iterations = 5;        //blind.c:628 uses 5
     bool weighted = true;
