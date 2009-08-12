@@ -12,8 +12,10 @@ namespace lsst { namespace meas { namespace astrom { namespace net {
 // Constructors
 //
 
+///\brief Create a new GlobalAstrometrySolutionObject. The argument is the path to a policy file (*.paf)
+///\brief that defines the properties, and optionally the indices of this object    
 GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath) :
-    _backend(NULL), _solver(NULL), _starxy(NULL), _numBrightObjects(-1)
+    _backend(NULL), _solver(NULL), _starxy(NULL), _sipDiagnostic(NULL), _numBrightObjects(-1)
 {
  
     _backend  = backend_new();
@@ -49,6 +51,11 @@ GlobalAstrometrySolution::~GlobalAstrometrySolution() {
         solver_free(_solver);
         _solver = NULL;
     }
+    
+    if(_sipDiagnostic != NULL){
+        tweak_free(_sipDiagnostic);
+        _sipDiagnostic = NULL;
+    }
 }
 
 
@@ -56,8 +63,10 @@ GlobalAstrometrySolution::~GlobalAstrometrySolution() {
 //
 // Initialisation (Mutators)
 //
+///
+
 ///    
-///Adds a single index file to the backend.
+///\brief Add a single index file to the backend.
 void GlobalAstrometrySolution::addIndexFile(const std::string path ///< Path of index file
                                            ){
     //Copy a constant string into a non-const C style string
@@ -100,7 +109,8 @@ int GlobalAstrometrySolution::parseConfigStream(FILE* fconf) {
 
 
 
-///Set the image to be solved. The image is abstracted as a list of positions in pixel space
+///\brief Set the image to be solved.
+///The image is abstracted as a list of positions in pixel space
 ///Only sources with psfFlux > minFlux are added, and the number of sources added is returned.
 void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec ///<List of Sources
                                           ) {
@@ -182,7 +192,6 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getMatchedSources(){
         throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
     }
 
-    
     lsst::afw::detection::SourceSet set;
 
     for(int i =0; i< _solver->best_match.dimquads; ++i) {
@@ -204,7 +213,104 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getMatchedSources(){
     return set;
 }
 
+
+///\brief Return a list of the stars in the image used in calculating the SIP distortions
+/// After solving for the SIP terms, we can create diagnostics of how good the fit was. One important
+/// step in that is to obtain a list of which stars in the image were used to. A sourceSet is returned
+/// with XAstrom, YAstrom, ra and dec set. XAstrom and YAstrom refer to the position of the source on
+/// the chip. To see where the position of the object as listed by the catalogue, use getMatchedSipCatalogue()
+lsst::afw::detection::SourceSet GlobalAstrometrySolution::getMatchedSipSources(){
+    if (! _solver->best_match_solves) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
+    }
+
+    if(! _starxy){
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist isn't set"));
+    }
                           
+    if(! _sipDiagnostic){
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "SIP terms not yet calculated"));
+    }
+
+    assert(_sipDiagnostic->x != NULL);
+    assert(_sipDiagnostic->y != NULL);
+    assert(_sipDiagnostic->a != NULL);
+    assert(_sipDiagnostic->d != NULL);
+    assert(_sipDiagnostic->image != NULL);
+    
+    assert( il_size(_sipDiagnostic->ref) == il_size(_sipDiagnostic->image) );
+    
+    lsst::afw::detection::SourceSet set;
+
+    for(int i =0; i< il_size(_sipDiagnostic->image); ++i) {
+        lsst::afw::detection::Source::Ptr ptr(new lsst::afw::detection::Source());
+
+        //This index ensures the order of the sourceSet is the same as returned by getMatchedSipCatalogue()
+        int j = il_get(_sipDiagnostic->image, i);
+        assert(j < _sipDiagnostic->n);
+        
+        ptr->setXAstrom(_sipDiagnostic->x[j]);
+        ptr->setYAstrom(_sipDiagnostic->y[j]);
+        ptr->setRa(_sipDiagnostic->a[j]);
+        ptr->setRa(_sipDiagnostic->d[j]);
+
+        set.push_back(ptr);
+    }
+
+    return set;
+    
+}
+
+
+///\brief Return a list of the stars in the catalogue used in calculating the SIP distortions
+/// After solving for the SIP terms, we can create diagnostics of how good the fit was. One important
+/// step in that is to obtain a list of which stars from our catalogue were used to calculate the SIP
+/// distortion.  A sourceSet is returned with XAstrom, YAstrom, ra and dec set. Ra and dec are the locations
+/// of the objects as defined by the catalogue, x and y are where those stars are expected to appear on the
+/// chip given the calculated distortion. These values won't be the actual location of the sources unless
+/// the distortion correction is perfect. To see where these same sources are on the image, use
+/// getMatchesSipSources()
+lsst::afw::detection::SourceSet GlobalAstrometrySolution::getMatchedSipCatalogue(){
+    if (! _solver->best_match_solves) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
+    }
+
+    if(! _starxy){
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist isn't set"));
+    }
+                          
+    if(! _sipDiagnostic){
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "SIP terms not yet calculated"));
+    }
+
+    assert(_sipDiagnostic->x_ref != NULL);
+    assert(_sipDiagnostic->y_ref != NULL);
+    assert(_sipDiagnostic->a_ref != NULL);
+    assert(_sipDiagnostic->d_ref != NULL);
+    assert(_sipDiagnostic->ref != NULL);
+    
+    assert( il_size(_sipDiagnostic->ref) == il_size(_sipDiagnostic->image) );
+    
+    lsst::afw::detection::SourceSet set;
+
+    for(int i =0; i< il_size(_sipDiagnostic->ref); ++i) {
+        lsst::afw::detection::Source::Ptr ptr(new lsst::afw::detection::Source());
+
+        //This index ensures the order of the sourceSet is the same as returned by getMatchedSipCatalogue()
+        int j = il_get(_sipDiagnostic->ref, i);
+        assert(j < _sipDiagnostic->n_ref);
+
+        ptr->setXAstrom(_sipDiagnostic->x_ref[j]);
+        ptr->setYAstrom(_sipDiagnostic->y_ref[j]);
+        ptr->setRa(_sipDiagnostic->a_ref[j]);
+        ptr->setRa(_sipDiagnostic->d_ref[j]);
+
+        set.push_back(ptr);
+    }
+
+    return set;
+    
+}
 
 ///
 ///After solving, return a full Wcs including SIP distortion matrics
@@ -250,7 +356,8 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
                                   radec,
                                   nstars, jitter_arcsec, 
                                   order, inverse_order, iterations,
-                                  weighted, skip_shift);
+                                  weighted, skip_shift, &_sipDiagnostic);
+    cout << _sipDiagnostic << endl;                                  
 
 
     //Check that tweaking worked.
@@ -463,6 +570,10 @@ void GlobalAstrometrySolution::reset() {
         _starxy= NULL;
     }
 
+    if(_sipDiagnostic != NULL) {
+        tweak_free(_sipDiagnostic);
+        _sipDiagnostic = NULL;
+    }
     _numBrightObjects = -1;
         
     //I should probably be smarter than this and remember the actual values of

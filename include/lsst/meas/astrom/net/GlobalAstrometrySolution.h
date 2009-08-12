@@ -26,7 +26,7 @@ extern "C" {
 #include "backend.h"
 #include "solver.h"
 #include "index.h"
-#include "tweak.h"
+#include "tweakfrm.h"
 #include "healpix.h"
 #include "bl.h"
 #include "log.h"
@@ -76,6 +76,9 @@ public:
     double getSolvedImageScale();
     lsst::afw::detection::SourceSet getMatchedSources();
     //lsst::afw::image::Wcs::Ptr getDistortedWcs(int order=3, double jitter_arcsec=0.1);
+    lsst::afw::detection::SourceSet getMatchedSipSources();
+    lsst::afw::detection::SourceSet getMatchedSipCatalogue();
+
     lsst::afw::image::Wcs::Ptr getDistortedWcs(int order=3);
     lsst::afw::image::Wcs::Ptr getWcs();
     lsst::afw::image::PointD raDecToXY(double ra, double dec);
@@ -121,6 +124,7 @@ private:
     backend_t *_backend;
     solver_t *_solver;
     starxy_t *_starxy;   ///List of sources to solve for
+    tweak_t *_sipDiagnostic; //Information about the SIP solution
     int _numBrightObjects;   //Only use the brightest objects in solve.
     
     //Variables indicating the coordinate system of the solution
