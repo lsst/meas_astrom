@@ -267,10 +267,10 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
 
     //Linear conversion matrix
     int naxis = 2;   //This is hardcoded into the sip_t structure
-    boost::numeric::ublas::matrix<double> CD(2,2);
+    Eigen::Matrix2d CD;
     for (int i=0; i<naxis; ++i) {
         for (int j=0; j<naxis; ++j) {
-            CD.insert_element(i, j, sip->wcstan.cd[i][j]);
+            CD(i,j) = sip->wcstan.cd[i][j];
         }
     }
 
@@ -279,37 +279,37 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     //as A and B. I can find no documentation that insists that these matrices be
     //the same size, so I assume they aren't.
     int aSize = sip->a_order+1;
-    boost::numeric::ublas::matrix<double> sipA(aSize, aSize);
+    Eigen::MatrixXd sipA(aSize, aSize);
     for (int i=0; i<aSize; ++i){
         for (int j=0; j<aSize; ++j){
-            sipA.insert_element(i, j, sip->a[i][j]);
+            sipA(i, j) = sip->a[i][j];
         }
     }
 
     //Repeat for B
     int bSize = sip->b_order+1;
-    boost::numeric::ublas::matrix<double> sipB(bSize, bSize);
+    Eigen::MatrixXd sipB(bSize, bSize);
     for (int i=0; i<bSize; ++i){
         for (int j=0; j<bSize; ++j){
-            sipB.insert_element(i, j, sip->b[i][j]);
+            sipB(i, j) = sip->b[i][j];
         }
     }
 
     //Repeat for Ap, for the reverse transform
     int apSize = sip->ap_order+1;
-    boost::numeric::ublas::matrix<double> sipAp(apSize, apSize);
+    Eigen::MatrixXd sipAp(apSize, apSize);
     for (int i=0; i<apSize; ++i){
         for (int j=0; j<apSize; ++j){
-            sipAp.insert_element(i, j, sip->ap[i][j]);
+            sipAp(i, j) = sip->ap[i][j];
         }
     }
 
     //And finally, Bp, also part of the reverse transform
     int bpSize = sip->bp_order+1;
-    boost::numeric::ublas::matrix<double> sipBp(bpSize, bpSize);
+    Eigen::MatrixXd sipBp(bpSize, bpSize);
     for (int i=0; i<bpSize; ++i){
         for (int j=0; j<bpSize; ++j){
-            sipBp.insert_element(i, j, sip->bp[i][j]);
+            sipBp(i, j) = sip->bp[i][j];
         }
     }    
         
@@ -338,10 +338,10 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs()  {
                                    _solver->best_match.wcstan.crval[1]);
     
     int naxis = 2;   //This is hardcoded into the sip_t structure
-    boost::numeric::ublas::matrix<double> CD(2,2);
+    Eigen::Matrix2d CD;
     for (int i=0; i<naxis; ++i) {
         for (int j=0; j<naxis; ++j) {
-            CD.insert_element(i, j, _solver->best_match.wcstan.cd[i][j]);
+            CD(i, j) = _solver->best_match.wcstan.cd[i][j];
         }
     }
 
@@ -786,14 +786,14 @@ sip_t* GlobalAstrometrySolution::convertWcsToSipt(const lsst::afw::image::Wcs::P
     sip->wcstan.crpix[1] = rowCol.getX();    //Check this.
 
 
-    boost::numeric::ublas::matrix<double> CD = (*wcsPtr).getLinearTransformMatrix();
+    Eigen::Matrix2d CD = (*wcsPtr).getLinearTransformMatrix();
     //Test that a field has been assigned
-    if (CD.size1() != CD.size2()) {
+    if (CD.rows() != CD.cols()) {
         throw(LSST_EXCEPT(Except::LengthErrorException, "Linear Transformation Matrix must be square"));
     }
 
-    for (unsigned int i=0; i< CD.size1(); ++i) {
-        for (unsigned int j=0; j< CD.size2(); ++j) {
+    for (int i=0; i< CD.rows(); ++i) {
+        for (int j=0; j< CD.cols(); ++j) {
             sip->wcstan.cd[i][j] = CD(i,j);
         }
     }

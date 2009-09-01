@@ -10,7 +10,8 @@
 
 #include "boost/cstdint.hpp"
 #include "boost/shared_ptr.hpp"
-#include "boost/numeric/ublas/matrix.hpp"
+#include "Eigen/Core.h"
+
 #include "lsst/pex/exceptions.h"
 #include "lsst/afw/detection/Source.h"
 #include "lsst/afw/image/Wcs.h"

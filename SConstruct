@@ -11,6 +11,7 @@ env = scons.makeEnv("meas_astrom",
                      ["boost", "boost/version.hpp", "boost_filesystem:C++"],
                      ["boost", "boost/regex.hpp", "boost_regex:C++"],
                      ["python", "Python.h"],
+                     ["eigen", "Eigen/Core.h"],
                      ["m", "math.h", "m", "sqrt"],
                      ["cfitsio", "fitsio.h", "cfitsio", "ffopen"],
                      ["wcslib", "wcslib/wcs.h", "wcs"],
@@ -32,7 +33,9 @@ env.libs["meas_astrom"] +=  env.getlibs("daf_base daf_data daf_persistence pex_l
 #
 # Build/install things
 #
-for d in Split("doc examples include/lsst/meas/astrom/net python/lsst/meas/astrom/net lib src/net tests"):
+#Turn off tests
+#for d in Split("doc examples include/lsst/meas/astrom/net include/lsst/meas/astrom/sip python/lsst/meas/astrom/net lib src/net tests"):
+for d in Split("doc examples include/lsst/meas/astrom/net include/lsst/meas/astrom/sip python/lsst/meas/astrom/net lib src/net src/sip"):
     SConscript(os.path.join(d, "SConscript"))
 
 env['IgnoreFiles'] = r"(~$|\.pyc$|^\.svn$|\.o$)"
