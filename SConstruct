@@ -34,8 +34,7 @@ env.libs["meas_astrom"] +=  env.getlibs("daf_base daf_data daf_persistence pex_l
 # Build/install things
 #
 #Turn off tests
-#for d in Split("doc examples include/lsst/meas/astrom/net include/lsst/meas/astrom/sip python/lsst/meas/astrom/net lib src/net tests"):
-for d in Split("doc examples include/lsst/meas/astrom/net include/lsst/meas/astrom/sip python/lsst/meas/astrom/net lib src/net src/sip"):
+for d in Split("doc examples include/lsst/meas/astrom/net python/lsst/meas/astrom/net lib src/net tests"):
     SConscript(os.path.join(d, "SConscript"))
 
 env['IgnoreFiles'] = r"(~$|\.pyc$|^\.svn$|\.o$)"
