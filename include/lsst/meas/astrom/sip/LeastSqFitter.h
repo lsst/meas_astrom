@@ -13,11 +13,10 @@ namespace lsst { namespace meas { namespace astrom { namespace sip {
 template <class FittingFunc>class LeastSqFitter2d
 {
 public:
-    LeastSqFitter2d(const vector<double> x, const vector<double> y, const vector<double> z, const vector<double> s, \
-                    int order);
+    LeastSqFitter2d(const vector<double> &x, const vector<double> &y, const vector<double> &z, const vector<double> &s,                     int order);
 
-    Eigen::VectorXd getParams();
-    Eigen::VectorXd getErrors();
+    Eigen::MatrixXd getParams();
+    Eigen::MatrixXd getErrors();
 
     void testInit() {
         for(int i=0; i< _order; ++i) {
@@ -27,7 +26,7 @@ public:
     }
 
 private:
-    void init();
+    void initFunctions();
              
     void calculateA();
     void calculateBeta();
@@ -65,9 +64,8 @@ namespace math = lsst::afw::math;
 ///\param y vector of y positions of data
 ///\param z Value of data for a given x,y. z = z_i = z_i(x_i, y_i)
 ///\param order Order of 2d function to fit
-template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const vector<double> x, const vector<double> y, const vector<double> z, const vector<double> s, \
-                int order) :
-    _x(x), _y(y), _z(z), _order(order), _nPar(0), _A(order, order), _beta(order){
+template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const vector<double> &x, const vector<double> &y, const vector<double> &z, const vector<double> &s, int order) :
+    _x(x), _y(y), _z(z), _s(s), _order(order), _nPar(0), _A(1,1), _beta(1), _par(1) {
     
     //_nPar, the number of terms to fix (x^2, xy, y^2 etc.) is \Sigma^(order+1) 1
     _nPar=0;
@@ -78,19 +76,39 @@ template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const 
     _nData = _x.size();
     //@TODO check _y.size and _z.size == _nData
     
-    init();
+    initFunctions();
     calculateBeta();
     calculateA();
+    //cout << _A << endl;
+    cout << _beta << endl;
+    cout << "Cp" << endl;
+    _par = Eigen::VectorXd(_nPar);
     _A.svd().solve(_beta, &_par);
 }
         
+    ///Build up a triangular matrix of the parameters. The shape of the matrix is
+    ///such that the values correspond to the coefficients of the following polynomials
+    /// 1   y    y^2  y^3
+    /// x   xy   xy^2 0
+    /// x^2 x^2y 0    0
+    /// x^3 0    0    0   (order==4)
+    ///
+    /// where row*column < _order
+template<class FittingFunc> Eigen::MatrixXd LeastSqFitter2d<FittingFunc>::getParams() {
 
-template<class FittingFunc> Eigen::VectorXd LeastSqFitter2d<FittingFunc>::getParams() {
-    return _par;
+    Eigen::MatrixXd out = Eigen::MatrixXd::Zero(_order, _order);  //Should be a shared ptr?
+
+    int count=0;
+    for(int i=0; i< _order; ++i) {
+        for(int j=0; j< _order-i; ++j) {
+            out(i,j) = _par(count++);
+        }
+    }
+    return out;
 }
 
 
-template<class FittingFunc> Eigen::VectorXd LeastSqFitter2d<FittingFunc>::getErrors() {
+template<class FittingFunc> Eigen::MatrixXd LeastSqFitter2d<FittingFunc>::getErrors() {
     Eigen::MatrixXd V = _A.svd().matrixV();
     Eigen::VectorXd w = _A.svd().singularValues();
 
@@ -106,7 +124,7 @@ template<class FittingFunc> Eigen::VectorXd LeastSqFitter2d<FittingFunc>::getErr
 }
 
     
-template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::init() {
+template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::initFunctions() {
     //Initialise the array of functions. _funcArray[i] is a object of type math::Function1 of order i
     _funcArray.reserve(_order);
     
@@ -125,24 +143,34 @@ template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::init() {
     
 
 template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::calculateA() {
+
+    assert(_nPar != 0);
+    _A = Eigen::MatrixXd(_nPar, _nPar);
+
     for(int i=0; i< _nPar; ++i) {
         for(int j=0; j< _nPar; ++j) {
             double val=0;
             for(int k=0; k< _nData; ++k) {
                 val = 1/(_s[k]* _s[k]);
-                val *= func2d(_x[k], _y[k], i) * func2d(_x[k], _y[k], j);
+                val += func2d(_x[k], _y[k], i) * func2d(_x[k], _y[k], j);
             }
             _A(i,j) = val;
         }
+        
     }        
 }
 
     
 template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::calculateBeta() {
+
+    assert(_nPar != 0);
+    _beta = Eigen::VectorXd(_nPar);
+    
     for(int i=0; i< _nPar; ++i) {
         _beta(i) = 0;
         for(int j=0; j< _nData; ++j) {
-            _beta(i) += _z[j]*func2d(_x[j], _y[j], i)/ (_s[i]*_s[i]);
+            double val = _z[j]*func2d(_x[j], _y[j], i)/ (_s[i]*_s[i]);
+            _beta(i) += val;
         }
     }
 }
