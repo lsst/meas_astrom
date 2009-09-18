@@ -1,17 +1,20 @@
 # -*- python -*-
 Import("env")
 
-if False:
-    env.Program(["Footprint_1.cc"], LIBS=env.getlibs("meas_astrom"))
 #
 # Tests
 #
+import glob
+
 import lsst.tests
 
-#don't run tests for the moment
-if True:
-    tests = lsst.tests.Control(env)
-    tests.run("*.cc")
 
+#If set to false tests are not run
+if True:
+    for fileName in glob.glob("*.cc"):
+        env.Program(fileName, LIBS=env.getlibs("meas_astrom"))
+    
+    tests = lsst.tests.Control(env)
+        
     for target in tests.run("*.py"):
         env.Depends(target, "#/python/lsst/meas/astrom/net/_netLib%s" % (env['LDMODULESUFFIX']))
