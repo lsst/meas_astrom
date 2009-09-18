@@ -80,8 +80,8 @@ template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const 
     calculateBeta();
     calculateA();
     //cout << _A << endl;
-    cout << _beta << endl;
-    cout << "Cp" << endl;
+    //cout << _beta << endl;
+    //cout << "Cp" << endl;
     _par = Eigen::VectorXd(_nPar);
     _A.svd().solve(_beta, &_par);
 }
@@ -147,12 +147,12 @@ template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::calculateA() {
     assert(_nPar != 0);
     _A = Eigen::MatrixXd(_nPar, _nPar);
 
-    for(int i=0; i< _nPar; ++i) {
-        for(int j=0; j< _nPar; ++j) {
+    int i, j;
+    for(i=0; i< _nPar; ++i) {
+        for(j=0; j< _nPar; ++j) {
             double val=0;
             for(int k=0; k< _nData; ++k) {
-                val = 1/(_s[k]* _s[k]);
-                val += func2d(_x[k], _y[k], i) * func2d(_x[k], _y[k], j);
+                val += func2d(_x[k], _y[k], i) * func2d(_x[k], _y[k], j)/( _s[k]*_s[k]);
             }
             _A(i,j) = val;
         }
@@ -165,27 +165,42 @@ template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::calculateBeta() {
 
     assert(_nPar != 0);
     _beta = Eigen::VectorXd(_nPar);
-    
+
+    double val;
+    int j;
     for(int i=0; i< _nPar; ++i) {
         _beta(i) = 0;
-        for(int j=0; j< _nData; ++j) {
-            double val = _z[j]*func2d(_x[j], _y[j], i)/ (_s[i]*_s[i]);
+        for(j=0; j< _nData; ++j) {
+            val = _z[j]*func2d(_x[j], _y[j], i)/ (_s[i]*_s[i]);
             _beta(i) += val;
         }
     }
 }
  
  
- 
+#include <cstdio>
 //The ith term in the fitting polynomial is of the form x^a * y^b. This function figures
 //out the value of a and b, then calculates the value of the ith term at the given x and y
 template<class FittingFunc> double LeastSqFitter2d<FittingFunc>::func2d(double x, double y, int term) {
-    int yexp = term % _order;  //y exponent
-    int xexp = (term - yexp) / _order;  //x exponent
+
+    int yexp=0;  //y exponent
+    int xexp=0;  //x exponent
+
+    for(int i=0; i<term; ++i)
+    {
+        yexp = (yexp+1) % (_order-xexp);
+        if( yexp == 0)
+        {   xexp++;
+        }
+    }
 
     double xcomp = func1d(x, xexp);  //x component of polynomial
     double ycomp = func1d(y, yexp);  //y component
 
+    #if 0   //A useful debugging printf statement
+        printf("The %i(th) function: x^%i * y^%i = %.1f * %.1f\n", term, xexp, yexp, xcomp, ycomp);
+    #endif
+    
     return xcomp*ycomp;
 }
 
