@@ -57,12 +57,12 @@ namespace math = lsst::afw::math;
 
 ///Fit a 2d polynomial to a set of data points z(x, y)
 ///
-///\param ReturnT e.g float or double
-///\param FittingFunc  The type of function to fit in each dimension. This function should extend the base
+///\tparam FittingFunc  The type of function to fit in each dimension. This function should extend the base
 ///       class of lsst::afw::math::Function1. Note that this is a 1d function
 ///\param x vector of x positions of data
 ///\param y vector of y positions of data
 ///\param z Value of data for a given x,y. z = z_i = z_i(x_i, y_i)
+///\param s Vector of measured uncertainties in the values of z
 ///\param order Order of 2d function to fit
 template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const vector<double> &x, const vector<double> &y, const vector<double> &z, const vector<double> &s, int order) :
     _x(x), _y(y), _z(z), _s(s), _order(order), _nPar(0), _A(1,1), _beta(1), _par(1) {
