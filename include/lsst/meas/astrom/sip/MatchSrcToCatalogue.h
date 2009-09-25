@@ -34,11 +34,11 @@ public:
     MatchSrcToCatalogue(const det::SourceSet &catSet,       
                         const det::SourceSet &imgSet,       
                         const lsst::afw::image::Wcs wcs,   
-                        double distInArcsec=1       
+                        double distInArcsec=1.0     
                        );
 
-    //Copy constructor
-    MatchSrcToCatalogue(MatchSrcToCatalogue const &);
+    //Don't need a Copy constructor
+    
     //Destructor
     ~MatchSrcToCatalogue();
 
