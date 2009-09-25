@@ -625,8 +625,8 @@ bool GlobalAstrometrySolution::solve(const afw::image::PointD raDec   ///<Right 
     
 ///Find a solution with an initial guess at the position.
 //Although the interface is the same as solve() it's actually quite a different function
-bool GlobalAstrometrySolution::solve(const double ra, const double dec   ///<Right ascension/declination
-                                               ///in decimal degrees
+bool GlobalAstrometrySolution::solve(const double ra,   ///<Right ascension in decimal degrees
+                                     const double dec   ///< Declination in decimal degrees
                                           )  {    
     //Throw exceptions if setup is incorrect
     if ( ! _starxy) {
