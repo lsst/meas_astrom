@@ -10,7 +10,7 @@ using namespace lsst::meas::astrom::sip;
 MatchSrcToCatalogue::MatchSrcToCatalogue(const det::SourceSet &catSet,  ///<Input list of objects from catalogue
                                          const det::SourceSet &imgSet, ///<Input list of objects from image
                                          const lsst::afw::image::Wcs wcs,   ///< World Coordinate System object
-                                         double distInArcsec  
+                                         double distInArcsec  ///<Max distance for legal match
                                         )
 {
     setImgSrcSet(imgSet);
