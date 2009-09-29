@@ -10,6 +10,8 @@ using namespace std;
 
 namespace lsst { namespace meas { namespace astrom { namespace sip {
 
+///@TODO: Implement method to return a afw::math::Function2d object
+///@TODO: Implement method to return value of a function at a given (x,y)
 template <class FittingFunc>class LeastSqFitter2d
 {
 public:
