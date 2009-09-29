@@ -14,7 +14,7 @@ using namespace std;
 #include "Eigen/Core.h"
 #include "lsst/afw/math/FunctionLibrary.h"
 
-#include "lsst/meas/astrom/sip/LeastSqFitter.h"
+#include "lsst/meas/astrom/sip/LeastSqFitter2d.h"
 
 namespace sip = lsst::meas::astrom::sip;
 namespace math = lsst::afw::math;
