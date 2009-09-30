@@ -1,9 +1,10 @@
 
 using namespace std;
-
+namespace except = lsst::pex::exceptions;
 
 #include <vector>
 #include "boost/shared_ptr.hpp"
+#include "lsst/pex/exceptions/Runtime.h"
 #include "Eigen/Core.h"
 #include "Eigen/SVD"
 #include "lsst/afw/math/FunctionLibrary.h"
@@ -15,8 +16,8 @@ template <class FittingFunc>class LeastSqFitter1d
 public:
     LeastSqFitter1d(const vector<double> &x, const vector<double> &y, const vector<double> &s,  int order);
 
-    boost::shared_ptr<Eigen::VectorXd> getParams();
-    boost::shared_ptr<FittingFunc> getBestFitFunction();
+    Eigen::VectorXd getParams();
+    FittingFunc getBestFitFunction();
     double valueAt(double x);
     
 private:
@@ -46,6 +47,8 @@ private:
 namespace sip = lsst::meas::astrom::sip;
 namespace math = lsst::afw::math;
 
+#include <cstdio>
+
 ///Fit a 1d polynomial to a set of data points z(x, y)
 ///
 ///\tparam FittingFunc  The type of function to fit. This function should extend the base
@@ -58,10 +61,22 @@ namespace math = lsst::afw::math;
 template<class FittingFunc> LeastSqFitter1d<FittingFunc>::LeastSqFitter1d(const vector<double> &x, const vector<double> &y, const vector<double> &s, int order) :
     _x(x), _y(y), _s(s), _order(order), _A(1,1), _beta(1) {
     
+    if(order <= 0) {
+        throw LSST_EXCEPT(except::RuntimeErrorException, "Fit order must be >= 1");        
+    }
     
     _nData = _x.size();
-    //@TODO check _y.size and _z.size == _nData
-    
+    if(_nData != _y.size()) {
+        throw LSST_EXCEPT(except::RuntimeErrorException, "x and y vectors of different lengths");        
+    }
+    if(_nData != _s.size()) {
+        throw LSST_EXCEPT(except::RuntimeErrorException, "x and s vectors of different lengths");        
+    }
+
+    if(_nData < _order) {
+        throw LSST_EXCEPT(except::RuntimeErrorException, "Fewer data points than parameters");        
+    }
+
     initFunctions();
     calculateBeta();
     calculateA();
@@ -73,41 +88,42 @@ template<class FittingFunc> LeastSqFitter1d<FittingFunc>::LeastSqFitter1d(const 
 
 
 ///Return the best fit paramets as an Eigen::Matrix
-template<class FittingFunc> boost::shared_ptr<Eigen::VectorXd> LeastSqFitter1d<FittingFunc>::getParams() {
+template<class FittingFunc> Eigen::VectorXd LeastSqFitter1d<FittingFunc>::getParams() {
 
-    boost::shared_ptr<Eigen::VectorXd> vPtr(new Eigen::VectorXd(_order)); 
+    Eigen::VectorXd vec = Eigen::VectorXd::Zero(_order);
     for(int i=0; i< _order; ++i) {
-        (*vPtr)(i) = _par(i);
+        vec(i) = _par(i);
     }
-    return vPtr;
+    return vec;
 }
 
 
 ///Return the best fit polynomial
-template<class FittingFunc> 
-boost::shared_ptr<FittingFunc> LeastSqFitter1d<FittingFunc>::getBestFitFunction() {
+template<class FittingFunc> FittingFunc LeastSqFitter1d<FittingFunc>::getBestFitFunction() {
 
     //FittingFunc and LeastSqFitter disagree on the definition of order of a function.
     //LSF says that a linear function is order 2 (two coefficients), FF says only 1
-    boost::shared_ptr<FittingFunc> funcPtr(new FittingFunc(_order-1) );
+    FittingFunc func(_order-1);
 
     for(int i=0; i< _order; ++i) {
-        funcPtr->setParameter(i, _par(i));
+        func.setParameter(i, _par(i));
     }
-    return funcPtr;
+    return func;
 }
 
 
 ///Calculate the value of the function at a given point
 template<class FittingFunc> double LeastSqFitter1d<FittingFunc>::valueAt(double x) {
-        static boost::shared_ptr<FittingFunc> f = getBestFitFunction();
+        FittingFunc f = getBestFitFunction();
         
-        return (*f)(x);
+        return f(x);
 }
+
 
 /// Initialise the array of functions. _funcArray[i] is a object of type math::Function1 of order 
 ///_norder
 template<class FittingFunc> void LeastSqFitter1d<FittingFunc>::initFunctions() {
+
     _funcArray.reserve(_order);
     
     vector<double> coeff;
@@ -126,7 +142,7 @@ template<class FittingFunc> void LeastSqFitter1d<FittingFunc>::initFunctions() {
 
 template<class FittingFunc> void LeastSqFitter1d<FittingFunc>::calculateA() {
 
-    assert(_order >= 0);
+    std::cout << _order << std::endl;
     _A = Eigen::MatrixXd(_order, _order);
 
     int i, j;
@@ -145,7 +161,6 @@ template<class FittingFunc> void LeastSqFitter1d<FittingFunc>::calculateA() {
     
 template<class FittingFunc> void LeastSqFitter1d<FittingFunc>::calculateBeta() {
 
-    assert(_order >= 0);
     _beta = Eigen::VectorXd(_order);
 
     double val;
