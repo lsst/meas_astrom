@@ -20,7 +20,7 @@ using namespace std;
 namespace sip = lsst::meas::astrom::sip;
 namespace math = lsst::afw::math;
 
-/*
+
 BOOST_AUTO_TEST_CASE(fitLine)
 {
     vector<double> x;
@@ -107,7 +107,7 @@ BOOST_AUTO_TEST_CASE(fitLinear2)
     
 
 }
-*/
+
 
 BOOST_AUTO_TEST_CASE(fitLinear3)
 {
