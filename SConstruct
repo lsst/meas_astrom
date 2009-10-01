@@ -12,6 +12,7 @@ env = scons.makeEnv("meas_astrom",
                      ["boost", "boost/regex.hpp", "boost_regex:C++"],
                      ["python", "Python.h"],
                      ["eigen", "Eigen/Core.h"],
+                     ["minuit", "Minuit/FCNBase.h", "lcg_Minuit"],
                      ["m", "math.h", "m", "sqrt"],
                      ["cfitsio", "fitsio.h", "cfitsio", "ffopen"],
                      ["wcslib", "wcslib/wcs.h", "wcs"],
@@ -29,13 +30,12 @@ env = scons.makeEnv("meas_astrom",
                     ]
                    )
 
-env.libs["meas_astrom"] +=  env.getlibs("daf_base daf_data daf_persistence pex_logging pex_exceptions pex_policy security afw boost utils wcslib astrometry_net")
+env.libs["meas_astrom"] +=  env.getlibs("daf_base daf_data daf_persistence pex_logging pex_exceptions pex_policy security afw boost utils wcslib astrometry_net lcg_Minuit")
 #
 # Build/install things
 #
 #Turn off tests
-#for d in Split("doc examples include/lsst/meas/astrom/net include/lsst/meas/astrom/sip python/lsst/meas/astrom/net lib src/net tests"):
-for d in Split("doc examples include/lsst/meas/astrom/net include/lsst/meas/astrom/sip python/lsst/meas/astrom/net lib src/net src/sip"):
+for d in Split("doc examples include/lsst/meas/astrom/net include/lsst/meas/astrom/sip python/lsst/meas/astrom/net python/lsst/meas/astrom/sip lib src/net src/sip tests"):
     SConscript(os.path.join(d, "SConscript"))
 
 env['IgnoreFiles'] = r"(~$|\.pyc$|^\.svn$|\.o$)"
