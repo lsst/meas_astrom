@@ -8,6 +8,7 @@ namespace except = lsst::pex::exceptions;
 #include "lsst/pex/exceptions/Runtime.h"
 #include "Eigen/Core.h"
 #include "Eigen/SVD"
+#include "Eigen/Cholesky"
 #include "lsst/afw/math/FunctionLibrary.h"
 
 namespace lsst { namespace meas { namespace astrom { namespace sip {
@@ -87,7 +88,8 @@ for(int i=0; i<_nData; ++i) {
     calculateA();
 
     _par = Eigen::VectorXd(_order);
-    _A.svd().solve(_beta, &_par);
+    _A.ldlt().solve(_beta, &_par);
+    
 printf("A\n");
 std::cout << _A << std::endl;    
 printf("beta\n");
