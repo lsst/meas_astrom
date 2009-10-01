@@ -10,12 +10,13 @@ Python interface to lsst::afw::meas::astrom::sip classes
 
 %{
 #   include "lsst/meas/astrom/sip/MatchSrcToCatalogue.h"
+#   include "lsst/afw/math/FunctionLibrary.h"
+#   include "lsst/meas/astrom/sip/LeastSqFitter1d.h"
 %}
 
 %include "lsst/p_lsstSwig.i"
 %include "std_string.i"
 %include "std_vector.i"
-//Did you declare the std::vector<std::string> using %template?
 
 
 %pythoncode %{
@@ -33,4 +34,8 @@ def version(HeadURL = r"$HeadURL: svn+ssh://svn.lsstcorp.org/DMS/afw/trunk/pytho
 %lsst_exceptions();
 
 %include "lsst/meas/astrom/sip/MatchSrcToCatalogue.h"
+%include "lsst/afw/math/FunctionLibrary.h"
+%include "lsst/meas/astrom/sip/LeastSqFitter1d.h"
+
+%template(LeastSqFitter1dPoly) lsst::meas::astrom::sip::LeastSqFitter1d< lsst::afw::math::PolynomialFunction1<double> >;
 
