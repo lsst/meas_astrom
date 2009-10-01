@@ -78,10 +78,6 @@ template<class FittingFunc> LeastSqFitter1d<FittingFunc>::LeastSqFitter1d(const 
         throw LSST_EXCEPT(except::RuntimeErrorException, "Fewer data points than parameters");        
     }
 
-printf("\nInput data\n");
-for(int i=0; i<_nData; ++i) {
-    printf("%g %g %g\n", _x[i], _y[i], _s[i]);
-}
 
     initFunctions();
     calculateBeta();
@@ -89,14 +85,6 @@ for(int i=0; i<_nData; ++i) {
 
     _par = Eigen::VectorXd(_order);
     _A.ldlt().solve(_beta, &_par);
-    
-printf("A\n");
-std::cout << _A << std::endl;    
-printf("beta\n");
-std::cout << _beta << std::endl;    
-printf("Par\n");
-std::cout << _par << std::endl;
-    
 }
         
 
@@ -107,9 +95,7 @@ template<class FittingFunc> Eigen::VectorXd LeastSqFitter1d<FittingFunc>::getPar
     Eigen::VectorXd vec = Eigen::VectorXd::Zero(_order);
     for(unsigned int i=0; i< _order; ++i) {
         vec(i) = _par(i);
-        printf("%g ", vec(i));
     }
-    printf("\n");
     return vec;
 }
 
@@ -123,7 +109,6 @@ template<class FittingFunc> FittingFunc LeastSqFitter1d<FittingFunc>::getBestFit
 
     for(unsigned int i=0; i< _order; ++i) {
         func.setParameter(i, _par(i));
-        printf("bff %i %g\n", i, func.getParameter(i));
     }
     return func;
 }
@@ -151,12 +136,6 @@ template<class FittingFunc> void LeastSqFitter1d<FittingFunc>::initFunctions() {
         boost::shared_ptr<FittingFunc> p(new FittingFunc(coeff));
         _funcArray.push_back(p);
 
-printf("Init i=%i: Coeff= ", i);
-for(int j=0; j<=i; ++j) {
-    printf("%.0f ", coeff[j]);
-}
-printf("\n");
-
         coeff[i] = 0.;
         coeff.push_back(1.);  //coeff now looks like [0,0,...,0,1]
     }
@@ -173,13 +152,11 @@ template<class FittingFunc> void LeastSqFitter1d<FittingFunc>::calculateA() {
             double val=0;
             for(unsigned int k=0; k< _nData; ++k) {
                 val += func1d(_x[k], i) * func1d(_x[k], j)/( _s[k]*_s[k]);
-printf("(i,j,k)=(%i,%i,%i) x=%.1f y=%.1f fi=%.1f fj=%.1f, val=%.1f\n", i, j, k, _x[j], _y[j], func1d(_x[j], i), func1d(_x[j], j), val);
             }
             _A(i,j) = val;
         }
         
     }        
-std::cout << _A << std::endl;
 }
 
     
@@ -187,7 +164,6 @@ template<class FittingFunc> void LeastSqFitter1d<FittingFunc>::calculateBeta() {
 
     _beta = Eigen::VectorXd(_order);
 
-printf("CalculateBeta()\n");
     double val;
     unsigned int j;
     for(unsigned int i=0; i< _order; ++i) {
@@ -195,10 +171,8 @@ printf("CalculateBeta()\n");
         for(j=0; j< _nData; ++j) {
             val = _y[j]*func1d(_x[j], i)/ (_s[i]*_s[i]);
             _beta(i) += val;
-printf("(i,j)=(%i,%i) x=%.1f y=%.1f f=%.1f, val=%.1f\n", i, j, _x[j], _y[j], func1d(_x[j], i), val);
         }
     }
-std::cout << _beta << std::endl;
 }
  
  
