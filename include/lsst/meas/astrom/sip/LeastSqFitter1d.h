@@ -1,16 +1,22 @@
 
 using namespace std;
-namespace except = lsst::pex::exceptions;
 
 #include <cstdio>
 #include <vector>
+
 #include "boost/shared_ptr.hpp"
-#include "lsst/pex/exceptions/Runtime.h"
 #include "Eigen/Core.h"
 #include "Eigen/SVD"
 #include "Eigen/Cholesky"
 #include "Eigen/LU"
+
+#include "lsst/pex/exceptions/Runtime.h"
+#include "lsst/pex/logging/Trace.h"
 #include "lsst/afw/math/FunctionLibrary.h"
+
+namespace except = lsst::pex::exceptions;
+namespace pexLogging = lsst::pex::logging;
+
 
 namespace lsst { namespace meas { namespace astrom { namespace sip {
 
@@ -93,13 +99,29 @@ std::cout << _A << std::endl;
 printf("beta\n");
 std::cout << _beta << std::endl;    
 
+    //Try three different methods of solving the linear equation
     _par = Eigen::VectorXd(_order);
-    //_A.ldlt().solve(_beta, &_par);
-    _A.llt().solveInPlace(_beta);
-    _par = _beta;
+    if(! _A.ldlt().solve(_beta, &_par)) {
+         pexLogging::TTrace<5>("lsst.meas.astrom.sip.LeastSqFitter1d",
+                           "Unable fit data with Cholesky LDL^t");
+
+        if(! _A.llt().solve(_beta, &_par)) {
+             pexLogging::TTrace<5>("lsst.meas.astrom.sip.LeastSqFitter1d",
+                           "Unable fit data with Cholesky LL^t either");
+                        
+            if(! _A.lu().solve(_beta, &_par)) {
+                 pexLogging::TTrace<5>("lsst.meas.astrom.sip.LeastSqFitter1d",
+                               "Unable fit data with LU decomposition either");
+
+                 throw LSST_EXCEPT(pexExcept::Exception,
+                     "Unable to determine kernel solution in LeastSqFitter1d()");
+            }
+        }
+    }
+        
     
 printf("Par\n");
-std::cout << _beta << std::endl;
+std::cout << _par << std::endl;
     
 }
         
