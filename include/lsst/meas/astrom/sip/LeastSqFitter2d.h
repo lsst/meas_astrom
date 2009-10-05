@@ -1,17 +1,26 @@
 
 using namespace std;
 
-
+#include <cstdio>
 #include <vector>
+
 #include "boost/shared_ptr.hpp"
 #include "Eigen/Core.h"
 #include "Eigen/SVD"
+#include "Eigen/Cholesky"
+#include "Eigen/LU"
+
+#include "lsst/pex/exceptions/Runtime.h"
+#include "lsst/pex/logging/Trace.h"
 #include "lsst/afw/math/FunctionLibrary.h"
+
+namespace except = lsst::pex::exceptions;
+namespace pexLogging = lsst::pex::logging;
+
 
 namespace lsst { namespace meas { namespace astrom { namespace sip {
 
 ///@TODO: Implement method to return a afw::math::Function2d object
-///@TODO: Implement method to return value of a function at a given (x,y)
 template <class FittingFunc>class LeastSqFitter2d
 {
 public:
@@ -19,6 +28,7 @@ public:
 
     Eigen::MatrixXd getParams();
     Eigen::MatrixXd getErrors();
+    double valueAt(double x, double y);
 
     void testInit() {
         for(int i=0; i< _order; ++i) {
@@ -36,9 +46,9 @@ private:
     double func1d(double value, int exponent);
 
     vector<double> _x, _y, _z, _s;
-    int _order;   //Degree of polynomial to fit, e.g 4=> cubic
-    int _nPar;    //Number of parameters in fitting eqn, e.g x^2, xy, ^y^2, x^3, x^2y...
-    int _nData;   //Number of data points, == _x.size()
+    unsigned int _order;   //Degree of polynomial to fit, e.g 4=> cubic
+    unsigned int _nPar;    //Number of parameters in fitting eqn, e.g x^2, xy, y^2, x^3, 
+    unsigned int _nData;   //Number of data points, == _x.size()
     
     Eigen::MatrixXd _A;
     Eigen::VectorXd _beta;
@@ -75,38 +85,79 @@ template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const 
         _nPar+= i+1;
     }
     
+    //Check input vectors are the same size
     _nData = _x.size();
-    //@TODO check _y.size and _z.size == _nData
+    if(_nData != _y.size()) {
+        throw LSST_EXCEPT(except::RuntimeErrorException, "x and y vectors of different lengths");        
+    }
+    if(_nData != _s.size()) {
+        throw LSST_EXCEPT(except::RuntimeErrorException, "x and s vectors of different lengths");        
+    }
+    if(_nData != _z.size()) {
+        throw LSST_EXCEPT(except::RuntimeErrorException, "x and z vectors of different lengths");        
+    }
+
+    if(_nData < _order) {
+        throw LSST_EXCEPT(except::RuntimeErrorException, "Fewer data points than parameters");        
+    }
     
     initFunctions();
     calculateBeta();
     calculateA();
-    //cout << _A << endl;
-    //cout << _beta << endl;
-    //cout << "Cp" << endl;
+
+    //Try three different methods of solving the linear equation
     _par = Eigen::VectorXd(_nPar);
-    _A.svd().solve(_beta, &_par);
+    if(! _A.ldlt().solve(_beta, &_par)) {
+         pexLogging::TTrace<5>("lsst.meas.astrom.sip.LeastSqFitter1d",
+                           "Unable fit data with Cholesky LDL^t");
+
+        if(! _A.llt().solve(_beta, &_par)) {
+             pexLogging::TTrace<5>("lsst.meas.astrom.sip.LeastSqFitter1d",
+                           "Unable fit data with Cholesky LL^t either");
+                        
+            if(! _A.lu().solve(_beta, &_par)) {
+                 pexLogging::TTrace<5>("lsst.meas.astrom.sip.LeastSqFitter1d",
+                               "Unable fit data with LU decomposition either");
+
+                 throw LSST_EXCEPT(pexExcept::Exception,
+                     "Unable to determine kernel solution in LeastSqFitter1d()");
+            }
+        }
+    }
 }
+
         
-    ///Build up a triangular matrix of the parameters. The shape of the matrix is
-    ///such that the values correspond to the coefficients of the following polynomials
-    /// 1   y    y^2  y^3
-    /// x   xy   xy^2 0
-    /// x^2 x^2y 0    0
-    /// x^3 0    0    0   (order==4)
-    ///
-    /// where row*column < _order
+///Build up a triangular matrix of the parameters. The shape of the matrix is
+///such that the values correspond to the coefficients of the following polynomials
+/// 1   y    y^2  y^3
+/// x   xy   xy^2 0
+/// x^2 x^2y 0    0
+/// x^3 0    0    0   (order==4)
+///
+/// where row*column < _order
 template<class FittingFunc> Eigen::MatrixXd LeastSqFitter2d<FittingFunc>::getParams() {
 
     Eigen::MatrixXd out = Eigen::MatrixXd::Zero(_order, _order);  //Should be a shared ptr?
 
     int count=0;
-    for(int i=0; i< _order; ++i) {
-        for(int j=0; j< _order-i; ++j) {
+    for(unsigned int i=0; i< _order; ++i) {
+        for(unsigned int j=0; j< _order-i; ++j) {
             out(i,j) = _par(count++);
         }
     }
     return out;
+}
+
+
+///Return the value of the best fit function at a given position (x,y)
+template<class FittingFunc>  double LeastSqFitter2d<FittingFunc>::valueAt(double x, double y){
+    double val=0;
+    
+    //Sum the values of the different orders to get the value of the fitted function
+    for(unsigned int i=0; i< _nPar; ++i) {
+        val += func2d(x, y, i);
+    }
+    return val;
 }
 
 
@@ -115,9 +166,9 @@ template<class FittingFunc> Eigen::MatrixXd LeastSqFitter2d<FittingFunc>::getErr
     Eigen::VectorXd w = _A.svd().singularValues();
 
     Eigen::VectorXd err(_nPar);
-    for(int i=0; i<_nPar; ++i) {
+    for(unsigned int i=0; i<_nPar; ++i) {
         err(i)=0;
-        for(int j=0; j<_nPar; ++j) {
+        for(unsigned int j=0; j<_nPar; ++j) {
             double val =  V(i,j)/w(j);
             err(i) += val*val;
         }
@@ -134,7 +185,7 @@ template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::initFunctions() {
     coeff.reserve( _order);
     
     coeff.push_back(1);
-    for( int i=0; i< _order; ++i) {
+    for(unsigned int i=0; i< _order; ++i) {
         boost::shared_ptr<FittingFunc> p(new FittingFunc(coeff));
         _funcArray.push_back(p);
         
@@ -147,13 +198,12 @@ template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::initFunctions() {
 template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::calculateA() {
 
     assert(_nPar != 0);
-    _A = Eigen::MatrixXd(_nPar, _nPar);
+    _A = Eigen::MatrixXd((int) _nPar, (int) _nPar);
 
-    int i, j;
-    for(i=0; i< _nPar; ++i) {
-        for(j=0; j< _nPar; ++j) {
+    for(unsigned int i=0; i< _nPar; ++i) {
+        for(unsigned int j=0; j< _nPar; ++j) {
             double val=0;
-            for(int k=0; k< _nData; ++k) {
+            for(unsigned int k=0; k< _nData; ++k) {
                 val += func2d(_x[k], _y[k], i) * func2d(_x[k], _y[k], j)/( _s[k]*_s[k]);
             }
             _A(i,j) = val;
@@ -169,10 +219,9 @@ template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::calculateBeta() {
     _beta = Eigen::VectorXd(_nPar);
 
     double val;
-    int j;
-    for(int i=0; i< _nPar; ++i) {
+    for(unsigned int i=0; i< _nPar; ++i) {
         _beta(i) = 0;
-        for(j=0; j< _nData; ++j) {
+        for(unsigned int j=0; j< _nData; ++j) {
             val = _z[j]*func2d(_x[j], _y[j], i)/ (_s[i]*_s[i]);
             _beta(i) += val;
         }
@@ -180,7 +229,7 @@ template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::calculateBeta() {
 }
  
  
-#include <cstdio>
+
 //The ith term in the fitting polynomial is of the form x^a * y^b. This function figures
 //out the value of a and b, then calculates the value of the ith term at the given x and y
 template<class FittingFunc> double LeastSqFitter2d<FittingFunc>::func2d(double x, double y, int term) {
