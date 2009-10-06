@@ -20,7 +20,7 @@ using namespace std;
 namespace sip = lsst::meas::astrom::sip;
 namespace math = lsst::afw::math;
 
-/*
+
 BOOST_AUTO_TEST_CASE(fitLine)
 {
     vector<double> x;
@@ -137,7 +137,7 @@ BOOST_AUTO_TEST_CASE(fitLinear3)
 
 }
 
-*/
+
 BOOST_AUTO_TEST_CASE(fitQuadratic2)
 {
 
@@ -163,16 +163,20 @@ BOOST_AUTO_TEST_CASE(fitQuadratic2)
     int order=3;
     sip::LeastSqFitter1d<math::PolynomialFunction1<double> > lsf(x, y, s, order);
     Eigen::VectorXd par = lsf.getParams();
-    
+
+    #if 0 //Debugging code    
     for(int i=0; i<x.size(); ++i)
     {
         printf("%.1f %.3f %.3f\n", x[i], y[i], lsf.valueAt(x[i]));
     }
-    
-//     BOOST_CHECK_CLOSE(par(0), -0.0488399, .001);
-//     BOOST_CHECK_CLOSE(par(1), 0.00104313, .001);
+    #endif
+    BOOST_CHECK_CLOSE(par(0), -0.0488399, .001);
+    BOOST_CHECK_CLOSE(par(1), 0.00104313, .001);
 
 }
+
+
+
 
 
 /*
