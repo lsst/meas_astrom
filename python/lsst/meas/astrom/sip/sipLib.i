@@ -12,6 +12,7 @@ Python interface to lsst::afw::meas::astrom::sip classes
 #   include "lsst/meas/astrom/sip/MatchSrcToCatalogue.h"
 #   include "lsst/afw/math/FunctionLibrary.h"
 #   include "lsst/meas/astrom/sip/LeastSqFitter1d.h"
+#   include "lsst/meas/astrom/sip/LeastSqFitter2d.h"
 %}
 
 %include "lsst/p_lsstSwig.i"
@@ -36,6 +37,9 @@ def version(HeadURL = r"$HeadURL: svn+ssh://svn.lsstcorp.org/DMS/afw/trunk/pytho
 %include "lsst/meas/astrom/sip/MatchSrcToCatalogue.h"
 %include "lsst/afw/math/FunctionLibrary.h"
 %include "lsst/meas/astrom/sip/LeastSqFitter1d.h"
+%include "lsst/meas/astrom/sip/LeastSqFitter2d.h"
 
 %template(LeastSqFitter1dPoly) lsst::meas::astrom::sip::LeastSqFitter1d< lsst::afw::math::PolynomialFunction1<double> >;
+
+%template(LeastSqFitter2dPoly) lsst::meas::astrom::sip::LeastSqFitter2d< lsst::afw::math::PolynomialFunction1<double> >;
 
