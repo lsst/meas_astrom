@@ -29,9 +29,11 @@ public:
     Eigen::MatrixXd getParams();
     Eigen::MatrixXd getErrors();
     double valueAt(double x, double y);
+    
+    void printParams();
 
     void testInit() {
-        for(int i=0; i< _order; ++i) {
+        for(unsigned int i=0; i< _order; ++i) {
             double val = (*_funcArray[i])(2.);
             cout << i << " " << val << endl;
         }
@@ -97,14 +99,28 @@ template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const 
         throw LSST_EXCEPT(except::RuntimeErrorException, "x and z vectors of different lengths");        
     }
 
+    for(unsigned int i=0; i<_nData; ++i) {
+        if( _s[i] == 0 ) {
+            throw LSST_EXCEPT(except::RuntimeErrorException, "Illegal zero value for fit weight encountered.");        
+        }
+    }
+
     if(_nData < _order) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "Fewer data points than parameters");        
     }
+    
+//     printf("Input args\n");
+//     for(unsigned int i=0; i< _nData; ++i) {
+//         printf("%8e %8e %8e %8e\n", x[i], y[i], z[i], s[i]);
+//     }
     
     initFunctions();
     calculateBeta();
     calculateA();
 
+//     std::cout << _A << endl;
+//     std::cout << _beta << endl;
+    
     //Try three different methods of solving the linear equation
     _par = Eigen::VectorXd(_nPar);
     if(! _A.ldlt().solve(_beta, &_par)) {
@@ -124,6 +140,8 @@ template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const 
             }
         }
     }
+    
+//     std::cout << _par << std::endl;
 }
 
         
@@ -149,13 +167,30 @@ template<class FittingFunc> Eigen::MatrixXd LeastSqFitter2d<FittingFunc>::getPar
 }
 
 
+///Print the parameters of the fit matrix. This function is helpful in debugging 
+///because we haven't wrapped the Eigen::Matrix class into Python, so we can't 
+///extract values easily.
+template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::printParams() {
+
+    Eigen::MatrixXd out = Eigen::MatrixXd::Zero(_order, _order);  //Should be a shared ptr?
+
+    int count=0;
+    for(unsigned int i=0; i< _order; ++i) {
+        for(unsigned int j=0; j< _order-i; ++j) {
+            printf("%7e  ", _par(count++));
+        }
+        printf("\n");
+    }
+}
+
+
 ///Return the value of the best fit function at a given position (x,y)
 template<class FittingFunc>  double LeastSqFitter2d<FittingFunc>::valueAt(double x, double y){
     double val=0;
     
     //Sum the values of the different orders to get the value of the fitted function
     for(unsigned int i=0; i< _nPar; ++i) {
-        val += func2d(x, y, i);
+        val += _par[i] * func2d(x, y, i);
     }
     return val;
 }
