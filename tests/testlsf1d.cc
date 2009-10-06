@@ -1,5 +1,5 @@
 #define BOOST_TEST_DYN_LINK
-#define BOOST_TEST_MODULE testlsf
+#define BOOST_TEST_MODULE testlsf1d
  
 //The boost unit test header
 #include "boost/test/unit_test.hpp"
@@ -65,7 +65,6 @@ BOOST_AUTO_TEST_CASE(fitQuadratic)
     
     math::PolynomialFunction1<double> f =lsf.getBestFitFunction();
 
-    printf("%i == %i\n", f.getNParameters(), order);
     BOOST_CHECK( (int) f.getNParameters() == order);
     BOOST_CHECK_CLOSE( f.getParameter(0), 4., .001); 
     BOOST_CHECK_CLOSE( f.getParameter(1), 3., .001); 
@@ -164,14 +163,11 @@ BOOST_AUTO_TEST_CASE(fitQuadratic2)
     sip::LeastSqFitter1d<math::PolynomialFunction1<double> > lsf(x, y, s, order);
     Eigen::VectorXd par = lsf.getParams();
 
-    #if 0 //Debugging code    
-    for(int i=0; i<x.size(); ++i)
+    for(unsigned int i=0; i<x.size(); ++i)
     {
-        printf("%.1f %.3f %.3f\n", x[i], y[i], lsf.valueAt(x[i]));
+        //printf("%.3f %.3f %.3f \n", x[i], y[i], lsf.valueAt(x[i]));
+        BOOST_CHECK_CLOSE(y[i], lsf.valueAt(x[i]), 10);
     }
-    #endif
-    BOOST_CHECK_CLOSE(par(0), -0.0488399, .001);
-    BOOST_CHECK_CLOSE(par(1), 0.00104313, .001);
 
 }
 
@@ -179,39 +175,3 @@ BOOST_AUTO_TEST_CASE(fitQuadratic2)
 
 
 
-/*
-#include <vector>
-#include <cmath>
-#include "boost/shared_ptr.hpp"
-#include "Eigen/Core.h"
-#include "lsst/afw/math/FunctionLibrary.h"
-
-#include "lsst/meas/astrom/sip/LeastSqFitter1d.h"
-
-namespace sip = lsst::meas::astrom::sip;
-namespace math = lsst::afw::math;
-
-
-int main()
-{
-
-    vector<double> x;
-    vector<double> y;
-    vector<double> s;
-
-    for(int i=0; i<7; ++i) {
-        x.push_back( (double) i);
-        y.push_back( (double) 2*i);
-        s.push_back( (double) 1);
-    }
-    
-    int order=2;
-    sip::LeastSqFitter1d<math::PolynomialFunction1<double> >  lsf(x,y,s, order);
-    
-    boost::shared_ptr<math::PolynomialFunction1<double> > f =lsf.getBestFitFunction();
-    std::cout << (*f)(5.) << std::endl;
-    
-    
-}
-    
-*/

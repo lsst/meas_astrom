@@ -1,5 +1,5 @@
 #define BOOST_TEST_DYN_LINK
-#define BOOST_TEST_MODULE testlsf
+#define BOOST_TEST_MODULE testlsf2d
  
 //The boost unit test header
 #include "boost/test/unit_test.hpp"
