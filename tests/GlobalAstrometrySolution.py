@@ -19,7 +19,7 @@ except NameError:
 
 dataDir = eups.productDir("astrometry_net_data")
 if not dataDir:
-    raise RuntimeError("Must set up afwdata to run these tests")
+    raise RuntimeError("Must set up astrometry_net_data to run these tests")
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 def loadXYFromFile(filename):
