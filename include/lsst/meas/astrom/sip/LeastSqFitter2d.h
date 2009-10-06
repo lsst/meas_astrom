@@ -20,7 +20,7 @@ namespace pexLogging = lsst::pex::logging;
 
 namespace lsst { namespace meas { namespace astrom { namespace sip {
 
-///@TODO: Implement method to return a afw::math::Function2d object
+///TODO: Implement method to return a afw::math::Function2d object
 template <class FittingFunc>class LeastSqFitter2d
 {
 public:
@@ -32,12 +32,6 @@ public:
     
     void printParams();
 
-    void testInit() {
-        for(unsigned int i=0; i< _order; ++i) {
-            double val = (*_funcArray[i])(2.);
-            cout << i << " " << val << endl;
-        }
-    }
 
 private:
     void initFunctions();
@@ -109,17 +103,11 @@ template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const 
         throw LSST_EXCEPT(except::RuntimeErrorException, "Fewer data points than parameters");        
     }
     
-//     printf("Input args\n");
-//     for(unsigned int i=0; i< _nData; ++i) {
-//         printf("%8e %8e %8e %8e\n", x[i], y[i], z[i], s[i]);
-//     }
     
     initFunctions();
     calculateBeta();
     calculateA();
 
-//     std::cout << _A << endl;
-//     std::cout << _beta << endl;
     
     //Try three different methods of solving the linear equation
     _par = Eigen::VectorXd(_nPar);
@@ -141,7 +129,6 @@ template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const 
         }
     }
     
-//     std::cout << _par << std::endl;
 }
 
         
