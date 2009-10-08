@@ -36,7 +36,7 @@ GLOBALGAS = net.GlobalAstrometrySolution(policyFile)
 class DistortedImageTestCase(unittest.TestCase):
     def setUp(self):
         self.filename="cat.xy.list"
-        self.orderlist = range(2,8)
+        self.orderlist = range(2,10) #Fit distortion with every order in this range
 
     def tearDown(self):
         pass
@@ -44,7 +44,20 @@ class DistortedImageTestCase(unittest.TestCase):
     def testLinearXDistort(self):
         self.singleTestInstance(self.filename, distort.linearXDistort, 
             GLOBALGAS, self.orderlist)
-            
+
+    def testLinearYDistort(self):
+        self.singleTestInstance(self.filename, distort.linearYDistort, 
+            GLOBALGAS, self.orderlist)
+
+    def testQuadraticDistort(self):
+        self.singleTestInstance(self.filename, distort.linearYDistort, 
+            GLOBALGAS, self.orderlist)
+
+
+    #
+    # Implementation functions
+    #
+    
     def singleTestInstance(self, filename, distortFunc, gas, order):
         cat = self.loadCatalogue(self.filename, GLOBALGAS)
         img = distort.distortList(cat, distortFunc)
