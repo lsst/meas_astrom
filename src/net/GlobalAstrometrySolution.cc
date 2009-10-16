@@ -617,17 +617,17 @@ bool GlobalAstrometrySolution::solve() {
 
 
 ///Find a solution with an initial guess at the position    
-bool GlobalAstrometrySolution::solve(const afw::image::PointD raDec   ///<Right ascension/declination
-                                               ///in decimal degrees
+/// \param raDec Right ascension/declination in decimal degrees
+bool GlobalAstrometrySolution::solve(const afw::image::PointD raDec   
                                           ) {
     return solve(raDec[0], raDec[1]);
 }
     
 ///Find a solution with an initial guess at the position.
+/// \param ra Right ascencsion in decimal degrees
+/// \param dec Declination in decimal degrees
 //Although the interface is the same as solve() it's actually quite a different function
-bool GlobalAstrometrySolution::solve(const double ra, const double dec   ///<Right ascension/declination
-                                               ///in decimal degrees
-                                          )  {    
+bool GlobalAstrometrySolution::solve(const double ra, const double dec)  {    
     //Throw exceptions if setup is incorrect
     if ( ! _starxy) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
@@ -724,36 +724,6 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::solve(const lsst::afw::dete
 }
     
     
-#if 0    
-//This function isn't working yet    
-//Verify that a previously calculated WCS (world coordinate solution) 
-//matches the positions of the point sources in the image.
-//Returns true if the Wcs matches
-//This code is experimental, and probably won't compile
-bool GlobalAstrometrySolution::verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr)  {
-    //Test that a field has been assigned
-    if (! _solver-> fieldxy) {
-        throw logic_error("No field has been set yet");
-    }
-
-    assert(false);  //Make sure the function can't be called because it isn't working yet
-    //Extract information from the WCS object and stuff it into
-    //a tan_t structure from astrometry.net
-    sip_t *sip = convertWcsToSipt(wcsPtr);
-
-     //Find all indices that are near the position indicated in the Wcs
-    double ra = sip->wcstan.crval[0];
-    double dec = sip->wcstan.crval[1];
-    findNearbyIndices(ra, dec);
-
-    solver_verify_sip_wcs(_solver, sip);
-    sip_free(sip);
-
-    return(_solver->best_match_solves);
-}
-
-    #endif
-
 
 //
 // Private functions
