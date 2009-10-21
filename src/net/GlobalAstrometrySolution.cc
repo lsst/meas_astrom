@@ -1,9 +1,6 @@
-
-
-using namespace std;
-
 #include "lsst/meas/astrom/net/GlobalAstrometrySolution.h"
 
+using namespace std;
 namespace Except = lsst::pex::exceptions;
 
 namespace lsst { namespace meas { namespace astrom { namespace net {
@@ -74,8 +71,8 @@ void GlobalAstrometrySolution::addIndexFile(const std::string path ///< Path of 
 
 ///Read a configuration file that contains a list of indices
 ///from a stream and load them into memory. Useful for debugging code, but not for production
-int GlobalAstrometrySolution::parseConfigFile(const std::string filename ///< Name of backend configuration file
-                                             ) {
+///\param Name of backend configuration
+int GlobalAstrometrySolution::parseConfigFile(const std::string filename) {
     //Copy a constant string into a non-const C style string
     //so it can be passed into a C function without complaint.
     int len = filename.length();
@@ -174,7 +171,8 @@ double GlobalAstrometrySolution::getSolvedImageScale(){
 } 
 
 ///\brief Return a list of the stars used to solve the image.
-///After solving an image, use this function to return the set of objects that was used to determine a solution.
+///After solving an image, use this function to return the set of objects that was used to determine a
+/// solution.
 ///Typically this list will be about 4 or 5 objects long. The ra dec of each object is accessed using
 ///src.getRa() and src.getDec(), while the chip coords are accessed with  getXAstrom(), getYAstrom()
 lsst::afw::detection::SourceSet GlobalAstrometrySolution::getMatchedSources(){
@@ -241,7 +239,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     jitter_arcsec = hypot(jitter_arcsec, _solver->index->meta.index_jitter);
     int inverse_order = order;
     int iterations = 5;        //blind.c:628 uses 5
-    bool weighted = true;
+    bool isWeighted = true;
     int skip_shift = true;
 
     sip_t *sip = tweak_just_do_it(&_solver->best_match.wcstan, _starxy, 
@@ -250,7 +248,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
                                   radec,
                                   nstars, jitter_arcsec, 
                                   order, inverse_order, iterations,
-                                  weighted, skip_shift);
+                                  isWeighted, skip_shift);
 
 
     //Check that tweaking worked.
@@ -314,7 +312,8 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     }    
         
     
-    lsst::afw::image::Wcs::Ptr wcsPtr(new lsst::afw::image::Wcs(crval, crpix, CD, sipA, sipB, sipAp, sipBp, _equinox, _raDecSys));
+    lsst::afw::image::Wcs::Ptr wcsPtr(new lsst::afw::image::Wcs(crval, crpix, CD, 
+        sipA, sipB, sipAp, sipBp, _equinox, _raDecSys));
 
     
     sip_free(sip);
@@ -361,7 +360,7 @@ lsst::afw::image::PointD GlobalAstrometrySolution::raDecToXY(double ra, double d
     }
 
     double x, y;
-    bool flag = tan_radec2pixelxy( &_solver->best_match.wcstan, ra, dec, &x, &y);
+    int flag = tan_radec2pixelxy( &_solver->best_match.wcstan, ra, dec, &x, &y);
 
     //I don't think this conversion can ever fail
     assert(flag==true);
@@ -553,7 +552,8 @@ void GlobalAstrometrySolution::setMatchThreshold(const double threshold) {
 
 
 ///You can double the speed of a match if you know the parity, i.e whether the image is flipped or not.
-///North up and East right (or some rotation thereof) is parity==NORMAL_PARITY, the opposite is parity==FLIPPED_PARITY.
+///North up and East right (or some rotation thereof) is parity==NORMAL_PARITY, the opposite is
+/// parity==FLIPPED_PARITY.
 ///The default is UNKNOWN_PARITY
 void GlobalAstrometrySolution::setParity(const int parity){
 
@@ -592,11 +592,13 @@ bool GlobalAstrometrySolution::solve() {
     }
     
     if(_solver->best_match_solves){
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Solver indicated that a match has already been found. Do you need to reset?"));
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Solver indicated that a match has already been \
+            found. Do you need to reset?"));
     }
 
     if( _solver->funits_lower >= _solver->funits_upper) {
-        throw(LSST_EXCEPT(Except::DomainErrorException, "Minimum image scale must be strictly less than max scale"));
+        throw(LSST_EXCEPT(Except::DomainErrorException, "Minimum image scale must be strictly less than \
+        max scale"));
     }
 
     //Move all the indices from the backend structure to the solver structure.
@@ -638,11 +640,13 @@ bool GlobalAstrometrySolution::solve(const double ra, const double dec)  {
     }
     
     if(_solver->best_match_solves){
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Solver indicated that a match has already been found. Do you need to reset?"));
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Solver indicated that a match has already been \
+        found. Do you need to reset?"));
     }
 
     if( _solver->funits_lower >= _solver->funits_upper) {
-        throw(LSST_EXCEPT(Except::DomainErrorException, "Minimum image scale must be strictly less than max scale"));
+        throw(LSST_EXCEPT(Except::DomainErrorException, "Minimum image scale must be strictly less than \
+        max scale"));
     }
     
     //Create a unit vector from the postion to be passed to loadNearbyIndices
@@ -668,7 +672,8 @@ bool GlobalAstrometrySolution::solve(const double ra, const double dec)  {
 }
 
 
-bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr, const double imageScaleUncertaintyPercent) {
+bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr, 
+                                     const double imageScaleUncertaintyPercent) {
 
     //Rename the variable to something shorter to make the code easier to read
     double unc = imageScaleUncertaintyPercent/100.;
@@ -807,12 +812,12 @@ sip_t* GlobalAstrometrySolution::convertWcsToSipt(const lsst::afw::image::Wcs::P
     //In any one index file there should be one healpix covering the position of
     //interest, and 8 surrounding ones. The area of interest will cover
     //one or more of those healpixes.
-    int N = pl_size(_backend->indexes);
-    if ( N < 1) {   //Paranoia...
+    int numIndex = pl_size(_backend->indexes);
+    if (numIndex < 1) {   //Paranoia...
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "No indices in backend"));
     }
         
-    for(int i=0; i<N; ++i){
+    for(int i=0; i<numIndex; ++i){
         index_t* index = (index_t*) pl_get(_backend->indexes, i);
         index_meta_t* meta = &(index->meta);
         int healpixes[9];
