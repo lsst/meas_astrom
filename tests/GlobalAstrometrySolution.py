@@ -3,6 +3,7 @@ import re
 import os
 import glob
 import math
+import sys
 import pdb                          # we may want to say pdb.set_trace()
 import unittest
 
@@ -16,10 +17,6 @@ try:
     type(verbose)
 except NameError:
     verbose = 0
-
-dataDir = eups.productDir("astrometry_net_data")
-if not dataDir:
-    raise RuntimeError("Must set up astrometry_net_data to run these tests")
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 def loadXYFromFile(filename):
@@ -118,7 +115,8 @@ def suite():
     utilsTests.init()
 
     suites = []
-    suites += unittest.makeSuite(WCSTestCaseNet)
+    if gas:
+        suites += unittest.makeSuite(WCSTestCaseNet)
     suites += unittest.makeSuite(utilsTests.MemoryTestCase)
 
     return unittest.TestSuite(suites)
@@ -127,13 +125,17 @@ def run(exit=False):
     """Run the tests"""
     utilsTests.run(suite(), exit)
 
-
 #Create a globally accessible instance of a GAS
-policyFile=eups.productDir("astrometry_net_data")
-policyFile=os.path.join(policyFile, "metadata.paf")
-gas = net.GlobalAstrometrySolution(policyFile)
+try:
+    gas
+except:
+    dataDir = eups.productDir("astrometry_net_data")
+    if not dataDir:
+        print >> sys.stderr, "Warning: astrometry_net_data is not set up; not running the tests!"
+        gas = None
+    else:
+        policyFile=os.path.join(eups.productDir("astrometry_net_data"), "metadata.paf")
+        gas = net.GlobalAstrometrySolution(policyFile)
  
 if __name__ == "__main__":
-    #print "Warning, tests turned off"
-    #return 0
     run(True)
