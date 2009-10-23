@@ -592,13 +592,13 @@ bool GlobalAstrometrySolution::solve() {
     }
     
     if(_solver->best_match_solves){
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Solver indicated that a match has already been \
-            found. Do you need to reset?"));
+        string msg="Solver indicated that a match has already been found. Do you need to reset?";
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, msg));
     }
 
     if( _solver->funits_lower >= _solver->funits_upper) {
-        throw(LSST_EXCEPT(Except::DomainErrorException, "Minimum image scale must be strictly less than \
-        max scale"));
+        string msg = "Minimum image scale must be strictly less than max scale";
+        throw(LSST_EXCEPT(Except::DomainErrorException, msg));
     }
 
     //Move all the indices from the backend structure to the solver structure.
@@ -640,13 +640,13 @@ bool GlobalAstrometrySolution::solve(const double ra, const double dec)  {
     }
     
     if(_solver->best_match_solves){
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Solver indicated that a match has already been \
-        found. Do you need to reset?"));
+        string msg="Solver indicated that a match has already been found. Do you need to reset?";
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, msg));
     }
 
     if( _solver->funits_lower >= _solver->funits_upper) {
-        throw(LSST_EXCEPT(Except::DomainErrorException, "Minimum image scale must be strictly less than \
-        max scale"));
+        string msg = "Minimum image scale must be strictly less than max scale";
+        throw(LSST_EXCEPT(Except::DomainErrorException, msg));
     }
     
     //Create a unit vector from the postion to be passed to loadNearbyIndices
@@ -710,13 +710,14 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
 ///An "all-in-one" function. Take a starlist, and an initial guess at a Wcs, and do everything necessary
 ///to solve the field using the Wcs as an initial guess. The reset the solver so it's ready to be
 ///used again and return a pointer to the new Wcs
-lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::solve(const lsst::afw::detection::SourceSet vec, const lsst::afw::image::Wcs::Ptr wcsPtr) {
+lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::solve(const lsst::afw::detection::SourceSet vec, 
+                                                           const lsst::afw::image::Wcs::Ptr wcsPtr) {
 
     setStarlist(vec);
 
-    bool flag = solve(wcsPtr);
+    bool isSuccess = solve(wcsPtr);
 
-    if(!flag) {
+    if(! isSuccess) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found"));
     }
 
@@ -858,9 +859,9 @@ void GlobalAstrometrySolution::solverSetField() {
         _numBrightObjects = starxy_n(_starxy);
     }
 
-    int N = _numBrightObjects;  //Because I'm a lazy typist
-    starxy_t *shortlist = starxy_new(N, true, true);
-    for(int i=0; i<N; ++i) {
+    int num = _numBrightObjects;  //Because I'm a lazy typist
+    starxy_t *shortlist = starxy_new(num, true, true);
+    for(int i=0; i<num; ++i) {
         double x = starxy_getx(_starxy, i);
         double y = starxy_gety(_starxy, i);
         double f = _starxy->flux[i];   //flux has no accessor function
