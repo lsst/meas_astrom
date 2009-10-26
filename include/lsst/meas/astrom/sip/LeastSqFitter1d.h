@@ -1,3 +1,5 @@
+#ifndef LEAST_SQ_FITTER_1D
+#define LEAST_SQ_FITTER_1D
 
 using namespace std;
 
@@ -28,6 +30,11 @@ public:
     Eigen::VectorXd getParams();
     FittingFunc getBestFitFunction();
     double valueAt(double x);
+    vector<double> residuals();
+    
+    double getChiSq();
+    double getReducedChiSq();
+
     
 private:
     void initFunctions();
@@ -63,7 +70,6 @@ namespace math = lsst::afw::math;
 ///       class of lsst::afw::math::Function1. 
 ///\param x vector of x positions of data
 ///\param y vector of y positions of data
-///\param z Value of data for a given x,y. z = z_i = z_i(x_i, y_i)
 ///\param s Vector of measured uncertainties in the values of z
 ///\param order Order of 2d function to fit
 template<class FittingFunc> LeastSqFitter1d<FittingFunc>::LeastSqFitter1d(const vector<double> &x, const vector<double> &y, const vector<double> &s, unsigned int order) :
@@ -106,7 +112,7 @@ template<class FittingFunc> LeastSqFitter1d<FittingFunc>::LeastSqFitter1d(const 
                                "Unable fit data with LU decomposition either");
 
                  throw LSST_EXCEPT(pexExcept::Exception,
-                     "Unable to determine kernel solution in LeastSqFitter1d()");
+                     "Unable to solve least squares equation in LeastSqFitter1d()");
             }
         }
     }
@@ -145,6 +151,51 @@ template<class FittingFunc> double LeastSqFitter1d<FittingFunc>::valueAt(double 
         
         return f(x);
 }
+
+
+
+///Return a vector of residuals of the fit (i.e the difference between the input y values, and 
+///the value of the fitting function at that point.
+template<class FittingFunc>  vector<double> LeastSqFitter1d<FittingFunc>::residuals(){
+    vector<double> out;
+    out.reserve(_nData);
+    
+    FittingFunc f = getBestFitFunction();
+    
+    for(int i; i< _nData; ++i) {
+        out.push_back(_y[i] -f(_x[i]));
+    }
+    
+    return out;
+}
+
+
+/// \brief Return a measure of the goodness of fit. 
+/// \f[ \chi_r^2 = \sum \left( \frac{y_i - f(x_i)}{s} \right)^2 \f]
+/// 
+template<class FittingFunc> double LeastSqFitter1d<FittingFunc>::getChiSq() {
+    FittingFunc f = getBestFitFunction();
+
+    double chisq=0;
+    for(unsigned int i=0; i< _nData; ++i) {
+        double val = _y[i] - f(_x[i]);
+        val /= _s[i];
+        chisq += pow(val, 2);
+    }
+
+    return chisq;
+}
+
+
+/// \brief Return a measure of the goodness of fit. 
+/// \f[ \chi_r^2 = \sum \left( \frac{y_i - f(x_i)}{s} \right)^2 \div (N-p) \f]
+/// Where \f$ N \f$ is the number of data points, and \f$ p \f$ is the number 
+/// of parameters in the fit
+/// 
+template<class FittingFunc> double LeastSqFitter1d<FittingFunc>::getReducedChiSq() {
+    return getChiSq()/(double) (_nData - _order);
+}
+
 
 
 /// Initialise the array of functions. _funcArray[i] is a object of type math::Function1 of order 
@@ -208,3 +259,5 @@ template<class FittingFunc> double LeastSqFitter1d<FittingFunc>::func1d(double v
 
 
 }}}}
+
+#endif
