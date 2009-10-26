@@ -31,6 +31,7 @@ public:
     Eigen::MatrixXd getParams();
     Eigen::MatrixXd getErrors();
     double valueAt(double x, double y);
+    vector<double> residuals();
     
     void printParams();
     double getChiSq();
@@ -176,13 +177,13 @@ template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::printParams() {
 
 
 /// \brief Return a measure of the goodness of fit. 
-/// \f$ \chi^2 = \sum \left( \frac{z_i - f(x_i, y_i)}{s} \right)^2  \f$
+/// \f[ \chi^2 = \sum \left( \frac{z_i - f(x_i, y_i)}{s_i} \right)^2  \f]
 template<class FittingFunc> double LeastSqFitter2d<FittingFunc>::getChiSq() {
     
     double chisq=0;
-    for(int i=0; i< _nData; ++i) {
-        double val = _z[i] - func2d(_x[i], y[i]);
-        double val /= s[i];
+    for(unsigned int i=0; i< _nData; ++i) {
+        double val = _z[i] - valueAt(_x[i], _y[i]);
+        val /= _s[i];
         chisq += pow(val, 2);
     }
     
@@ -191,11 +192,12 @@ template<class FittingFunc> double LeastSqFitter2d<FittingFunc>::getChiSq() {
 
 
 /// \brief Return a measure of the goodness of fit. 
-/// \f$ \chi_r^2 = \sum \left( \frac{z_i - f(x_i, y_i)}{s} \right)^2 \f$ divided by 
-/// (Number of data points - number of fitting parmeters).
+/// \f[ \chi_r^2 = \sum \left( \frac{z_i - f(x_i, y_i)}{s} \right)^2 \div (N-p) \f]
+/// Where \f$ N \f$ is the number of data points, and \f$ p \f$ is the number 
+/// of parameters in the fit
 /// 
 template<class FittingFunc> double LeastSqFitter2d<FittingFunc>::getReducedChiSq() {
-    return this.getChiSq()/(double) (_nData - _nPar);
+    return getChiSq()/(double) (_nData - _nPar);
 }
 
 
@@ -210,6 +212,21 @@ template<class FittingFunc>  double LeastSqFitter2d<FittingFunc>::valueAt(double
     }
     return val;
 }
+
+///Return a vector of residuals of the fit (i.e the difference between the input z values, and 
+///the value of the fitting function at that point.
+template<class FittingFunc>  vector<double> LeastSqFitter2d<FittingFunc>::residuals(){
+
+    vector<double> out;
+    out.reserve(_nData);
+    
+    for(unsigned int i; i< _nData; ++i) {
+        out.push_back(_z[i] - valueAt(_x[i], _y[i]));
+    }
+    
+    return out;
+}
+
 
 
 template<class FittingFunc> Eigen::MatrixXd LeastSqFitter2d<FittingFunc>::getErrors() {
