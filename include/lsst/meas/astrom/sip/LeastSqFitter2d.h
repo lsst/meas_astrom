@@ -1,3 +1,5 @@
+#ifndef LEAST_SQ_FITTER_2D
+#define LEAST_SQ_FITTER_2D
 
 using namespace std;
 
@@ -31,6 +33,8 @@ public:
     double valueAt(double x, double y);
     
     void printParams();
+    double getChiSq();
+    double getReducedChiSq();
 
 
 private:
@@ -40,7 +44,7 @@ private:
     void calculateBeta();
     double func2d(double x, double y, int term);
     double func1d(double value, int exponent);
-
+    
     vector<double> _x, _y, _z, _s;
     unsigned int _order;   //Degree of polynomial to fit, e.g 4=> cubic
     unsigned int _nPar;    //Number of parameters in fitting eqn, e.g x^2, xy, y^2, x^3, 
@@ -112,19 +116,19 @@ template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const 
     //Try three different methods of solving the linear equation
     _par = Eigen::VectorXd(_nPar);
     if(! _A.ldlt().solve(_beta, &_par)) {
-         pexLogging::TTrace<5>("lsst.meas.astrom.sip.LeastSqFitter1d",
+         pexLogging::TTrace<5>("lsst.meas.astrom.sip.LeastSqFitter2d",
                            "Unable fit data with Cholesky LDL^t");
 
         if(! _A.llt().solve(_beta, &_par)) {
-             pexLogging::TTrace<5>("lsst.meas.astrom.sip.LeastSqFitter1d",
+             pexLogging::TTrace<5>("lsst.meas.astrom.sip.LeastSqFitter2d",
                            "Unable fit data with Cholesky LL^t either");
                         
             if(! _A.lu().solve(_beta, &_par)) {
-                 pexLogging::TTrace<5>("lsst.meas.astrom.sip.LeastSqFitter1d",
+                 pexLogging::TTrace<5>("lsst.meas.astrom.sip.LeastSqFitter2d",
                                "Unable fit data with LU decomposition either");
 
                  throw LSST_EXCEPT(pexExcept::Exception,
-                     "Unable to determine kernel solution in LeastSqFitter1d()");
+                     "Unable to solve least squared equation in LeastSqFitter2d()");
             }
         }
     }
@@ -169,6 +173,31 @@ template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::printParams() {
         printf("\n");
     }
 }
+
+
+/// \brief Return a measure of the goodness of fit. 
+/// \f$ \chi^2 = \sum \left( \frac{z_i - f(x_i, y_i)}{s} \right)^2  \f$
+template<class FittingFunc> double LeastSqFitter2d<FittingFunc>::getChiSq() {
+    
+    double chisq=0;
+    for(int i=0; i< _nData; ++i) {
+        double val = _z[i] - func2d(_x[i], y[i]);
+        double val /= s[i];
+        chisq += pow(val, 2);
+    }
+    
+    return chisq;
+}
+
+
+/// \brief Return a measure of the goodness of fit. 
+/// \f$ \chi_r^2 = \sum \left( \frac{z_i - f(x_i, y_i)}{s} \right)^2 \f$ divided by 
+/// (Number of data points - number of fitting parmeters).
+/// 
+template<class FittingFunc> double LeastSqFitter2d<FittingFunc>::getReducedChiSq() {
+    return this.getChiSq()/(double) (_nData - _nPar);
+}
+
 
 
 ///Return the value of the best fit function at a given position (x,y)
@@ -282,4 +311,7 @@ template<class FittingFunc> double LeastSqFitter2d<FittingFunc>::func1d(double v
 }
 
 
+    
 }}}}
+
+#endif
