@@ -19,7 +19,7 @@ using namespace std;
 namespace sip = lsst::meas::astrom::sip;
 namespace math = lsst::afw::math;
 
-/*
+
 BOOST_AUTO_TEST_CASE(fitLine)
 {
     vector<double> x;
@@ -224,7 +224,7 @@ BOOST_AUTO_TEST_CASE(fitQuadraticXY)
     
     BOOST_CHECK_CLOSE( par(2,0), 6., .001); 
 }
-*/
+
 
 BOOST_AUTO_TEST_CASE(fitLinearXSurface2)
 {
@@ -265,3 +265,84 @@ BOOST_AUTO_TEST_CASE(fitLinearXSurface2)
         BOOST_CHECK_CLOSE(z[i], lsf.valueAt(x[i], y[i]), .001);
     }
 }
+
+
+
+BOOST_AUTO_TEST_CASE(fitChebyshevX1)
+{
+    vector<double> x;
+    vector<double> y;
+    vector<double> s;
+    vector<double> z;
+
+    int nData = 3;
+    for(int i=0; i<nData*nData; ++i) {
+        x.push_back( (double) (i % nData));
+        y.push_back( (double) ((i- (int)x[i])/ nData));
+        z.push_back(1 + 2*x[i]); //T0 + 2T1
+        s.push_back(1);
+    }        
+    
+    int order=3;
+    sip::LeastSqFitter2d<math::Chebyshev1Function1<double> > lsf(x, y, z, s, order);
+    Eigen::MatrixXd par = lsf.getParams();
+
+    BOOST_CHECK_CLOSE( par(0,0), 1., .001); 
+    BOOST_CHECK_CLOSE( par(1,0), 2., .001); 
+    
+    BOOST_CHECK_CLOSE( par(0,1)+1 , 1., .001); 
+    BOOST_CHECK_CLOSE( par(0,2)+1 , 1., .001); 
+    BOOST_CHECK_CLOSE( par(1,1)+1 , 1., .001); 
+    BOOST_CHECK_CLOSE( par(1,2)+1 , 1., .001); 
+    BOOST_CHECK_CLOSE( par(2,0)+1 , 1., .001); 
+    BOOST_CHECK_CLOSE( par(2,1)+1 , 1., .001); 
+    BOOST_CHECK_CLOSE( par(2,2)+1 , 1., .001); 
+
+}
+
+
+BOOST_AUTO_TEST_CASE(fitChebyshevX2)
+{
+    vector<double> x;
+    vector<double> y;
+    vector<double> s;
+    vector<double> z;
+
+    //Create a Cheby polynomial
+    std::vector<double> cp;
+    cp.push_back(1);
+    cp.push_back(2);
+    cp.push_back(3);
+    math::Chebyshev1Function1<double> cheby(cp);
+    
+    
+    int nData = 7;
+    for(int i=0; i<nData*nData; ++i) {
+        x.push_back( (double) (i % nData));
+        y.push_back( (double) ((i- (int)x[i])/ nData));
+        z.push_back(cheby(x[i])); 
+        s.push_back(1);
+    }        
+    
+    int order=3;
+    sip::LeastSqFitter2d<math::Chebyshev1Function1<double> > lsf(x, y, z, s, order);
+    Eigen::MatrixXd par = lsf.getParams();
+    std::cout << par << std::endl;
+
+    BOOST_CHECK_CLOSE( par(0,0), 1., .001); 
+    BOOST_CHECK_CLOSE( par(1,0), 2., .001); 
+    BOOST_CHECK_CLOSE( par(2,0), 3., .001); 
+        
+    BOOST_CHECK_CLOSE( par(0,1)+1 , 1., .001); 
+    BOOST_CHECK_CLOSE( par(0,2)+1 , 1., .001); 
+    
+    BOOST_CHECK_CLOSE( par(1,1)+1 , 1., .001); 
+    BOOST_CHECK_CLOSE( par(1,2)+1 , 1., .001); 
+
+    BOOST_CHECK_CLOSE( par(2,1)+1 , 1., .001); 
+    BOOST_CHECK_CLOSE( par(2,2)+1 , 1., .001); 
+
+}
+
+
+
