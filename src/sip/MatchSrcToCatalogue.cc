@@ -77,7 +77,7 @@ void MatchSrcToCatalogue::findMatches() {
         _imgSet[i]->setDec(raDec[1]);
     }
     
-    _match = det::matchRaDec(_imgSet, _catSet, _distInArcsec);
+    _match = det::matchRaDec(_catSet, _imgSet, _distInArcsec);
 
       _removeOneToMany();  
       _removeManyToOne();  
@@ -92,7 +92,6 @@ void MatchSrcToCatalogue::findMatches() {
 ///We require that out matches be one to one, i.e any element matches no more than once for either 
 ///the catalogue or the image. However, our implementation of findMatches uses det::matchRaDec()
 ///which does not garauntee that. This function does the (slow) search and removal.
-///if @c tupleElement is 0 then one-to-many matches are removed, 1 means many-to-one matches are removed
 void MatchSrcToCatalogue::_removeOneToMany() {
 
     
@@ -100,9 +99,9 @@ void MatchSrcToCatalogue::_removeOneToMany() {
     for(unsigned int i=0; i< size; ++i) {
         for(unsigned int j=i+1; j< size; ++j) {
             //If the same Source appears twice keep the one with the smaller separation from its match
-            if( boost::tuples::get<0>(_match[i]) == boost::tuples::get<0>(_match[j]) ) {
+            if( _match[i].first == _match[j].first ) {
                 //Keep the one with the shorter match distance, and disgard the other
-                if( boost::tuples::get<2>(_match[i]) < boost::tuples::get<2>(_match[j]) ){
+                if( _match[i].distance < _match[j].distance){
                     _match.erase(_match.begin()+j);
                     size--;
                 }
@@ -118,18 +117,18 @@ void MatchSrcToCatalogue::_removeOneToMany() {
 }
 
 
-///Yes this is stupid repetition, but boost::tuples are stupid. This function is identical to
-///_removeOneToMany() except boost::tuples::get<0> replaced with boost::tuples::get<1>
-void MatchSrcToCatalogue::_removeManyToOne() {
+/// This function is identical to
+///_removeOneToMany() except first is replaced with second for the match structures
+void MatchSrcToCatalogue::_removeManyToOne()  {
 
     
     unsigned int size = _match.size();
     for(unsigned int i=0; i< size; ++i) {
         for(unsigned int j=i+1; j< size; ++j) {
             //If the same Source appears twice
-            if( boost::tuples::get<1>(_match[i]) == boost::tuples::get<1>(_match[j]) ) {
+            if( _match[i].second == _match[j].second ) {
                 //Keep the one with the shorter match distance, and disgard the other
-                if( boost::tuples::get<2>(_match[i]) < boost::tuples::get<2>(_match[j]) ){
+                if( _match[i].distance < _match[j].distance ){
                     _match.erase(_match.begin()+j);
                     size--;
                 }
