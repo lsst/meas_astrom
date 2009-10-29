@@ -162,7 +162,7 @@ template<class FittingFunc>  vector<double> LeastSqFitter1d<FittingFunc>::residu
     
     FittingFunc f = getBestFitFunction();
     
-    for(int i; i< _nData; ++i) {
+    for(unsigned int i; i< _nData; ++i) {
         out.push_back(_y[i] -f(_x[i]));
     }
     
