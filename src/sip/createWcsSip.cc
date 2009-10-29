@@ -75,7 +75,7 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
     
         //Distorted pixel position
         u.push_back(imgSrc->getXAstrom() - wcsOrigin[0]);
-        v.push_back(imgSrc->getXAstrom() - wcsOrigin[1]);
+        v.push_back(imgSrc->getYAstrom() - wcsOrigin[1]);
         
         //Linear pixel position
         afwImg::PointD xy = linearWcs.raDecToXY(catSrc->getRa(), catSrc->getDec());    
@@ -110,11 +110,9 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
     
 
     for(unsigned int i=0; i< match.size(); ++i) {    
-        sf[i] /= rangeU;
         f[i]  /= rangeU;
         lf[i] /= rangeU;
         
-        sg[i] /= rangeV;
         g[i]  /= rangeV;
         lg[i] /= rangeV;
     }
@@ -124,29 +122,17 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
     scaleVector<double>(lu, -1., 1.);
     scaleVector<double>(lv, -1., 1.);
 
-
-    cpgopen("/xserve");
-    cpgswin(-1, 1, -2e-3, 4e-3);
-    //cpgswin(0, 1024, -2e-3, 2e-3);
-    cpgbox("bcnts",0,0,"bcnts",0,0);
-    for(unsigned int i=0; i< match.size(); ++i) {        
-        printf("%.3f %.3f %.6f 1.000\n", u[i], v[i], f[i]);
-        cpgsci(1);
-        cpgpt1(u[i], f[i], 1);
-        cpgsci(2);
-        cpgpt1(u[i], g[i], 1);
-    }
-    
-    
     //Now fit the forward distortions
     mylog.log(pexLog::Log::INFO, "Calculating forward distortion coeffecients");    
-    Eigen::MatrixXd sipA = calculateSip(u, v, f, sf, order, rangeU);
-    Eigen::MatrixXd sipB = calculateSip(u, v, g, sg, order, rangeV);
+    cpgopen("/xserve");
+    cpgpage();
+    Eigen::MatrixXd sipA = calculateSip(u, v, f, sf, order);
+    Eigen::MatrixXd sipB = calculateSip(u, v, g, sg, order);
     
     //Calculate inverse matrices    
     mylog.log(pexLog::Log::INFO, "Calculating reverse distortion coeffecients");        
-    Eigen::MatrixXd sipAp = calculateSip(lu, lv, lf, sf, order, rangeU);
-    Eigen::MatrixXd sipBp = calculateSip(lu, lv, lg, sg, order, rangeV);
+    Eigen::MatrixXd sipAp = calculateSip(lu, lv, lf, sf, order);
+    Eigen::MatrixXd sipBp = calculateSip(lu, lv, lg, sg, order);
     
     //Construct a new wcs from the old one
     mylog.log(pexLog::Log::INFO, "Creating new wcs structure");        
@@ -174,12 +160,19 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
 ///  
 /// To get the reverse distortion polynomials, Ap, Bp, the arguments should be lu, lv, lf (or lg) etc.
 Eigen::MatrixXd calculateSip(const vector<double> u, const vector<double> v, const vector<double> z,
-                             const vector<double> s, int order, double range) {
+                             const vector<double> s, int order) {
+
+    cpgswin(-1, 1, -4e-3, 4e-3);
+    //cpgswin(0, 1024, -2e-3, 2e-3);
+    cpgbox("bcnts",0,0,"bcnts",0,0);
+    for(unsigned int i=0; i< u.size(); ++i) {        
+        cpgsci(1);
+        cpgpt1(u[i], z[i], 1);
+    }
+    cpgpage();
 
     sip::LeastSqFitter2d<math::Chebyshev1Function1<double> > lsfU(u, v, z, s, order);
     Eigen::MatrixXd chebyU = lsfU.getParams();
-    //Rescale from [-1,1] to range of image
-    cout << "SCheby: " << endl << chebyU << endl;    
 
     cout << "Cheby: " << endl << chebyU << endl;
     return convertChebyToSip(chebyU);
