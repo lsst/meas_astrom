@@ -35,13 +35,13 @@ img::Wcs trivialWcs()
 void printSourceMatch(det::SourceMatch s) {
 
     boost::format fmt("(%.1f, %.1f) -- (%.7f, %.7f) -- (%.7f, %.7f) -- %.2f\n");
-    fmt % (boost::tuples::get<0>(s))->getXAstrom();
-    fmt % (boost::tuples::get<0>(s))->getYAstrom();
-    fmt % (boost::tuples::get<0>(s))->getRa();
-    fmt % (boost::tuples::get<0>(s))->getDec();
-    fmt % (boost::tuples::get<1>(s))->getRa();
-    fmt % (boost::tuples::get<1>(s))->getDec();
-    fmt % (boost::tuples::get<2>(s));
+    fmt % (s.first)->getXAstrom();
+    fmt % (s.first)->getYAstrom();
+    fmt % (s.first)->getRa();
+    fmt % (s.first)->getDec();
+    fmt % (s.second)->getRa();
+    fmt % (s.second)->getDec();
+    fmt %  s.distance;
 
     std::string text = boost::str(fmt);
     std::cout << text;
@@ -98,7 +98,7 @@ BOOST_AUTO_TEST_CASE( OutputTest)
         
     for(unsigned int i=0; i<sm.size(); ++i) {
         det::SourceMatch s = sm[i];
-        BOOST_CHECK_CLOSE((boost::tuples::get<0>(s))->getRa(), (boost::tuples::get<1>(s))->getRa(), .01);
+        BOOST_CHECK_CLOSE((s.first)->getRa(), (s.second)->getRa(), .01);
     }
 
 }
