@@ -32,6 +32,8 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
                              const afwImg::Wcs &linearWcs,
                              int order) {
                              
+    cpgopen("/xserve");
+    
     if(order < 1) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "Order must be greater than or equal to 1"); 
     }
@@ -96,36 +98,18 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
         sg.push_back(imgSrc->getYAstromErr()+1);
     }
     
+    /*
     //Scale vectors to range from [-1,1] (so we can fit a Cheby to them)
-    //and scale the uncertainties appropriately
-    //unsigned int size = sizeof(u)/sizeof(u[0]);
-    double rangeU = *max_element(u.begin(), u.end()) - *min_element(u.begin(), u.end());
-    double rangeV = *max_element(v.begin(), v.end()) - *min_element(v.begin(), v.end());
-    
-    rangeU /= 2;
-    rangeV /= 2;
-    
-    cout << "RangeU = " << rangeU << endl;
-    cout << "RangeV = " << rangeV << endl;
-    
-
-    for(unsigned int i=0; i< match.size(); ++i) {    
-        f[i]  /= rangeU;
-        lf[i] /= rangeU;
-        
-        g[i]  /= rangeV;
-        lg[i] /= rangeV;
-    }
-    
-    scaleVector<double>(u, -1., 1.);
-    scaleVector<double>(v, -1., 1.);
-    scaleVector<double>(lu, -1., 1.);
-    scaleVector<double>(lv, -1., 1.);
+    scaleVector(u);
+    scaleVector(v);
+    scaleVector(lu);
+    scaleVector(lv);
+    //scaleVector(f);
+    // scaleVector(g);
+    */
 
     //Now fit the forward distortions
     mylog.log(pexLog::Log::INFO, "Calculating forward distortion coeffecients");    
-    cpgopen("/xserve");
-    cpgpage();
     Eigen::MatrixXd sipA = calculateSip(u, v, f, sf, order);
     Eigen::MatrixXd sipB = calculateSip(u, v, g, sg, order);
     
@@ -140,7 +124,30 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
     afwImg::PointD crpix = linearWcs.getOriginXY();
     Eigen::Matrix2d CD = linearWcs.getLinearTransformMatrix();
     
+    cpgclos();
     return afwImg::Wcs(crval, crpix, CD, sipA, sipB, sipAp, sipBp);
+}
+
+
+
+void scaleVector(vector<double>& v) {
+    if(v.size() == 0) {
+        throw LSST_EXCEPT(except::RuntimeErrorException, "Trying to rescale an empty vector"); 
+    }
+
+    double min = *min_element(v.begin(), v.end());
+    double max = *max_element(v.begin(), v.end());
+
+    if(min == max) {
+        throw LSST_EXCEPT(except::RuntimeErrorException, "Trying to rescale a vector where all elements have the same value"); 
+    }
+    
+    for(unsigned int i=0; i< v.size(); ++i) {
+        v[i] -= min;
+        v[i] /= max-min;
+        v[i] = 2*v[i] - 1;
+    }
+
 }
 
 
@@ -162,20 +169,32 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
 Eigen::MatrixXd calculateSip(const vector<double> u, const vector<double> v, const vector<double> z,
                              const vector<double> s, int order) {
 
-    cpgswin(-1, 1, -4e-3, 4e-3);
-    //cpgswin(0, 1024, -2e-3, 2e-3);
-    cpgbox("bcnts",0,0,"bcnts",0,0);
-    for(unsigned int i=0; i< u.size(); ++i) {        
-        cpgsci(1);
-        cpgpt1(u[i], z[i], 1);
-    }
+    sip::LeastSqFitter2d<math::PolynomialFunction1<double> > lsf(u, v, z, s, order);
+
     cpgpage();
+    cpgswin(-600,600, -1, .5);
+    cpgbox("bcnts",0,0,"bcnts",0,0);
+    
+    for(unsigned int i=0; i<u.size(); ++i) {
+        cpgsci(1);
+        cpgpt1(u[i], z[i], 2);
+        cpgsci(2);
+        cpgpt1(u[i], lsf.valueAt(u[i], v[i]), 1);
+    }
+    cpgsci(1);
 
-    sip::LeastSqFitter2d<math::Chebyshev1Function1<double> > lsfU(u, v, z, s, order);
-    Eigen::MatrixXd chebyU = lsfU.getParams();
+    return lsf.getParams();
+    
+    /*
+    sip::LeastSqFitter2d<math::Chebyshev1Function1<double> > lsf(u, v, z, s, order);
 
-    cout << "Cheby: " << endl << chebyU << endl;
-    return convertChebyToSip(chebyU);
+    Eigen::MatrixXd cheby = lsf.getParams();
+    
+    
+
+    cout << "Cheby: " << endl << cheby << endl;
+    return convertChebyToSip(cheby);
+    */
 }
 
 
@@ -224,7 +243,7 @@ Eigen::MatrixXd convertChebyToSip(Eigen::MatrixXd cheby) {
     //These values are explicitly set to zero in the SIP standard, because the linear wcs
     //is supposed to take care of them.
     //For the moment I leave them in, because I think I might need them to update the Wcs
-    //out(0,0) = out(0,1) = out(1,0) = 0;
+    out(0,0) = out(0,1) = out(1,0) = 0;
     
     return out;
 }
