@@ -32,7 +32,7 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
                              const afwImg::Wcs &linearWcs,
                              int order) {
                              
-    cpgopen("/xserve");
+    //cpgopen("/xserve");
     
     if(order < 1) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "Order must be greater than or equal to 1"); 
@@ -85,8 +85,8 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
         lv.push_back(xy[1] - wcsOrigin[1]);
         
         //Forward distortion terms
-        f.push_back(catSrc->getXAstrom() - imgSrc->getXAstrom());
-        g.push_back(catSrc->getYAstrom() - imgSrc->getYAstrom());
+        f.push_back(xy[0] - imgSrc->getXAstrom());
+        g.push_back(xy[1] - imgSrc->getYAstrom());
         
         //Reverse distortion tersm
         lf.push_back(-f[i]);
@@ -124,7 +124,7 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
     afwImg::PointD crpix = linearWcs.getOriginXY();
     Eigen::Matrix2d CD = linearWcs.getLinearTransformMatrix();
     
-    cpgclos();
+    //cpgclos();
     return afwImg::Wcs(crval, crpix, CD, sipA, sipB, sipAp, sipBp);
 }
 
@@ -171,6 +171,14 @@ Eigen::MatrixXd calculateSip(const vector<double> u, const vector<double> v, con
 
     sip::LeastSqFitter2d<math::PolynomialFunction1<double> > lsf(u, v, z, s, order);
 
+
+    return lsf.getParams();
+    
+    /*
+    sip::LeastSqFitter2d<math::Chebyshev1Function1<double> > lsf(u, v, z, s, order);
+
+    Eigen::MatrixXd cheby = lsf.getParams();
+    
     cpgpage();
     cpgswin(-600,600, -1, .5);
     cpgbox("bcnts",0,0,"bcnts",0,0);
@@ -182,14 +190,6 @@ Eigen::MatrixXd calculateSip(const vector<double> u, const vector<double> v, con
         cpgpt1(u[i], lsf.valueAt(u[i], v[i]), 1);
     }
     cpgsci(1);
-
-    return lsf.getParams();
-    
-    /*
-    sip::LeastSqFitter2d<math::Chebyshev1Function1<double> > lsf(u, v, z, s, order);
-
-    Eigen::MatrixXd cheby = lsf.getParams();
-    
     
 
     cout << "Cheby: " << endl << cheby << endl;
