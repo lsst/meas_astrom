@@ -22,6 +22,15 @@ namespace lsst { namespace meas { namespace astrom { namespace sip {
 /// and a linear Wcs that describes the mapping from pixel space in the image
 /// and ra/dec space in the catalogue, calculate discrepancies between the two
 /// and compute SIP distortion polynomials to describe the discrepancy
+///
+/// Note that the SIP standard insists* that the lowest three terms in the distortion
+/// polynomials be zero (A00, A10, A01, B00, etc.). To achieve this, we need to 
+/// adjust the values of CD and CRPIX from the input wcs. This may not be the 
+/// behaviour you expect.
+///
+/// *The standard is detailed in Shupe et al. (2005, ASP Conf.), and this 
+/// fact is mentioned very obliquly between Eqns 3 and 4. Many other implementations
+/// do not have this requirement.
 /// 
 /// \param match. A vector of SourceMatches. Each source match consists of two
 /// sources (one from the catalogue, one from the image), and the distance
@@ -112,17 +121,39 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
     mylog.log(pexLog::Log::INFO, "Calculating forward distortion coeffecients");    
     Eigen::MatrixXd sipA = calculateSip(u, v, f, sf, order);
     Eigen::MatrixXd sipB = calculateSip(u, v, g, sg, order);
-    
-    //Calculate inverse matrices    
-    mylog.log(pexLog::Log::INFO, "Calculating reverse distortion coeffecients");        
-    Eigen::MatrixXd sipAp = calculateSip(lu, lv, lf, sf, order);
-    Eigen::MatrixXd sipBp = calculateSip(lu, lv, lg, sg, order);
-    
+
     //Construct a new wcs from the old one
     mylog.log(pexLog::Log::INFO, "Creating new wcs structure");        
     afwImg::PointD crval = linearWcs.getOriginRaDec();
     afwImg::PointD crpix = linearWcs.getOriginXY();
     Eigen::Matrix2d CD = linearWcs.getLinearTransformMatrix();
+    
+    //The zeroth element of the SIP matrices is just an offset, so the standard calls 
+    //for this offset to be folded into a refined value for crpix
+    crpix = crpix - afwImg::PointD(sipA(0,0), sipB(0,0));
+    sipA(0,0) = sipB(0,0) = 0;
+    
+    //The A01, A10, B01 and B10 terms in the SIP matrices are just linear corrections, so
+    //the standard calls for these to be folded into the CD matrix. The algebra is
+    //a little involved here.
+    double c00 = CD(0,0);
+    double c01 = CD(0,1);
+    double c10 = CD(1,0);
+    double c11 = CD(1,1);
+    
+    CD(0,0) = c00*(1+sipA(1,0)) + c01*sipB(1,0);
+    CD(0,1) = c01*(1+sipB(0,1)) + c00*sipA(0,1);
+    CD(1,0) = c10*(1+sipA(1,0)) + c11*sipB(1,0);
+    CD(1,1) = c11*(1+sipB(0,1)) + c10*sipA(0,1);
+    
+    sipA(0,1) = sipA(1,0) = 0;
+    sipB(0,1) = sipB(1,0) = 0;
+    
+    //Calculate inverse matrices  --this is now almost certainly wrong
+    mylog.log(pexLog::Log::INFO, "Calculating reverse distortion coeffecients");        
+    Eigen::MatrixXd sipAp = calculateSip(lu, lv, lf, sf, order);
+    Eigen::MatrixXd sipBp = calculateSip(lu, lv, lg, sg, order);
+    
     
     //cpgclos();
     return afwImg::Wcs(crval, crpix, CD, sipA, sipB, sipAp, sipBp);
