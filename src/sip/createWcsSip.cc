@@ -146,8 +146,6 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
 
     //Now that we've revised our Wcs, we can now calculate our reverse terms
     mylog.log(pexLog::Log::INFO, "Calculating reverse distortion coeffecients");        
-    cpgswin(-600, 600, -1, 1);
-    cpgbox("bcnts",0,0,"bcnts",0,0);
 
     lu.clear();  //Relative linear x position (relative to wcsOrigin)
     lv.clear();  //Relative linear y position
@@ -269,7 +267,7 @@ Eigen::MatrixXd convertChebyToSip(Eigen::MatrixXd cheby) {
 }
 
 
-double getRmsInPixels(const std::vector<det::SourceMatch> match, const afwImg::Wcs &wcs) {
+double getScatterInPixels(const std::vector<det::SourceMatch> match, const afwImg::Wcs &wcs) {
     unsigned int size = match.size();
     
     vector<double> val;
@@ -292,9 +290,9 @@ double getRmsInPixels(const std::vector<det::SourceMatch> match, const afwImg::W
     //Because we're looking at a hypotenuse which is always greater than zero
     //the median is a good metric of the typical size
     math::Statistics stat = math::makeStatistics(val, math::MEDIAN);
-    double rms = stat.getValue(math::MEDIAN);
+    double scatter = stat.getValue(math::MEDIAN);
     
-    return rms;
+    return scatter;
 }
     
 
