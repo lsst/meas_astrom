@@ -4,7 +4,6 @@ using namespace std;
 
 #include "lsst/meas/astrom/sip/createWcsSip.h"
 
-#include "cpgplot.h"
 
 namespace except = lsst::pex::exceptions;
 namespace pexLog = lsst::pex::logging;
@@ -40,15 +39,14 @@ namespace lsst { namespace meas { namespace astrom { namespace sip {
 afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
                              const afwImg::Wcs &linearWcs,
                              int order) {
-                             
-    //cpgopen("/xserve");
     
     if(order < 1) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "Order must be greater than or equal to 1"); 
+        string msg = "Order must be greater than or equal to 1";
+        throw LSST_EXCEPT(except::RuntimeErrorException, msg); 
     }
 
     if(match.size() ==0) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "match vector is empty"); 
+        throw LSST_EXCEPT(except::RuntimeErrorException, "Match vector is empty"); 
     }
 
     pexLog::Log mylog(pexLog::Log::getDefaultLog(), "meas.astrom.sip", pexLog::Log::DEBUG);
@@ -70,9 +68,6 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
 
     vector<double> f;  //Difference between image and catalogue position. 
     vector<double> g;  //Difference between image and catalogue position
-
-    vector<double> lf;  //Reverse Distortion
-    vector<double> lg;  //Reverse Distortion
 
     vector<double> sf;  //Uncertainty in x position
     vector<double> sg;  //Uncertainty in y position
@@ -97,9 +92,7 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
         f.push_back(xy[0] - imgSrc->getXAstrom());
         g.push_back(xy[1] - imgSrc->getYAstrom());
         
-        //Reverse distortion tersm
-        lf.push_back(-f[i]);
-        lg.push_back(-g[i]);
+        //Reverse distortion terms are calculated later
         
         //Uncertainties in distortion        
         //The +1s are temporary workarounds guarding against AstromErr's not being set
@@ -148,14 +141,38 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
     
     sipA(0,1) = sipA(1,0) = 0;
     sipB(0,1) = sipB(1,0) = 0;
-    
-    //Calculate inverse matrices  --this is now almost certainly wrong
+
+    afwImg::Wcs tmpWcs = afwImg::Wcs(crval, crpix, CD);
+
+    //Now that we've revised our Wcs, we can now calculate our reverse terms
     mylog.log(pexLog::Log::INFO, "Calculating reverse distortion coeffecients");        
+    cpgswin(-600, 600, -1, 1);
+    cpgbox("bcnts",0,0,"bcnts",0,0);
+
+    lu.clear();  //Relative linear x position (relative to wcsOrigin)
+    lv.clear();  //Relative linear y position
+
+    vector<double> lf;  //Reverse Distortion
+    vector<double> lg;  //Reverse Distortion
+
+    wcsOrigin = tmpWcs.getOriginXY();
+    for(unsigned int i=0; i< match.size(); ++i) {
+        det::Source::Ptr catSrc = match[i].first;
+        det::Source::Ptr imgSrc = match[i].second;
+
+        //Linear pixel position
+        afwImg::PointD xy = tmpWcs.raDecToXY(catSrc->getRa(), catSrc->getDec());    
+        lu.push_back(xy[0] - wcsOrigin[0]);
+        lv.push_back(xy[1] - wcsOrigin[1]);
+
+        //Reverse distortion tersm
+        lf.push_back((imgSrc->getXAstrom()-xy[0]));
+        lg.push_back(imgSrc->getYAstrom()-xy[1]);
+    }
+    
     Eigen::MatrixXd sipAp = calculateSip(lu, lv, lf, sf, order);
     Eigen::MatrixXd sipBp = calculateSip(lu, lv, lg, sg, order);
-    
-    
-    //cpgclos();
+
     return afwImg::Wcs(crval, crpix, CD, sipA, sipB, sipAp, sipBp);
 }
 
@@ -196,36 +213,14 @@ void scaleVector(vector<double>& v) {
 /// is returned. If parallel to v, the sip B matrix is returned. This parameter is not checked
 /// so you have to make sure you are passing in the right thing.
 ///  
-/// To get the reverse distortion polynomials, Ap, Bp, the arguments should be lu, lv, lf (or lg) etc.
+/// To get the reverse distortion polynomials, Ap, Bp, the arguments should be lu, lv, lf (or lg)
+/// etc.
 Eigen::MatrixXd calculateSip(const vector<double> u, const vector<double> v, const vector<double> z,
                              const vector<double> s, int order) {
 
     sip::LeastSqFitter2d<math::PolynomialFunction1<double> > lsf(u, v, z, s, order);
-
-
     return lsf.getParams();
     
-    /*
-    sip::LeastSqFitter2d<math::Chebyshev1Function1<double> > lsf(u, v, z, s, order);
-
-    Eigen::MatrixXd cheby = lsf.getParams();
-    
-    cpgpage();
-    cpgswin(-600,600, -1, .5);
-    cpgbox("bcnts",0,0,"bcnts",0,0);
-    
-    for(unsigned int i=0; i<u.size(); ++i) {
-        cpgsci(1);
-        cpgpt1(u[i], z[i], 2);
-        cpgsci(2);
-        cpgpt1(u[i], lsf.valueAt(u[i], v[i]), 1);
-    }
-    cpgsci(1);
-    
-
-    cout << "Cheby: " << endl << cheby << endl;
-    return convertChebyToSip(cheby);
-    */
 }
 
 
@@ -263,78 +258,78 @@ Eigen::MatrixXd convertChebyToSip(Eigen::MatrixXd cheby) {
         for(int j=0; j<rows; ++j) { //For the (i,j)th elt of the output matrix (x^i y^j
             out(i,j) = 0;
             for(int k=0; k<rows; ++k) {
-                for(int el=0; el<rows; ++el) {    //Calc effect of (k,el)th element of the input matrix
+                for(int el=0; el<rows; ++el) {    
                     out(i,j) += cheby(k,el) * coeff(k, i) * coeff(el, j);
                 }
             }
         }
     }
     
-    cout << "SIP: " << endl << out << endl;    
-    //These values are explicitly set to zero in the SIP standard, because the linear wcs
-    //is supposed to take care of them.
-    //For the moment I leave them in, because I think I might need them to update the Wcs
-    out(0,0) = out(0,1) = out(1,0) = 0;
-    
     return out;
 }
 
 
-double getRmsInPixels(const std::vector<det::SourceMatch> match, const afwImg::Wcs &linearWcs) {
+double getRmsInPixels(const std::vector<det::SourceMatch> match, const afwImg::Wcs &wcs) {
     unsigned int size = match.size();
     
     vector<double> val;
     val.reserve(size);
     
     for(unsigned int i=0; i< size; ++i) {
-        det::Source::Ptr imgSrc = match[i].first;
-        det::Source::Ptr catSrc = match[i].second;
+        det::Source::Ptr catSrc = match[i].first;
+        det::Source::Ptr imgSrc = match[i].second;
 
         double imgX = imgSrc->getXAstrom();
         double imgY = imgSrc->getYAstrom();
         
-        afwImg::PointD xy = linearWcs.raDecToXY(catSrc->getRa(), catSrc->getDec());    
+        afwImg::PointD xy = wcs.raDecToXY(catSrc->getRa(), catSrc->getDec());    
         double catX = xy[0];
         double catY = xy[1];
         
-        val[i] = hypot(imgX-catX, imgY-catY);
-    }
+        val.push_back(hypot(imgX-catX, imgY-catY));
+   }
     
-    math::Statistics stat = math::makeStatistics(val, math::MEAN | math::STDEV);
-    double rms = stat.getValue(math::STDEV);
+    //Because we're looking at a hypotenuse which is always greater than zero
+    //the median is a good metric of the typical size
+    math::Statistics stat = math::makeStatistics(val, math::MEDIAN);
+    double rms = stat.getValue(math::MEDIAN);
     
     return rms;
 }
     
 
-double getRmsInArcsec(const std::vector<det::SourceMatch> match, const afwImg::Wcs &linearWcs) {
+double getScatterInArcsec(const std::vector<det::SourceMatch> match, const afwImg::Wcs &wcs) {
     unsigned int size = match.size();
     
     vector<double> val;
     val.reserve(size);
     
     for(unsigned int i=0; i< size; ++i) {
-        det::Source::Ptr imgSrc = match[i].first;
-        det::Source::Ptr catSrc = match[i].second;
+        det::Source::Ptr catSrc = match[i].first;
+        det::Source::Ptr imgSrc = match[i].second;
 
         double catRa = catSrc->getRa();
         double catDec = catSrc->getDec();
         
         
-        afwImg::PointD ad = linearWcs.xyToRaDec(imgSrc->getXAstrom(), imgSrc->getYAstrom());    
+        afwImg::PointD ad = wcs.xyToRaDec(imgSrc->getXAstrom(), imgSrc->getYAstrom());    
         double imgRa = ad[0];
         double imgDec = ad[1];
         
         //This is not strictly the correct calculation for distance in raDec space,
         //but because we are dealing with distances hopefully << 1" it's a reasonable 
         //approximation
-        val[i] = hypot(imgRa-catRa, imgDec-catDec);
+        val.push_back(hypot(imgRa-catRa, imgDec-catDec));
     }
     
-    math::Statistics stat = math::makeStatistics(val, math::MEAN | math::STDEV);
-    double rms = stat.getValue(math::STDEV);
+    assert(val.size() > 0);
     
-    return rms;
+    //Because we're looking at a hypotenuse which is always greater than zero
+    //the median is a good metric of the typical size
+    math::Statistics stat = math::makeStatistics(val, math::MEDIAN);
+    double rms = stat.getValue(math::MEDIAN);
+    
+    return rms*3600;    //Convert to arcsec
 }
     
         
