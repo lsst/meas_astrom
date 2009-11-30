@@ -346,3 +346,79 @@ BOOST_AUTO_TEST_CASE(fitChebyshevX2)
 
 
 
+BOOST_AUTO_TEST_CASE(fitChebyshevX3)
+{
+    //A test case for a specific problem I've run into and don't understand
+    
+    vector<double> x;
+    vector<double> y;
+    vector<double> s;
+    vector<double> z;
+
+    x.push_back(-1);
+    y.push_back(0);
+    z.push_back(-1e-3);
+    s.push_back(1);
+    
+    x.push_back(-.75);
+    y.push_back(0);
+    z.push_back(-1.25e-3);
+    s.push_back(1);
+
+    x.push_back(-.5);
+    y.push_back(0);
+    z.push_back(-1.5e-3);
+    s.push_back(1);
+
+    x.push_back(-.25);
+    y.push_back(0);
+    z.push_back(-1.75e-3);
+    s.push_back(1);
+
+    x.push_back(0.);
+    y.push_back(0);
+    z.push_back(-2e-3);
+    s.push_back(1);
+
+    x.push_back(.25);
+    y.push_back(0);
+    z.push_back(-2.25e-3);
+    s.push_back(1);
+
+    x.push_back(.5);
+    y.push_back(0);
+    z.push_back(-2.5e-3);
+    s.push_back(1);
+
+    x.push_back(.75);
+    y.push_back(0);
+    z.push_back(-2.75e-3);
+    s.push_back(1);
+
+    x.push_back(1.);
+    y.push_back(0);
+    z.push_back(-3e-3);
+    s.push_back(1);
+    
+    int order=3;
+    sip::LeastSqFitter2d<math::Chebyshev1Function1<double> > lsf(x, y, z, s, order);
+    Eigen::MatrixXd par = lsf.getParams();
+    std::cout << par << std::endl;
+
+    BOOST_CHECK_CLOSE( par(0,0), -2e-3, .001); 
+    BOOST_CHECK_CLOSE( par(1,0), -1e-3, .001); 
+        
+    BOOST_CHECK_CLOSE( par(0,1)+1 , 1., .001); 
+    BOOST_CHECK_CLOSE( par(0,2)+1 , 1., .001); 
+    
+    BOOST_CHECK_CLOSE( par(1,1)+1 , 1., .001); 
+    BOOST_CHECK_CLOSE( par(1,2)+1 , 1., .001); 
+
+    BOOST_CHECK_CLOSE( par(2,0)+1 , 1., .001); 
+    BOOST_CHECK_CLOSE( par(2,1)+1 , 1., .001); 
+    BOOST_CHECK_CLOSE( par(2,2)+1 , 1., .001); 
+
+}
+
+
+
