@@ -15,6 +15,7 @@ namespace math = lsst::afw::math;
 namespace lsst { namespace meas { namespace astrom { namespace sip {
 
 
+
 /// Create a wcs including SIP polynomials
 /// 
 /// Given a list of matching sources between a catalogue and an image,
@@ -36,10 +37,113 @@ namespace lsst { namespace meas { namespace astrom { namespace sip {
 /// between them
 /// \param linearWcs A linear WCS that maps pixel position to ra/dec
 /// \param order How many terms to compute for the SIP polynomial
-afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
-                             const afwImg::Wcs &linearWcs,
-                             int order) {
+CreateWcsWithSip::CreateWcsWithSip(const std::vector<det::SourceMatch> match, 
+                                   const afwImg::Wcs &linearWcs, 
+                                   int order) :
+                                   _matchList(match), 
+                                   _linearWcs(linearWcs) {
     
+    _createWcs(match, linearWcs, order);
+}
+
+
+CreateWcsWithSip::CreateWcsWithSip(const vector<det::SourceMatch> match,
+                                   const afwImg::Wcs &linearWcs,
+                                   double maxScatterInArcsec,
+                                   int maxOrder) {
+
+    for(int order=3; order<maxOrder; ++order) {
+        _createWcs(match, linearWcs, order);
+        double scatter = getScatterInArcsec();
+        
+        if(scatter < maxScatterInArcsec)
+        {   return;
+        }
+    }
+    
+    throw LSST_EXCEPT(except::RuntimeErrorException, "Failed to reach required tolerance"); 
+}
+
+
+
+afwImg::Wcs CreateWcsWithSip::getNewWcs() {
+    return _newWcs;
+}
+
+double CreateWcsWithSip::getScatterInPixels() {
+    unsigned int size = _matchList.size();
+    
+    vector<double> val;
+    val.reserve(size);
+    
+    for(unsigned int i=0; i< size; ++i) {
+        det::Source::Ptr catSrc = _matchList[i].first;
+        det::Source::Ptr imgSrc = _matchList[i].second;
+
+        double imgX = imgSrc->getXAstrom();
+        double imgY = imgSrc->getYAstrom();
+        
+        afwImg::PointD xy = _newWcs.raDecToXY(catSrc->getRa(), catSrc->getDec());    
+        double catX = xy[0];
+        double catY = xy[1];
+        
+        val.push_back(hypot(imgX-catX, imgY-catY));
+   }
+    
+    //Because we're looking at a hypotenuse which is always greater than zero
+    //the median is a good metric of the typical size
+    math::Statistics stat = math::makeStatistics(val, math::MEDIAN);
+    double scatter = stat.getValue(math::MEDIAN);
+    
+    return scatter;
+}
+    
+
+double CreateWcsWithSip::getScatterInArcsec() {
+    unsigned int size = _matchList.size();
+    
+    vector<double> val;
+    val.reserve(size);
+    
+    for(unsigned int i=0; i< size; ++i) {
+        det::Source::Ptr catSrc = _matchList[i].first;
+        det::Source::Ptr imgSrc = _matchList[i].second;
+
+        double catRa = catSrc->getRa();
+        double catDec = catSrc->getDec();
+        
+        
+        afwImg::PointD ad = _newWcs.xyToRaDec(imgSrc->getXAstrom(), imgSrc->getYAstrom());    
+        double imgRa = ad[0];
+        double imgDec = ad[1];
+        
+        //This is not strictly the correct calculation for distance in raDec space,
+        //but because we are dealing with distances hopefully << 1" it's a reasonable 
+        //approximation
+        val.push_back(hypot(imgRa-catRa, imgDec-catDec));
+    }
+    
+    assert(val.size() > 0);
+    
+    //Because we're looking at a hypotenuse which is always greater than zero
+    //the median is a good metric of the typical size
+    math::Statistics stat = math::makeStatistics(val, math::MEDIAN);
+    double scatter = stat.getValue(math::MEDIAN);
+    
+    return scatter*3600;    //Convert to arcsec
+}
+
+
+
+//
+// Private functions
+//
+
+///Does the donkey work.
+void CreateWcsWithSip::_createWcs(const std::vector<det::SourceMatch> match, 
+                                  const afwImg::Wcs &linearWcs, 
+                                  int order){
+
     if(order < 1) {
         string msg = "Order must be greater than or equal to 1";
         throw LSST_EXCEPT(except::RuntimeErrorException, msg); 
@@ -112,8 +216,8 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
 
     //Now fit the forward distortions
     mylog.log(pexLog::Log::INFO, "Calculating forward distortion coeffecients");    
-    Eigen::MatrixXd sipA = calculateSip(u, v, f, sf, order);
-    Eigen::MatrixXd sipB = calculateSip(u, v, g, sg, order);
+    _sipA = _calculateSip(u, v, f, sf, order);
+    _sipB = _calculateSip(u, v, g, sg, order);
 
     //Construct a new wcs from the old one
     mylog.log(pexLog::Log::INFO, "Creating new wcs structure");        
@@ -123,8 +227,8 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
     
     //The zeroth element of the SIP matrices is just an offset, so the standard calls 
     //for this offset to be folded into a refined value for crpix
-    crpix = crpix - afwImg::PointD(sipA(0,0), sipB(0,0));
-    sipA(0,0) = sipB(0,0) = 0;
+    crpix = crpix - afwImg::PointD(_sipA(0,0), _sipB(0,0));
+    _sipA(0,0) = _sipB(0,0) = 0;
     
     //The A01, A10, B01 and B10 terms in the SIP matrices are just linear corrections, so
     //the standard calls for these to be folded into the CD matrix. The algebra is
@@ -134,13 +238,13 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
     double c10 = CD(1,0);
     double c11 = CD(1,1);
     
-    CD(0,0) = c00*(1+sipA(1,0)) + c01*sipB(1,0);
-    CD(0,1) = c01*(1+sipB(0,1)) + c00*sipA(0,1);
-    CD(1,0) = c10*(1+sipA(1,0)) + c11*sipB(1,0);
-    CD(1,1) = c11*(1+sipB(0,1)) + c10*sipA(0,1);
+    CD(0,0) = c00*(1+_sipA(1,0)) + c01*_sipB(1,0);
+    CD(0,1) = c01*(1+_sipB(0,1)) + c00*_sipA(0,1);
+    CD(1,0) = c10*(1+_sipA(1,0)) + c11*_sipB(1,0);
+    CD(1,1) = c11*(1+_sipB(0,1)) + c10*_sipA(0,1);
     
-    sipA(0,1) = sipA(1,0) = 0;
-    sipB(0,1) = sipB(1,0) = 0;
+    _sipA(0,1) = _sipA(1,0) = 0;
+    _sipB(0,1) = _sipB(1,0) = 0;
 
     afwImg::Wcs tmpWcs = afwImg::Wcs(crval, crpix, CD);
 
@@ -168,32 +272,10 @@ afwImg::Wcs createWcsWithSip(const std::vector<det::SourceMatch> match,
         lg.push_back(imgSrc->getYAstrom()-xy[1]);
     }
     
-    Eigen::MatrixXd sipAp = calculateSip(lu, lv, lf, sf, order);
-    Eigen::MatrixXd sipBp = calculateSip(lu, lv, lg, sg, order);
+    Eigen::MatrixXd sipAp = _calculateSip(lu, lv, lf, sf, order);
+    Eigen::MatrixXd sipBp = _calculateSip(lu, lv, lg, sg, order);
 
-    return afwImg::Wcs(crval, crpix, CD, sipA, sipB, sipAp, sipBp);
-}
-
-
-
-void scaleVector(vector<double>& v) {
-    if(v.size() == 0) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "Trying to rescale an empty vector"); 
-    }
-
-    double min = *min_element(v.begin(), v.end());
-    double max = *max_element(v.begin(), v.end());
-
-    if(min == max) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "Trying to rescale a vector where all elements have the same value"); 
-    }
-    
-    for(unsigned int i=0; i< v.size(); ++i) {
-        v[i] -= min;
-        v[i] /= max-min;
-        v[i] = 2*v[i] - 1;
-    }
-
+    _newWcs = afwImg::Wcs(crval, crpix, CD, _sipA, _sipB, sipAp, sipBp);
 }
 
 
@@ -213,8 +295,8 @@ void scaleVector(vector<double>& v) {
 ///  
 /// To get the reverse distortion polynomials, Ap, Bp, the arguments should be lu, lv, lf (or lg)
 /// etc.
-Eigen::MatrixXd calculateSip(const vector<double> u, const vector<double> v, const vector<double> z,
-                             const vector<double> s, int order) {
+Eigen::MatrixXd CreateWcsWithSip::_calculateSip(const vector<double> u, const vector<double> v,
+    const vector<double> z, const vector<double> s, int order) {
 
     sip::LeastSqFitter2d<math::PolynomialFunction1<double> > lsf(u, v, z, s, order);
     return lsf.getParams();
@@ -223,11 +305,32 @@ Eigen::MatrixXd calculateSip(const vector<double> u, const vector<double> v, con
 
 
 
+/// Needed if we're fitting Chebychev coefficents to calculate the distortion
+void CreateWcsWithSip::_scaleVector(vector<double>& v) {
+    if(v.size() == 0) {
+        throw LSST_EXCEPT(except::RuntimeErrorException, "Trying to rescale an empty vector"); 
+    }
+
+    double min = *min_element(v.begin(), v.end());
+    double max = *max_element(v.begin(), v.end());
+
+    if(min == max) {
+        throw LSST_EXCEPT(except::RuntimeErrorException, "Trying to rescale a vector where all elements have the same value"); 
+    }
+    
+    for(unsigned int i=0; i< v.size(); ++i) {
+        v[i] -= min;
+        v[i] /= max-min;
+        v[i] = 2*v[i] - 1;
+    }
+
+}
+
  
 ///Convert a 2d matrix of Chebyshev coefficients (as produced by LeastSqFitter2d) into
 ///a SIP matrix.
-Eigen::MatrixXd convertChebyToSip(Eigen::MatrixXd cheby) {
-    int maxOrder=5;
+Eigen::MatrixXd CreateWcsWithSip::_convertChebyToSip(Eigen::MatrixXd cheby) {
+    int maxOrder=5; // Because I've only defined the coeffiencents up to this order
     
     //Coeffs is a lookup table of the polynomial coeffecients of Chebychev functions
     //with order less than maxorder. For example, T2 = 2x^2 - 1, so coeff[2,0] == -1,
@@ -267,68 +370,6 @@ Eigen::MatrixXd convertChebyToSip(Eigen::MatrixXd cheby) {
 }
 
 
-double getScatterInPixels(const std::vector<det::SourceMatch> match, const afwImg::Wcs &wcs) {
-    unsigned int size = match.size();
-    
-    vector<double> val;
-    val.reserve(size);
-    
-    for(unsigned int i=0; i< size; ++i) {
-        det::Source::Ptr catSrc = match[i].first;
-        det::Source::Ptr imgSrc = match[i].second;
-
-        double imgX = imgSrc->getXAstrom();
-        double imgY = imgSrc->getYAstrom();
-        
-        afwImg::PointD xy = wcs.raDecToXY(catSrc->getRa(), catSrc->getDec());    
-        double catX = xy[0];
-        double catY = xy[1];
-        
-        val.push_back(hypot(imgX-catX, imgY-catY));
-   }
-    
-    //Because we're looking at a hypotenuse which is always greater than zero
-    //the median is a good metric of the typical size
-    math::Statistics stat = math::makeStatistics(val, math::MEDIAN);
-    double scatter = stat.getValue(math::MEDIAN);
-    
-    return scatter;
-}
-    
-
-double getScatterInArcsec(const std::vector<det::SourceMatch> match, const afwImg::Wcs &wcs) {
-    unsigned int size = match.size();
-    
-    vector<double> val;
-    val.reserve(size);
-    
-    for(unsigned int i=0; i< size; ++i) {
-        det::Source::Ptr catSrc = match[i].first;
-        det::Source::Ptr imgSrc = match[i].second;
-
-        double catRa = catSrc->getRa();
-        double catDec = catSrc->getDec();
-        
-        
-        afwImg::PointD ad = wcs.xyToRaDec(imgSrc->getXAstrom(), imgSrc->getYAstrom());    
-        double imgRa = ad[0];
-        double imgDec = ad[1];
-        
-        //This is not strictly the correct calculation for distance in raDec space,
-        //but because we are dealing with distances hopefully << 1" it's a reasonable 
-        //approximation
-        val.push_back(hypot(imgRa-catRa, imgDec-catDec));
-    }
-    
-    assert(val.size() > 0);
-    
-    //Because we're looking at a hypotenuse which is always greater than zero
-    //the median is a good metric of the typical size
-    math::Statistics stat = math::makeStatistics(val, math::MEDIAN);
-    double rms = stat.getValue(math::MEDIAN);
-    
-    return rms*3600;    //Convert to arcsec
-}
     
         
             
