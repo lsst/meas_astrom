@@ -470,6 +470,39 @@ bool GlobalAstrometrySolution::solve()  {
 }
 
 
+bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr, const double imageScaleUncertaintyPercent) {
+
+    //Rename the variable to something shorter to make the code easier to read
+    double unc = imageScaleUncertaintyPercent/100.;
+
+    //This test is strictly unecessary as solverSetField throws the same exception
+    if ( ! _starxy) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
+    }
+
+    _solverSetField();
+    
+    double xc = (_solver->field_maxx + _solver->field_minx)/2.0;
+    double yc = (_solver->field_maxy + _solver->field_miny)/2.0;
+
+    //Get the central ra/dec and plate scale
+    lsst::afw::image::PointD raDec = wcsPtr->xyToRaDec(xc, yc);
+    lsst::afw::image::PointD raDec2 = wcsPtr->xyToRaDec(xc+1, yc);
+    double plateScale = hypot(raDec2.getX()-raDec.getX(), raDec2.getY()-raDec.getY());  //In degrees
+    plateScale *= 3600;    //In arcseconds per pixel
+
+    setMinimumImageScale(plateScale*(1-unc));
+    setMaximumImageScale(plateScale*(1+unc));
+
+    if( wcsPtr->isFlipped()) {
+        setParity(FLIPPED_PARITY);
+    } else {
+        setParity(NORMAL_PARITY);
+    }
+        
+    return(solve(raDec.getX(), raDec.getY()));
+}
+
 ///Returns true if a meta points to an index at an appropriate scale for the image being solved
 ///and points to the correct region of the sky.
 bool GlobalAstrometrySolution::_isIndexMetaPossibleMatch(index_meta_t *meta, double ra, double dec) {

@@ -77,7 +77,7 @@ public:
     bool solve();
     bool solve(const afw::image::PointD raDec);
     bool solve(const double ra, const double dec);
-    //bool solve(const lsst::afw::image::Wcs::Ptr wcsPtr, const double imageScaleUncertaintyPercent=20);
+    bool solve(const lsst::afw::image::Wcs::Ptr wcsPtr, const double imageScaleUncertaintyPercent=20);
 
     //Return the solution
     lsst::afw::image::Wcs::Ptr getWcs();
@@ -94,12 +94,9 @@ public:
 
     //Accessors
     double getMatchThreshold();
-    inline double getMinimumImageScale() {    return _solver->funits_lower; }
-    inline double getMaximumImageScale() {    return _solver->funits_upper; }
     inline double getMinQuadScale(){    return _solver->quadsize_min;}
     bool isFlipped(); 
     
-    double getSolvedImageScale();
     //lsst::afw::image::Wcs::Ptr getDistortedWcs(int order=3, double jitter_arcsec=0.1);
     lsst::afw::image::PointD raDecToXY(double ra, double dec);
     lsst::afw::image::PointD xyToRaDec(double x, double y);
@@ -113,10 +110,6 @@ public:
     //Mutators, mostly for tweaking parameters
     
     //Solve and verify functions.
-    bool solve();
-    bool solve(const afw::image::PointD raDec);
-    bool solve(const double ra, const double dec);
-    bool solve(const lsst::afw::image::Wcs::Ptr wcsPtr, const double imageScaleUncertaintyPercent=20);
     lsst::afw::image::Wcs::Ptr solve(const lsst::afw::detection::SourceSet vec, const lsst::afw::image::Wcs::Ptr wcsPtr);
     
     //Not implemented yet
