@@ -90,34 +90,6 @@ public:
 
 
 
-/*
-
-    //Accessors
-    double getMatchThreshold();
-    inline double getMinQuadScale(){    return _solver->quadsize_min;}
-    bool isFlipped(); 
-    
-    //lsst::afw::image::Wcs::Ptr getDistortedWcs(int order=3, double jitter_arcsec=0.1);
-    lsst::afw::image::PointD raDecToXY(double ra, double dec);
-    lsst::afw::image::PointD xyToRaDec(double x, double y);
-
-    //The following accessors are mostly for debugging, and let you know what's going on inside
-    //the object
-    int getNumIndices();
-    std::vector<std::string> getIndexPaths();
-    void printStarlist();
-
-    //Mutators, mostly for tweaking parameters
-    
-    //Solve and verify functions.
-    lsst::afw::image::Wcs::Ptr solve(const lsst::afw::detection::SourceSet vec, const lsst::afw::image::Wcs::Ptr wcsPtr);
-    
-    //Not implemented yet
-    #if 0
-    bool verifyWcs(const lsst::afw::image::Wcs::Ptr wcsPtr);
-    #endif
-
-*/    
 private:
     pl *_indexList;
     pl *_metaList;
@@ -136,11 +108,6 @@ private:
     bool _isMetaNearby(index_meta_t *meta, double ra, double dec); 
     bool _isMetaSuitableScale(index_meta_t *meta);                               
 
-    /*
-    sip_t *convertWcsToSipt(const lsst::afw::image::Wcs::Ptr);
-    void loadNearbyIndices(std::vector<double> unitVector);
-    void solverSetField();
-    */
 };
 
 }}}}
