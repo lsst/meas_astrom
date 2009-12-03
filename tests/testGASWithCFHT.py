@@ -19,9 +19,18 @@ except NameError:
     verbose = 0
 
 
+eupsObj = eups.Eups()
+dataVersion=eups.getSetupVersion("astrometry_net_data")
+if dataVersion != "cfhttemplate":
+    print "Warning: These tests require astrometry_net_data cfhttemplate"
+    print "Setting this up for you now"
+    try:
+        eups.setup(eupsObj, "astrometry_net_data", version="cfhttemplate")
+    except RuntimeError, e:
+        print e
+        raise RuntimeError("Failed to set up astrometry_net_data cfhttemplate")
+    
 dataDir = eups.productDir("astrometry_net_data")
-if not dataDir:
-    raise RuntimeError("Must set up astrometry_net_data cfhttemplate to run these tests")
 
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -202,7 +211,7 @@ class SmallSolveGASTest(unittest.TestCase):
         gas.setLogLevel(0)
 
 
-    def testSolveWcs():
+    def testSolveWcs(self):
         """Can't be tested until I figure out the LSST way of interfacing Eigen Matrices"""
         pass
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -230,3 +239,5 @@ gas = net.GlobalAstrometrySolution(policyFile)
  
 if __name__ == "__main__":
     run(True)
+    if dataVersion != "cfhttemplate":
+        eups.setup(eupsObj, "astrometry_net_data", dataVersion)  #Restore old a_n_data package
