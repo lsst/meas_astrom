@@ -29,11 +29,12 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
 
     //Add meta information about every index listed in the policy file
     std::vector<std::string> indexArray = pol.getStringArray("indexFile");
+    printf("Loading meta information on indices...\n");
     for(unsigned int i=0; i<indexArray.size(); ++i){
         string path = pkgDir+"/"+indexArray[i];
-        cout << "Adding index file: " << path << endl;
         pl_push(_metaList, _loadIndexMeta(path));
     }
+    printf("Meta information loaded...\n");
 }
 
 
@@ -265,11 +266,11 @@ void GlobalAstrometrySolution::_solverSetField() {
 }   
 
 ///Set the plate scale of the image in arcsec per pixel
-void GlobalAstrometrySolution::setImageScaleArcsecPerPixel(double scale ///< Plate scale of image
+void GlobalAstrometrySolution::setImageScaleArcsecPerPixel(double imgScale ///< Plate scale of image
                                                           ) {
     //Note that the solver will fail if min==max, so we make them different by a small amount.    
-    setMinimumImageScale(.99*scale);
-    setMaximumImageScale(1.01*scale);
+    setMinimumImageScale(.99*imgScale);
+    setMaximumImageScale(1.01*imgScale);
 }
 
 
@@ -356,24 +357,30 @@ bool GlobalAstrometrySolution::solve(const double ra,   ///<Right ascension in d
         //Which index does this meta point to?
         index_meta_t *meta = (index_meta_t*) pl_get(_metaList, i);
         int metaId = meta->indexid;
+        int metaHealpix = meta->healpix;
+        int metaHpnside = meta->hpnside;
 
         //Only look at indices that cover the appropriate region of sky, and the right
         //range of image scales.
         if( _isIndexMetaPossibleMatch(meta, ra, dec)) {       
-            printf("\tUsing index %s\n", meta->indexname);
-            
+                        
             //Have we already loaded this index from disk?
             int nIndex = pl_size(_indexList);
             index_t *trialIndex = NULL;
+            
             for(int j=0; j<nIndex && trialIndex == NULL; ++j) {
                 trialIndex = (index_t*) pl_get(_indexList, j);
                 assert(trialIndex != NULL);
 
-                if(metaId != trialIndex->meta.indexid) {
+                //Three values uniquely identify an index
+                bool isEqual = (metaId == trialIndex->meta.indexid);
+                isEqual = isEqual && (metaHealpix == trialIndex->meta.healpix);
+                isEqual = isEqual &&(metaHpnside == trialIndex->meta.hpnside);
+                if(!isEqual) {
                     trialIndex = NULL;
                 }
             }
-
+            
             //If not loaded already, read from disk. 
             //This is a potentially slow operation
             if(trialIndex == NULL) {
@@ -385,10 +392,6 @@ bool GlobalAstrometrySolution::solve(const double ra,   ///<Right ascension in d
     }
 
     solver_run(_solver);
-    solver_clear_indexes(_solver);
-
-
-    
             
     if(_solver->best_match_solves){
         logmsg("Position (%.7f %.7f) verified\n", ra, dec);
@@ -427,6 +430,8 @@ bool GlobalAstrometrySolution::solve()  {
         //Which index does this meta point to?
         index_meta_t *meta = (index_meta_t*) pl_get(_metaList, i);
         int metaId = meta->indexid;
+        int metaHealpix = meta->healpix;
+        int metaHpnside = meta->hpnside;
 
         //Only look at indices that cover the appropriate region of sky, and the right
         //range of image scales.
@@ -438,7 +443,11 @@ bool GlobalAstrometrySolution::solve()  {
                 trialIndex = (index_t*) pl_get(_indexList, j);
                 assert(trialIndex != NULL);
 
-                if(metaId != trialIndex->meta.indexid) {
+                //Three values uniquely identify an index
+                bool isEqual = (metaId == trialIndex->meta.indexid);
+                isEqual = isEqual && (metaHealpix == trialIndex->meta.healpix);
+                isEqual = isEqual &&(metaHpnside == trialIndex->meta.hpnside);
+                if(!isEqual) {
                     trialIndex = NULL;
                 }
             }
@@ -454,10 +463,6 @@ bool GlobalAstrometrySolution::solve()  {
     }
 
     solver_run(_solver);
-    solver_clear_indexes(_solver);
-
-
-    
             
     if(_solver->best_match_solves){
         logmsg("Position found\n");
@@ -774,6 +779,7 @@ void GlobalAstrometrySolution::reset() {
         _solver = solver_new();
     }
 
+    
     if(_starxy != NULL) {
         starxy_free(_starxy);
         _starxy= NULL;
