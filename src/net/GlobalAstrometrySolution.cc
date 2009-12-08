@@ -6,15 +6,19 @@
 namespace lsst { namespace meas { namespace astrom { namespace net {
 using namespace std;
 namespace Except = lsst::pex::exceptions;
-
+namespace Det = lsst::afw::detection;
+namespace pexLog = lsst::pex::logging;
 
 //
 //Constructors, Destructors
 //
 GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath):
+    _mylog(pexLog::Log::getDefaultLog(), "meas.astrom.net", pexLog::Log::DEBUG),
     _indexList(NULL), _metaList(NULL), _solver(NULL), _starxy(NULL), _numBrightObjects(-1)
 {
  
+    
+
     _indexList = pl_new(sizeof(index_t));
     _metaList = pl_new(sizeof(index_meta_t));
     _solver   = solver_new();
@@ -29,12 +33,14 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
 
     //Add meta information about every index listed in the policy file
     std::vector<std::string> indexArray = pol.getStringArray("indexFile");
-    printf("Loading meta information on indices...\n");
+
+
+    _mylog.log(pexLog::Log::DEBUG, "Loading meta information on indices...");    
     for(unsigned int i=0; i<indexArray.size(); ++i){
         string path = pkgDir+"/"+indexArray[i];
         pl_push(_metaList, _loadIndexMeta(path));
     }
-    printf("Meta information loaded...\n");
+    _mylog.log(pexLog::Log::DEBUG, "Meta information loaded...");    
 }
 
 
@@ -117,7 +123,6 @@ GlobalAstrometrySolution::~GlobalAstrometrySolution() {
     }
 
     if( _starxy != NULL) {
-        starxy_free_data(_starxy);
         starxy_free(_starxy);
         _starxy = NULL;
     }
@@ -209,20 +214,15 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
 ///calculating the distortion terms of the SIP matrix.    
 void GlobalAstrometrySolution::setNumBrightObjects(const int N) {
 
-    if (_starxy == NULL) {
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No field set yet."));
-    }
-
     if (N <= 0) {
         throw(LSST_EXCEPT(Except::RangeErrorException, "Illegal request. N must be greater than zero"));
     }
-        
-    if (N > starxy_n(_starxy) ) {
-        throw(LSST_EXCEPT(Except::RangeErrorException, "Request exceeds number of available sources"));
-    }
 
     _numBrightObjects = N;
-    _solverSetField();
+    
+    if(_starxy != NULL){
+       _solverSetField();
+    }
 }
 
 
@@ -232,17 +232,24 @@ void GlobalAstrometrySolution::_solverSetField() {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
     }
 
-    if( starxy_n(_starxy) == 0){
+    int starxySize = starxy_n(_starxy);
+    if( starxySize == 0){
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist has zero elements"));
     }
         
 
+    int N = _numBrightObjects;  //Because I'm a lazy typist
+    
     //The default value, -1, indicates that all objects should be used
-    if (_numBrightObjects == -1) {
-        _numBrightObjects = starxy_n(_starxy);
+    if (N == -1) {
+        N = starxySize;
     }
 
-    int N = _numBrightObjects;  //Because I'm a lazy typist
+    if(N > starxySize) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "numBrightObjects set to a larger value than number of stars"));
+    }
+    
+
     starxy_t *shortlist = starxy_new(N, true, true);
     for(int i=0; i<N; ++i) {
         double x = starxy_getx(_starxy, i);
@@ -254,10 +261,8 @@ void GlobalAstrometrySolution::_solverSetField() {
         shortlist->flux[i] = f;
     }
 
-    //Free the old structure stored in the solver, if necessary
+    //Set the pointer in the solver to the new, smaller field
     starxy_free(_solver->fieldxy);
-
-    //Add the new, smaller, struture
     solver_set_field(_solver, shortlist);
 
     //Find field boundaries and precompute kdtree
@@ -485,8 +490,6 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr, co
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
     }
 
-    _solverSetField();
-    
     double xc = (_solver->field_maxx + _solver->field_minx)/2.0;
     double yc = (_solver->field_maxy + _solver->field_miny)/2.0;
 
@@ -507,6 +510,7 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr, co
         
     return(solve(raDec.getX(), raDec.getY()));
 }
+
 
 ///Returns true if a meta points to an index at an appropriate scale for the image being solved
 ///and points to the correct region of the sky.
@@ -657,7 +661,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
                                   nstars, jitter_arcsec, 
                                   order, inverse_order, iterations,
                                   weighted, skip_shift);
-
+    free(radec);
 
     //Check that tweaking worked.
     if (sip == NULL) {
@@ -770,6 +774,52 @@ double GlobalAstrometrySolution::getSolvedImageScale(){
     return(_solver->best_match.scale);
 } 
 
+
+
+///Returns a sourceSet of objects that are nearby in an raDec sense to the best match solution
+///This function is still under construction and doesn't do what I want it to yet.
+lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double radiusInArcsec) {
+    if (! _solver->best_match_solves) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException,"No solution found yet. Did you run solve()?"));
+    }
+
+    //Don't free this pointer. It points to memory that will still exist
+    //when this function goes out of scope.
+    double *center = _solver->best_match.center;
+
+
+    //Generate an array of radec of positions in the field
+
+    //radius of bounding circle of healpix of best match
+    double radius2 = arcsec2distsq(radiusInArcsec);
+    
+    Det::SourceSet out;
+    
+
+    //For each index that we've search, pulled out stars that are close in an radec sense    
+    for(int i=0; i< pl_size(_solver->indexes); ++i) {
+        double *radec=NULL;
+        int nstars=0;
+
+        index_t* index = (index_t *) pl_get(_solver->indexes, i);
+        startree_search(index->starkd, center, radius2, NULL, &radec, &nstars);
+        printf("%i %i %i\n", index->meta.indexid, index->meta.healpix, nstars);
+
+        //Create a  source for every position stored
+        for(int j=0; j<nstars; ++j) {
+            Det::Source::Ptr ptr(new lsst::afw::detection::Source());
+
+            ptr->setRa(radec[2*j]);
+            ptr->setDec(radec[2*j+1]);
+
+            out.push_back(ptr);
+        }
+
+        free(radec);    
+    }
+    return out;
+
+}
 
 ///Reset the object so it's ready to match another field.
 void GlobalAstrometrySolution::reset() {
