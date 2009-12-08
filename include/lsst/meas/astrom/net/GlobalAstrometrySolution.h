@@ -13,6 +13,7 @@
 #include "Eigen/Core.h"
 
 #include "lsst/pex/exceptions.h"
+#include "lsst/pex/logging/Trace.h"
 #include "lsst/afw/detection/Source.h"
 #include "lsst/afw/image/Wcs.h"
 #include "lsst/afw/image/Utils.h"
@@ -84,6 +85,7 @@ public:
     lsst::afw::image::Wcs::Ptr getDistortedWcs(int order=3);
     lsst::afw::detection::SourceSet getMatchedSources();
     double getSolvedImageScale();
+    lsst::afw::detection::SourceSet getCatalogue(double radiusInArcsec);
 
     //Call this before performing a new match
     void reset();
@@ -91,6 +93,8 @@ public:
 
 
 private:
+    lsst::pex::logging::Log _mylog;
+    
     pl *_indexList;
     pl *_metaList;
     solver_t *_solver;
