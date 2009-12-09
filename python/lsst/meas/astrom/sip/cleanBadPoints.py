@@ -9,7 +9,9 @@ import lsst.afw.detection as det
 
 import sipLib as sip
 
-def clean(srcMatch, order=1, nsigma=3):
+import pdb
+
+def clean(srcMatch, wcs, order=1, nsigma=3):
     """Remove bad points from srcMatch
     
     Input:
@@ -22,13 +24,26 @@ def clean(srcMatch, order=1, nsigma=3):
     std::vector<det::SourceMatch> of the good data points
     """
     
-    getx = lambda x: x[0].getXAstrom()
-    getdx = lambda x: getx(x) - x[1].getXAstrom()
+    #Cataloge ra and dec
+    raFunc = lambda x: (x.first).getRa()
+    catRa = map(raFunc, srcMatch)
+    decFunc = lambda x: (x.first).getDec()
+    catDec = map(decFunc, srcMatch)
     
-    x = np.array(map(getx, srcMatch))
-    dx = np.array(map(getdx, srcMatch))
-    s = np.zeros( (len(x)) ) + .1
+    #Wcs ra and dec
+    wcsX = np.zeros(len(catRa))
+    wcsY = np.zeros(len(catRa))
+    for i in range(len(catRa)):
+        tmp1, tmp2 = wcs.raDecToXY(catRa[i], catDec[i])
+        wcsX[i] = tmp1
+        wcsY[i] = tmp2
 
+
+    getx = lambda x: (x.second).getXAstrom()
+    x = np.array(map(getx, srcMatch))
+    dx = x - wcsX
+    s = np.zeros( (len(x)) ) + .1
+    
     idx = indicesOfGoodPoints(x, dx, s, order=order, nsigma=nsigma)
 
     clean = []
@@ -44,7 +59,7 @@ def indicesOfGoodPoints(x, y, s, order=1, nsigma=3, maxiter=100):
     best fit polynomial
     """
 
-    plot=False
+    plot=True
     
     #Indices of elements of x sorted in order of increasing value
     idx = x.argsort()
@@ -55,15 +70,18 @@ def indicesOfGoodPoints(x, y, s, order=1, nsigma=3, maxiter=100):
         rx = chooseRx(x, idx, order)
         ry = chooseRy(y, idx, order)
         rs = np.ones((len(rx)))
-        
+          
         lsf = sip.LeastSqFitter1dPoly(list(rx), list(ry), list(rs), order)
         fit = map(lambda x: lsf.valueAt(x), rx)
 
         f = map(lambda x: lsf.valueAt(x), x)
-        deviance = np.fabs( (y - f) /s)
+        
+        sigma = (y-f).std()
+        deviance = np.fabs( (y - f) /sigma)
         newidx = np.where(deviance < nsigma)
 
         if plot:
+            mpl.plot(x, y, 'ks')
             mpl.plot(rx, ry, 'b-')        
             mpl.plot(rx, ry, 'bs')        
             mpl.plot(rx, fit, 'ms')        
@@ -71,7 +89,7 @@ def indicesOfGoodPoints(x, y, s, order=1, nsigma=3, maxiter=100):
             for i in range(len(rx)):
                 print rx[i], ry[i], lsf.valueAt(rx[i])
 
-            mpl.plot(x[newidx], y[newidx], 'bs')
+            mpl.plot(x[newidx], y[newidx], 'rs')
         
         #If we haven't culled any points we're finished cleaning
         if len(newidx) == len(idx):
@@ -86,10 +104,13 @@ def indicesOfGoodPoints(x, y, s, order=1, nsigma=3, maxiter=100):
     #list of indices of good points.
     #Somewhere along the line, newidx becomes a tuple, only the 0th
     #elt of which is the list we need
+    if len(newidx[0]) == 0:
+        raise RuntimeError("All points cleaned out. This is probably a bug")
     return newidx[0]
     
 
 def chooseRx(x, idx, order):
+    """Create order+1 values of the ordinate based on the median of groups of elements of x"""
     rSize = len(idx)/float(order+1)  #Note, a floating point number
     rx = np.zeros((order+1))
     
@@ -101,6 +122,7 @@ def chooseRx(x, idx, order):
     
 
 def chooseRy(y, idx, order):
+    """Create order+1 values of the ordinate based on the median of groups of elements of y"""
     rSize = len(idx)/float(order+1)  #Note, a floating point number
     ry = np.zeros((order+1))
     
