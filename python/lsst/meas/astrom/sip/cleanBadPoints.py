@@ -86,8 +86,6 @@ def indicesOfGoodPoints(x, y, s, order=1, nsigma=3, maxiter=100):
             mpl.plot(rx, ry, 'bs')        
             mpl.plot(rx, fit, 'ms')        
             mpl.plot(rx, fit, 'm-')        
-            for i in range(len(rx)):
-                print rx[i], ry[i], lsf.valueAt(rx[i])
 
             mpl.plot(x[newidx], y[newidx], 'rs')
         
