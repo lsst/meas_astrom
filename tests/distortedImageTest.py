@@ -120,7 +120,7 @@ class DistortedImageTestCase(unittest.TestCase):
         matcher = sip.MatchSrcToCatalogue(cat, img, imgWcs, distInArcsec)    
         matchList = matcher.getMatches()
 
-        mList = cleanBadPoints.clean(matchList, order=cleanParam)
+        mList = cleanBadPoints.clean(matchList, imgWcs, order=cleanParam)
         return mList
         
 
