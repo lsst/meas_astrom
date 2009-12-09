@@ -43,21 +43,24 @@ CreateWcsWithSip::CreateWcsWithSip(const std::vector<det::SourceMatch> match,
                                    _matchList(match), 
                                    _linearWcs(linearWcs) {
     
-    _createWcs(match, linearWcs, order);
+    _createWcs(order);
 }
 
 
 CreateWcsWithSip::CreateWcsWithSip(const vector<det::SourceMatch> match,
                                    const afwImg::Wcs &linearWcs,
                                    double maxScatterInArcsec,
-                                   int maxOrder) {
+                                   int maxOrder):
+                                   _matchList(match), 
+                                   _linearWcs(linearWcs) {
 
     for(int order=3; order<maxOrder; ++order) {
-        _createWcs(match, linearWcs, order);
+        _createWcs(order);
         double scatter = getScatterInArcsec();
-        
-        if(scatter < maxScatterInArcsec)
-        {   return;
+
+        printf("order %i: scatter:%.3f: sipOrder=%i\n", (int) order, scatter, (int) _sipA.rows());
+        if(scatter < maxScatterInArcsec){
+           return;
         }
     }
     
@@ -69,6 +72,7 @@ CreateWcsWithSip::CreateWcsWithSip(const vector<det::SourceMatch> match,
 afwImg::Wcs CreateWcsWithSip::getNewWcs() {
     return _newWcs;
 }
+
 
 double CreateWcsWithSip::getScatterInPixels() {
     unsigned int size = _matchList.size();
@@ -140,23 +144,22 @@ double CreateWcsWithSip::getScatterInArcsec() {
 //
 
 ///Does the donkey work.
-void CreateWcsWithSip::_createWcs(const std::vector<det::SourceMatch> match, 
-                                  const afwImg::Wcs &linearWcs, 
-                                  int order){
+void CreateWcsWithSip::_createWcs(int order){
 
     if(order < 1) {
         string msg = "Order must be greater than or equal to 1";
         throw LSST_EXCEPT(except::RuntimeErrorException, msg); 
     }
 
-    if(match.size() ==0) {
+    if(_matchList.size() ==0) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "Match vector is empty"); 
     }
 
     pexLog::Log mylog(pexLog::Log::getDefaultLog(), "meas.astrom.sip", pexLog::Log::DEBUG);
     mylog.log(pexLog::Log::INFO, "Determining Sip parameters");    
+    printf("%i %i\n", (int) _matchList.size(), order);
                               
-    afwImg::PointD wcsOrigin = linearWcs.getOriginXY();
+    afwImg::PointD wcsOrigin = _linearWcs.getOriginXY();
     
     //Note on naming convention.
     //u,v are as defined in the Shupe et al. (2000) paper as relative pixel coordinates
@@ -178,17 +181,17 @@ void CreateWcsWithSip::_createWcs(const std::vector<det::SourceMatch> match,
    
     //Unpack the SourceMatch vector
     mylog.log(pexLog::Log::INFO, "Unpacking SourceMatchSet");    
-    for(unsigned int i=0; i< match.size(); ++i) {
+    for(unsigned int i=0; i< _matchList.size(); ++i) {
     
-        det::Source::Ptr catSrc = match[i].first;
-        det::Source::Ptr imgSrc = match[i].second;
+        det::Source::Ptr catSrc = _matchList[i].first;
+        det::Source::Ptr imgSrc = _matchList[i].second;
     
         //Distorted pixel position
         u.push_back(imgSrc->getXAstrom() - wcsOrigin[0]);
         v.push_back(imgSrc->getYAstrom() - wcsOrigin[1]);
         
         //Linear pixel position
-        afwImg::PointD xy = linearWcs.raDecToXY(catSrc->getRa(), catSrc->getDec());    
+        afwImg::PointD xy = _linearWcs.raDecToXY(catSrc->getRa(), catSrc->getDec());    
         lu.push_back(xy[0] - wcsOrigin[0]);
         lv.push_back(xy[1] - wcsOrigin[1]);
         
@@ -221,9 +224,9 @@ void CreateWcsWithSip::_createWcs(const std::vector<det::SourceMatch> match,
 
     //Construct a new wcs from the old one
     mylog.log(pexLog::Log::INFO, "Creating new wcs structure");        
-    afwImg::PointD crval = linearWcs.getOriginRaDec();
-    afwImg::PointD crpix = linearWcs.getOriginXY();
-    Eigen::Matrix2d CD = linearWcs.getLinearTransformMatrix();
+    afwImg::PointD crval = _linearWcs.getOriginRaDec();
+    afwImg::PointD crpix = _linearWcs.getOriginXY();
+    Eigen::Matrix2d CD = _linearWcs.getLinearTransformMatrix();
     
     //The zeroth element of the SIP matrices is just an offset, so the standard calls 
     //for this offset to be folded into a refined value for crpix
@@ -258,9 +261,9 @@ void CreateWcsWithSip::_createWcs(const std::vector<det::SourceMatch> match,
     vector<double> lg;  //Reverse Distortion
 
     wcsOrigin = tmpWcs.getOriginXY();
-    for(unsigned int i=0; i< match.size(); ++i) {
-        det::Source::Ptr catSrc = match[i].first;
-        det::Source::Ptr imgSrc = match[i].second;
+    for(unsigned int i=0; i< _matchList.size(); ++i) {
+        det::Source::Ptr catSrc = _matchList[i].first;
+        det::Source::Ptr imgSrc = _matchList[i].second;
 
         //Linear pixel position
         afwImg::PointD xy = tmpWcs.raDecToXY(catSrc->getRa(), catSrc->getDec());    
