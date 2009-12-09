@@ -803,7 +803,6 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
 
         index_t* index = (index_t *) pl_get(_solver->indexes, i);
         startree_search(index->starkd, center, radius2, NULL, &radec, &nstars);
-        printf("%i %i %i\n", index->meta.indexid, index->meta.healpix, nstars);
 
         //Create a  source for every position stored
         for(int j=0; j<nstars; ++j) {
