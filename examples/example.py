@@ -1,6 +1,6 @@
 
 #example.py
-#An example of how to use the GlobalAstrometrySolution class in Python
+#An example of how to create a Wcs for an image
 #Fergal Mullally
 
 #Usage: python example.py
@@ -14,15 +14,18 @@ from datetime import datetime
 
 import eups
 import lsst.afw.image as afwImage
-import lsst.meas.astrom.net as net
 import lsst.afw.detection.detectionLib as detect
+
+import lsst.meas.astrom.net as net
+import lsst.meas.astrom.sip as sip
+
 
 
 def loadXYFromFile(filename):
     """Load a list of positions from a file and store in a Source"""
     f= open(filename)
     
-    s1=detect.SourceContainer()
+    s1=detect.SourceSet()
     i=0
     for line in f:
         #Split the row into an array
@@ -39,7 +42,6 @@ def loadXYFromFile(filename):
         source.setSourceId(i)
         source.setXAstrom(x); source.setXAstromErr(0.1)
         source.setYAstrom(y); source.setYAstromErr(0.1)
-        source.setPsfMag(flux)
 
         s1.append(source)
         
@@ -49,27 +51,19 @@ def loadXYFromFile(filename):
     return s1
 
 
-#Create a new Global Solution object
-gas = net.GlobalAstrometrySolution()
+#Create a new Global Solution object. The object is constructed using a policy file
+#stored in the $ASTROMETRY_NET_DATA directory
+metadataFile = os.path.join(eups.productDir("astrometry_net_data"), "metadata.paf")
+gas = net.GlobalAstrometrySolution(metadataFile)
 
-#Read in a starlist from a file, and set it as the image to solve
-#The sourcelist is a Source object. See loadXYFromFile() above.
+#An image is abstracted as SourceSet, i.e a list of Source objects. To speed the example
+#we're pre-extracted a list of sources, and stored in in a text file
 path = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
 starlist = loadXYFromFile(path)
+#Add the image to the solver
 gas.setStarlist(starlist)
 
-#An alternative method is to create the object with starlist as the argument
-#gas2=net.GlobalAstrometrySolution(starlist)
 
-#Read in the index files. These files list the various star patterns that
-#will be matched against to determine where in the sky your image is.
-#These files are big, and this step takes about 20-30 seconds
-path= os.path.join(eups.productDir("astrometry_net_data"), "index-*.fits")
-
-indices = glob.glob(path)
-for f in indices:
-    print "Loading index from %s" % (f)
-    gas.addIndexFile(f)
 
 #Set the platescale of the image in arcsec per pixel. If you're not sure
 #you can set a range of platescales. This step is not mandatory, but 
@@ -102,37 +96,56 @@ elif opt == 3:
     #Position can also be passed as a PointD object
     pos = afwImage.PointD(ra, dec)
     success = gas.solve(pos)
-
-
+elif opt == 4:
+    #You can also pass in a wcs, which is used as an initial guess
+    #success = gas.solve(wcs)
+    pass
+    
 if success:
     print "Solution found"
     
-    #Find, for example, the pixel position of the intial guess ra/dec
-    #In general, you will want to return a Wcs object and interrogate
-    #it, rather than the gas object itself, but this function is handy
-    #for debugging.
-    xy = gas.raDecToXY(ra, dec)
-    print xy.getX(), xy.getY()
+    #Return a wcs object.
+    wcs = gas.getWcs()
+
+    #The next step is to fit the distortion in the image. The distortion
+    #is expressed as SIP polynomials (Shupe et al. 2005)
     
-    #Two types of Wcs object can be returned, with or without distortion.
-    #Distortion corrections are implemented via SIP polynomials (see
-    #Shupe et al. 2005, Astron. Data Anal. Software & Systems XIV,
-    #ASP Conf. Series Vol XXX). You will usually want the distortion 
-    #corrected Wcs.
-    wcs = gas.getDistortedWcs()
-    type(wcs)
+    #The first step is to extract a position catalogue from the solver
+    imgSizeInArcsec = 8*60  #No harm in having the catalogue too big
+    cat = gas.getCatalogue(imgSizeInArcsec)
     
-    #Note that the centre of the wcs solution is not necesarily the centre
-    #of the image
-    centre = wcs.getOriginXY()
-    type(centre)
-    print centre.getX(), centre.getY()
+    #Now produce a list of matching pairs of objects between the image
+    #and the catalogue
+    matcher = sip.MatchSrcToCatalogue(cat, starlist, wcs)    
+    matchList = matcher.getMatches()
+
+    #Now that we know where the objects are, and where the catalogue
+    #says they should be, we can compute the distortion terms.
+    opt=1
+    if opt==1:   
+        
+        #The easiest way to do this is to specify how good a wcs you 
+        #want (i.e what is the typical difference between where wcs says
+        #the image is in radec space, and where the cataloge says it should be)
+        #Bear in mind, that there is some jitter in the positions due to 
+        #centroiding error which the SIP corrections can't account for,
+        #so don't set your tolerance too low.
+        maxScatter=1 #Arcseconds
+        maxSipOrder=5
+        
+        sipObject = None
+        sipObject = sip.CreateWcsWithSip(matchList, wcs, maxScatter, maxSipOrder)
+    else:
+        #Alternatively, you can specify the number of terms in the correction directly
+        order=4
+        sipObject = sup.CreateWcsWithSip(matchList, wcs, order)
+        
+    distortedWcs = sipObject.getNewWcs()            
+    
 else:
     print "Warning, no solution found"
 
 #Finally, if you wish to solve another field, first reset the solver
 gas.reset()
 
-#Now you can set another sourcelist to solve and repeat the process.
-#The index files need to be loaded only once for each gas object, so 
-#the overhead cost can be spread over many images
+#Now you can set a new field and re-solve
