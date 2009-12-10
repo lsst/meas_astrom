@@ -1,18 +1,21 @@
+// -*- LSST-C++ -*-
+
+#include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
+
+
+namespace lsst { 
+namespace meas { 
+namespace astrom { 
+namespace sip {
 
 
 using namespace std;
-
-#include "lsst/meas/astrom/sip/createWcsSip.h"
-
 
 namespace except = lsst::pex::exceptions;
 namespace pexLog = lsst::pex::logging;
 namespace afwImg = lsst::afw::image;
 namespace det = lsst::afw::detection;
 namespace math = lsst::afw::math;
-
-
-namespace lsst { namespace meas { namespace astrom { namespace sip {
 
 
 
@@ -54,12 +57,11 @@ CreateWcsWithSip::CreateWcsWithSip(const vector<det::SourceMatch> match,
                                    _matchList(match), 
                                    _linearWcs(linearWcs) {
 
-    for(int order=3; order<maxOrder; ++order) {
+    for (int order = 3; order<maxOrder; ++order) {
         _createWcs(order);
         double scatter = getScatterInArcsec();
 
-        printf("order %i: scatter:%.3f: sipOrder=%i\n", (int) order, scatter, (int) _sipA.rows());
-        if(scatter < maxScatterInArcsec){
+        if (scatter < maxScatterInArcsec){
            return;
         }
     }
@@ -80,7 +82,7 @@ double CreateWcsWithSip::getScatterInPixels() {
     vector<double> val;
     val.reserve(size);
     
-    for(unsigned int i=0; i< size; ++i) {
+    for (unsigned int i = 0; i< size; ++i) {
         det::Source::Ptr catSrc = _matchList[i].first;
         det::Source::Ptr imgSrc = _matchList[i].second;
 
@@ -91,7 +93,7 @@ double CreateWcsWithSip::getScatterInPixels() {
         double catX = xy[0];
         double catY = xy[1];
         
-        val.push_back(hypot(imgX-catX, imgY-catY));
+        val.push_back(hypot(imgX - catX, imgY - catY));
    }
     
     //Because we're looking at a hypotenuse which is always greater than zero
@@ -109,7 +111,7 @@ double CreateWcsWithSip::getScatterInArcsec() {
     vector<double> val;
     val.reserve(size);
     
-    for(unsigned int i=0; i< size; ++i) {
+    for (unsigned int i = 0; i< size; ++i) {
         det::Source::Ptr catSrc = _matchList[i].first;
         det::Source::Ptr imgSrc = _matchList[i].second;
 
@@ -124,7 +126,7 @@ double CreateWcsWithSip::getScatterInArcsec() {
         //This is not strictly the correct calculation for distance in raDec space,
         //but because we are dealing with distances hopefully << 1" it's a reasonable 
         //approximation
-        val.push_back(hypot(imgRa-catRa, imgDec-catDec));
+        val.push_back(hypot(imgRa - catRa, imgDec - catDec));
     }
     
     assert(val.size() > 0);
@@ -146,18 +148,17 @@ double CreateWcsWithSip::getScatterInArcsec() {
 ///Does the donkey work.
 void CreateWcsWithSip::_createWcs(int order){
 
-    if(order < 1) {
+    if (order < 1) {
         string msg = "Order must be greater than or equal to 1";
         throw LSST_EXCEPT(except::RuntimeErrorException, msg); 
     }
 
-    if(_matchList.size() ==0) {
+    if (_matchList.size() ==0) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "Match vector is empty"); 
     }
 
     pexLog::Log mylog(pexLog::Log::getDefaultLog(), "meas.astrom.sip", pexLog::Log::DEBUG);
-    mylog.log(pexLog::Log::INFO, "Determining Sip parameters");    
-    printf("%i %i\n", (int) _matchList.size(), order);
+    mylog.log(pexLog::Log::DEBUG, "Determining Sip parameters");    
                               
     afwImg::PointD wcsOrigin = _linearWcs.getOriginXY();
     
@@ -180,8 +181,8 @@ void CreateWcsWithSip::_createWcs(int order){
     vector<double> sg;  //Uncertainty in y position
    
     //Unpack the SourceMatch vector
-    mylog.log(pexLog::Log::INFO, "Unpacking SourceMatchSet");    
-    for(unsigned int i=0; i< _matchList.size(); ++i) {
+    mylog.log(pexLog::Log::DEBUG, "Unpacking SourceMatchSet");    
+    for (unsigned int i = 0; i< _matchList.size(); ++i) {
     
         det::Source::Ptr catSrc = _matchList[i].first;
         det::Source::Ptr imgSrc = _matchList[i].second;
@@ -203,56 +204,46 @@ void CreateWcsWithSip::_createWcs(int order){
         
         //Uncertainties in distortion        
         //The +1s are temporary workarounds guarding against AstromErr's not being set
-        sf.push_back(imgSrc->getXAstromErr()+1);
-        sg.push_back(imgSrc->getYAstromErr()+1);
+        sf.push_back(imgSrc->getXAstromErr() + 1);
+        sg.push_back(imgSrc->getYAstromErr() + 1);
     }
-    
-    /*
-    //Scale vectors to range from [-1,1] (so we can fit a Cheby to them)
-    scaleVector(u);
-    scaleVector(v);
-    scaleVector(lu);
-    scaleVector(lv);
-    //scaleVector(f);
-    // scaleVector(g);
-    */
 
     //Now fit the forward distortions
-    mylog.log(pexLog::Log::INFO, "Calculating forward distortion coeffecients");    
+    mylog.log(pexLog::Log::DEBUG, "Calculating forward distortion coeffecients");    
     _sipA = _calculateSip(u, v, f, sf, order);
     _sipB = _calculateSip(u, v, g, sg, order);
 
     //Construct a new wcs from the old one
-    mylog.log(pexLog::Log::INFO, "Creating new wcs structure");        
+    mylog.log(pexLog::Log::DEBUG, "Creating new wcs structure");        
     afwImg::PointD crval = _linearWcs.getOriginRaDec();
     afwImg::PointD crpix = _linearWcs.getOriginXY();
     Eigen::Matrix2d CD = _linearWcs.getLinearTransformMatrix();
     
     //The zeroth element of the SIP matrices is just an offset, so the standard calls 
     //for this offset to be folded into a refined value for crpix
-    crpix = crpix - afwImg::PointD(_sipA(0,0), _sipB(0,0));
-    _sipA(0,0) = _sipB(0,0) = 0;
+    crpix = crpix - afwImg::PointD(_sipA(0, 0), _sipB(0, 0));
+    _sipA(0, 0) = _sipB(0, 0) = 0;
     
     //The A01, A10, B01 and B10 terms in the SIP matrices are just linear corrections, so
     //the standard calls for these to be folded into the CD matrix. The algebra is
     //a little involved here.
-    double c00 = CD(0,0);
-    double c01 = CD(0,1);
-    double c10 = CD(1,0);
-    double c11 = CD(1,1);
+    double c00 = CD(0, 0);
+    double c01 = CD(0, 1);
+    double c10 = CD(1, 0);
+    double c11 = CD(1, 1);
     
-    CD(0,0) = c00*(1+_sipA(1,0)) + c01*_sipB(1,0);
-    CD(0,1) = c01*(1+_sipB(0,1)) + c00*_sipA(0,1);
-    CD(1,0) = c10*(1+_sipA(1,0)) + c11*_sipB(1,0);
-    CD(1,1) = c11*(1+_sipB(0,1)) + c10*_sipA(0,1);
+    CD(0, 0) = c00*(1 + _sipA(1, 0)) + c01*_sipB(1, 0);
+    CD(0, 1) = c01*(1 + _sipB(0, 1)) + c00*_sipA(0, 1);
+    CD(1, 0) = c10*(1 + _sipA(1, 0)) + c11*_sipB(1, 0);
+    CD(1, 1) = c11*(1 + _sipB(0, 1)) + c10*_sipA(0, 1);
     
-    _sipA(0,1) = _sipA(1,0) = 0;
-    _sipB(0,1) = _sipB(1,0) = 0;
+    _sipA(0, 1) = _sipA(1, 0) = 0;
+    _sipB(0, 1) = _sipB(1, 0) = 0;
 
     afwImg::Wcs tmpWcs = afwImg::Wcs(crval, crpix, CD);
 
     //Now that we've revised our Wcs, we can now calculate our reverse terms
-    mylog.log(pexLog::Log::INFO, "Calculating reverse distortion coeffecients");        
+    mylog.log(pexLog::Log::DEBUG, "Calculating reverse distortion coeffecients");        
 
     lu.clear();  //Relative linear x position (relative to wcsOrigin)
     lv.clear();  //Relative linear y position
@@ -261,7 +252,7 @@ void CreateWcsWithSip::_createWcs(int order){
     vector<double> lg;  //Reverse Distortion
 
     wcsOrigin = tmpWcs.getOriginXY();
-    for(unsigned int i=0; i< _matchList.size(); ++i) {
+    for (unsigned int i = 0; i< _matchList.size(); ++i) {
         det::Source::Ptr catSrc = _matchList[i].first;
         det::Source::Ptr imgSrc = _matchList[i].second;
 
@@ -310,20 +301,21 @@ Eigen::MatrixXd CreateWcsWithSip::_calculateSip(const vector<double> u, const ve
 
 /// Needed if we're fitting Chebychev coefficents to calculate the distortion
 void CreateWcsWithSip::_scaleVector(vector<double>& v) {
-    if(v.size() == 0) {
+    if (v.size() == 0) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "Trying to rescale an empty vector"); 
     }
 
     double min = *min_element(v.begin(), v.end());
     double max = *max_element(v.begin(), v.end());
 
-    if(min == max) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "Trying to rescale a vector where all elements have the same value"); 
+    if (min == max) {
+        string msg = "Trying to rescale a vector where all elements have the same value";
+        throw LSST_EXCEPT(except::RuntimeErrorException, msg); 
     }
     
-    for(unsigned int i=0; i< v.size(); ++i) {
+    for (unsigned int i = 0; i< v.size(); ++i) {
         v[i] -= min;
-        v[i] /= max-min;
+        v[i] /= max - min;
         v[i] = 2*v[i] - 1;
     }
 
@@ -333,7 +325,7 @@ void CreateWcsWithSip::_scaleVector(vector<double>& v) {
 ///Convert a 2d matrix of Chebyshev coefficients (as produced by LeastSqFitter2d) into
 ///a SIP matrix.
 Eigen::MatrixXd CreateWcsWithSip::_convertChebyToSip(Eigen::MatrixXd cheby) {
-    int maxOrder=5; // Because I've only defined the coeffiencents up to this order
+    int maxOrder = 5; // Because I've only defined the coeffiencents up to this order
     
     //Coeffs is a lookup table of the polynomial coeffecients of Chebychev functions
     //with order less than maxorder. For example, T2 = 2x^2 - 1, so coeff[2,0] == -1,
@@ -341,29 +333,29 @@ Eigen::MatrixXd CreateWcsWithSip::_convertChebyToSip(Eigen::MatrixXd cheby) {
     Eigen::MatrixXd coeff(Eigen::MatrixXd::Zero(maxOrder, maxOrder));
     
     
-    coeff(0,0) = 1; //T0
-    coeff(1,1) = 1; //T1
-    coeff(2,0) = -1; coeff(2,2) = 2;    //T2
-    coeff(3,1) = -3; coeff(3,3) = 4;
-    coeff(4,0) = 1; coeff(4,2) = -8, coeff(4,4)=8;
+    coeff(0, 0) = 1; //T0
+    coeff(1, 1) = 1; //T1
+    coeff(2, 0) = -1; coeff(2, 2) = 2;    //T2
+    coeff(3, 1) = -3; coeff(3, 3) = 4;
+    coeff(4, 0) = 1; coeff(4, 2) = -8, coeff(4, 4) = 8;
     
     int rows = cheby.rows();
     
-    if(rows > maxOrder) {
+    if (rows > maxOrder) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "Input matrix is too large. Maxorder==5"); 
     }
         
-    if(rows != cheby.cols()) {
+    if (rows != cheby.cols()) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "Input matrix is not square"); 
     }
 
     Eigen::MatrixXd out(rows, rows);
-    for(int i=0; i<rows; ++i) {
-        for(int j=0; j<rows; ++j) { //For the (i,j)th elt of the output matrix (x^i y^j
-            out(i,j) = 0;
-            for(int k=0; k<rows; ++k) {
-                for(int el=0; el<rows; ++el) {    
-                    out(i,j) += cheby(k,el) * coeff(k, i) * coeff(el, j);
+    for (int i = 0; i<rows; ++i) {
+        for (int j = 0; j<rows; ++j) { //For the (i,j)th elt of the output matrix (x^i y^j
+            out(i, j) = 0;
+            for (int k = 0; k<rows; ++k) {
+                for (int el = 0; el<rows; ++el) {    
+                    out(i, j) += cheby(k, el) * coeff(k, i) * coeff(el, j);
                 }
             }
         }

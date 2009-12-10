@@ -1,4 +1,4 @@
-
+// -*- LSST-C++ -*-
 
 #ifndef MATCH_SRC_TO_CATALOGUE
 #define MATCH_SRC_TO_CATALOGUE
@@ -11,10 +11,13 @@
 #include "lsst/afw/detection/SourceMatch.h"
 #include "lsst/afw/image/Wcs.h"
 
+
+namespace lsst { 
+namespace meas { 
+namespace astrom { 
+namespace sip {
+
 namespace det = lsst::afw::detection;
-
-namespace lsst { namespace meas { namespace astrom { namespace sip {
-
 
 
 /// Match a SourceSet of objects with known ra/dec with a SourceSet of objects with known xy positions
@@ -34,7 +37,7 @@ public:
     MatchSrcToCatalogue(const det::SourceSet &catSet,       
                         const det::SourceSet &imgSet,       
                         const lsst::afw::image::Wcs wcs,   
-                        double distInArcsec=1.0     
+                        double distInArcsec = 1.0     
                        );
 
     //Don't need a Copy constructor

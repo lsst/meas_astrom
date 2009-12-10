@@ -13,7 +13,7 @@ Python interface to lsst::afw::meas::astrom::sip classes
 #   include "lsst/afw/math/FunctionLibrary.h"
 #   include "lsst/meas/astrom/sip/LeastSqFitter1d.h"
 #   include "lsst/meas/astrom/sip/LeastSqFitter2d.h"
-#   include "lsst/meas/astrom/sip/createWcsSip.h"
+#   include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
 %}
 
 %include "lsst/p_lsstSwig.i"
@@ -39,7 +39,7 @@ def version(HeadURL = r"$HeadURL: svn+ssh://svn.lsstcorp.org/DMS/afw/trunk/pytho
 %include "lsst/afw/math/FunctionLibrary.h"
 %include "lsst/meas/astrom/sip/LeastSqFitter1d.h"
 %include "lsst/meas/astrom/sip/LeastSqFitter2d.h"
-%include "lsst/meas/astrom/sip/createWcsSip.h"
+%include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
 
 
 %template(LeastSqFitter1dPoly) lsst::meas::astrom::sip::LeastSqFitter1d< lsst::afw::math::PolynomialFunction1<double> >;

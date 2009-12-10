@@ -12,7 +12,7 @@
 #include "boost/format.hpp"
 #include "Eigen/Core.h"
 
-#include "lsst/meas/astrom/sip/createWcsSip.h"
+#include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
 
 namespace sip = lsst::meas::astrom::sip;
 
