@@ -3,6 +3,9 @@ import eups
 import lsst.afw.detection as afwDetection
 import lsst.afw.image as afwImage
 
+"""This is not a test file, but a convenient way of  reading/writing source sets to and from an ascii file"""
+
+
 def write(sourceSet, outfile="-"):
     if outfile == "-":
         fd = sys.stdout
