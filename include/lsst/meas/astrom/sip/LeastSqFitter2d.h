@@ -26,7 +26,27 @@ namespace meas {
 namespace astrom { 
 namespace sip {
 
-///TODO: Implement method to return a afw::math::Function2d object
+/**
+\brief Fit an lsst::afw::math::Function1 object to a set of data points in two dimensions.
+
+The class is templated over the kind of object to fit. Note that we fit the 1d object in each
+dimension, not the 2d one.
+
+Input is a list of x and y ordinates for a set of points, the z coordinate, and the uncertainties, s.
+order is order of the polynomial to fit (e.g if the templated function is 
+lsst::afw::math::PolynomialFunction1, then order=3 => fit a function of the form \f$ax^2+bx+c\f$
+
+\tparam FittingFunc The 1d function to fit in both dimensions. Must inherit from 
+lsst::afw::math::Function1 
+
+\param x Ordinate of points to fit
+\param y Ordinate of points to fit
+\param z Co-ordinate of pionts to fit
+\param s 1\f$\sigma\f$ uncertainties in z
+\param order Polynomial order to fit
+
+\sa LeastSqFitter1d
+*/
 template <class FittingFunc>class LeastSqFitter2d {
 public:
     LeastSqFitter2d(const std::vector<double> &x, const std::vector<double> &y, const std::vector<double> &z, 
@@ -78,7 +98,7 @@ namespace math = lsst::afw::math;
 ///       class of lsst::afw::math::Function1. Note that this is a 1d function
 ///\param x vector of x positions of data
 ///\param y vector of y positions of data
-///\param z Value of data for a given x,y. z = z_i = z_i(x_i, y_i)
+///\param z Value of data for a given x,y. \f$z = z_i = z_i(x_i, y_i)\f$
 ///\param s Vector of measured uncertainties in the values of z
 ///\param order Order of 2d function to fit
 template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const std::vector<double> &x, 
@@ -144,13 +164,14 @@ template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const 
 
         
 ///Build up a triangular matrix of the parameters. The shape of the matrix is
-///such that the values correspond to the coefficients of the following polynomials
-/// 1   y    y^2  y^3
-/// x   xy   xy^2 0
-/// x^2 x^2y 0    0
-/// x^3 0    0    0   (order==4)
+///such that the values correspond to the coefficients of the following polynomials\n
+/// 1   y    y^2  y^3 \n
+/// x   xy   xy^2 0   \n
+/// x^2 x^2y 0    0   \n
+/// x^3 0    0    0   \n
+///(order==4) \n
 ///
-/// where row*column < _order
+/// where row x column < order
 template<class FittingFunc> Eigen::MatrixXd LeastSqFitter2d<FittingFunc>::getParams() {
 
     Eigen::MatrixXd out = Eigen::MatrixXd::Zero(_order, _order);  //Should be a shared ptr?
@@ -234,7 +255,7 @@ template<class FittingFunc>  std::vector<double> LeastSqFitter2d<FittingFunc>::r
 }
 
 
-
+///Companion function to getParams(). Returns uncertainties in the parameters as a matrix
 template<class FittingFunc> Eigen::MatrixXd LeastSqFitter2d<FittingFunc>::getErrors() {
     Eigen::MatrixXd V = _A.svd().matrixV();
     Eigen::VectorXd w = _A.svd().singularValues();
