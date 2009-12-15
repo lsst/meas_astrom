@@ -34,6 +34,36 @@ namespace astrom {
 namespace sip {
 
 
+///\brief Measure the distortions in an image plane and express them a SIP polynomials 
+///
+/// Given a list of matching sources between a catalogue and an image,
+/// and a linear Wcs that describes the mapping from pixel space in the image
+/// and ra/dec space in the catalogue, calculate discrepancies between the two
+/// and compute SIP distortion polynomials to describe the discrepancy
+///
+///SIP polynomials are defined in Shupe at al. (2005) ASPC 347 491.
+///
+/// Note that the SIP standard insists (although it is only mentioned obliquly
+/// between Eqns 3 and 4) that the lowest three terms in the distortion
+/// polynomials be zero (A00, A10, A01, B00, etc.). To achieve this, we need to 
+/// adjust the values of CD and CRPIX from the input wcs. This may not be the 
+/// behaviour you expect.
+/// 
+/// A Wcs may be created in a variety of ways (e.g. lsst::meas::astrom::net::GlobalAstrometrySolution ), 
+/// and the
+/// list of matched sources (match) can be generated with MatchSrcToCatalogue)
+/// 
+/// \code
+/// #Example usage 
+/// match = MatchSrcToCatalogue(catSet, srcSet)
+/// wcs = getWcsFromSomewhere()
+/// 
+/// maxScatter=0.1
+/// maxOrder= 10
+/// sipObject = CreateWcsWithSip(match, wcs, maxScatter, maxOrder)
+/// wcs = sipObject.getNewWcs()
+/// \endcode
+/// 
 class CreateWcsWithSip {
 public:
 
@@ -52,6 +82,7 @@ public:
     afwImg::Wcs getNewWcs();
     double getScatterInPixels();
     double getScatterInArcsec();
+    ///Get the number of terms in the SIP matrix
     inline int getOrder() { return  _sipA.rows(); }
 
 private:
