@@ -19,23 +19,9 @@ namespace math = lsst::afw::math;
 
 
 
-/// Create a wcs including SIP polynomials
+/// Create a wcs including SIP polynomials of the requested order
 /// 
-/// Given a list of matching sources between a catalogue and an image,
-/// and a linear Wcs that describes the mapping from pixel space in the image
-/// and ra/dec space in the catalogue, calculate discrepancies between the two
-/// and compute SIP distortion polynomials to describe the discrepancy
-///
-/// Note that the SIP standard insists* that the lowest three terms in the distortion
-/// polynomials be zero (A00, A10, A01, B00, etc.). To achieve this, we need to 
-/// adjust the values of CD and CRPIX from the input wcs. This may not be the 
-/// behaviour you expect.
-///
-/// *The standard is detailed in Shupe et al. (2005, ASP Conf.), and this 
-/// fact is mentioned very obliquly between Eqns 3 and 4. Many other implementations
-/// do not have this requirement.
-/// 
-/// \param match. A vector of SourceMatches. Each source match consists of two
+/// \param match A vector of SourceMatches. Each source match consists of two
 /// sources (one from the catalogue, one from the image), and the distance
 /// between them
 /// \param linearWcs A linear WCS that maps pixel position to ra/dec
@@ -50,7 +36,19 @@ CreateWcsWithSip::CreateWcsWithSip(const std::vector<det::SourceMatch> match,
 }
 
 
-CreateWcsWithSip::CreateWcsWithSip(const vector<det::SourceMatch> match,
+/// Create a wcs including SIP polynomials that reproduces positions to better than a given tolerance.
+/// Sip polynomials of progressively higher order are tried until the tolerance is exceeded, or the
+/// order of the correction becomes to large
+/// 
+/// Beware that the SIP can't reproduce positions better than the uncertainty in your centroiding.
+/// 
+/// \param match A vector of SourceMatches. Each source match consists of two
+/// sources (one from the catalogue, one from the image), and the distance
+/// between them
+/// \param linearWcs A linear WCS that maps pixel position to ra/dec
+/// \param maxScatterInArcsec Fit must be better than this value.
+/// \param maxOrder If the order of the corrections exceeds this value give up.
+CreateWcsWithSip::CreateWcsWithSip(const std::vector<det::SourceMatch> match,
                                    const afwImg::Wcs &linearWcs,
                                    double maxScatterInArcsec,
                                    int maxOrder):
@@ -70,12 +68,13 @@ CreateWcsWithSip::CreateWcsWithSip(const vector<det::SourceMatch> match,
 }
 
 
-
+///Return a Wcs object including the SIP matrices
 afwImg::Wcs CreateWcsWithSip::getNewWcs() {
     return _newWcs;
 }
 
 
+///Get the scatter in position in pixel space 
 double CreateWcsWithSip::getScatterInPixels() {
     unsigned int size = _matchList.size();
     
@@ -105,6 +104,7 @@ double CreateWcsWithSip::getScatterInPixels() {
 }
     
 
+///Get the scatter in position in arcseconds
 double CreateWcsWithSip::getScatterInArcsec() {
     unsigned int size = _matchList.size();
     
@@ -289,8 +289,8 @@ void CreateWcsWithSip::_createWcs(int order){
 ///  
 /// To get the reverse distortion polynomials, Ap, Bp, the arguments should be lu, lv, lf (or lg)
 /// etc.
-Eigen::MatrixXd CreateWcsWithSip::_calculateSip(const vector<double> u, const vector<double> v,
-    const vector<double> z, const vector<double> s, int order) {
+Eigen::MatrixXd CreateWcsWithSip::_calculateSip(const std::vector<double> u, const std::vector<double> v,
+    const std::vector<double> z, const std::vector<double> s, int order) {
 
     sip::LeastSqFitter2d<math::PolynomialFunction1<double> > lsf(u, v, z, s, order);
     return lsf.getParams();
@@ -300,7 +300,7 @@ Eigen::MatrixXd CreateWcsWithSip::_calculateSip(const vector<double> u, const ve
 
 
 /// Needed if we're fitting Chebychev coefficents to calculate the distortion
-void CreateWcsWithSip::_scaleVector(vector<double>& v) {
+void CreateWcsWithSip::_scaleVector(std::vector<double>& v) {
     if (v.size() == 0) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "Trying to rescale an empty vector"); 
     }
