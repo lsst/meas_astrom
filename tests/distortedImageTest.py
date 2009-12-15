@@ -35,7 +35,8 @@ GLOBALGAS = net.GlobalAstrometrySolution(policyFile)
 
 class DistortedImageTestCase(unittest.TestCase):
     def setUp(self):
-        self.filename="cat.xy.list"
+        path=eups.productDir("meas_astrom")
+        self.filename=os.path.join(path, "tests", "cat.xy.list")
         self.orderlist = range(2,10) #Fit distortion with every order in this range
 
     def tearDown(self):

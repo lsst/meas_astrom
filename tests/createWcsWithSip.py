@@ -35,8 +35,9 @@ GLOBALGAS = net.GlobalAstrometrySolution(policyFile)
 
 class DistortedImageTestCase(unittest.TestCase):
     def setUp(self):
-        self.filename="cat.xy.list"
-        self.tolArcsec = .3 #Check this value
+        path=eups.productDir("meas_astrom")
+        self.filename=os.path.join(path, "tests", "cat.xy.list")
+        self.tolArcsec = .3 
         self.tolPixel = .01
 
     def tearDown(self):
