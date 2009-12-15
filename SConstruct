@@ -49,6 +49,7 @@ Alias("install", [
 ])
 
 scons.CleanTree(r"*~ core *.so *.os *.o")
+
 #
 # Build TAGS files
 #
