@@ -71,31 +71,31 @@ void sip::MatchSrcToCatalogue::setCatSrcSet(const det::SourceSet &srcSet) {
 }
 
 void sip::MatchSrcToCatalogue::findMatches() {
-
-    ///@todo Make sure everything is setup as it should be
     //The design of this class ensures all private variables must be set at this point,
     //so assertions should be thrown if this is not the case
-    
+
     //Calculate ra and dec for every imgSrc
     for (unsigned int i = 0; i< _imgSet.size(); ++i) {
         double x = _imgSet[i]->getXAstrom();
         double y = _imgSet[i]->getYAstrom();
-        
+
         afwImg::PointD raDec = _wcs.xyToRaDec(x, y);
 
         _imgSet[i]->setRa(raDec[0]);
         _imgSet[i]->setDec(raDec[1]);
     }
-    
+
     _match = det::matchRaDec(_catSet, _imgSet, _distInArcsec);
 
-      _removeOneToMany();  
-      _removeManyToOne();  
-                
+    _removeOneToMany();  
+    _removeManyToOne();  
+    
+   
     if (_match.size() == 0) {
         std::cout << _imgSet.size() << " " << _catSet.size() << std::endl;
         throw LSST_EXCEPT(except::RuntimeErrorException, "No matching objects found");
     }
+    
 }
 
 
