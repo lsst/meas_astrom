@@ -25,6 +25,26 @@ namespace meas {
 namespace astrom { 
 namespace sip {
 
+/**
+\brief Fit an lsst::afw::math::Function1 object to a set of data points in one dimension
+
+The class is templated over the kind of object to fit. 
+
+Input is a list of x ordinates for a set of points, the y coordinate, and the uncertainties, s.
+order is order of the polynomial to fit (e.g if the templated function is 
+lsst::afw::math::PolynomialFunction1, then order=3 => fit a function of the form \f$ax^2+bx+c\f$
+
+\tparam FittingFunc The 1d function to fit in both dimensions. Must inherit from 
+lsst::afw::math::Function1 
+
+\param x Ordinate of points to fit
+\param y Co-ordinate of pionts to fit
+\param s 1\f$\sigma\f$ uncertainties in z
+\param order Polynomial order to fit
+
+\sa LeastSqFitter1d
+*/
+
 template <class FittingFunc>class LeastSqFitter1d {
 public:
     LeastSqFitter1d(const std::vector<double> &x, const std::vector<double> &y, 
@@ -48,7 +68,7 @@ private:
     double func1d(double value, int exponent);
     
 
-    std::vector<double> _x, _y, _z, _s;
+    std::vector<double> _x, _y, _s;
     unsigned int _order;   //Degree of polynomial to fit, e.g 4=> cubic
     unsigned int _nData;   //Number of data points, == _x.size()
     
@@ -70,8 +90,8 @@ namespace math = lsst::afw::math;
 
 ///Fit a 1d polynomial to a set of data points z(x, y)
 ///
-///\tparam FittingFunc  The type of function to fit. This function should extend the base
-///       class of lsst::afw::math::Function1. 
+///\tparam FittingFunc  The type of function to fit. This function extends the base
+///       class of lsst::afw::math::Function1
 ///\param x vector of x positions of data
 ///\param y vector of y positions of data
 ///\param s Vector of measured uncertainties in the values of z
@@ -136,7 +156,7 @@ template<class FittingFunc> Eigen::VectorXd LeastSqFitter1d<FittingFunc>::getPar
 }
 
 
-///Return the best fit polynomial
+///Return the best fit polynomial as a lsst::afw::math::Function1 object
 template<class FittingFunc> FittingFunc LeastSqFitter1d<FittingFunc>::getBestFitFunction() {
 
     //FittingFunc and LeastSqFitter disagree on the definition of order of a function.
