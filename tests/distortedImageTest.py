@@ -14,8 +14,9 @@ import lsst.utils.tests as utilsTests
 
 import lsst.meas.astrom.sip as sip
 import lsst.meas.astrom.sip.genDistortedImage as distort
-import lsst.meas.astrom.sip.sourceSetIO as sourceSetIO
 import lsst.meas.astrom.sip.cleanBadPoints as cleanBadPoints
+
+import sourceSetIO
 
 
 
