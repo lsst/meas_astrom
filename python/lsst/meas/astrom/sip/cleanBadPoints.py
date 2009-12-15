@@ -1,6 +1,5 @@
 
 import os
-import matplotlib.pyplot as mpl
 import numpy as np
 
 import eups
@@ -9,9 +8,8 @@ import lsst.afw.detection as det
 
 import sipLib as sip
 
-import pdb
 
-def clean(srcMatch, wcs, order=1, nsigma=3):
+def clean(srcMatch, wcs, order=3, nsigma=3):
     """Remove bad points from srcMatch
     
     Input:
@@ -58,8 +56,6 @@ def indicesOfGoodPoints(x, y, s, order=1, nsigma=3, maxiter=100):
     of points that lie less than nsigma away from the robust
     best fit polynomial
     """
-
-    plot=True
     
     #Indices of elements of x sorted in order of increasing value
     idx = x.argsort()
@@ -80,14 +76,16 @@ def indicesOfGoodPoints(x, y, s, order=1, nsigma=3, maxiter=100):
         deviance = np.fabs( (y - f) /sigma)
         newidx = np.where(deviance < nsigma)
 
-        if plot:
+        if False:
+            import matplotlib.pyplot as mpl
             mpl.plot(x, y, 'ks')
             mpl.plot(rx, ry, 'b-')        
             mpl.plot(rx, ry, 'bs')        
             mpl.plot(rx, fit, 'ms')        
             mpl.plot(rx, fit, 'm-')        
 
-            mpl.plot(x[newidx], y[newidx], 'rs')
+            #mpl.plot(x[newidx], y[newidx], 'rs')
+            mpl.show()
         
         #If we haven't culled any points we're finished cleaning
         if len(newidx) == len(idx):
@@ -113,7 +111,6 @@ def chooseRx(x, idx, order):
     rx = np.zeros((order+1))
     
     for i in range(order+1):
-        #rng = idx[range(int(rSize*i),int(rSize*(i+1))]
         rng = range(int(rSize*i), int(rSize*(i+1)))
         rx[i] = np.mean(x[idx[rng]])
     return rx
@@ -125,7 +122,6 @@ def chooseRy(y, idx, order):
     ry = np.zeros((order+1))
     
     for i in range(order+1):
-        #rng = idx[range(int(rSize*i),int(rSize*(i+1))]
         rng = range(int(rSize*i), int(rSize*(i+1)))
         ry[i] = np.median(y[idx[rng]])
     return ry
