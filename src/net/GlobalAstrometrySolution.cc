@@ -49,7 +49,7 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
 }
 
 
-index_meta_t *GlobalAstrometrySolution::_loadIndexMeta(string filename){
+index_meta_t *GlobalAstrometrySolution::_loadIndexMeta(std::string filename){
     int errValue = -2;
     index_meta_t *val = (index_meta_t*) malloc(sizeof(index_meta_t));
     
@@ -803,7 +803,6 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
     double radius2 = arcsec2distsq(radiusInArcsec);
     
     Det::SourceSet out;
-    
 
     //For each index that we've search, pulled out stars that are close in an radec sense    
     for (int i = 0; i< pl_size(_solver->indexes); ++i) {
