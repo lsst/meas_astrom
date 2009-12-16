@@ -3,6 +3,5 @@ in an astronomical image"""
 
 from sipLib import *
 
-import sourceSetIO
 import genDistortedImage
 import cleanBadPoints
