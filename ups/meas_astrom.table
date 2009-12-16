@@ -1,4 +1,4 @@
-setupRequired(afw >= 3.3.17)
+setupRequired(afw >= 3.3.18)
 
 setupRequired(astrometry_net >= 0.25)
 setupOptional(astrometry_net_data)
