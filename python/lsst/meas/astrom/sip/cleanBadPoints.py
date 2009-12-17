@@ -3,7 +3,6 @@ import os
 import numpy as np
 
 import eups
-import lsst.meas.astrom.net as net
 import lsst.afw.detection as det
 
 import sipLib as sip
