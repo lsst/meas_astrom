@@ -18,5 +18,5 @@ else:
     tests.run("*.cc")
         
     for target in tests.run("*.py"):
-        for f in ["_netLib", "_sipLib"]:
-            env.Depends(target, "#/python/lsst/meas/astrom/net/%s%s" % (f, env['LDMODULESUFFIX']))
+        for d in ["net", "sip"]:
+            env.Depends(target, "#/python/lsst/meas/astrom/%s/_%sLib%s" % (d, d, env['LDMODULESUFFIX']))
