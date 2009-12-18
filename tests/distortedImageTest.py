@@ -17,21 +17,15 @@ import lsst.meas.astrom.sip.cleanBadPoints as cleanBadPoints
 
 import sourceSetIO
 
-
-
-
-
 dataDir = eups.productDir("astrometry_net_data")
 if not dataDir:
     raise RuntimeError("Must set up astrometry_net_data to run these tests")
-
 
 #Create a globally accessible instance of a GAS. This takes a few seconds
 #to load, so we don't want to do it everytime we setup a test case
 policyFile=eups.productDir("astrometry_net_data")
 policyFile=os.path.join(policyFile, "metadata.paf")
 GLOBALGAS = net.GlobalAstrometrySolution(policyFile)
-
 
 class DistortedImageTestCase(unittest.TestCase):
     def setUp(self):
