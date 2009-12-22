@@ -42,8 +42,10 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
 
     _mylog.log(pexLog::Log::DEBUG, "Loading meta information on indices...");    
     for (unsigned int i = 0; i < indexArray.size(); ++i){
-        string path = pkgDir + "/" + indexArray[i];
-        pl_push(_metaList, _loadIndexMeta(path));
+        index_meta_t *meta = _loadIndexMeta(pkgDir + "/" + indexArray[i]);
+        if (meta != NULL) {
+            pl_push(_metaList, meta);
+        }
     }
     _mylog.log(pexLog::Log::DEBUG, "Meta information loaded...");    
 }
