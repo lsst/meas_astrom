@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 import re
 import os
-import glob
 import math
-import pdb                          # we may want to say pdb.set_trace()
+import sys
 import unittest
 
 import eups
+import lsst.pex.policy as pexPolicy
 import lsst.afw.image as afwImage
 import lsst.meas.astrom.net as net
 import lsst.utils.tests as utilsTests
@@ -17,22 +17,109 @@ try:
 except NameError:
     verbose = 0
 
-verbose=1
+class GAS(object):
+    __gas = None
+    __desiredVersion = None
 
-eupsObj = eups.Eups()
-dataVersion=eupsObj.findSetupVersion("astrometry_net_data")[0]
-if dataVersion != "usnob":
-    print "Warning: These tests require astrometry_net_data usnob"
-    print "Setting this up for you now"
-    try:
-        eups.setup(eupsObj, "astrometry_net_data", version="usnob")
-    except RuntimeError, e:
-        print e
-        raise RuntimeError("Failed to set up astrometry_net_data usnob")
-    
-dataDir = eups.productDir("astrometry_net_data")
+    def __init__(self, desiredVersion):
+        """We use the product astrometry_net_dir to point to different index files depending on the
+    problem we're trying to solve.  If any version of astrometry_net_data is setup, try to
+    switch to version "desiredVersion".  There's no need to switch back as this code is running in a subprocess
+    """
+
+        if desiredVersion == GAS.__desiredVersion:
+            return
+
+        eupsObj = eups.Eups()
+        dataVersion=eupsObj.findSetupVersion("astrometry_net_data")[0]
+        if dataVersion and dataVersion != desiredVersion:
+            print >> sys.stderr, \
+                  "Note: These tests require astrometry_net_data %s; Trying to set this up for you now" % \
+                  desiredVersion
+
+            try:
+                eups.setup(eupsObj, "astrometry_net_data", version=desiredVersion)
+            except RuntimeError, e:
+                pass
+        #
+        # Create and return a GAS if a version of astrometry_net_data can be setup
+        # that contains the proper index files
+        #
+        an_dataDir = eups.productDir("astrometry_net_data")
+        if an_dataDir:
+            an_dataDir_dataDir = os.path.join(an_dataDir, desiredVersion)
+            if os.path.isdir(an_dataDir_dataDir):
+                an_dataDir = an_dataDir_dataDir
+
+            policyFile = os.path.join(an_dataDir, "metadata.paf")
+            policy = pexPolicy.Policy(policyFile)
+            indexFile = policy.get("indexFile")
+
+            if os.path.exists(os.path.join(an_dataDir, indexFile)):
+                GAS.__desiredVersion = desiredVersion
+                GAS.__gas = net.GlobalAstrometrySolution(policyFile)
+
+                return
+            else:
+                print >> sys.stderr, "astrometry_net_data/%s indexFiles are not available; not running %s tests"%\
+                      (desiredVersion, desiredVersion)
+        else:
+            print >> sys.stderr, "astrometry_net_data/%s is not available; not running %s tests" % \
+                  (desiredVersion, desiredVersion)
+
+    def __del__(self):
+        GAS.__gas = None
+        GAS.__desiredVersion = None
+
+    def __str__(self):
+        return str(GAS.__gas)
+
+    #
+    # Forwarding functions
+    #
+    def getMatchedSources(self):
+        if self.__gas:
+            return self.__gas.getMatchedSources()
+        else:
+            return None
+
+    def getWcs(self):
+        if self.__gas:
+            return self.__gas.getWcs()
+        else:
+            return None
+
+    def reset(self):
+        if self.__gas:
+            self.__gas.reset()
+
+    def setImageScaleArcsecPerPixel(self, plateScale):
+        if self.__gas:
+            self.__gas.setImageScaleArcsecPerPixel(plateScale)
+
+    def setLogLevel(self, level):
+        if self.__gas:
+            self.__gas.setLogLevel(level)
+
+    def setNumBrightObjects(self, nBright):
+        if self.__gas:
+            self.__gas.setNumBrightObjects(nBright)
+        
+    def setStarlist(self, starlist):
+        if self.__gas:
+            self.__gas.setStarlist(starlist)
+
+    def solve(self, val=None):
+        if self.__gas:
+            if val is None:
+                return self.__gas.solve()
+            else:
+                return self.__gas.solve(val)
+        else:
+            return None
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
 def loadXYFromFile(filename):
     """Load a list of positions from a file"""
     f= open(filename)
@@ -67,16 +154,14 @@ def loadXYFromFile(filename):
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 
-class WCSTestCaseNet(unittest.TestCase):
+class WCSTestCaseNetUSNOB(unittest.TestCase):
     """A test case for WCS from astrometry.net"""
 
-
     def setUp(self):
-        pass
+        self.gas = GAS("usnob")
 
     def tearDown(self):
-        gas.reset()
-
+        self.gas.reset()
 
     def solveOrVerify(self, starlist, crval, crpix,  plateScale=0, nBright=50, verify=False):
         """Test the solve() function
@@ -95,27 +180,25 @@ class WCSTestCaseNet(unittest.TestCase):
 
         #Set starlist    
         starlist = loadXYFromFile(starlist)
-        gas.setStarlist(starlist)
+        self.gas.setStarlist(starlist)
         
         #Set plate scale
         if plateScale > 0:
-            gas.setImageScaleArcsecPerPixel(plateScale)
+            self.gas.setImageScaleArcsecPerPixel(plateScale)
         
-        gas.setNumBrightObjects(nBright)
+        self.gas.setNumBrightObjects(nBright)
         
         
         #Run solver
         if verify:
-            flag = gas.solve(crval)
+            flag = self.gas.solve(crval)
         else:
-            flag = gas.solve()
+            flag = self.gas.solve()
 
         if flag:
             #Test xy->radec
-            wcs = gas.getWcs()
+            wcs = self.gas.getWcs()
             radec = wcs.xyToRaDec(crpix.getX(), crpix.getY())
-            print radec
-            print crval
             self.assertAlmostEqual(radec.getX(), crval.getX(), 6, "Ra doesn't match")
             self.assertAlmostEqual(radec.getY(), crval.getY(), 6, "Dec doesn't match")
 
@@ -126,15 +209,15 @@ class WCSTestCaseNet(unittest.TestCase):
 
         else:
             #If we didn't get a match, that's a failure
-            self.assertEqual(flag, 1, "Failed to find a match")
+            self.assertTrue(flag, "Failed to find a match")
         
 
     def solveWcs(self, wcsPtr, starlist):
         """Test that the solve(wcs) function works correctly.
         """
-        gas.setStarlist(starlist)
-        gas.setLogLevel(2)
-        return gas.solve(wcsPtr)
+        self.gas.setStarlist(starlist)
+        self.gas.setLogLevel(verbose)
+        return self.gas.solve(wcsPtr)
 
     def testSolveGD66(self):
         """Pass the positions of objects near the white dwarf GD66 and test that the correct position is returned
@@ -150,7 +233,7 @@ class WCSTestCaseNet(unittest.TestCase):
         #on the sky
         plateScale = .5*3600/1780.
         self.solveOrVerify(listFile, crval, crpix, plateScale)
-        gas.reset()
+        self.gas.reset()
 
 #
     def testSolveGD66Wcs(self):
@@ -168,7 +251,7 @@ class WCSTestCaseNet(unittest.TestCase):
 
         flag = self.solveWcs(wcsPtr, starlist)
 
-        solvedWcs = gas.getWcs()
+        solvedWcs = self.gas.getWcs()
         if flag:
             radec = solvedWcs.xyToRaDec(890,890)
             strr="rd= (%.6f, %.6f): crval=(%.6f %.6f)" %(radec.getX(), radec.getY(), crval.getX(), crval.getY())
@@ -177,7 +260,7 @@ class WCSTestCaseNet(unittest.TestCase):
         else:
             self.assertEqual(flag, 1, "Failed to find a match")
             
-        sourceSet = gas.getMatchedSources()
+        sourceSet = self.gas.getMatchedSources()
         for i in range(len(sourceSet)):
             x = sourceSet[i].getXAstrom()
             y = sourceSet[i].getYAstrom()
@@ -191,7 +274,7 @@ class WCSTestCaseNet(unittest.TestCase):
             
             self.assertAlmostEqual(sRaDec.getX(), wRaDec.getX(), 3, "x coord failed for getMatchedSources()")
             self.assertAlmostEqual(sRaDec.getY(), wRaDec.getY(), 3, "y coord failed for getMatchedSources()")
-        gas.reset()
+        self.gas.reset()
         
 
     def testVerifyG117(self):
@@ -204,12 +287,11 @@ class WCSTestCaseNet(unittest.TestCase):
         #The image is 1780 pixels on a side and covers half a square degree 
         #on the sky
         plateScale = .5*3600/1780.
-        if verbose:
-            gas.setLogLevel(0)
-        gas.reset()
+        self.gas.setLogLevel(verbose)
+        self.gas.reset()
         self.solveOrVerify(listFile, crval, crpix, plateScale, verify=True)
-        gas.setLogLevel(0)
-        gas.reset()
+        self.gas.setLogLevel(0)
+        self.gas.reset()
         
         
     def testVerifyCFHTField(self):
@@ -224,11 +306,11 @@ class WCSTestCaseNet(unittest.TestCase):
         #The image is 1780 pixels on a side and covers half a square degree 
         #on the sky
         plateScale = .185
-        gas.reset()
-        #gas.setParity(net.UNKNOWN_PARITY)
-        gas.setLogLevel(0)
+        self.gas.reset()
+        #self.gas.setParity(net.UNKNOWN_PARITY)
+        self.gas.setLogLevel(verbose)
         self.solveOrVerify(listFile, crval, crpix, plateScale=plateScale, verify=True)
-        gas.setLogLevel(0)
+        self.gas.setLogLevel(0)
 
 
     #def testWcsSinglePixelOffset(self):
@@ -246,7 +328,7 @@ class WCSTestCaseNet(unittest.TestCase):
         #origWcs = exposure.getWcs()
 #
         ##Get Wcs from astrometry.net
-        #gasWcs = gas.solveWcs(starlist, origWcs)
+        #gasWcs = self.gas.solveWcs(starlist, origWcs)
 #
         ##Pick an radec. The xy values corresponding to this radec should
         ##differ by sqrt(2) between the two wcs'. Also, the values for
@@ -271,7 +353,8 @@ def suite():
     utilsTests.init()
 
     suites = []
-    suites += unittest.makeSuite(WCSTestCaseNet)
+    #gas = GAS("usnob")
+    suites += unittest.makeSuite(WCSTestCaseNetUSNOB)
     suites += unittest.makeSuite(utilsTests.MemoryTestCase)
 
     return unittest.TestSuite(suites)
@@ -279,16 +362,6 @@ def suite():
 def run(exit=False):
     """Run the tests"""
     utilsTests.run(suite(), exit)
-
-
-#Create a globally accessible instance of a GAS
-policyFile=eups.productDir("astrometry_net_data")
-policyFile=os.path.join(policyFile, "metadata.paf")
-gas = net.GlobalAstrometrySolution(policyFile)
  
 if __name__ == "__main__":
-    #print "Warning, tests turned off"
-    #return 0
     run(True)
-    if dataVersion != "cfhttemplate":
-        eups.setup(eupsObj, "astrometry_net_data", dataVersion)  #Restore old a_n_data package
