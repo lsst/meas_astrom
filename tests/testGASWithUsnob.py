@@ -20,7 +20,7 @@ except NameError:
 verbose=1
 
 eupsObj = eups.Eups()
-dataVersion=eups.getSetupVersion("astrometry_net_data")
+dataVersion=eupsObj.findSetupVersion("astrometry_net_data")[0]
 if dataVersion != "usnob":
     print "Warning: These tests require astrometry_net_data usnob"
     print "Setting this up for you now"

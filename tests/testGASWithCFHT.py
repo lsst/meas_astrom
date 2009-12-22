@@ -20,7 +20,7 @@ except NameError:
 
 
 eupsObj = eups.Eups()
-dataVersion=eups.getSetupVersion("astrometry_net_data")
+dataVersion=eupsObj.findSetupVersion("astrometry_net_data")[0]
 if dataVersion != "cfhttemplate":
     print "Warning: These tests require astrometry_net_data cfhttemplate"
     print "Setting this up for you now"
