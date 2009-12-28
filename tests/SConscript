@@ -2,21 +2,17 @@
 Import("env")
 
 import glob, os, sys
-import eups
 
 import lsst.tests
 
-if not eups.productDir("astrometry_net_data"):
-    print >> sys.stderr, "Warning: astrometry_net_data is not set up; not running the tests!"
-else:
-    for fileName in glob.glob("*.cc"):
-        env.Program(fileName, LIBS=env.getlibs("meas_astrom"))
- 
-    ignoreList = ["testConvertCheby"]
-    tests = lsst.tests.Control(env, ignoreList=ignoreList)
+for fileName in glob.glob("*.cc"):
+    env.Program(fileName, LIBS=env.getlibs("meas_astrom"))
 
-    tests.run("*.cc")
-        
-    for target in tests.run("*.py"):
-        for d in ["net", "sip"]:
-            env.Depends(target, "#/python/lsst/meas/astrom/%s/_%sLib%s" % (d, d, env['LDMODULESUFFIX']))
+ignoreList = ["testConvertCheby"]
+tests = lsst.tests.Control(env, ignoreList=ignoreList)
+
+tests.run("*.cc")
+
+for target in tests.run("*.py"):
+    for d in ["net", "sip"]:
+        env.Depends(target, "#/python/lsst/meas/astrom/%s/_%sLib%s" % (d, d, env['LDMODULESUFFIX']))

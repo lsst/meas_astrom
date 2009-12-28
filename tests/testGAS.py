@@ -21,14 +21,16 @@ class GAS(object):
     __gas = None
     __desiredVersion = None
 
-    def __init__(self, desiredVersion=None):
+    def __init__(self, desiredVersion):
         """We use the product astrometry_net_dir to point to different index files depending on the
     problem we're trying to solve.  If any version of astrometry_net_data is setup, try to
     switch to version "desiredVersion".  There's no need to switch back as this code is running in a subprocess
     """
 
         if desiredVersion == None:
-            desiredVersion = GAS.__desiredVersion
+            GAS.__desiredVersion = None
+            GAS.__gas = None
+            return
 
         if GAS.__desiredVersion and desiredVersion == GAS.__desiredVersion:
             return
@@ -41,10 +43,11 @@ class GAS(object):
                   "Note: These tests require astrometry_net_data %s; Trying to set this up for you now" % \
                   desiredVersion
 
-            try:
-                eupsObj.setup("astrometry_net_data", versionName=desiredVersion)
-            except Exception, e:
-                print >> sys.stderr, "Error setting up %s: %s" % (desiredVersion, e)
+            ok, version, reason = eupsObj.setup("astrometry_net_data", versionName=desiredVersion)
+            if not ok:
+                print >> sys.stderr, "Error: %s" % (reason)
+                GAS.__desiredVersion = None
+                GAS.__gas = None
                 return
         #
         # Create and return a GAS if a version of astrometry_net_data can be setup
@@ -70,11 +73,11 @@ class GAS(object):
 
                 return
             else:
-                raise RuntimeError("astrometry_net_data/%s indexFiles are not available; " + 
-                                   "not running %s tests" % (desiredVersion, desiredVersion))
+                print >> sys.stderr, "astrometry_net_data/%s indexFiles are not available; " + \
+                      "not running %s tests" % (desiredVersion, desiredVersion)
 
-        raise RuntimeError, ("astrometry_net_data/%s is not available; not running %s tests" %
-                             (desiredVersion, desiredVersion))
+        print >> sys.stderr, "astrometry_net_data/%s is not available; not running %s tests" % \
+              (desiredVersion, desiredVersion)
 
     def __del__(self):
         GAS.__gas = None
