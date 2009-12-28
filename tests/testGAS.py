@@ -42,9 +42,10 @@ class GAS(object):
                   desiredVersion
 
             try:
-                eups.setup(eupsObj, "astrometry_net_data", version=desiredVersion)
-            except RuntimeError, e:
-                pass
+                eupsObj.setup("astrometry_net_data", versionName=desiredVersion)
+            except Exception, e:
+                print >> sys.stderr, "Error setting up %s: %s" % (desiredVersion, e)
+                return
         #
         # Create and return a GAS if a version of astrometry_net_data can be setup
         # that contains the proper index files
@@ -544,9 +545,13 @@ class SmallSolveGASTestCFHT(unittest.TestCase):
 
     def testDistortedWcs(self):
         """Is a distorted Wcs returned"""
+
         if verbose:
             print "DistortedWcs"
-        """Different img scales"""
+
+        if not self.gas.exists():
+            return
+
         crval = afwImage.PointD(334.303215, -17.329315)
         #Set starlist    
         starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
