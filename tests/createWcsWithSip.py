@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import re
 import os
+import sys
 import glob
 import math
 import pdb                          # we may want to say pdb.set_trace()
@@ -23,7 +24,9 @@ import sourceSetIO
 
 dataDir = eups.productDir("astrometry_net_data")
 if not dataDir:
-    raise RuntimeError("Must set up astrometry_net_data to run these tests")
+    print "Warning. createWcsWithSip.py not run because"
+    print "astrometry_net_data not set up"
+    sys.exit()
 
 
 #Create a globally accessible instance of a GAS. This takes a few seconds

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import re
 import os
+import sys
 import glob
 import math
 import pdb                          # we may want to say pdb.set_trace()
@@ -17,9 +18,14 @@ import lsst.meas.astrom.sip.cleanBadPoints as cleanBadPoints
 
 import sourceSetIO
 
+#meas_astrom sets up astrometry_net_data if it's available. If it isn't
+#available, we don't run the test, because the test would fail, and packages
+#shouldn't depend on data packages to build successfully.
 dataDir = eups.productDir("astrometry_net_data")
 if not dataDir:
-    raise RuntimeError("Must set up astrometry_net_data to run these tests")
+    print "Warning. distortedImageTest not run because"
+    print "astrometry_net_data not set up"
+    sys.exit()
 
 #Create a globally accessible instance of a GAS. This takes a few seconds
 #to load, so we don't want to do it everytime we setup a test case
