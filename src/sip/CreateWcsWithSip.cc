@@ -324,7 +324,7 @@ void CreateWcsWithSip::_scaleVector(std::vector<double>& v) {
  
 ///Convert a 2d matrix of Chebyshev coefficients (as produced by LeastSqFitter2d) into
 ///a SIP matrix.
-Eigen::MatrixXd CreateWcsWithSip::_convertChebyToSip(Eigen::MatrixXd cheby) {
+Eigen::MatrixXd CreateWcsWithSip::_convertChebyToSip(Eigen::MatrixXd const & cheby) {
     int maxOrder = 5; // Because I've only defined the coeffiencents up to this order
     
     //Coeffs is a lookup table of the polynomial coeffecients of Chebychev functions

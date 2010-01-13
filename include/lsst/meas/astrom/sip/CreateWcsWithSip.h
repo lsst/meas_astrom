@@ -100,7 +100,7 @@ private:
 
     void _scaleVector(std::vector<double>& v);
     
-    Eigen::MatrixXd _convertChebyToSip(Eigen::MatrixXd cheby);
+    Eigen::MatrixXd _convertChebyToSip(Eigen::MatrixXd const & cheby);
                   
 };    
     
