@@ -9,7 +9,8 @@ Python interface to lsst::afw::meas::astrom::net classes
 %module(package="lsst.meas.astrom.net",docstring=netLib_DOCSTRING) netLib
 
 %{
-#   include "lsst/meas/astrom/net/GlobalAstrometrySolution.h"
+#include "lsst/meas/astrom/net/GlobalAstrometrySolution.h"
+#include "lsst/afw/geom.h" // should not be needed; ticket #1121
 %}
 
 %include "lsst/p_lsstSwig.i"

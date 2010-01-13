@@ -9,11 +9,12 @@ Python interface to lsst::afw::meas::astrom::sip classes
 %module(package="lsst.meas.astrom.sip",docstring=sipLib_DOCSTRING) sipLib
 
 %{
-#   include "lsst/meas/astrom/sip/MatchSrcToCatalogue.h"
-#   include "lsst/afw/math/FunctionLibrary.h"
-#   include "lsst/meas/astrom/sip/LeastSqFitter1d.h"
-#   include "lsst/meas/astrom/sip/LeastSqFitter2d.h"
-#   include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
+#include "lsst/meas/astrom/sip/MatchSrcToCatalogue.h"
+#include "lsst/afw/math/FunctionLibrary.h"
+#include "lsst/meas/astrom/sip/LeastSqFitter1d.h"
+#include "lsst/meas/astrom/sip/LeastSqFitter2d.h"
+#include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
+#include "lsst/afw/geom.h" // should not be needed; ticket #1121
 %}
 
 %include "lsst/p_lsstSwig.i"
