@@ -15,13 +15,23 @@ namespace Except = lsst::pex::exceptions;
 namespace Det = lsst::afw::detection;
 namespace pexLog = lsst::pex::logging;
 
+//Refuse to try to solve star lists with fewer than this many objects. Doing so
+//increases the chances of returning a false match. The number twenty is
+//recommended by astrometry.net as a minimum value.
+static int defaultMinimumNumberOfObjectsToAccept = 20;
+
+
 //
 //Constructors, Destructors
 //
 GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath):
     _mylog(pexLog::Log::getDefaultLog(), "meas.astrom.net", pexLog::Log::DEBUG),
-    _indexList(NULL), _metaList(NULL), _solver(NULL), _starxy(NULL), _numBrightObjects(-1){
- 
+    _indexList(NULL), 
+    _metaList(NULL), 
+    _solver(NULL), 
+    _starxy(NULL), 
+    _numBrightObjects(-1),
+    _minimumNumberOfObjectsToAccept(defaultMinimumNumberOfObjectsToAccept){
     
 
     _indexList = pl_new(sizeof(index_t));
@@ -141,6 +151,8 @@ GlobalAstrometrySolution::~GlobalAstrometrySolution() {
 ///attempted match. These values are more reasonable. 
 void GlobalAstrometrySolution::setDefaultValues() {
 
+    //Among other things, this sets the parity, positional uncertainty (_solver->verify_pix)                 <
+    //matching accuracy (_solver->codetol                    
     solver_set_default_values(_solver);
     
     //Set image scale boundaries (in arcseconds per pixel) to non-zero and non-infinity.
@@ -179,11 +191,11 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
         throw(LSST_EXCEPT(Except::LengthErrorException, "Src list contains no objects"));
     }
 
-    //This number is conservative. A bare minimum of 4 objects is needed, although the
-    //search probably won't be unique with that few objects
-    if (vec.size() < 20) {
-        throw(LSST_EXCEPT(Except::LengthErrorException, "Src list should contain at least 20 objects"));
-    }
+    //Refuse to solve an image with too few sources.
+    if (vec.size() < (unsigned int) _minimumNumberOfObjectsToAccept) {                                                 string msg = "Source list should contain at least ";                                                           msg += _minimumNumberOfObjectsToAccept;                                                              
+        msg += " objects;";                                                                                  
+        throw(LSST_EXCEPT(Except::LengthErrorException, msg));                                               
+    }               
     
     int const size = vec.size();
     if (_starxy != NULL) {
@@ -363,45 +375,7 @@ bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal
         throw(LSST_EXCEPT(Except::DomainErrorException, msg));
     }
 
-    int nMeta = pl_size(_metaList);
-    for (int i = 0; i<nMeta; ++i){
-        //Which index does this meta point to?
-        index_meta_t *meta = (index_meta_t*) pl_get(_metaList, i);
-        int metaId = meta->indexid;
-        int metaHealpix = meta->healpix;
-        int metaHpnside = meta->hpnside;
-
-        //Only look at indices that cover the appropriate region of sky, and the right
-        //range of image scales.
-        if ( _isIndexMetaPossibleMatch(meta, ra, dec)) {       
-                        
-            //Have we already loaded this index from disk?
-            int nIndex = pl_size(_indexList);
-            index_t *trialIndex = NULL;
-            
-            for (int j = 0; j<nIndex && trialIndex == NULL; ++j) {
-                trialIndex = (index_t*) pl_get(_indexList, j);
-                assert(trialIndex != NULL);
-
-                //Three values uniquely identify an index
-                bool isEqual = (metaId == trialIndex->meta.indexid);
-                isEqual = isEqual && (metaHealpix == trialIndex->meta.healpix);
-                isEqual = isEqual &&(metaHpnside == trialIndex->meta.hpnside);
-                if (!isEqual) {
-                    trialIndex = NULL;
-                }
-            }
-            
-            //If not loaded already, read from disk. 
-            //This is a potentially slow operation
-            if (trialIndex == NULL) {
-                trialIndex = index_load(meta->indexname, 0);
-                pl_push(_indexList, trialIndex);
-            }
-            solver_add_index(_solver, trialIndex);
-        }
-    }
-
+    _addSuitableIndicesToSolver(ra, dec);
     solver_run(_solver);
             
     if (_solver->best_match_solves){
@@ -438,43 +412,8 @@ bool GlobalAstrometrySolution::solve()  {
         throw(LSST_EXCEPT(Except::DomainErrorException, msg));
     }
 
-    int nMeta = pl_size(_metaList);
-    for (int i = 0; i<nMeta; ++i){
-        //Which index does this meta point to?
-        index_meta_t *meta = (index_meta_t*) pl_get(_metaList, i);
-        int metaId = meta->indexid;
-        int metaHealpix = meta->healpix;
-        int metaHpnside = meta->hpnside;
 
-        //Only look at indices that cover the appropriate region of sky, and the right
-        //range of image scales.
-        if ( _isMetaSuitableScale(meta)){  
-            //Have we already loaded this index from disk?
-            int nIndex = pl_size(_indexList);
-            index_t *trialIndex = NULL;
-            for (int j = 0; j<nIndex && trialIndex == NULL; ++j) {
-                trialIndex = (index_t*) pl_get(_indexList, j);
-                assert(trialIndex != NULL);
-
-                //Three values uniquely identify an index
-                bool isEqual = (metaId == trialIndex->meta.indexid);
-                isEqual = isEqual && (metaHealpix == trialIndex->meta.healpix);
-                isEqual = isEqual &&(metaHpnside == trialIndex->meta.hpnside);
-                if (!isEqual) {
-                    trialIndex = NULL;
-                }
-            }
-
-            //If not loaded already, read from disk. 
-            //This is a potentially slow operation
-            if (trialIndex == NULL) {
-                trialIndex = index_load(meta->indexname, 0);
-                pl_push(_indexList, trialIndex);
-            }
-            solver_add_index(_solver, trialIndex);
-        }
-    }
-
+    _addSuitableIndicesToSolver();
     solver_run(_solver);
             
     if (_solver->best_match_solves){
@@ -504,8 +443,9 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
 
     //Get the central ra/dec and plate scale
     lsst::afw::image::PointD raDec = wcsPtr->xyToRaDec(xc, yc);
-    lsst::afw::image::PointD raDec2 = wcsPtr->xyToRaDec(xc + 1, yc);
+    lsst::afw::image::PointD raDec2 = wcsPtr->xyToRaDec(xc + 1, yc+1);
     double plateScale = hypot(raDec2.getX() - raDec.getX(), raDec2.getY() - raDec.getY());  //In degrees
+    plateScale /= sqrt(2);
     plateScale *= 3600;    //In arcseconds per pixel
 
     setMinimumImageScale(plateScale*(1 - unc));
@@ -518,6 +458,79 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
     }
         
     return(solve(raDec.getX(), raDec.getY()));
+}
+
+
+/// \brief Find indices that may contain a the correct solution, and add them to the solver.
+/// 
+/// Find indices that cover a suitable range of plate scales and optionally a suitable position
+/// on the sky.
+/// If these indices have been previously loaded from disk, add them to the solver, otherwise
+/// load them from disk, then add them to the solver.
+/// Because these files are typically large, caching them in memory can save a lot of 
+/// initialisation time.
+/// Because each index can take a long time to search, only using suitable ones speeds
+/// the matching process.
+/// 
+/// If ra and dec are not supplied, the default values (see the header file) indicate to the 
+/// function that position should not be used to determine the suitablity of an index
+/// 
+/// \param ra Optional right ascension of inital guess at solution position
+/// \param dec Optional declination of inital guess at solution position
+/// 
+/// \return Number of indices loaded
+int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double ra, double dec) {
+
+    int nMeta = pl_size(_metaList);
+    int nSuitable = 0;
+    for (int i = 0; i<nMeta; ++i){
+        //Each meta describes the properties of a single index file
+        index_meta_t *meta = (index_meta_t*) pl_get(_metaList, i);
+
+        //Does this index cover a suitable scale
+        if( _isMetaSuitableScale(meta)) {
+            //Is this either a blind solve, or does the index cover a suitable
+            //patch of sky
+            if( (ra < 0) || (dec < -100) || (_isMetaNearby(meta, ra, dec))) {
+                //Have we already loaded this index from disk?
+                int nIndex = pl_size(_indexList);
+                index_t *trialIndex = NULL;
+                for (int j = 0; j<nIndex && trialIndex == NULL; ++j) {
+                    trialIndex = (index_t*) pl_get(_indexList, j);
+                    assert(trialIndex != NULL);
+
+                    //Three values uniquely identify an index
+                    int metaId = meta->indexid;
+                    int metaHealpix = meta->healpix;
+                    int metaHpnside = meta->hpnside;
+                    
+                    bool isEqual = (metaId == trialIndex->meta.indexid);
+                    isEqual = isEqual && (metaHealpix == trialIndex->meta.healpix);
+                    isEqual = isEqual &&(metaHpnside == trialIndex->meta.hpnside);
+                    if (!isEqual) {
+                        trialIndex = NULL;
+                    }
+                }
+
+                //If not loaded already, read from disk. 
+                //This is a potentially slow operation
+                if (trialIndex == NULL) {
+                    trialIndex = index_load(meta->indexname, 0);
+                    pl_push(_indexList, trialIndex);
+                }
+
+                solver_add_index(_solver, trialIndex);
+                nSuitable++;
+            }
+        }
+    }
+    
+    if(nSuitable == 0) {
+        string msg = "No suitable indices found for given input parameters";
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, msg));
+    }
+    
+    return nSuitable;
 }
 
 
@@ -591,7 +604,7 @@ bool GlobalAstrometrySolution::_isMetaSuitableScale(index_meta_t *meta){
         return true;
     }
     
-    return true;    //Debugging: should be false.
+    return false;
 }
 
 
@@ -788,7 +801,6 @@ double GlobalAstrometrySolution::getSolvedImageScale(){
 
 
 ///Returns a sourceSet of objects that are nearby in an raDec sense to the best match solution
-///This function is still under construction and doesn't do what I want it to yet.
 lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double radiusInArcsec) {
     if (! _solver->best_match_solves) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
@@ -797,16 +809,31 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
     //Don't free this pointer. It points to memory that will still exist
     //when this function goes out of scope.
     double *center = _solver->best_match.center;
+    double ra, dec;
+    xyzarr2radecdeg(center, &ra, &dec);
+    
+    return getCatalogue(ra, dec, radiusInArcsec);
+}
 
 
-    //Generate an array of radec of positions in the field
+///Returns a sourceSet of objects that are nearby in an raDec sense to the requested position
+lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra,
+    double dec,
+    double radiusInArcsec) {
+
+    //Initialisation
+    _addSuitableIndicesToSolver(ra, dec);
+    
+    double center[3];
+    radecdeg2xyz(ra, dec, &center[0], &center[1], &center[2]);
+    
 
     //radius of bounding circle of healpix of best match
     double radius2 = arcsec2distsq(radiusInArcsec);
     
     Det::SourceSet out;
 
-    //For each index that we've search, pulled out stars that are close in an radec sense    
+    //For each index found to be suitable, pull out stars that are close in an radec sense    
     for (int i = 0; i< pl_size(_solver->indexes); ++i) {
         double *radec = NULL;
         int nstars = 0;
@@ -826,9 +853,10 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
 
         free(radec);    
     }
+    
     return out;
-
 }
+
 
 ///Reset the object so it's ready to match another field.
 void GlobalAstrometrySolution::reset() {

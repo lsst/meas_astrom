@@ -73,6 +73,14 @@ public:
     void allowDistortion(bool hasDistortion);
     void setLogLevel(int level);
     void setMatchThreshold(double threshold);
+
+    ///Finding a match requires a minimum number of objects in the field. astrometry.net
+    ///recommends at least 20, which is the default value for the class. Setting
+    ///the value any lower is probably not a good idea, and may lead to false matches.
+    void setMinimumNumberOfObjectsToAccept(double num){
+        _minimumNumberOfObjectsToAccept = num;
+    }
+
     void setParity(int parity);
 
     //Solve for a wcs solution
@@ -86,6 +94,7 @@ public:
     lsst::afw::image::Wcs::Ptr getDistortedWcs(int order = 3);
     lsst::afw::detection::SourceSet getMatchedSources();
     double getSolvedImageScale();
+    lsst::afw::detection::SourceSet getCatalogue(double ra, double dec, double radiusInArcsec);    
     lsst::afw::detection::SourceSet getCatalogue(double radiusInArcsec);
 
     //Call this before performing a new match
@@ -101,7 +110,9 @@ private:
     solver_t *_solver;
     starxy_t *_starxy;   ///List of sources to solve for
     int _numBrightObjects;   //Only use the brightest objects in solve.
-    
+    //Refuse to add starlists with fewer objects than this value
+    int _minimumNumberOfObjectsToAccept; 
+        
     //Variables indicating the coordinate system of the solution
     double _equinox;
     std::string _raDecSys;
@@ -109,6 +120,7 @@ private:
     index_meta_t *_loadIndexMeta(std::string filename);
 
     void _solverSetField();
+    int _addSuitableIndicesToSolver(double ra=-360, double dec=-360);    
     bool _isIndexMetaPossibleMatch(index_meta_t *meta, double ra, double dec);
     bool _isMetaNearby(index_meta_t *meta, double ra, double dec); 
     bool _isMetaSuitableScale(index_meta_t *meta);                               
