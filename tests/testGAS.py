@@ -413,7 +413,15 @@ class SmallSolveGASTestCFHT(unittest.TestCase):
         self.gas.setStarlist(starlist)
         self.gas.setNumBrightObjects(50)
     
-        flag = self.gas.solve(raDec)
+        try:
+            flag = self.gas.solve(raDec)
+        except Exception,e:
+            #if we expect to fail, throwing an exception counts as a fail
+            if not expectPass:
+                return
+            else:
+                raise
+            
         if expectPass:
             self.assertTrue(flag, "No solution found")
             wcs = self.gas.getWcs()
