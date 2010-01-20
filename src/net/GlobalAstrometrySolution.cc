@@ -381,6 +381,9 @@ bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal
     }
 
     
+
+    _addSuitableIndicesToSolver(ra, dec);
+
     printf("******** ************* ***************\n");
     printf("verify_pix %g\n", _solver->verify_pix);
     printf("distractor_ratio %g\n", _solver->distractor_ratio);
@@ -393,8 +396,7 @@ bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal
     printf("maxmaxAB2 %g\n", _solver->maxmaxAB2);
     printf("rel_index_noise2 %g\n", _solver->rel_index_noise2);
     printf("rel_field_noise2 %g\n", _solver->rel_field_noise2);
-
-    _addSuitableIndicesToSolver(ra, dec);
+    
     solver_run(_solver);
             
     if (_solver->best_match_solves){
@@ -611,12 +613,12 @@ bool GlobalAstrometrySolution::_isMetaSuitableScale(index_meta_t *meta){
     //Convert index scales from radians to arcsec
     double iLwr = meta->index_scale_lower*180.0/M_PI*3600.0;
     double iUpr = meta->index_scale_upper*180.0/M_PI*3600.0;
-    
+
     if (iLwr < maxSizeArcsec && iUpr > minSizeArcsec){
         return true;
     }
     
-    return true;    //Debugging: should be false.
+    return false;
 }
 
 
@@ -822,7 +824,7 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
     //when this function goes out of scope.
     double *center = _solver->best_match.center;
     double ra, dec;
-    xyzarr2radec(center, &ra, &dec);
+    xyzarr2radecdeg(center, &ra, &dec);
     
     return getCatalogue(ra, dec, radiusInArcsec);
 }
@@ -866,10 +868,6 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
         free(radec);    
     }
     
-    printf("%i\n", pl_size(_solver->indexes));
-    printf("%g %g\n", ra, dec);
-    printf("%g %g %g\n", center[0], center[1], center[2]);
-    printf("Found %li catalogue objects", out.size());
     return out;
 }
 
