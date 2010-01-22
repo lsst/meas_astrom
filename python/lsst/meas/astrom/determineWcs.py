@@ -1,5 +1,4 @@
 import os
-import sys
 import math
 
 import eups
@@ -13,7 +12,7 @@ import sip as astromSip
 import sip.cleanBadPoints as cleanBadPoints
 
 
-def determineWcs(policy, exposure, sourceSet, log=None):
+def determineWcs(policy, exposure, sourceSet, log=None, doTrim=False):
     """Top level function for calculating a Wcs. 
     
     Given an initial guess at a Wcs (hidden inside an exposure) and a set of
@@ -27,6 +26,7 @@ def determineWcs(policy, exposure, sourceSet, log=None):
     sourceSet   A list of lsst.afw.detection.Source objects, indicating the pixel positions of 
                 stars in the field
     log         A lsst.pex.logging.Log object (optional), used for printing progress
+    trim        Check that all sources lie within the image, and remove those that don't.
     """
 
     if log is not None:
@@ -39,6 +39,14 @@ def determineWcs(policy, exposure, sourceSet, log=None):
     
     outputWcsKey = policy.get('outputWcsKey')
     
+    if doTrim:
+        nStart = len(srcSet)
+        srcSet = trimBadPoints(exp, srcSet)
+        if log:
+            nEnd = len(srcSet)
+            log.log(log.DEBUG, "Kept %i of %i sources after trimming" %(nEnd, nStart))
+            
+        
     #Extract an initial guess wcs if available    
     wcsIn = exp.getWcs() #May be None
     if wcsIn is None:
@@ -72,7 +80,7 @@ def determineWcs(policy, exposure, sourceSet, log=None):
 
     if log is not None:
         log.log(log.DEBUG, "Finished Solve step")
-    if isSolved == False:
+    if not isSolved:
         if log is not None:
             log.log(log.WARN, "No solution found, using input Wcs")
         return None, wcsIn
@@ -117,6 +125,27 @@ def determineWcs(policy, exposure, sourceSet, log=None):
     solver.reset()
     
     return [matchList, sipObject.getNewWcs()]
+
+
+def trimBadPoints(exp, srcSet):
+    """Remove elements from srcSet whose xy positions aren't within the boundaries of exp
+    
+    Input:
+    exp:    an Exposure object
+    srcSet  A list of Source objects
+    """
+    
+    x0, y0 = exp.getMaskedImage().getXY0()
+    h, w = float(exp.getHeight()), float(exp.getWidth())
+
+    goodSet = []
+    for s in srcSet:
+        if x0 < s.getXAstrom() < x0+w:
+            if y0 < s.getYAstrom() < y0+h:
+                goodSet.append(s)
+    
+    return goodSet
+    
     
     
 def getImageSizeInArcsec(srcSet, wcs):
