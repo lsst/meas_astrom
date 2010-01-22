@@ -174,9 +174,11 @@ void GlobalAstrometrySolution::setDefaultValues() {
     _solver->numscaleok = 0;
     _solver->num_cxdx_skipped = 0;
     _solver->num_verified = 0;
-    _solver->quit_now = FALSE;
-
+    _solver->quit_now = false;
+    _solver->best_match_solves = false;
     setParity(UNKNOWN_PARITY);
+    
+    
 }
 
     
