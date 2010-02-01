@@ -122,9 +122,11 @@ private:
 
     void _solverSetField();
     int _addSuitableIndicesToSolver(double ra=-360, double dec=-360);    
-    bool _isIndexMetaPossibleMatch(index_meta_t *meta, double ra, double dec);
-    bool _isMetaNearby(index_meta_t *meta, double ra, double dec); 
-    bool _isMetaSuitableScale(index_meta_t *meta);                               
+    bool _isIndexMetaPossibleMatch(index_meta_t *meta, double ra, double dec, \
+        double minImageSizeArcsec, double maxImageSizeArcsec);
+    bool _isMetaNearby(index_meta_t *meta, double ra, double dec, double imgSizeInArcsec); 
+    bool _isMetaSuitableScale(index_meta_t *meta, double minSizeInArcsec, double maxSizeInArcsec);
+
 
 };
 
