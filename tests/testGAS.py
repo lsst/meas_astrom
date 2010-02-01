@@ -273,7 +273,7 @@ class WCSTestCaseNetUSNOB(unittest.TestCase):
         self.solveOrVerify(listFile, crval, crpix, plateScale)
         self.gas.reset()
 
-#
+
     def testSolveGD66Wcs(self):
         """Run solveWcs on GD66. Also does a sanity check on the list
         returned by getMatchedSources()"""
