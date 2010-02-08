@@ -423,7 +423,19 @@ bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal
         throw(LSST_EXCEPT(Except::DomainErrorException, msg));
     }
 
-    _addSuitableIndicesToSolver(ra, dec);
+    //Calculate the best guess at image size
+    double xSizePixels = _solver->field_maxx - _solver->field_minx;
+    double ySizePixels = _solver->field_maxy - _solver->field_miny;
+    double minSizePixels = min(xSizePixels, ySizePixels);
+    double maxSizePixels = max(xSizePixels, ySizePixels);
+    assert(maxSizePixels > minSizePixels && minSizePixels > 0);
+    
+    //Set the range of sizes of quads to examine
+    //@FIXME the 10% and 90% should be parameters
+    double imgSizeArcSecLwr = .10 * _solver->funits_lower*minSizePixels;
+    double imgSizeArcSecUpr = .90 * _solver->funits_upper*maxSizePixels;
+
+    _addSuitableIndicesToSolver(imgSizeArcSecLwr, imgSizeArcSecUpr, ra, dec);
     solver_run(_solver);
             
     string msg;
@@ -465,8 +477,20 @@ bool GlobalAstrometrySolution::solve()  {
         throw(LSST_EXCEPT(Except::DomainErrorException, msg));
     }
 
+    //Calculate the best guess at image size
+    double xSizePixels = _solver->field_maxx - _solver->field_minx;
+    double ySizePixels = _solver->field_maxy - _solver->field_miny;
+    double minSizePixels = min(xSizePixels, ySizePixels);
+    double maxSizePixels = max(xSizePixels, ySizePixels);
+    assert(maxSizePixels > minSizePixels && minSizePixels > 0);
 
-    _addSuitableIndicesToSolver();
+    //Set the range of sizes of quads to examine
+    //@FIXME the 10% and 90% should be parameters
+    double imgSizeArcSecLwr = .10 * _solver->funits_lower*minSizePixels;
+    double imgSizeArcSecUpr = .90 * _solver->funits_upper*maxSizePixels;
+
+
+    _addSuitableIndicesToSolver(imgSizeArcSecLwr, imgSizeArcSecUpr);
     solver_run(_solver);
             
     if (_solver->best_match_solves){
@@ -500,18 +524,7 @@ bool GlobalAstrometrySolution::solve()  {
 /// \param dec Optional declination of inital guess at solution position
 /// 
 /// \return Number of indices loaded
-int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double ra, double dec) {
-
-    //Calculate the best guess at image size
-    double xSizePixels = _solver->field_maxx - _solver->field_minx;
-    double ySizePixels = _solver->field_maxy - _solver->field_miny;
-    double minSizePixels = min(xSizePixels, ySizePixels);
-    double maxSizePixels = max(xSizePixels, ySizePixels);
-    assert(maxSizePixels > minSizePixels && minSizePixels > 0);
-    
-    //@FIXME the 10% and 90% should be parameters
-    double imgSizeArcSecLwr = .10 * _solver->funits_lower*minSizePixels;
-    double imgSizeArcSecUpr = .90 * _solver->funits_upper*maxSizePixels;
+int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double imgSizeArcSecLwr, double imgSizeArcSecUpr, double ra, double dec) {
 
     bool hasAtLeastOneIndexOfSuitableScale = false;
     int nMeta = pl_size(_metaList);
@@ -836,31 +849,15 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
 }
 
 
-///Plate scale of solution in arcsec/pixel. Note this is different than getMin(Max)ImageScale()
-///which return the intial guesses of platescale.
-double GlobalAstrometrySolution::getSolvedImageScale(){
-    if (! _solver->best_match_solves) {
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
-    }
-
-    return(_solver->best_match.scale);
-} 
-
-
-
-
-
 ///Returns a sourceSet of objects that are nearby in an raDec sense to the requested position
 lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra,
     double dec,
     double radiusInArcsec) {
 
-    if ( ! _starxy) {
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
-    }
-
     //Initialisation
-    _addSuitableIndicesToSolver(ra, dec);
+    double imgScaleArcSecLwr = 0;
+    double imgScaleArcSecUpr = 180*3600;    //Find sources stored in quads at all image scales
+    _addSuitableIndicesToSolver(imgScaleArcSecLwr, imgScaleArcSecUpr, ra, dec);
     
     double center[3];
     radecdeg2xyz(ra, dec, &center[0], &center[1], &center[2]);
@@ -894,6 +891,18 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
     
     return out;
 }
+
+
+
+///Plate scale of solution in arcsec/pixel. Note this is different than getMin(Max)ImageScale()
+///which return the intial guesses of platescale.
+double GlobalAstrometrySolution::getSolvedImageScale(){
+    if (! _solver->best_match_solves) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
+    }
+
+    return(_solver->best_match.scale);
+} 
 
 
 ///Reset the object so it's ready to match another field.
