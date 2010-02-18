@@ -269,13 +269,18 @@ void GlobalAstrometrySolution::_solverSetField() {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, msg));
     }
     
-
+    double oldf = 1e306;   //Used for debugging
     starxy_t *shortlist = starxy_new(N, true, true);
     for (int i = 0; i<N; ++i) {
         double x = starxy_getx(_starxy, i);
         double y = starxy_gety(_starxy, i);
         double f = _starxy->flux[i];   //flux has no accessor function
-
+        
+        //Assert array is sorted by flux
+        //printf("%i %.3f %.3f\n", i, f, oldf);
+        assert(f <= oldf);
+        oldf = f;
+        
         starxy_setx(shortlist, i, x);
         starxy_sety(shortlist, i, y);
         shortlist->flux[i] = f;
@@ -287,7 +292,6 @@ void GlobalAstrometrySolution::_solverSetField() {
 
     //Find field boundaries and precompute kdtree
     solver_preprocess_field(_solver);
-
 }   
 
 ///Set the plate scale of the image in arcsec per pixel
@@ -435,10 +439,12 @@ bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal
     double imgSizeArcSecLwr = .10 * _solver->funits_lower*minSizePixels;
     double imgSizeArcSecUpr = .90 * _solver->funits_upper*maxSizePixels;
 
+    _mylog.log(pexLog::Log::DEBUG, "Setting indices");
     _addSuitableIndicesToSolver(imgSizeArcSecLwr, imgSizeArcSecUpr, ra, dec);
     solver_run(_solver);
             
     string msg;
+    _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
     if (_solver->best_match_solves){
         char *indexname = _solver->index->meta.indexname;
         msg = boost::str(boost::format("Position verified. Solved index is %s") % indexname);
@@ -564,6 +570,8 @@ int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double imgSizeArcSecLw
                 //If not loaded already, read from disk. 
                 //This is a potentially slow operation
                 if (trialIndex == NULL) {
+                    _mylog.log(pexLog::Log::DEBUG, \
+                        (boost::format("Loading %s from disk") % meta->indexname).str());
                     trialIndex = index_load(meta->indexname, 0);
                     pl_push(_indexList, trialIndex);
                 }
