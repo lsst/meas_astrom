@@ -15,13 +15,23 @@ namespace Except = lsst::pex::exceptions;
 namespace Det = lsst::afw::detection;
 namespace pexLog = lsst::pex::logging;
 
+//Refuse to try to solve star lists with fewer than this many objects. Doing so
+//increases the chances of returning a false match. The number twenty is
+//recommended by astrometry.net as a minimum value.
+static int defaultMinimumNumberOfObjectsToAccept = 20;
+
+
 //
 //Constructors, Destructors
 //
 GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath):
     _mylog(pexLog::Log::getDefaultLog(), "meas.astrom.net", pexLog::Log::DEBUG),
-    _indexList(NULL), _metaList(NULL), _solver(NULL), _starxy(NULL), _numBrightObjects(-1){
- 
+    _indexList(NULL), 
+    _metaList(NULL), 
+    _solver(NULL), 
+    _starxy(NULL), 
+    _numBrightObjects(-1),
+    _minimumNumberOfObjectsToAccept(defaultMinimumNumberOfObjectsToAccept){
     
 
     _indexList = pl_new(sizeof(index_t));
@@ -141,6 +151,8 @@ GlobalAstrometrySolution::~GlobalAstrometrySolution() {
 ///attempted match. These values are more reasonable. 
 void GlobalAstrometrySolution::setDefaultValues() {
 
+    //Among other things, this sets the parity, positional uncertainty (_solver->verify_pix)                 <
+    //matching accuracy (_solver->codetol                    
     solver_set_default_values(_solver);
     
     //Set image scale boundaries (in arcseconds per pixel) to non-zero and non-infinity.
@@ -162,9 +174,11 @@ void GlobalAstrometrySolution::setDefaultValues() {
     _solver->numscaleok = 0;
     _solver->num_cxdx_skipped = 0;
     _solver->num_verified = 0;
-    _solver->quit_now = FALSE;
-
+    _solver->quit_now = false;
+    _solver->best_match_solves = false;
     setParity(UNKNOWN_PARITY);
+    
+    
 }
 
     
@@ -179,11 +193,13 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
         throw(LSST_EXCEPT(Except::LengthErrorException, "Src list contains no objects"));
     }
 
-    //This number is conservative. A bare minimum of 4 objects is needed, although the
-    //search probably won't be unique with that few objects
-    if (vec.size() < 20) {
-        throw(LSST_EXCEPT(Except::LengthErrorException, "Src list should contain at least 20 objects"));
-    }
+    //Refuse to solve an image with too few sources.
+    if (vec.size() < (unsigned int) _minimumNumberOfObjectsToAccept) {
+        string msg = "Source list should contain at least ";
+        msg += _minimumNumberOfObjectsToAccept;
+        msg += " objects;";
+        throw(LSST_EXCEPT(Except::LengthErrorException, msg));
+    }               
     
     int const size = vec.size();
     if (_starxy != NULL) {
@@ -253,13 +269,18 @@ void GlobalAstrometrySolution::_solverSetField() {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, msg));
     }
     
-
+    double oldf = 1e306;   //Used for debugging
     starxy_t *shortlist = starxy_new(N, true, true);
     for (int i = 0; i<N; ++i) {
         double x = starxy_getx(_starxy, i);
         double y = starxy_gety(_starxy, i);
         double f = _starxy->flux[i];   //flux has no accessor function
-
+        
+        //Assert array is sorted by flux
+        //printf("%i %.3f %.3f\n", i, f, oldf);
+        assert(f <= oldf);
+        oldf = f;
+        
         starxy_setx(shortlist, i, x);
         starxy_sety(shortlist, i, y);
         shortlist->flux[i] = f;
@@ -271,7 +292,6 @@ void GlobalAstrometrySolution::_solverSetField() {
 
     //Find field boundaries and precompute kdtree
     solver_preprocess_field(_solver);
-
 }   
 
 ///Set the plate scale of the image in arcsec per pixel
@@ -331,6 +351,50 @@ void GlobalAstrometrySolution::setParity(int parity){
 //
 // Solve functions
 //
+
+///Solve using a wcs object as an initial guess
+bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr, 
+                                     double imageScaleUncertaintyPercent) {
+
+    //Rename the variable to something shorter to make the code easier to read
+    double unc = imageScaleUncertaintyPercent/100.0;
+
+    //This test is strictly unecessary as solverSetField throws the same exception
+    if ( ! _starxy) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
+    }
+
+    double xc = (_solver->field_maxx + _solver->field_minx)/2.0;
+    double yc = (_solver->field_maxy + _solver->field_miny)/2.0;
+
+    //Get the central ra/dec and plate scale
+    lsst::afw::image::PointD raDec = wcsPtr->xyToRaDec(xc, yc);
+    double plateScaleArcsecPerPixel = sqrt(wcsPtr->pixArea(raDec))*3600;
+    setMinimumImageScale(plateScaleArcsecPerPixel*(1 - unc));
+    setMaximumImageScale(plateScaleArcsecPerPixel*(1 + unc));
+    
+    
+    string msg = boost::str( boost::format("Solving using initial guess at position of\n %.7f %.7f\n") % raDec.getX() % raDec.getY());
+    _mylog.log(pexLog::Log::DEBUG, msg);
+
+    double lwr = plateScaleArcsecPerPixel*(1 - unc);
+    double upr = plateScaleArcsecPerPixel*(1 + unc);
+    msg = boost::str( boost::format("Scale range %.3f - %.3f arcsec/pixel\n") % lwr % upr);
+    _mylog.log(pexLog::Log::DEBUG, msg);
+    
+
+    if ( wcsPtr->isFlipped()) {
+        setParity(FLIPPED_PARITY);
+        _mylog.log(pexLog::Log::DEBUG, "Setting Flipped parity");        
+    } else {
+        setParity(NORMAL_PARITY);
+        _mylog.log(pexLog::Log::DEBUG, "Setting Normal parity");        
+    }
+        
+    return(solve(raDec.getX(), raDec.getY()));
+}
+
+
 ///Find a solution with an initial guess at the position    
 bool GlobalAstrometrySolution::solve(const afw::image::PointD raDec   ///<Right ascension/declination
                                                ///in decimal degrees
@@ -363,54 +427,35 @@ bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal
         throw(LSST_EXCEPT(Except::DomainErrorException, msg));
     }
 
-    int nMeta = pl_size(_metaList);
-    for (int i = 0; i<nMeta; ++i){
-        //Which index does this meta point to?
-        index_meta_t *meta = (index_meta_t*) pl_get(_metaList, i);
-        int metaId = meta->indexid;
-        int metaHealpix = meta->healpix;
-        int metaHpnside = meta->hpnside;
+    //Calculate the best guess at image size
+    double xSizePixels = _solver->field_maxx - _solver->field_minx;
+    double ySizePixels = _solver->field_maxy - _solver->field_miny;
+    double minSizePixels = min(xSizePixels, ySizePixels);
+    double maxSizePixels = max(xSizePixels, ySizePixels);
+    assert(maxSizePixels > minSizePixels && minSizePixels > 0);
+    
+    //Set the range of sizes of quads to examine
+    //@FIXME the 10% and 90% should be parameters
+    double imgSizeArcSecLwr = .10 * _solver->funits_lower*minSizePixels;
+    double imgSizeArcSecUpr = .90 * _solver->funits_upper*maxSizePixels;
 
-        //Only look at indices that cover the appropriate region of sky, and the right
-        //range of image scales.
-        if ( _isIndexMetaPossibleMatch(meta, ra, dec)) {       
-                        
-            //Have we already loaded this index from disk?
-            int nIndex = pl_size(_indexList);
-            index_t *trialIndex = NULL;
-            
-            for (int j = 0; j<nIndex && trialIndex == NULL; ++j) {
-                trialIndex = (index_t*) pl_get(_indexList, j);
-                assert(trialIndex != NULL);
-
-                //Three values uniquely identify an index
-                bool isEqual = (metaId == trialIndex->meta.indexid);
-                isEqual = isEqual && (metaHealpix == trialIndex->meta.healpix);
-                isEqual = isEqual &&(metaHpnside == trialIndex->meta.hpnside);
-                if (!isEqual) {
-                    trialIndex = NULL;
-                }
-            }
-            
-            //If not loaded already, read from disk. 
-            //This is a potentially slow operation
-            if (trialIndex == NULL) {
-                trialIndex = index_load(meta->indexname, 0);
-                pl_push(_indexList, trialIndex);
-            }
-            solver_add_index(_solver, trialIndex);
-        }
-    }
-
+    _mylog.log(pexLog::Log::DEBUG, "Setting indices");
+    _addSuitableIndicesToSolver(imgSizeArcSecLwr, imgSizeArcSecUpr, ra, dec);
     solver_run(_solver);
             
+    string msg;
+    _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
     if (_solver->best_match_solves){
-        logmsg("Position (%.7f %.7f) verified\n", ra, dec);
+        char *indexname = _solver->index->meta.indexname;
+        msg = boost::str(boost::format("Position verified. Solved index is %s") % indexname);
+        _mylog.log(pexLog::Log::DEBUG, msg);        
+        
     }
     else {
-        logmsg("Failed to verify position (%.7f %.7f)\n", ra, dec);
+        msg = boost::str(boost::format("Failed to verify position (%.7f %.7f)\n") % ra % dec);
     }
-    
+
+    _mylog.log(pexLog::Log::DEBUG, msg);            
     return(_solver->best_match_solves);
 }
 
@@ -438,43 +483,20 @@ bool GlobalAstrometrySolution::solve()  {
         throw(LSST_EXCEPT(Except::DomainErrorException, msg));
     }
 
-    int nMeta = pl_size(_metaList);
-    for (int i = 0; i<nMeta; ++i){
-        //Which index does this meta point to?
-        index_meta_t *meta = (index_meta_t*) pl_get(_metaList, i);
-        int metaId = meta->indexid;
-        int metaHealpix = meta->healpix;
-        int metaHpnside = meta->hpnside;
+    //Calculate the best guess at image size
+    double xSizePixels = _solver->field_maxx - _solver->field_minx;
+    double ySizePixels = _solver->field_maxy - _solver->field_miny;
+    double minSizePixels = min(xSizePixels, ySizePixels);
+    double maxSizePixels = max(xSizePixels, ySizePixels);
+    assert(maxSizePixels > minSizePixels && minSizePixels > 0);
 
-        //Only look at indices that cover the appropriate region of sky, and the right
-        //range of image scales.
-        if ( _isMetaSuitableScale(meta)){  
-            //Have we already loaded this index from disk?
-            int nIndex = pl_size(_indexList);
-            index_t *trialIndex = NULL;
-            for (int j = 0; j<nIndex && trialIndex == NULL; ++j) {
-                trialIndex = (index_t*) pl_get(_indexList, j);
-                assert(trialIndex != NULL);
+    //Set the range of sizes of quads to examine
+    //@FIXME the 10% and 90% should be parameters
+    double imgSizeArcSecLwr = .10 * _solver->funits_lower*minSizePixels;
+    double imgSizeArcSecUpr = .90 * _solver->funits_upper*maxSizePixels;
 
-                //Three values uniquely identify an index
-                bool isEqual = (metaId == trialIndex->meta.indexid);
-                isEqual = isEqual && (metaHealpix == trialIndex->meta.healpix);
-                isEqual = isEqual &&(metaHpnside == trialIndex->meta.hpnside);
-                if (!isEqual) {
-                    trialIndex = NULL;
-                }
-            }
 
-            //If not loaded already, read from disk. 
-            //This is a potentially slow operation
-            if (trialIndex == NULL) {
-                trialIndex = index_load(meta->indexname, 0);
-                pl_push(_indexList, trialIndex);
-            }
-            solver_add_index(_solver, trialIndex);
-        }
-    }
-
+    _addSuitableIndicesToSolver(imgSizeArcSecLwr, imgSizeArcSecUpr);
     solver_run(_solver);
             
     if (_solver->best_match_solves){
@@ -488,48 +510,107 @@ bool GlobalAstrometrySolution::solve()  {
 }
 
 
-bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr, 
-                                     double imageScaleUncertaintyPercent) {
 
-    //Rename the variable to something shorter to make the code easier to read
-    double unc = imageScaleUncertaintyPercent/100.0;
 
-    //This test is strictly unecessary as solverSetField throws the same exception
-    if ( ! _starxy) {
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
-    }
+/// \brief Find indices that may contain a the correct solution, and add them to the solver.
+/// 
+/// Find indices that cover a suitable range of plate scales and optionally a suitable position
+/// on the sky.
+/// If these indices have been previously loaded from disk, add them to the solver, otherwise
+/// load them from disk, then add them to the solver.
+/// Because these files are typically large, caching them in memory can save a lot of 
+/// initialisation time.
+/// Because each index can take a long time to search, only using suitable ones speeds
+/// the matching process.
+/// 
+/// If ra and dec are not supplied, the default values (see the header file) indicate to the 
+/// function that position should not be used to determine the suitablity of an index
+/// 
+/// \param ra Optional right ascension of inital guess at solution position
+/// \param dec Optional declination of inital guess at solution position
+/// 
+/// \return Number of indices loaded
+int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double imgSizeArcSecLwr, double imgSizeArcSecUpr, double ra, double dec) {
 
-    double xc = (_solver->field_maxx + _solver->field_minx)/2.0;
-    double yc = (_solver->field_maxy + _solver->field_miny)/2.0;
+    bool hasAtLeastOneIndexOfSuitableScale = false;
+    int nMeta = pl_size(_metaList);
+    int nSuitable = 0;
+    for (int i = 0; i<nMeta; ++i){
+        //Each meta describes the properties of a single index file
+        index_meta_t *meta = (index_meta_t*) pl_get(_metaList, i);
 
-    //Get the central ra/dec and plate scale
-    lsst::afw::image::PointD raDec = wcsPtr->xyToRaDec(xc, yc);
-    lsst::afw::image::PointD raDec2 = wcsPtr->xyToRaDec(xc + 1, yc);
-    double plateScale = hypot(raDec2.getX() - raDec.getX(), raDec2.getY() - raDec.getY());  //In degrees
-    plateScale *= 3600;    //In arcseconds per pixel
-
-    setMinimumImageScale(plateScale*(1 - unc));
-    setMaximumImageScale(plateScale*(1 + unc));
-
-    if ( wcsPtr->isFlipped()) {
-        setParity(FLIPPED_PARITY);
-    } else {
-        setParity(NORMAL_PARITY);
-    }
         
-    return(solve(raDec.getX(), raDec.getY()));
+        //Does this index cover a suitable scale
+        if( _isMetaSuitableScale(meta, imgSizeArcSecLwr, imgSizeArcSecUpr)) {
+            hasAtLeastOneIndexOfSuitableScale = true;
+            
+            //Is this either a blind solve, or does the index cover a suitable
+            //patch of sky
+            if( (ra < 0) || (dec < -100) || (_isMetaNearby(meta, ra, dec, imgSizeArcSecUpr))) {
+                //Have we already loaded this index from disk?
+                int nIndex = pl_size(_indexList);
+                index_t *trialIndex = NULL;
+                for (int j = 0; j<nIndex && trialIndex == NULL; ++j) {
+                    trialIndex = (index_t*) pl_get(_indexList, j);
+                    assert(trialIndex != NULL);
+
+                    //Three values uniquely identify an index
+                    int metaId = meta->indexid;
+                    int metaHealpix = meta->healpix;
+                    int metaHpnside = meta->hpnside;
+                    
+                    bool isEqual = (metaId == trialIndex->meta.indexid);
+                    isEqual = isEqual && (metaHealpix == trialIndex->meta.healpix);
+                    isEqual = isEqual &&(metaHpnside == trialIndex->meta.hpnside);
+                    if (!isEqual) {
+                        trialIndex = NULL;
+                    }
+                }
+
+                //If not loaded already, read from disk. 
+                //This is a potentially slow operation
+                if (trialIndex == NULL) {
+                    _mylog.log(pexLog::Log::DEBUG, \
+                        (boost::format("Loading %s from disk") % meta->indexname).str());
+                    trialIndex = index_load(meta->indexname, 0);
+                    pl_push(_indexList, trialIndex);
+                }
+                
+                solver_add_index(_solver, trialIndex);
+                nSuitable++;
+            }
+        }
+    }
+    
+    if(nSuitable == 0) {
+        string msg = "No suitable indices found for given input parameters:";
+        
+        if(hasAtLeastOneIndexOfSuitableScale) {
+            msg += "Probably the ra/dec range isn't covered";
+        }
+        else {
+            msg += "No indices of a suitable scale were found";
+        }
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, msg));
+    }
+    
+    return nSuitable;
 }
 
 
 ///Returns true if a meta points to an index at an appropriate scale for the image being solved
 ///and points to the correct region of the sky.
-bool GlobalAstrometrySolution::_isIndexMetaPossibleMatch(index_meta_t *meta, double ra, double dec) {
-    return  _isMetaNearby(meta, ra, dec) && _isMetaSuitableScale(meta);
+bool GlobalAstrometrySolution::_isIndexMetaPossibleMatch(index_meta_t *meta, double ra, double dec, double minImageSizeArcsec, double maxImageSizeArcsec) {
+
+    double min = minImageSizeArcsec;
+    double max = maxImageSizeArcsec;
+    
+    return  _isMetaNearby(meta, ra, dec, max) && _isMetaSuitableScale(meta, min, max);
 }
 
 
 ///Does this meta point to an index that is close to the initial guess at position in radec space
-bool GlobalAstrometrySolution::_isMetaNearby(index_meta_t *meta, double ra, double dec) {
+bool GlobalAstrometrySolution::_isMetaNearby(index_meta_t *meta, double ra, double dec, double imgSizeInArcsec) {
 
     //-1 => an all sky index
     if (meta->healpix == -1){
@@ -543,17 +624,10 @@ bool GlobalAstrometrySolution::_isMetaNearby(index_meta_t *meta, double ra, doub
     for (int i = 0; i<3; ++i){
         unitVector[i] = xyz[i];
     }
-
-    //Size of image in units of the unit sphere
-    double xSize = _solver->field_maxx - _solver->field_minx;
-    double ySize = _solver->field_maxy - _solver->field_miny;
-    //This function is defined in starutil.h
-    double imgSize = arcsec2dist(_solver->funits_upper*hypot(xSize, ySize)/2.0);
-    
     
     //ids of nearby healpixes
     int hpArray[9];
-    int nhp = healpix_get_neighbours_within_range(xyz, imgSize, hpArray, meta->hpnside);
+    int nhp = healpix_get_neighbours_within_range(xyz, imgSizeInArcsec, hpArray, meta->hpnside);
 
     //Is meta->healpix one of the returned ids?
     for (int i = 0; i<nhp; ++i) {   
@@ -569,29 +643,21 @@ bool GlobalAstrometrySolution::_isMetaNearby(index_meta_t *meta, double ra, doub
 ///Does this index contain asterisms that are similar in size (in arcsec) to the expected
 ///size of the image. We can speed up the match by ignoring files that contain only very
 ///large, or very small asterisms.
-bool GlobalAstrometrySolution::_isMetaSuitableScale(index_meta_t *meta){
-
-    //Size of image in pixels
-    double xSize = _solver->field_maxx - _solver->field_minx;
-    double ySize = _solver->field_maxy - _solver->field_miny;
-    double imgSize = hypot(xSize, ySize)/2.0;
-    
-    //Maximum possible size of the image. We don't want to look at asterisms bigger than this.
-    double maxSizeArcsec = _solver->funits_upper*imgSize;
-    
-    //Neither do we want to look at asterisms that are significantly smaller than the
-    //size of the image. 
-    double minSizeArcsec = 0.1*_solver->funits_lower*imgSize;
+bool GlobalAstrometrySolution::_isMetaSuitableScale(index_meta_t *meta, 
+    double minSizeArcsec, ///< Quads in index must be larger than this value to be selected 
+    double maxSizeArcsec ///< Quads in index must be smaller than this value to be selected
+    ){
 
     //Convert index scales from radians to arcsec
     double iLwr = meta->index_scale_lower*180.0/M_PI*3600.0;
     double iUpr = meta->index_scale_upper*180.0/M_PI*3600.0;
+    assert(iLwr < iUpr);
     
     if (iLwr < maxSizeArcsec && iUpr > minSizeArcsec){
         return true;
     }
     
-    return true;    //Debugging: should be false.
+    return false;
 }
 
 
@@ -775,20 +841,7 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getMatchedSources(){
 }
 
 
-///Plate scale of solution in arcsec/pixel. Note this is different than getMin(Max)ImageScale()
-///which return the intial guesses of platescale.
-double GlobalAstrometrySolution::getSolvedImageScale(){
-    if (! _solver->best_match_solves) {
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
-    }
-
-    return(_solver->best_match.scale);
-} 
-
-
-
 ///Returns a sourceSet of objects that are nearby in an raDec sense to the best match solution
-///This function is still under construction and doesn't do what I want it to yet.
 lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double radiusInArcsec) {
     if (! _solver->best_match_solves) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
@@ -797,16 +850,33 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
     //Don't free this pointer. It points to memory that will still exist
     //when this function goes out of scope.
     double *center = _solver->best_match.center;
+    double ra, dec;
+    xyzarr2radecdeg(center, &ra, &dec);
+    
+    return getCatalogue(ra, dec, radiusInArcsec);
+}
 
 
-    //Generate an array of radec of positions in the field
+///Returns a sourceSet of objects that are nearby in an raDec sense to the requested position
+lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra,
+    double dec,
+    double radiusInArcsec) {
+
+    //Initialisation
+    double imgScaleArcSecLwr = 0;
+    double imgScaleArcSecUpr = 180*3600;    //Find sources stored in quads at all image scales
+    _addSuitableIndicesToSolver(imgScaleArcSecLwr, imgScaleArcSecUpr, ra, dec);
+    
+    double center[3];
+    radecdeg2xyz(ra, dec, &center[0], &center[1], &center[2]);
+    
 
     //radius of bounding circle of healpix of best match
     double radius2 = arcsec2distsq(radiusInArcsec);
     
     Det::SourceSet out;
 
-    //For each index that we've search, pulled out stars that are close in an radec sense    
+    //For each index found to be suitable, pull out stars that are close in an radec sense    
     for (int i = 0; i< pl_size(_solver->indexes); ++i) {
         double *radec = NULL;
         int nstars = 0;
@@ -826,9 +896,22 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
 
         free(radec);    
     }
+    
     return out;
-
 }
+
+
+
+///Plate scale of solution in arcsec/pixel. Note this is different than getMin(Max)ImageScale()
+///which return the intial guesses of platescale.
+double GlobalAstrometrySolution::getSolvedImageScale(){
+    if (! _solver->best_match_solves) {
+        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
+    }
+
+    return(_solver->best_match.scale);
+} 
+
 
 ///Reset the object so it's ready to match another field.
 void GlobalAstrometrySolution::reset() {
