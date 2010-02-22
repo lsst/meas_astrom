@@ -112,6 +112,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, doTrim=False):
         log.log(Log.INFO, "%i objects out of %i match sources listed in catalogue" %(len(matchList), len(srcSet)))
         
     
+    outWcs = linearWcs
     if policy.get('calculateSip'):
         #Now create a wcs with SIP polynomials
         maxScatter = policy.get('wcsToleranceInArcsec')
@@ -122,9 +123,10 @@ def determineWcs(policy, exposure, sourceSet, log=None, doTrim=False):
             log.log(Log.INFO, "Using %i th order SIP polynomial. Scatter is %.g arcsec" \
                 %(sipObject.getOrder(), sipObject.getScatterInArcsec()))
     
+        newWcs = sipObject.getNewWcs()    
+        
     solver.reset()
-    
-    return [matchList, sipObject.getNewWcs()]
+    return [matchList, outWcs]
 
 
 def trimBadPoints(exp, srcSet):
