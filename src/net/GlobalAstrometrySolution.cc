@@ -50,9 +50,9 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
             //These three values uniquely identify an index
             if (meta->indexid == other->indexid &&
                 meta->healpix == other->healpix &&
-                meta->hpnside == othre->hpnside) {
-                msg = boost::str(boost::format("Index file \"%s\" is a duplicate (has some index id, healpix and healpix nside) as index file \"%s\"",
-                                               meta->indexname, other->indexname));
+                meta->hpnside == other->hpnside) {
+                string msg = boost::str(boost::format("Index file \"%s\" is a duplicate (has same index id, healpix and healpix nside) as index file \"%s\"")
+                                        % meta->indexname % other->indexname);
                 _mylog.log(pexLog::Log::WARN, msg);
                 duplicate = true;
                 break;
@@ -111,7 +111,7 @@ void GlobalAstrometrySolution::setDefaultValues() {
     setMatchThreshold(log(1e12));
 
     // Reset counters and record of best match found so far.
-    solver_cleanup_field();
+    solver_cleanup_field(_solver);
 
     setParity(UNKNOWN_PARITY);
 }
@@ -417,7 +417,7 @@ bool GlobalAstrometrySolution::solve()  {
         logmsg("Position found\n");
 
         // Grab everything we need from the index file while it is still open!
-        index_t* index = _solver->best_match->index;
+        index_t* index = _solver->best_match.index;
 
         // FIXME -- refradec, fieldxy, tweak, tagalong.
 
@@ -542,20 +542,20 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     }
 
     //Generate an array of radec of positions in the field
-    MatchObj* mo = _solver->best_match;
+    MatchObj* mo = &_solver->best_match;
 
     //Call the tweaking algorthim to generate the distortion coeffecients
     
     //jitter is a measure of how much we can expect the xy of stars to scatter from the expected
     //radec due to noise in our measurments.
-    double jitterArcsec = tan_pixel_scale(&mo.wcstan)*_solver->verify_pix;
-    jitterArcsec = hypot(jitterArcsec, mo.index_jitter);
+    double jitterArcsec = tan_pixel_scale(&mo->wcstan)*_solver->verify_pix;
+    jitterArcsec = hypot(jitterArcsec, mo->index_jitter);
     int inverseOrder = order;
     int iterations = 5;        //blind.c:628 uses 5
     bool isWeighted = true;
     int skipShift = true;
 
-    sip_t *sip = tweak_just_do_it(&mo.wcstan, _starxy, mo->refxyz,
+    sip_t *sip = tweak_just_do_it(&mo->wcstan, _starxy, mo->refxyz,
                                   NULL, NULL, NULL, mo->nindex,
                                   jitterArcsec, order, inverseOrder,
                                   iterations, isWeighted, skipShift);
@@ -642,10 +642,10 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getMatchedSources(){
     
     lsst::afw::detection::SourceSet set;
 
-    MatchObj* match = _solver->best_match;
+    MatchObj* match = &_solver->best_match;
 
     // Grab tag-along data.
-    startree_t* skdt = match->index->skdt;
+    startree_t* skdt = match->index->starkd;
     double* umag = startree_get_data_column(skdt, "u", match->refstarid, match->nindex);
     double* gmag = startree_get_data_column(skdt, "g", match->refstarid, match->nindex);
     double* rmag = startree_get_data_column(skdt, "r", match->refstarid, match->nindex);
@@ -670,7 +670,7 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getMatchedSources(){
         double ra, dec;
         //This function is defined in astrometry.net. It converts the position of the star
         //as a three dimensional unit vector to ra,dec.
-        xyzarr2radecdeg(_solver->refxyz + match->theta[i]*3, &ra, &dec);
+        xyzarr2radecdeg(match->refxyz + match->theta[i]*3, &ra, &dec);
         ptr->setRa(ra);
         ptr->setDec(dec);
 
@@ -719,7 +719,7 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
 
     for (unsigned int i=0; i<_indexList.size(); i++) {
         index_t* index = _indexList[i];
-        if (!index_is_within_range(index, ra, dec, arcsec2deg(radiusinArcsec)))
+        if (!index_is_within_range(index, ra, dec, arcsec2deg(radiusInArcsec)))
             continue;
         // Ensure the index is loaded...
         index_reload(index);
