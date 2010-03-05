@@ -256,8 +256,6 @@ void GlobalAstrometrySolution::setParity(int parity){
 }
 
 
-
-
 //
 // Solve functions
 //
@@ -421,7 +419,7 @@ bool GlobalAstrometrySolution::solve()  {
         // Grab everything we need from the index file while it is still open!
         index_t* index = _solver->best_match->index;
 
-        // FIXME -- 
+        // FIXME -- refradec, fieldxy, tweak, tagalong.
 
     }
     else {
@@ -544,40 +542,23 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     }
 
     //Generate an array of radec of positions in the field
-
-    //radius of bounding circle of healpix of best match
-    double radius = _solver->best_match.radius;
-    radius = 1.05*radius;  //Add in a margin of safety
-    double radius2 = radius*radius;
-    
-    //Don't free this pointer. It points to memory that will still exist
-    //when this function goes out of scope.
-    double *center = _solver->best_match.center;
-
-    //Generate array
-    double *radec = NULL;
-    int nstars = 0;
-    startree_search(_solver->index->starkd, center, radius2, NULL, &radec, &nstars);
+    MatchObj* mo = _solver->best_match;
 
     //Call the tweaking algorthim to generate the distortion coeffecients
-
+    
     //jitter is a measure of how much we can expect the xy of stars to scatter from the expected
     //radec due to noise in our measurments.
-    double jitterArcsec = tan_pixel_scale(&_solver->best_match.wcstan)*_solver->verify_pix;
-    jitterArcsec = hypot(jitterArcsec, _solver->index->meta.index_jitter);
+    double jitterArcsec = tan_pixel_scale(&mo.wcstan)*_solver->verify_pix;
+    jitterArcsec = hypot(jitterArcsec, mo.index_jitter);
     int inverseOrder = order;
     int iterations = 5;        //blind.c:628 uses 5
     bool isWeighted = true;
     int skipShift = true;
 
-    sip_t *sip = tweak_just_do_it(&_solver->best_match.wcstan, _starxy, 
-                                  NULL,
-                                  NULL, NULL,
-                                  radec,
-                                  nstars, jitterArcsec, 
-                                  order, inverseOrder, iterations,
-                                  isWeighted, skipShift);
-    free(radec);
+    sip_t *sip = tweak_just_do_it(&mo.wcstan, _starxy, mo->refxyz,
+                                  NULL, NULL, NULL, mo->nindex,
+                                  jitterArcsec, order, inverseOrder,
+                                  iterations, isWeighted, skipShift);
 
     //Check that tweaking worked.
     if (sip == NULL) {
@@ -662,16 +643,20 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getMatchedSources(){
     
     lsst::afw::detection::SourceSet set;
 
-    for (int i = 0; i< _solver->best_match.dimquads; ++i) {
+    MatchObj* match = _solver->best_match;
+    for (int i=0; i<match->nfield; i++) {
+        // "theta" is the mapping from image (aka field) stars to index (aka reference) stars.
+        // negative means no match.
+        if (match->theta[i] < 0)
+            continue;
         lsst::afw::detection::Source::Ptr ptr(new lsst::afw::detection::Source());
+        ptr->setXAstrom(starxy_getx(_solver->fieldxy, i));
+        ptr->setYAstrom(starxy_gety(_solver->fieldxy, i));
 
-        ptr->setXAstrom(_solver->best_match.quadpix[2*i]);
-        ptr->setYAstrom(_solver->best_match.quadpix[2*i + 1]);
-
+        double ra, dec;
         //This function is defined in astrometry.net. It converts the position of the star
         //as a three dimensional unit vector to ra,dec.
-        double ra, dec;
-        xyzarr2radecdeg(&_solver->best_match.quadxyz[i*3], &ra, &dec);
+        xyzarr2radecdeg(_solver->refxyz + match->theta[i]*3, &ra, &dec);
         ptr->setRa(ra);
         ptr->setDec(dec);
 
@@ -703,26 +688,22 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
     double dec,
     double radiusInArcsec) {
 
-    //Initialisation
-    double imgScaleArcSecLwr = 0;
-    double imgScaleArcSecUpr = 180*3600;    //Find sources stored in quads at all image scales
-    _addSuitableIndicesToSolver(imgScaleArcSecLwr, imgScaleArcSecUpr, ra, dec);
-    
     double center[3];
-    radecdeg2xyz(ra, dec, &center[0], &center[1], &center[2]);
-    
-
-    //radius of bounding circle of healpix of best match
+    radecdeg2xyzarr(ra, dec, center);
     double radius2 = arcsec2distsq(radiusInArcsec);
-    
+
     Det::SourceSet out;
 
-    //For each index found to be suitable, pull out stars that are close in an radec sense    
-    for (int i = 0; i< pl_size(_solver->indexes); ++i) {
+    for (unsigned int i=0; i<_indexList.size(); i++) {
+        index_t* index = _indexList[i];
+        if (!index_is_within_range(index, ra, dec, arcsec2deg(radiusinArcsec)))
+            continue;
+        // Ensure the index is loaded...
+        index_reload(index);
+
         double *radec = NULL;
         int nstars = 0;
 
-        index_t* index = (index_t *) pl_get(_solver->indexes, i);
         startree_search(index->starkd, center, radius2, NULL, &radec, &nstars);
 
         //Create a  source for every position stored
@@ -734,11 +715,11 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
 
             out.push_back(ptr);
         }
-
         free(radec);    
     }
-    
+
     return out;
+
 }
 
 
