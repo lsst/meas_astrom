@@ -1,7 +1,7 @@
 setupRequired(afw >= 3.3.21)
 
 setupRequired(wcslib >= 4.4.4)
-setupRequired(astrometry_net >= 0.25)
+setupRequired(astrometry_net >= 0.26pre)
 setupOptional(astrometry_net_data)
 
 envPrepend(PYTHONPATH, ${PRODUCT_DIR}/python)
