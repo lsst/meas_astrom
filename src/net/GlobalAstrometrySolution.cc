@@ -639,11 +639,25 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getMatchedSources(){
     if (! _solver->best_match_solves) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
-
     
     lsst::afw::detection::SourceSet set;
 
     MatchObj* match = _solver->best_match;
+
+    // Grab tag-along data.
+    startree_t* skdt = match->index->skdt;
+    double* umag = startree_get_data_column(skdt, "u", match->refstarid, match->nindex);
+    double* gmag = startree_get_data_column(skdt, "g", match->refstarid, match->nindex);
+    double* rmag = startree_get_data_column(skdt, "r", match->refstarid, match->nindex);
+    double* imag = startree_get_data_column(skdt, "i", match->refstarid, match->nindex);
+    double* zmag = startree_get_data_column(skdt, "z", match->refstarid, match->nindex);
+    double* uerr = startree_get_data_column(skdt, "u_err", match->refstarid, match->nindex);
+    double* gerr = startree_get_data_column(skdt, "g_err", match->refstarid, match->nindex);
+    double* rerr = startree_get_data_column(skdt, "r_err", match->refstarid, match->nindex);
+    double* ierr = startree_get_data_column(skdt, "i_err", match->refstarid, match->nindex);
+    double* zerr = startree_get_data_column(skdt, "z_err", match->refstarid, match->nindex);
+    double* reddening = startree_get_data_column(skdt, "reddening", match->refstarid, match->nindex);
+
     for (int i=0; i<match->nfield; i++) {
         // "theta" is the mapping from image (aka field) stars to index (aka reference) stars.
         // negative means no match.
@@ -660,8 +674,17 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getMatchedSources(){
         ptr->setRa(ra);
         ptr->setDec(dec);
 
+        // int I = match->theta[i]
+        // ptr->setMags(umag[I], gmag[I], rmag[I], imag[I], zmag[I])
+        // ptr->setMagErrs(uerr[I], gerr[I], rerr[I], ierr[I], zerr[I])
+        // ptr->setReddening(reddening[I]);  // e(b-v)
+
         set.push_back(ptr);
     }
+
+    free(umag); free(gmag); free(rmag); free(imag); free(zmag);
+    free(uerr); free(gerr); free(rerr); free(ierr); free(zerr);
+    free(reddening);
 
     return set;
 }
@@ -705,6 +728,8 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
         int nstars = 0;
 
         startree_search(index->starkd, center, radius2, NULL, &radec, &nstars);
+
+        // Could grab tag-along data here.
 
         //Create a  source for every position stored
         for (int j = 0; j<nstars; ++j) {
