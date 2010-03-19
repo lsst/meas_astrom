@@ -15,6 +15,7 @@ namespace Except = lsst::pex::exceptions;
 namespace Det = lsst::afw::detection;
 namespace pexLog = lsst::pex::logging;
 
+int const USE_ALL_STARS_FOR_SOLUTION = -1
 //
 //Constructors, Destructors
 //
@@ -23,7 +24,7 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
     _indexList(NULL), 
     _solver(NULL), 
     _starxy(NULL), 
-    _numBrightObjects(-1) {
+    _numBrightObjects(USE_ALL_STARS_FOR_SOLUTION) {
     
     _solver   = solver_new();
 
@@ -183,7 +184,7 @@ void GlobalAstrometrySolution::_solverSetField() {
     int N = _numBrightObjects;  //Because I'm a lazy typist
     
     //The default value, -1, indicates that all objects should be used
-    if (N == -1) {
+    if (N == USE_ALL_STARS_FOR_SOLUTION) {
         N = starxySize;
     }
 
@@ -347,6 +348,20 @@ bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal
     double imgSizeArcSecLwr = .10 * _solver->funits_lower*minSizePixels;
     double imgSizeArcSecUpr = .90 * _solver->funits_upper*maxSizePixels;
 
+    //Output some useful debugging info
+    string msg;
+    msg = boost::str(boost::format("Image size %.0f x %.0f pixels") % xSizePixels % ySizePixels);
+    _mylog.log(pexLog::Log::DEBUG, msg);
+    
+    msg = boost::str(boost::format("Platescale is %.3f -- %.3f arcsec/pixel") \
+        % _solver->funits_upper % _solver->funits_lower);
+    _mylog.log(pexLog::Log::DEBUG, msg);
+    
+
+    msg = boost::str(boost::format("Image size between %g and %g arcsec") 
+        % (_solver->funits_lower*minSizePixels) % (_solver->funits_upper*maxSizePixels)  );
+    _mylog.log(pexLog::Log::DEBUG, msg);
+
     _mylog.log(pexLog::Log::DEBUG, "Setting indices");
     _addSuitableIndicesToSolver(imgSizeArcSecLwr, imgSizeArcSecUpr, ra, dec);
 
@@ -354,10 +369,9 @@ bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal
     double maxRadius = arcsec2deg(_solver->funits_upper * _solver->field_diag / 2.0);
     solver_set_radec(_solver, ra, dec, maxRadius);
 
-    string msg;
     _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
     solver_run(_solver);
-            
+
     if (_solver->best_match_solves){
         char *indexname = _solver->index->indexname;
         msg = boost::str(boost::format("Position verified. Solved index is %s") % indexname);
@@ -414,7 +428,7 @@ bool GlobalAstrometrySolution::solve()  {
     solver_run(_solver);
 
     if (_solver->best_match_solves){
-        logmsg("Position found\n");
+        _mylog.log(pexLog::Log::DEBUG, "Position Found");
 
         // Grab everything we need from the index file while it is still open!
         index_t* index = _solver->best_match.index;
@@ -423,14 +437,13 @@ bool GlobalAstrometrySolution::solve()  {
 
     }
     else {
-        logmsg("Failed\n");
+        _mylog.log(pexLog::Log::DEBUG, "Failed");
     }
 
     // Unload all index files?
     
     return(_solver->best_match_solves);
 }
-
 
 
 
@@ -774,7 +787,7 @@ void GlobalAstrometrySolution::reset() {
         _starxy = NULL;
     }
 
-    _numBrightObjects = -1;
+    _numBrightObjects = USE_ALL_STARS_FOR_SOLUTION;
         
     //I should probably be smarter than this and remember the actual values of
     //the settings instead of just resetting the defaults
