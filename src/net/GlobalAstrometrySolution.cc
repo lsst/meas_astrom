@@ -15,7 +15,7 @@ namespace Except = lsst::pex::exceptions;
 namespace Det = lsst::afw::detection;
 namespace pexLog = lsst::pex::logging;
 
-int const USE_ALL_STARS_FOR_SOLUTION = -1
+int const USE_ALL_STARS_FOR_SOLUTION = -1;
 //
 //Constructors, Destructors
 //
@@ -317,6 +317,62 @@ bool GlobalAstrometrySolution::solve(const afw::image::PointD raDec   ///<Right 
 bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal degrees
                                      double dec   ///< Declination in decimal degrees
                                           )  {    
+
+    // Tell the solver to only consider matches within the image size of the supposed RA,Dec.
+    double maxRadius = arcsec2deg(_solver->funits_upper * _solver->field_diag / 2.0);
+    solver_set_radec(_solver, ra, dec, maxRadius);
+
+    int success = _callSolver(ra, dec);
+
+    string msg;
+    if (success){
+        char *indexname = _solver->index->indexname;
+        msg = boost::str(boost::format("Position verified. Solved index is %s") % indexname);
+        _mylog.log(pexLog::Log::DEBUG, msg);        
+        
+    }
+    else {
+        msg = boost::str(boost::format("Failed to verify position (%.7f %.7f)\n") % ra % dec);
+    }
+
+    _mylog.log(pexLog::Log::DEBUG, msg);            
+    return(success);
+}
+
+
+///Find a solution blindly, with no initial guess. Go get a cup of tea, this function
+///will take a while
+bool GlobalAstrometrySolution::solve()  {    
+
+    // Don't use any hints about the RA,Dec position.
+    solver_clear_radec(_solver);
+
+    int success = _callSolver(NO_POSITION_SET, NO_POSITION_SET);
+
+    string msg;    
+    if (success){
+        _mylog.log(pexLog::Log::DEBUG, "Position Found");
+
+        // Grab everything we need from the index file while it is still open!
+        index_t* index = _solver->best_match.index;
+
+        // FIXME -- refradec, fieldxy, tweak, tagalong.
+
+    }
+    else {
+        _mylog.log(pexLog::Log::DEBUG, "Failed");
+    }
+
+    // Unload all index files?
+    
+    return(success);
+}
+
+
+///Check that all the setup was done correctly, then set the solver to work
+///By default, _callSolver does a blind solve, unless the optional ra and dec
+///are given values
+bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
     //Throw exceptions if setup is incorrect
     if ( ! _starxy) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
@@ -365,87 +421,11 @@ bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal
     _mylog.log(pexLog::Log::DEBUG, "Setting indices");
     _addSuitableIndicesToSolver(imgSizeArcSecLwr, imgSizeArcSecUpr, ra, dec);
 
-    // Tell the solver to only consider matches within the image size of the supposed RA,Dec.
-    double maxRadius = arcsec2deg(_solver->funits_upper * _solver->field_diag / 2.0);
-    solver_set_radec(_solver, ra, dec, maxRadius);
-
     _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
     solver_run(_solver);
 
-    if (_solver->best_match_solves){
-        char *indexname = _solver->index->indexname;
-        msg = boost::str(boost::format("Position verified. Solved index is %s") % indexname);
-        _mylog.log(pexLog::Log::DEBUG, msg);        
-        
-    }
-    else {
-        msg = boost::str(boost::format("Failed to verify position (%.7f %.7f)\n") % ra % dec);
-    }
-
-    _mylog.log(pexLog::Log::DEBUG, msg);            
     return(_solver->best_match_solves);
 }
-
-
-///Find a solution blindly, with no initial guess. Go get a cup of tea, this function
-///will take a while
-bool GlobalAstrometrySolution::solve()  {    
-    //Throw exceptions if setup is incorrect
-    if ( ! _starxy) {
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
-    }
-    
-    if (_indexList.size() == 0) {
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No index files loaded yet"));
-    }
-    
-    if (_solver->best_match_solves){
-        string msg = "Solver indicated that a match has already been found. Do you need to reset?";
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, msg));
-    }
-
-    if ( _solver->funits_lower >= _solver->funits_upper) {
-        string msg = "Minimum image scale must be strictly less than max scale";
-        throw(LSST_EXCEPT(Except::DomainErrorException, msg));
-    }
-
-    //Calculate the best guess at image size
-    double xSizePixels = _solver->field_maxx - _solver->field_minx;
-    double ySizePixels = _solver->field_maxy - _solver->field_miny;
-    double minSizePixels = min(xSizePixels, ySizePixels);
-    double maxSizePixels = max(xSizePixels, ySizePixels);
-    assert(maxSizePixels > minSizePixels && minSizePixels > 0);
-
-    //Set the range of sizes of quads to examine
-    //@FIXME the 10% and 90% should be parameters
-    double imgSizeArcSecLwr = .10 * _solver->funits_lower*minSizePixels;
-    double imgSizeArcSecUpr = .90 * _solver->funits_upper*maxSizePixels;
-
-    // Don't use any hints about the RA,Dec position.
-    solver_clear_radec(_solver);
-
-    _addSuitableIndicesToSolver(imgSizeArcSecLwr, imgSizeArcSecUpr);
-    solver_run(_solver);
-
-    if (_solver->best_match_solves){
-        _mylog.log(pexLog::Log::DEBUG, "Position Found");
-
-        // Grab everything we need from the index file while it is still open!
-        index_t* index = _solver->best_match.index;
-
-        // FIXME -- refradec, fieldxy, tweak, tagalong.
-
-    }
-    else {
-        _mylog.log(pexLog::Log::DEBUG, "Failed");
-    }
-
-    // Unload all index files?
-    
-    return(_solver->best_match_solves);
-}
-
-
 
 /// \brief Find indices that may contain a the correct solution, and add them to the solver.
 /// 
@@ -470,7 +450,7 @@ int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double imgSizeArcSecLw
     bool hasAtLeastOneIndexOfSuitableScale = false;
     int nMeta = _indexList.size();
     int nSuitable = 0;
-    bool blind = (ra < 0) || (dec < -100);
+    bool blind = (ra == NO_POSITION_SET) || (dec == NO_POSITION_SET);
 
     for (int i = 0; i<nMeta; ++i){
         index_t* index = _indexList[i];

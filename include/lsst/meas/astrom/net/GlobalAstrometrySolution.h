@@ -49,6 +49,11 @@ enum {
 };
     
 
+//When deciding whether an index file needs to be loaded from disk, we we want to use
+//position on the sky as a factor (if we're doing a blind search we don't). 
+//Used by _addSuitableIndicesToSolver. If ra or dec are set to this value, then
+//the function does not use position as a factor
+enum { NO_POSITION_SET=-360};
 
 //!\brief Solve for WCS based only on the positions of stars in an image 
 ///
@@ -111,9 +116,10 @@ private:
     index_t *_loadIndexMeta(std::string filename);
 
     void _solverSetField();
+    bool _callSolver(double ra=NO_POSITION_SET, double dec=NO_POSITION_SET);
     int _addSuitableIndicesToSolver(double minImageSizeArcsec, double maxImageSizeArcsec, \
-        double ra=-360, double dec=-360);    
-
+        double ra=NO_POSITION_SET, double dec=NO_POSITION_SET);    
+        
 };
 
 }}}}
