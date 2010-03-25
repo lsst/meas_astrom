@@ -410,7 +410,7 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
     _mylog.log(pexLog::Log::DEBUG, msg);
     
     msg = boost::str(boost::format("Platescale is %.3f -- %.3f arcsec/pixel") \
-        % _solver->funits_upper % _solver->funits_lower);
+        % _solver->funits_lower % _solver->funits_upper);
     _mylog.log(pexLog::Log::DEBUG, msg);
     
 
