@@ -30,6 +30,7 @@ extern "C" {
 #include "healpix.h"
 #include "bl.h"
 #include "log.h"
+#include "tic.h"
 }
 
 namespace lsst { 

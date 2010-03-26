@@ -314,6 +314,7 @@ class WCSTestCaseNetUSNOB(unittest.TestCase):
             wRaDec = solvedWcs.xyToRaDec(sXY)
             
             self.assertAlmostEqual(sRaDec.getX(), wRaDec.getX(), 3, "x coord failed for getMatchedSources()")
+            print 'Decs', sRaDec.getY(), wRaDec.getY()
             self.assertAlmostEqual(sRaDec.getY(), wRaDec.getY(), 3, "y coord failed for getMatchedSources()")
         self.gas.reset()
         
@@ -345,9 +346,18 @@ class WCSTestCaseNetUSNOB(unittest.TestCase):
 
         if not self.gas.exists():
             return
-        
+
+        # These test values can be found via:
+        #
+        # wget "http://live.astrometry.net/status.php?job=alpha-201003-06882352&get=wcs.fits" -O cfht.wcs        
+        # wcs-xy2rd -w cfht.wcs -x 512 -y 512
+        ### Pixel (512.000000, 512.000000) -> RA,Dec (334.303012, -17.233988)
+        #
+        #This field happens to be aligned with RA,Dec so its CD matrix is nearly [1,0;0,-1] * platescale.
+        # imagew 2043
+        # imageh 4604
+
         crval = afwImage.PointD(334.303012, -17.233988)
-        
         crpix = afwImage.PointD(512,512)
         listFile = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
         #To speed the test, tell the GAS what the size of the image is
@@ -357,7 +367,9 @@ class WCSTestCaseNetUSNOB(unittest.TestCase):
         self.gas.reset()
         #self.gas.setParity(net.UNKNOWN_PARITY)
         self.gas.setLogLevel(verbose)
+        print 'solveOrVerify CFHT...'
         self.solveOrVerify(listFile, crval, crpix, plateScale=plateScale, verify=True)
+        print 'solveOrVerify CFHT done'
         self.gas.setLogLevel(0)
 
 
@@ -599,4 +611,7 @@ def run(exit=False):
     utilsTests.run(suite(), exit)
  
 if __name__ == "__main__":
-    run(True)
+    #unittest.TextTestRunner(verbosity=2).run(WCSTestCaseNetUSNOB.testVerifyCFHTField)
+    tc = WCSTestCaseNetUSNOB('testVerifyCFHTField')
+    unittest.TextTestRunner(verbosity=2).run(tc)
+    #run(True)

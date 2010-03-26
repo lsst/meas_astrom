@@ -69,7 +69,13 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
 
 
 index_t *GlobalAstrometrySolution::_loadIndexMeta(std::string filename){
-    return index_load(filename.c_str(), INDEX_ONLY_LOAD_METADATA, NULL);
+  //return index_load(filename.c_str(), INDEX_ONLY_LOAD_METADATA, NULL);
+  double t0 = timenow();
+  index_t* index = index_load(filename.c_str(), INDEX_ONLY_LOAD_METADATA, NULL);
+  double dt = timenow() - t0;
+  string msg = boost::str(boost::format("loading index file %s took %s sec.") % filename % dt);
+  _mylog.log(pexLog::Log::DEBUG, msg);
+  return index;
 }
 
 

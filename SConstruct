@@ -30,7 +30,7 @@ env = scons.makeEnv(
         ["daf_data", "lsst/daf/data/LsstBase.h", "daf_data:C++"],
         ["eigen", "Eigen/Core.h"],
         ["afw", "lsst/afw/image/MaskedImage.h", "afw"],
-        ["astrometry_net", "solver.h", "astrometry.net"], 
+        ["astrometry_net", "solver.h", "pthread backend"], 
     ],
 )
 
