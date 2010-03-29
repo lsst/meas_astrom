@@ -364,8 +364,7 @@ bool GlobalAstrometrySolution::solve()  {
 
         // Grab everything we need from the index file while it is still open!
         //index_t* index = _solver->best_match.index;
-
-        // FIXME -- refradec, fieldxy, tweak, tagalong.
+        // FIXME -- grab reference RA,Dec, fieldxy, tagalong data, etc now, or later.
 
     }
     else {
