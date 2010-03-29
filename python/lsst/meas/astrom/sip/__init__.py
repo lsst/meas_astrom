@@ -5,3 +5,4 @@ from sipLib import *
 
 import genDistortedImage
 import cleanBadPoints
+from sourceMatchStatistics import *
