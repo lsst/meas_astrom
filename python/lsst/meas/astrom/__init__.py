@@ -1,2 +1,2 @@
 
-from determineWcs import determineWcs
+from determineWcs import *
