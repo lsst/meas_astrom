@@ -363,7 +363,7 @@ bool GlobalAstrometrySolution::solve()  {
         _mylog.log(pexLog::Log::DEBUG, "Position Found");
 
         // Grab everything we need from the index file while it is still open!
-        index_t* index = _solver->best_match.index;
+        //index_t* index = _solver->best_match.index;
 
         // FIXME -- refradec, fieldxy, tweak, tagalong.
 
@@ -749,7 +749,7 @@ GlobalAstrometrySolution::getCatalogue(double radiusInArcsec, string filterName)
     double ra, dec;
     xyzarr2radecdeg(center, &ra, &dec);
     
-    return getCatalogue(ra, dec, radiusInArcsec, field);
+    return getCatalogue(ra, dec, radiusInArcsec, filterName);
 }
 
 
@@ -786,17 +786,17 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
         startree_search_for(index->starkd, center, radius2, NULL, &radec, &starinds, &nstars);
 
         double *mag = NULL;
-        if (metaName != "") {
+        if (filterName != "") {
             // Grab tag-along data here. If it's not there, throw an exception
             if (! startree_has_tagalong(index->starkd) ) {
                 msg = boost::str(boost::format("Index file \"%s\" has no metadata") % index->indexname);
                 throw(LSST_EXCEPT(Except::RuntimeErrorException, msg));
             }
-            mag = startree_get_data_column(index->starkd, metaName.c_str(), starinds, nstars);
+            mag = startree_get_data_column(index->starkd, filterName.c_str(), starinds, nstars);
 
             if (mag == NULL) {
                 msg = boost::str(boost::format("No meta data called %s found in index %s") %
-                    metaName % index->indexname);
+                    filterName % index->indexname);
                 throw(LSST_EXCEPT(Except::RuntimeErrorException, msg));            }
         }
 
