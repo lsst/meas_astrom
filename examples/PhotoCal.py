@@ -46,7 +46,8 @@ def prep():
     
 
 import matplotlib.pyplot as mpl
-def calcPhotometricZeroPoint(sourceMatch, log=log):
+def calcPhotoCal(sourceMatch, log=log):
+    """Calculate photometric calibration, i.e the zero point magnitude"""
     
     #Convert fluxes to magnitudes
     catMags, instMags = getMagnitudes(sourceMatch)
