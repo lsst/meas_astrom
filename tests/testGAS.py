@@ -303,26 +303,25 @@ class WCSTestCaseNetUSNOB(unittest.TestCase):
             
         sourceSet = self.gas.getMatchedSources()
 
-        print '# realx realy anx any'
-        for i in range(len(sourceSet)):
-            x = sourceSet[i].getXAstrom()
-            y = sourceSet[i].getYAstrom()
-            sXY = afwImage.PointD(x,y)
-            
-            realx = x
-            realy = y
-            realRA = sourceSet[i].getRa()
-            realDec = sourceSet[i].getDec()
-            realRaDec = afwImage.PointD(realRA, realDec)
-
-            wRaDec = solvedWcs.xyToRaDec(sXY)
-            anRA = wRaDec.getX()
-            anDec = wRaDec.getY()
-            anxy = solvedWcs.raDecToXY(realRaDec)
-            an_x = anxy.getX()
-            an_y = anxy.getY()
-
-            print '%g %g %g %g' % (realx, realy, an_x, an_y)
+        if False:
+            # Debugging
+            print '# realx realy anx any'
+            for i in range(len(sourceSet)):
+                x = sourceSet[i].getXAstrom()
+                y = sourceSet[i].getYAstrom()
+                sXY = afwImage.PointD(x,y)
+                realx = x
+                realy = y
+                realRA = sourceSet[i].getRa()
+                realDec = sourceSet[i].getDec()
+                realRaDec = afwImage.PointD(realRA, realDec)
+                wRaDec = solvedWcs.xyToRaDec(sXY)
+                anRA = wRaDec.getX()
+                anDec = wRaDec.getY()
+                anxy = solvedWcs.raDecToXY(realRaDec)
+                an_x = anxy.getX()
+                an_y = anxy.getY()
+                print '%g %g %g %g' % (realx, realy, an_x, an_y)
 
 
         for i in range(len(sourceSet)):
@@ -335,10 +334,13 @@ class WCSTestCaseNetUSNOB(unittest.TestCase):
             sRaDec  = afwImage.PointD(x,y)
             
             wRaDec = solvedWcs.xyToRaDec(sXY)
-            
-            self.assertAlmostEqual(sRaDec.getX(), wRaDec.getX(), 3, "x coord failed for getMatchedSources()")
-            print 'Decs', sRaDec.getY(), wRaDec.getY()
-            self.assertAlmostEqual(sRaDec.getY(), wRaDec.getY(), 3, "y coord failed for getMatchedSources()")
+
+            # All coordinates should match to within 5 pixels ~= 5 arcsec ~= 0.0014 deg
+            # As of Astrometry.net rev 14444, the max distance is 4.4 pixels.
+            # Dec = 30 deg, so RA distance is not exaggerated TOO much.
+            tol = 0.0014
+            self.assert_(abs(sRaDec.getX() - wRaDec.getX()) < tol, "RA coord failed for getMatchedSources()")
+            self.assert_(abs(sRaDec.getY() - wRaDec.getY()) < tol, "Dec coord failed for getMatchedSources()")
         self.gas.reset()
         
 
@@ -635,8 +637,9 @@ def run(exit=False):
     utilsTests.run(suite(), exit)
  
 if __name__ == "__main__":
-    #tc = WCSTestCaseNetUSNOB('testVerifyCFHTField')
     verbose = 3
-    tc = WCSTestCaseNetUSNOB('testSolveGD66Wcs')
-    unittest.TextTestRunner(verbosity=3).run(tc)
-    #run(True)
+    # Run individual tests:
+    #tc = WCSTestCaseNetUSNOB('testVerifyCFHTField')
+    #tc = WCSTestCaseNetUSNOB('testSolveGD66Wcs')
+    #unittest.TextTestRunner(verbosity=3).run(tc)
+    run(True)
