@@ -93,8 +93,11 @@ public:
     lsst::afw::image::Wcs::Ptr getDistortedWcs(int order = 3);
     lsst::afw::detection::SourceSet getMatchedSources();
     double getSolvedImageScale();
-    lsst::afw::detection::SourceSet getCatalogue(double ra, double dec, double radiusInArcsec);    
-    lsst::afw::detection::SourceSet getCatalogue(double radiusInArcsec);
+
+    std::vector<std::string> getCatalogueMetadataFields();
+    lsst::afw::detection::SourceSet getCatalogue(double ra, double dec, double radiusInArcsec, 
+                                                 std::string filterName);
+    lsst::afw::detection::SourceSet getCatalogue(double radiusInArcsec, std::string filterName);
 
     //Call this before performing a new match
     void reset();

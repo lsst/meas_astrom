@@ -702,8 +702,43 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getMatchedSources(){
 }
 
 
+///Astrometry.net catalogues store additional data about objects in addition to their position (usually 
+///magnitudes. This function returns the names of the strings used to describe those fields
+///
+///\note This function makes a potentially untrue assumption. It assumes that the meta data fields
+///are uniform in all indices read from disk, so it only checks for metadata in one index file
+vector<string> GlobalAstrometrySolution::getCatalogueMetadataFields() {
+
+    vector<string> output;
+    
+    //Reload the index if necssary
+    index_reload(_indexList[0]);
+    if (! startree_has_tagalong(_indexList[0]->starkd) ) {
+        _mylog.log(pexLog::Log::DEBUG, "No metadata found for index");        
+        return output;
+    }
+    
+    //Don't free this pointer, it points to memory that may be used later
+    fitstable_t *table = startree_get_tagalong(_indexList[0]->starkd);
+    assert(table != NULL);
+    
+    sl *nameList = fitstable_get_fits_column_names(table, NULL);
+
+    for(int i=0; i< sl_size(nameList); ++i) {
+        string name(sl_pop(nameList));
+        output.push_back(name);
+    }
+    
+    sl_free2(nameList);
+        
+    return output;
+}    
+
+
 ///Returns a sourceSet of objects that are nearby in an raDec sense to the best match solution
-lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double radiusInArcsec) {
+lsst::afw::detection::SourceSet 
+GlobalAstrometrySolution::getCatalogue(double radiusInArcsec, string filterName) {
+
     if (! _solver->best_match_solves) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
@@ -714,45 +749,72 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
     double ra, dec;
     xyzarr2radecdeg(center, &ra, &dec);
     
-    return getCatalogue(ra, dec, radiusInArcsec);
+    return getCatalogue(ra, dec, radiusInArcsec, field);
 }
 
 
-///Returns a sourceSet of objects that are nearby in an raDec sense to the requested position
+///Returns a sourceSet of objects that are nearby in an raDec sense to the requested position. If
+///filterName is not blank, we also extract out the magnitude information for that filter and 
+///store (as a flux) in the returned SourceSet object. The value of filterName must match one of the
+///strings returned by getCatalogueMetadataFields(). If you're not interested in fluxes, set
+///filterName to ""
 lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra,
     double dec,
-    double radiusInArcsec) {
+    double radiusInArcsec,
+    string filterName) {
 
     double center[3];
     radecdeg2xyzarr(ra, dec, center);
     double radius2 = arcsec2distsq(radiusInArcsec);
+    string msg;
 
     Det::SourceSet out;
+
 
     for (unsigned int i=0; i<_indexList.size(); i++) {
         index_t* index = _indexList[i];
         if (!index_is_within_range(index, ra, dec, arcsec2deg(radiusInArcsec)))
             continue;
+
         // Ensure the index is loaded...
         index_reload(index);
 
+        //Find nearby stars
         double *radec = NULL;
+        int *starinds = NULL;
         int nstars = 0;
+        startree_search_for(index->starkd, center, radius2, NULL, &radec, &starinds, &nstars);
 
-        startree_search(index->starkd, center, radius2, NULL, &radec, &nstars);
+        double *mag = NULL;
+        if (metaName != "") {
+            // Grab tag-along data here. If it's not there, throw an exception
+            if (! startree_has_tagalong(index->starkd) ) {
+                msg = boost::str(boost::format("Index file \"%s\" has no metadata") % index->indexname);
+                throw(LSST_EXCEPT(Except::RuntimeErrorException, msg));
+            }
+            mag = startree_get_data_column(index->starkd, metaName.c_str(), starinds, nstars);
 
-        // Could grab tag-along data here.
+            if (mag == NULL) {
+                msg = boost::str(boost::format("No meta data called %s found in index %s") %
+                    metaName % index->indexname);
+                throw(LSST_EXCEPT(Except::RuntimeErrorException, msg));            }
+        }
 
-        //Create a  source for every position stored
+        //Create a source for every position stored
         for (int j = 0; j<nstars; ++j) {
             Det::Source::Ptr ptr(new lsst::afw::detection::Source());
 
             ptr->setRa(radec[2*j]);
             ptr->setDec(radec[2*j + 1]);
+            
+            if(mag != NULL) {   //convert mag to flux
+                ptr->setPsfFlux( exp10(-mag[j]/2.5) );
+            }
 
             out.push_back(ptr);
         }
         free(radec);    
+        free(mag);
     }
 
     return out;

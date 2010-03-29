@@ -17,6 +17,8 @@ try:
 except NameError:
     verbose = 0
 
+verbose=True
+
 class GAS(object):
     __gas = None
     __desiredVersion = None
@@ -471,21 +473,21 @@ class SmallSolveGASTestCFHT(unittest.TestCase):
         else:
             self.assertFalse(flag, "Solution found, but none expected")
     
-    def testGD66Fail(self):
-        """A field not covered by the CFHT indices"""
-
-        if not self.gas.exists():
-            return
-
-        crval = afwImage.PointD(80.15978319,30.80524999)
-
-        #Set starlist    
-        starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
-        self.gas.reset()
-        self.gas.setMinimumImageScale(.5)
-        self.gas.setMaximumImageScale(2)
-        self.solve(starlist, crval, expectPass=False)
-        #
+    #def testGD66Fail(self):
+        #"""A field not covered by the CFHT indices"""
+#
+        #if not self.gas.exists():
+            #return
+#
+        #crval = afwImage.PointD(80.15978319,30.80524999)
+#
+        ##Set starlist    
+        #starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
+        #self.gas.reset()
+        #self.gas.setMinimumImageScale(.5)
+        #self.gas.setMaximumImageScale(2)
+        #self.solve(starlist, crval, expectPass=False)
+        ##
         
         
     def testCFHTa(self):                
@@ -504,114 +506,116 @@ class SmallSolveGASTestCFHT(unittest.TestCase):
         self.gas.setMinimumImageScale(.1)
         self.gas.setMaximumImageScale(.2)
         self.gas.setLogLevel(verbose)
+        #self.solve(starlist, crval)
         self.solve(starlist, crval)
         self.gas.setLogLevel(0)
 
         #
-    def testCFHTb(self):                
-        """Different starting point"""
-        if verbose:
-            print "testCFHTb"
-            
-        if not self.gas.exists():
-            return
-
-        crval = afwImage.PointD(334.303215, -17.329315)
-        #Set starlist    
-        starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
-
-        self.gas.reset()
-        self.gas.setMinimumImageScale(.1)
-        self.gas.setMaximumImageScale(.5)
-        if verbose:
-            self.gas.setLogLevel(3)
-        self.solve(starlist, crval)    
-        self.gas.setLogLevel(0)
-
-
-    def testCFHTc(self):                
-        """Different img scales"""
-        if verbose:
-            print "testCFHTc"
-
-        if not self.gas.exists():
-            return
-
-        crval = afwImage.PointD(334.303215, -17.329315)
-        #Set starlist    
-        starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
-
-        self.gas.reset()
-        self.gas.setMinimumImageScale(.1)
-        self.gas.setMaximumImageScale(1.5)
-        if verbose:
-            self.gas.setLogLevel(3)
-        self.solve(starlist, crval)    
-        self.gas.setLogLevel(0)
-
-
-    def testCFHTd(self):                
-        """Different img scales"""
-
-        if verbose:
-            print "testCFHTc"
-
-        if not self.gas.exists():
-            return
-
-        crval = afwImage.PointD(334.303215, -17.329315)
-        #Set starlist    
-        starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
-
-        self.gas.reset()
-        self.gas.setMinimumImageScale(.15)
-        self.gas.setMaximumImageScale(.25)
-        if verbose:
-            self.gas.setLogLevel(3)
-        self.solve(starlist, crval)    
-        self.gas.setLogLevel(0)
-
-
-    def testCFHTe(self):                
-        """Different img scales"""
-        if verbose:
-            print "testCFHTe"
-
-        if not self.gas.exists():
-            return
-
-        crval = afwImage.PointD(334.303215, -17.329315)
-        #Set starlist    
-        starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
-
-        self.gas.reset()
-        self.gas.setImageScaleArcsecPerPixel(.183)
-        if verbose:
-            self.gas.setLogLevel(3)
-        self.solve(starlist, crval)    
-        self.gas.setLogLevel(0)
-        wcs = self.gas.getWcs()
-
-    def testDistortedWcs(self):
-        """Is a distorted Wcs returned"""
-
-        if verbose:
-            print "DistortedWcs"
-
-        if not self.gas.exists():
-            return
-
-        crval = afwImage.PointD(334.303215, -17.329315)
-        #Set starlist    
-        starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
-
-        self.gas.reset()
-        self.gas.setImageScaleArcsecPerPixel(.183)
-        if verbose:
-            self.gas.setLogLevel(3)
-        self.solve(starlist, crval)    
-        wcs = self.gas.getDistortedWcs()
-        self.gas.setLogLevel(0)
+    #def testCFHTb(self):                
+        #"""Different starting point"""
+        #if verbose:
+            #print "testCFHTb"
+            #
+        #if not self.gas.exists():
+            #return
+#
+        #crval = afwImage.PointD(334.303215, -17.329315)
+        ##Set starlist    
+        #starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
+#
+        #self.gas.reset()
+        #self.gas.setMinimumImageScale(.1)
+        #self.gas.setMaximumImageScale(.5)
+        #if verbose:
+            #self.gas.setLogLevel(3)
+        #self.solve(starlist, crval)    
+        #self.gas.setLogLevel(0)
+#
+#
+    #def testCFHTc(self):                
+        #"""Different img scales"""
+        #if verbose:
+            #print "testCFHTc"
+#
+        #if not self.gas.exists():
+            #return
+#
+        #crval = afwImage.PointD(334.303215, -17.329315)
+        ##Set starlist    
+        #starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
+#
+        #self.gas.reset()
+        #self.gas.setMinimumImageScale(.1)
+        #self.gas.setMaximumImageScale(1.5)
+        #if verbose:
+            #self.gas.setLogLevel(3)
+        #self.solve(starlist, crval)    
+        #self.gas.setLogLevel(0)
+#
+#
+    #def testCFHTd(self):                
+        #"""Different img scales"""
+#
+        #if verbose:
+            #print "testCFHTc"
+#
+        #if not self.gas.exists():
+            #return            self.assertAlmostEqual(sRaDec.getY(), wRaDec.getY(), 3, "y coord failed for getMatchedSources()")
+#
+#
+        #crval = afwImage.PointD(334.303215, -17.329315)
+        ##Set starlist    
+        #starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
+#
+        #self.gas.reset()
+        #self.gas.setMinimumImageScale(.15)
+        #self.gas.setMaximumImageScale(.25)
+        #if verbose:
+            #self.gas.setLogLevel(3)
+        #self.solve(starlist, crval)    
+        #self.gas.setLogLevel(0)
+#
+#
+    #def testCFHTe(self):                
+        #"""Different img scales"""
+        #if verbose:
+            #print "testCFHTe"
+#
+        #if not self.gas.exists():
+            #return
+#
+        #crval = afwImage.PointD(334.303215, -17.329315)
+        ##Set starlist    
+        #starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
+#
+        #self.gas.reset()
+        #self.gas.setImageScaleArcsecPerPixel(.183)
+        #if verbose:
+            #self.gas.setLogLevel(3)
+        #self.solve(starlist, crval)    
+        #self.gas.setLogLevel(0)
+        #wcs = self.gas.getWcs()
+#
+    #def testDistortedWcs(self):
+        #"""Is a distorted Wcs returned"""
+#
+        #if verbose:
+            #print "DistortedWcs"
+#
+        #if not self.gas.exists():
+            #return
+#
+        #crval = afwImage.PointD(334.303215, -17.329315)
+        ##Set starlist    
+        #starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
+#
+        #self.gas.reset()
+        #self.gas.setImageScaleArcsecPerPixel(.183)
+        #if verbose:
+            #self.gas.setLogLevel(3)
+        #self.solve(starlist, crval)    
+        #wcs = self.gas.getDistortedWcs()
+        #self.gas.setLogLevel(0)
 
 
     def testSolveWcs(self):
@@ -626,7 +630,7 @@ def suite():
     utilsTests.init()
 
     suites = []
-    suites += unittest.makeSuite(WCSTestCaseNetUSNOB)
+    #suites += unittest.makeSuite(WCSTestCaseNetUSNOB)
     suites += unittest.makeSuite(SmallSolveGASTestCFHT)
     suites += unittest.makeSuite(utilsTests.MemoryTestCase)
 
