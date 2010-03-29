@@ -432,15 +432,15 @@ bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal
     double ySizePixels = _solver->field_maxy - _solver->field_miny;
     double minSizePixels = min(xSizePixels, ySizePixels);
     double maxSizePixels = max(xSizePixels, ySizePixels);
-    assert(maxSizePixels > minSizePixels && minSizePixels > 0);
+    assert(maxSizePixels >= minSizePixels && minSizePixels > 0);
     
     //Set the range of sizes of quads to examine
-    //@FIXME the 10% and 90% should be parameters
-    double imgSizeArcSecLwr = .10 * _solver->funits_lower*minSizePixels;
-    double imgSizeArcSecUpr = .90 * _solver->funits_upper*maxSizePixels;
+    //@FIXME the 10% and 110% should be parameters
+    double quadSizeArcSecLwr = .10 * _solver->funits_lower*minSizePixels;
+    double quadSizeArcSecUpr = 1.1 * _solver->funits_upper*maxSizePixels;
 
     _mylog.log(pexLog::Log::DEBUG, "Setting indices");
-    _addSuitableIndicesToSolver(imgSizeArcSecLwr, imgSizeArcSecUpr, ra, dec);
+    _addSuitableIndicesToSolver(quadSizeArcSecLwr, quadSizeArcSecUpr, ra, dec);
     solver_run(_solver);
             
     string msg;
@@ -488,12 +488,12 @@ bool GlobalAstrometrySolution::solve()  {
     double ySizePixels = _solver->field_maxy - _solver->field_miny;
     double minSizePixels = min(xSizePixels, ySizePixels);
     double maxSizePixels = max(xSizePixels, ySizePixels);
-    assert(maxSizePixels > minSizePixels && minSizePixels > 0);
+    assert(maxSizePixels >= minSizePixels && minSizePixels > 0);
 
     //Set the range of sizes of quads to examine
-    //@FIXME the 10% and 90% should be parameters
+    //@FIXME the 10% and 1100% should be parameters
     double imgSizeArcSecLwr = .10 * _solver->funits_lower*minSizePixels;
-    double imgSizeArcSecUpr = .90 * _solver->funits_upper*maxSizePixels;
+    double imgSizeArcSecUpr = 1.10 * _solver->funits_upper*maxSizePixels;
 
 
     _addSuitableIndicesToSolver(imgSizeArcSecLwr, imgSizeArcSecUpr);
