@@ -172,6 +172,35 @@ BOOST_AUTO_TEST_CASE(fitQuadratic2)
 }
 
 
+BOOST_AUTO_TEST_CASE(errorbars)
+{
+    vector<double> x;
+    vector<double> y;
+    vector<double> s;
+    
+    x.push_back(1);
+    x.push_back(2);
+    x.push_back(3);
+    
+    y.push_back(1);
+    y.push_back(2);
+    y.push_back(3);
+    
+    s.push_back(1);
+    s.push_back(1);
+    s.push_back(1);
+    
+    int order=2;
+    sip::LeastSqFitter1d<math::PolynomialFunction1<double> > lsf(x, y, s, order);
+    Eigen::VectorXd par = lsf.getParams();
+    Eigen::VectorXd err = lsf.getErrors();
 
+    //Boost doesn't do well at checking for zero
+    BOOST_CHECK_CLOSE(par[0]+1, 1., 1e-6);
+    BOOST_CHECK_CLOSE(par[1], 1., 1e-6);
 
+    //Calculated by hand
+    BOOST_CHECK_CLOSE(err[0], 1.52752523165195, 1e-6);
+    BOOST_CHECK_CLOSE(err[1], 0.7071067811865481, 1e-6);
+}
 
