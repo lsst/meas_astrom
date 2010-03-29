@@ -323,14 +323,17 @@ bool GlobalAstrometrySolution::solve(const afw::image::PointD raDec   ///<Right 
 bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal degrees
                                      double dec   ///< Declination in decimal degrees
                                           )  {    
+    string msg;
 
     // Tell the solver to only consider matches within the image size of the supposed RA,Dec.
-    double maxRadius = arcsec2deg(_solver->funits_upper * _solver->field_diag / 2.0);
+    // The magic number 2.0 out front says to accept matches within 2 radii of the given *center* position.
+    double maxRadius = 2.0 * arcsec2deg(_solver->funits_upper * _solver->field_diag / 2.0);
+    msg = boost::str(boost::format("Setting RA,Dec = (%g, %g), radius = %g deg") % ra % dec % maxRadius);
+    _mylog.log(pexLog::Log::DEBUG, msg);
     solver_set_radec(_solver, ra, dec, maxRadius);
 
     int success = _callSolver(ra, dec);
 
-    string msg;
     if (success){
         char *indexname = _solver->index->indexname;
         msg = boost::str(boost::format("Position verified. Solved index is %s") % indexname);
@@ -427,7 +430,12 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
     _mylog.log(pexLog::Log::DEBUG, "Setting indices");
     _addSuitableIndicesToSolver(imgSizeArcSecLwr, imgSizeArcSecUpr, ra, dec);
 
+    
+
     _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
+
+    //solver_print_to(_solver, stdout);
+
     solver_run(_solver);
 
     return(_solver->best_match_solves);
@@ -458,6 +466,8 @@ int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double imgSizeArcSecLw
     int nSuitable = 0;
     bool blind = (ra == NO_POSITION_SET) || (dec == NO_POSITION_SET);
 
+    string msg;
+
     for (int i = 0; i<nMeta; ++i){
         index_t* index = _indexList[i];
 
@@ -475,6 +485,9 @@ int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double imgSizeArcSecLw
 
         // Load the data (not just metadata), if it hasn't been already...
         index_reload(index);
+
+	msg = boost::str(boost::format("Adding index %s") % index->indexname);
+	_mylog.log(pexLog::Log::DEBUG, msg);
 
         solver_add_index(_solver, index);
         nSuitable++;

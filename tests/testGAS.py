@@ -302,6 +302,29 @@ class WCSTestCaseNetUSNOB(unittest.TestCase):
             self.assertEqual(flag, 1, "Failed to find a match")
             
         sourceSet = self.gas.getMatchedSources()
+
+        print '# realx realy anx any'
+        for i in range(len(sourceSet)):
+            x = sourceSet[i].getXAstrom()
+            y = sourceSet[i].getYAstrom()
+            sXY = afwImage.PointD(x,y)
+            
+            realx = x
+            realy = y
+            realRA = sourceSet[i].getRa()
+            realDec = sourceSet[i].getDec()
+            realRaDec = afwImage.PointD(realRA, realDec)
+
+            wRaDec = solvedWcs.xyToRaDec(sXY)
+            anRA = wRaDec.getX()
+            anDec = wRaDec.getY()
+            anxy = solvedWcs.raDecToXY(realRaDec)
+            an_x = anxy.getX()
+            an_y = anxy.getY()
+
+            print '%g %g %g %g' % (realx, realy, an_x, an_y)
+
+
         for i in range(len(sourceSet)):
             x = sourceSet[i].getXAstrom()
             y = sourceSet[i].getYAstrom()
@@ -366,7 +389,8 @@ class WCSTestCaseNetUSNOB(unittest.TestCase):
         plateScale = .185
         self.gas.reset()
         #self.gas.setParity(net.UNKNOWN_PARITY)
-        self.gas.setLogLevel(verbose)
+        #self.gas.setLogLevel(verbose)
+        self.gas.setLogLevel(3)
         print 'solveOrVerify CFHT...'
         self.solveOrVerify(listFile, crval, crpix, plateScale=plateScale, verify=True)
         print 'solveOrVerify CFHT done'
@@ -611,7 +635,8 @@ def run(exit=False):
     utilsTests.run(suite(), exit)
  
 if __name__ == "__main__":
-    #unittest.TextTestRunner(verbosity=2).run(WCSTestCaseNetUSNOB.testVerifyCFHTField)
-    tc = WCSTestCaseNetUSNOB('testVerifyCFHTField')
-    unittest.TextTestRunner(verbosity=2).run(tc)
+    #tc = WCSTestCaseNetUSNOB('testVerifyCFHTField')
+    verbose = 3
+    tc = WCSTestCaseNetUSNOB('testSolveGD66Wcs')
+    unittest.TextTestRunner(verbosity=3).run(tc)
     #run(True)
