@@ -12,7 +12,7 @@ import sip as astromSip
 import sip.cleanBadPoints as cleanBadPoints
 
 
-def determineWcs(policy, exposure, sourceSet, log=None, doTrim=False):
+def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=False):
     """Top level function for calculating a Wcs. 
     
     Given an initial guess at a Wcs (hidden inside an exposure) and a set of
@@ -25,6 +25,8 @@ def determineWcs(policy, exposure, sourceSet, log=None, doTrim=False):
                 this provides the initial guess at position and plate scale
     sourceSet   A list of lsst.afw.detection.Source objects, indicating the pixel positions of 
                 stars in the field
+    filterName  The filter (i.e passband) of this exposure. Used when extracting a catalogue 
+                of matched objects.
     log         A lsst.pex.logging.Log object (optional), used for printing progress
     trim        Check that all sources lie within the image, and remove those that don't.
     """
@@ -85,15 +87,33 @@ def determineWcs(policy, exposure, sourceSet, log=None, doTrim=False):
             log.log(log.WARN, "No solution found, using input Wcs")
         return None, wcsIn
     
+
     #
-    #Do sip corrections
+    # Generate a list of catalogue objects in the field.
     #
+    
     #First obtain the catalogue-listed positions of stars
     if log is not None:
         log.log(log.DEBUG, "Determining match objects")
     linearWcs = solver.getWcs()
     imgSizeInArcsec = getImageSizeInArcsec(srcSet, linearWcs)
-    cat = solver.getCatalogue(2*imgSizeInArcsec) #Catalogue of nearby stars
+    
+    #Do we want magnitude information
+    if filterName == None:
+        cat = solver.getCatalogue(2*imgSizeInArcsec, "") 
+    else:
+        try:
+            cat = solver.getCatalogue(2*imgSizeInArcsec, filterName) 
+        except LsstCppException(e):
+            log.log(Log.WARN, str(e))
+            log.log(Log.WARN, "Attempting to access catalogue positions and fluxes")
+            version = eups.productDir("astrometry_net_data")
+            log.log(Log.WARN, "Catalogue version: %s" %(version))
+            log.log(Log.WARN, "Requested filter: %s" %(filterName))
+            log.log(Log.WARN, "Available filters: " + solver.getCatalogueMetadataFields())
+            raise
+            
+        
     
     #Now generate a list of matching objects
     distInArcsec = policy.get('distanceForCatalogueMatchinArcsec')
@@ -111,13 +131,23 @@ def determineWcs(policy, exposure, sourceSet, log=None, doTrim=False):
     if log is not None:
         log.log(Log.INFO, "%i objects out of %i match sources listed in catalogue" %(len(matchList), len(srcSet)))
         
-    
+
+    #
+    #Do sip corrections
+    #
     outWcs = linearWcs
     if policy.get('calculateSip'):
         #Now create a wcs with SIP polynomials
         maxScatter = policy.get('wcsToleranceInArcsec')
         maxSipOrder= policy.get('maxSipOrder')
-        sipObject = astromSip.CreateWcsWithSip(matchList, linearWcs, maxScatter, maxSipOrder)
+        
+        try:
+            sipObject = astromSip.CreateWcsWithSip(matchList, linearWcs, maxScatter, maxSipOrder)
+        except LsstCppException(e):
+            log.log(Log.WARN, "Failed to calculate distortion terms. Error:")
+            log.log(Log.WARN, str(e))
+            log.log(Log.WARN, "Reverting to linear Wcs")
+            return [matchList, outWcs]
 
         if log is not None:
             log.log(Log.INFO, "Using %i th order SIP polynomial. Scatter is %.g arcsec" \
