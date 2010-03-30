@@ -24,7 +24,8 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
     _indexList(NULL), 
     _solver(NULL), 
     _starxy(NULL), 
-    _numBrightObjects(USE_ALL_STARS_FOR_SOLUTION) {
+    _numBrightObjects(USE_ALL_STARS_FOR_SOLUTION),
+    _isSolved(false) {
     
     _solver   = solver_new();
 
@@ -119,6 +120,7 @@ void GlobalAstrometrySolution::setDefaultValues() {
 
     // Reset counters and record of best match found so far.
     solver_cleanup_field(_solver);
+    
 
     setParity(UNKNOWN_PARITY);
 }
@@ -332,20 +334,19 @@ bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal
     _mylog.log(pexLog::Log::DEBUG, msg);
     solver_set_radec(_solver, ra, dec, maxRadius);
 
-    int success = _callSolver(ra, dec);
+    _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
+    _callSolver(ra, dec);
 
-    if (success){
+    if (_isSolved){
         char *indexname = _solver->index->indexname;
         msg = boost::str(boost::format("Position verified. Solved index is %s") % indexname);
-        _mylog.log(pexLog::Log::DEBUG, msg);        
-        
     }
     else {
         msg = boost::str(boost::format("Failed to verify position (%.7f %.7f)\n") % ra % dec);
     }
 
     _mylog.log(pexLog::Log::DEBUG, msg);            
-    return(success);
+    return(_isSolved);
 }
 
 
@@ -356,10 +357,9 @@ bool GlobalAstrometrySolution::solve()  {
     // Don't use any hints about the RA,Dec position.
     solver_clear_radec(_solver);
 
-    int success = _callSolver(NO_POSITION_SET, NO_POSITION_SET);
+    _callSolver(NO_POSITION_SET, NO_POSITION_SET);
 
-    string msg;    
-    if (success){
+    if (_isSolved){
         _mylog.log(pexLog::Log::DEBUG, "Position Found");
 
         // Grab everything we need from the index file while it is still open!
@@ -371,15 +371,13 @@ bool GlobalAstrometrySolution::solve()  {
         _mylog.log(pexLog::Log::DEBUG, "Failed");
     }
 
-    // Unload all index files?
-    
-    return(success);
+    return(_isSolved);
 }
 
 
 ///Check that all the setup was done correctly, then set the solver to work
 ///By default, _callSolver does a blind solve, unless the optional ra and dec
-///are given values
+///are given values. Sets _isSolved to true if a solution is found
 bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
     //Throw exceptions if setup is incorrect
     if ( ! _starxy) {
@@ -390,7 +388,7 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "No index files loaded yet"));
     }
     
-    if (_solver->best_match_solves){
+    if (_isSolved){
         string msg = "Solver indicated that a match has already been found. Do you need to reset?";
         throw(LSST_EXCEPT(Except::RuntimeErrorException, msg));
     }
@@ -405,12 +403,12 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
     double ySizePixels = solver_field_height(_solver);
     double minSizePixels = min(xSizePixels, ySizePixels);
     double maxSizePixels = max(xSizePixels, ySizePixels);
-    assert(maxSizePixels > minSizePixels && minSizePixels > 0);
+    assert(maxSizePixels >= minSizePixels && minSizePixels > 0);
 
-    //Set the range of sizes of quads to examine
-    //@FIXME the 10% and 90% should be parameters
-    double imgSizeArcSecLwr = .10 * _solver->funits_lower*minSizePixels;
-    double imgSizeArcSecUpr = .90 * _solver->funits_upper*maxSizePixels;
+    //Set the range of sizes of quads to examine. funits are stored in units of arcsec
+    //@FIXME the 10% and 1100% should be parameters
+    double quadSizeArcsecLwr = .01 * _solver->funits_lower*minSizePixels;
+    double quadSizeArcsecUpr = 1.10 * _solver->funits_upper*maxSizePixels;
 
     //Output some useful debugging info
     string msg;
@@ -426,10 +424,13 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
         % (_solver->funits_lower*minSizePixels) % (_solver->funits_upper*maxSizePixels)  );
     _mylog.log(pexLog::Log::DEBUG, msg);
 
-    _mylog.log(pexLog::Log::DEBUG, "Setting indices");
-    _addSuitableIndicesToSolver(imgSizeArcSecLwr, imgSizeArcSecUpr, ra, dec);
+    msg = boost::str(boost::format("Examine Quads between %g and %g arcsec") 
+        % (quadSizeArcsecLwr) % (quadSizeArcsecUpr)  );
+    _mylog.log(pexLog::Log::DEBUG, msg);
 
-    
+    _mylog.log(pexLog::Log::DEBUG, "Setting indices");
+    _addSuitableIndicesToSolver(quadSizeArcsecLwr, quadSizeArcsecUpr, ra, dec);
+
 
     _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
 
@@ -437,8 +438,16 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
 
     solver_run(_solver);
 
-    return(_solver->best_match_solves);
+    if(_solver->best_match_solves> 0) {
+        _isSolved = true;
+    } else {
+        _isSolved = false;
+    }
+    
+    return _isSolved;
 }
+
+
 
 /// \brief Find indices that may contain a the correct solution, and add them to the solver.
 /// 
@@ -458,7 +467,8 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
 /// \param dec Optional declination of inital guess at solution position
 /// 
 /// \return Number of indices loaded
-int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double imgSizeArcSecLwr, double imgSizeArcSecUpr, double ra, double dec) {
+int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double quadSizeArcsecLwr, 
+    double quadSizeArcsecUpr, double ra, double dec) {
 
     bool hasAtLeastOneIndexOfSuitableScale = false;
     int nMeta = _indexList.size();
@@ -470,14 +480,14 @@ int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double imgSizeArcSecLw
     for (int i = 0; i<nMeta; ++i){
         index_t* index = _indexList[i];
 
-        if (!index_overlaps_scale_range(index, imgSizeArcSecLwr, imgSizeArcSecUpr))
+        if (!index_overlaps_scale_range(index, quadSizeArcsecLwr, quadSizeArcsecUpr))
             continue;
 
         hasAtLeastOneIndexOfSuitableScale = true;
 
         //Is this either a blind solve, or does the index cover a suitable
         //patch of sky
-        if (!(blind || index_is_within_range(index, ra, dec, arcsec2deg(imgSizeArcSecUpr))))
+        if (!(blind || index_is_within_range(index, ra, dec, arcsec2deg(quadSizeArcsecUpr))))
             continue;
 
         // Found a good one!
@@ -485,8 +495,8 @@ int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double imgSizeArcSecLw
         // Load the data (not just metadata), if it hasn't been already...
         index_reload(index);
 
-	msg = boost::str(boost::format("Adding index %s") % index->indexname);
-	_mylog.log(pexLog::Log::DEBUG, msg);
+	    msg = boost::str(boost::format("Adding index %s") % index->indexname);
+    	_mylog.log(pexLog::Log::DEBUG, msg);
 
         solver_add_index(_solver, index);
         nSuitable++;
@@ -514,7 +524,8 @@ int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double imgSizeArcSecLw
 
 ///After solving, return a linear Wcs (i.e without distortion terms)
 lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs()  {
-    if (! _solver->best_match_solves) {
+
+    if (! _isSolved) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
 
@@ -544,7 +555,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs()  {
 ///
 ///After solving, return a full Wcs including SIP distortion matrics
 lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order)  {
-    if (! _solver->best_match_solves) {
+    if (! _isSolved) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
 
@@ -647,7 +658,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
 ///accessed using src.getRa() and src.getDec(), while the chip coords are accessed with  getXAstrom(),
 ///getYAstrom()
 lsst::afw::detection::SourceSet GlobalAstrometrySolution::getMatchedSources(){
-    if (! _solver->best_match_solves) {
+    if (! _isSolved) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
     
@@ -738,7 +749,7 @@ vector<string> GlobalAstrometrySolution::getCatalogueMetadataFields() {
 lsst::afw::detection::SourceSet 
 GlobalAstrometrySolution::getCatalogue(double radiusInArcsec, string filterName) {
 
-    if (! _solver->best_match_solves) {
+    if (! _isSolved) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
 
@@ -825,7 +836,7 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
 ///Plate scale of solution in arcsec/pixel. Note this is different than getMin(Max)ImageScale()
 ///which return the intial guesses of platescale.
 double GlobalAstrometrySolution::getSolvedImageScale(){
-    if (! _solver->best_match_solves) {
+    if (! _isSolved) {
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
 
@@ -840,7 +851,6 @@ void GlobalAstrometrySolution::reset() {
         solver_free(_solver);
         _solver = solver_new();
     }
-
     
     if (_starxy != NULL) {
         starxy_free(_starxy);
@@ -848,11 +858,11 @@ void GlobalAstrometrySolution::reset() {
     }
 
     _numBrightObjects = USE_ALL_STARS_FOR_SOLUTION;
+    _isSolved = false;
         
     //I should probably be smarter than this and remember the actual values of
     //the settings instead of just resetting the defaults
     setDefaultValues();
-
 }
                                                          
 }}}}

@@ -52,6 +52,7 @@ public:
                     unsigned int order);
 
     Eigen::VectorXd getParams();
+    Eigen::VectorXd getErrors();
     FittingFunc getBestFitFunction();
     double valueAt(double x);
     std::vector<double> residuals();
@@ -74,7 +75,6 @@ private:
     
     Eigen::MatrixXd _A;
     Eigen::VectorXd _beta;
-    Eigen::MatrixXd _Ainv;
     Eigen::VectorXd _par;
 
     std::vector<boost::shared_ptr<FittingFunc> > _funcArray;
@@ -145,12 +145,27 @@ template<class FittingFunc> LeastSqFitter1d<FittingFunc>::LeastSqFitter1d(const 
         
 
 
-///Return the best fit paramets as an Eigen::Matrix
+///Return the best fit parameters as an Eigen::Matrix
 template<class FittingFunc> Eigen::VectorXd LeastSqFitter1d<FittingFunc>::getParams() {
 
     Eigen::VectorXd vec = Eigen::VectorXd::Zero(_order);
     for (unsigned int i = 0; i< _order; ++i) {
         vec(i) = _par(i);
+    }
+    return vec;
+}
+
+
+///Return the 1 sigma uncertainties in the best fit parameters as an Eigen::Matrix
+template<class FittingFunc> Eigen::VectorXd LeastSqFitter1d<FittingFunc>::getErrors() {
+
+    Eigen::MatrixXd Ainv = Eigen::MatrixXd::Zero(_order, _order);
+    _A.lu().computeInverse(&Ainv);
+
+    Eigen::VectorXd vec = Eigen::VectorXd::Zero(_order);
+    for (unsigned int i = 0; i< _order; ++i) {
+        printf("%i %g\n", i, Ainv(i,i));
+        vec(i) = std::sqrt(Ainv(i,i));
     }
     return vec;
 }
