@@ -101,15 +101,16 @@ def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=
     #Do we want magnitude information
     if filterName == None:
         cat = solver.getCatalogue(2*imgSizeInArcsec, "") 
-    else
+    else:
         try:
             cat = solver.getCatalogue(2*imgSizeInArcsec, filterName) 
-        except LsstCppException e:
+        except LsstCppException(e):
             log.log(Log.WARN, str(e))
-            log.log(Log.WARN, "Attempting to access catalogue positions and fluxes"
-            log.log(Log.WARN, "Catalogue version: %s" %(eups.productDir("astrometry_net_data"))
-            log.log(Log.WARN, "Requested filter: %s" %(filterName)
-            log.log(Log.WARN, "Available filters: " + solver.getCatalogueMetadataFields()
+            log.log(Log.WARN, "Attempting to access catalogue positions and fluxes")
+            version = eups.productDir("astrometry_net_data")
+            log.log(Log.WARN, "Catalogue version: %s" %(version))
+            log.log(Log.WARN, "Requested filter: %s" %(filterName))
+            log.log(Log.WARN, "Available filters: " + solver.getCatalogueMetadataFields())
             raise
             
         
@@ -142,7 +143,7 @@ def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=
         
         try:
             sipObject = astromSip.CreateWcsWithSip(matchList, linearWcs, maxScatter, maxSipOrder)
-        except LsstCppException e:
+        except LsstCppException(e):
             log.log(Log.WARN, "Failed to calculate distortion terms. Error:")
             log.log(Log.WARN, str(e))
             log.log(Log.WARN, "Reverting to linear Wcs")
