@@ -405,10 +405,10 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
     double maxSizePixels = max(xSizePixels, ySizePixels);
     assert(maxSizePixels >= minSizePixels && minSizePixels > 0);
 
-    //Set the range of sizes of quads to examine
+    //Set the range of sizes of quads to examine. funits are stored in units of arcsec
     //@FIXME the 10% and 1100% should be parameters
-    double quadSizeDegreesLwr = .10 * _solver->funits_lower*minSizePixels;
-    double quadSizeDegreesUpr = 1.10 * _solver->funits_upper*maxSizePixels;
+    double quadSizeArcsecLwr = .01 * _solver->funits_lower*minSizePixels;
+    double quadSizeArcsecUpr = 1.10 * _solver->funits_upper*maxSizePixels;
 
     //Output some useful debugging info
     string msg;
@@ -425,11 +425,11 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
     _mylog.log(pexLog::Log::DEBUG, msg);
 
     msg = boost::str(boost::format("Examine Quads between %g and %g arcsec") 
-        % (quadSizeDegreesLwr*3600) % (quadSizeDegreesUpr*3600)  );
+        % (quadSizeArcsecLwr) % (quadSizeArcsecUpr)  );
     _mylog.log(pexLog::Log::DEBUG, msg);
 
     _mylog.log(pexLog::Log::DEBUG, "Setting indices");
-    _addSuitableIndicesToSolver(quadSizeDegreesLwr, quadSizeDegreesUpr, ra, dec);
+    _addSuitableIndicesToSolver(quadSizeArcsecLwr, quadSizeArcsecUpr, ra, dec);
 
 
     _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
@@ -467,8 +467,8 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
 /// \param dec Optional declination of inital guess at solution position
 /// 
 /// \return Number of indices loaded
-int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double quadSizeDegreesLwr, 
-    double quadSizeDegreesUpr, double ra, double dec) {
+int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double quadSizeArcsecLwr, 
+    double quadSizeArcsecUpr, double ra, double dec) {
 
     bool hasAtLeastOneIndexOfSuitableScale = false;
     int nMeta = _indexList.size();
@@ -480,14 +480,14 @@ int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double quadSizeDegrees
     for (int i = 0; i<nMeta; ++i){
         index_t* index = _indexList[i];
 
-        if (!index_overlaps_scale_range(index, quadSizeDegreesLwr, quadSizeDegreesUpr))
+        if (!index_overlaps_scale_range(index, quadSizeArcsecLwr, quadSizeArcsecUpr))
             continue;
 
         hasAtLeastOneIndexOfSuitableScale = true;
 
         //Is this either a blind solve, or does the index cover a suitable
         //patch of sky
-        if (!(blind || index_is_within_range(index, ra, dec, arcsec2deg(quadSizeDegreesUpr))))
+        if (!(blind || index_is_within_range(index, ra, dec, arcsec2deg(quadSizeArcsecUpr))))
             continue;
 
         // Found a good one!
