@@ -116,6 +116,8 @@ private:
     //Variables indicating the coordinate system of the solution
     double _equinox;
     std::string _raDecSys;
+    
+    bool _isSolved;
 
     index_t *_loadIndexMeta(std::string filename);
 
