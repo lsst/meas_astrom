@@ -2,7 +2,7 @@
 Import("env")
 
 import glob, os, sys
-
+import eups
 import lsst.tests
 
 for fileName in glob.glob("*.cc"):
@@ -10,6 +10,9 @@ for fileName in glob.glob("*.cc"):
 
 ignoreList = ["testConvertCheby"]
 tests = lsst.tests.Control(env, ignoreList=ignoreList)
+
+if not eups.productDir("astrometry_net_data"):
+    print >> sys.stderr, "Not running tests as astrometry_net_data is not setup"
 
 tests.run("*.cc")
 

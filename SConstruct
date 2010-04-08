@@ -59,7 +59,7 @@ for d in (
             SConscript(os.path.join(d, "SConscript"))
         except Exception, e:
             print >> sys.stderr, "In processing file %s:" % (os.path.join(d, "SConscript"))
-            print >> sys.stderr, traceback.format_exc()
+            print >> sys.stderr, e
     Clean(d, Glob(os.path.join(d, "*~")))
     Clean(d, Glob(os.path.join(d, "*.pyc")))
 
