@@ -81,7 +81,7 @@ void sip::MatchSrcToCatalogue::findMatches() {
         double x = _imgSet[i]->getXAstrom();
         double y = _imgSet[i]->getYAstrom();
 
-        afwCoord::Coord raDec = *_wcs.pixelToSky(x, y);
+        afwCoord::Coord const& raDec = *_wcs.pixelToSky(x, y);
 
         _imgSet[i]->setRa(raDec[0]);
         _imgSet[i]->setDec(raDec[1]);

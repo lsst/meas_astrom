@@ -286,7 +286,7 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
     double yc = (_solver->field_maxy + _solver->field_miny)/2.0;
 
     //Get the central ra/dec and plate scale
-    lsst::afw::coord::Coord raDec = *wcsPtr->pixelToSky(xc, yc);
+    lsst::afw::coord::Coord const& raDec = *wcsPtr->pixelToSky(xc, yc);
     double plateScaleArcsecPerPixel = sqrt(wcsPtr->pixArea(afwGeom::makePointD(raDec[0], raDec[1])))*3600;
     setMinimumImageScale(plateScaleArcsecPerPixel*(1 - unc));
     setMaximumImageScale(plateScaleArcsecPerPixel*(1 + unc));

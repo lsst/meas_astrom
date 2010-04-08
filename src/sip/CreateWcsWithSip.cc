@@ -121,7 +121,7 @@ double CreateWcsWithSip::getScatterInArcsec() {
         double catDec = catSrc->getDec();
         
         
-        afwCoord::Coord ad = *_newWcs.pixelToSky(imgSrc->getXAstrom(), imgSrc->getYAstrom());    
+        afwCoord::Coord const& ad = *_newWcs.pixelToSky(imgSrc->getXAstrom(), imgSrc->getYAstrom());    
         double imgRa = ad[0];
         double imgDec = ad[1];
         
