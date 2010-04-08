@@ -1,5 +1,6 @@
 // -*- LSST-C++ -*-
 
+#include "lsst/afw/image/TanWcs.h"
 #include "lsst/meas/astrom/net/GlobalAstrometrySolution.h"
 #include <cstdio>
 #include <iostream>
@@ -277,21 +278,22 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
     double unc = imageScaleUncertaintyPercent/100.0;
 
     //This test is strictly unecessary as solverSetField throws the same exception
-    if ( ! _starxy) {
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
+    if ( _starxy) {
+        throw LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet");
     }
 
     double xc = (_solver->field_maxx + _solver->field_minx)/2.0;
     double yc = (_solver->field_maxy + _solver->field_miny)/2.0;
 
     //Get the central ra/dec and plate scale
-    lsst::afw::image::PointD raDec = wcsPtr->xyToRaDec(xc, yc);
-    double plateScaleArcsecPerPixel = sqrt(wcsPtr->pixArea(raDec))*3600;
+    lsst::afw::coord::Coord raDec = *wcsPtr->pixelToSky(xc, yc);
+    double plateScaleArcsecPerPixel = sqrt(wcsPtr->pixArea(afwGeom::makePointD(raDec[0], raDec[1])))*3600;
     setMinimumImageScale(plateScaleArcsecPerPixel*(1 - unc));
     setMaximumImageScale(plateScaleArcsecPerPixel*(1 + unc));
     
     
-    string msg = boost::str( boost::format("Solving using initial guess at position of\n %.7f %.7f\n") % raDec.getX() % raDec.getY());
+    string msg = boost::str( boost::format("Solving using initial guess at position of\n %.7f %.7f\n") %
+                             raDec[0] % raDec[1]);
     _mylog.log(pexLog::Log::DEBUG, msg);
 
     double lwr = plateScaleArcsecPerPixel*(1 - unc);
@@ -308,7 +310,7 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
         _mylog.log(pexLog::Log::DEBUG, "Setting Normal parity");        
     }
         
-    return(solve(raDec.getX(), raDec.getY()));
+    return solve(raDec[0], raDec[1]);
 }
 
 
@@ -346,7 +348,7 @@ bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal
     }
 
     _mylog.log(pexLog::Log::DEBUG, msg);            
-    return(_isSolved);
+    return _isSolved;
 }
 
 
@@ -371,7 +373,7 @@ bool GlobalAstrometrySolution::solve()  {
         _mylog.log(pexLog::Log::DEBUG, "Failed");
     }
 
-    return(_isSolved);
+    return _isSolved;
 }
 
 
@@ -475,8 +477,6 @@ int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double quadSizeArcsecL
     int nSuitable = 0;
     bool blind = (ra == NO_POSITION_SET) || (dec == NO_POSITION_SET);
 
-    string msg;
-
     for (int i = 0; i<nMeta; ++i){
         index_t* index = _indexList[i];
 
@@ -495,7 +495,7 @@ int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double quadSizeArcsecL
         // Load the data (not just metadata), if it hasn't been already...
         index_reload(index);
 
-	    msg = boost::str(boost::format("Adding index %s") % index->indexname);
+        string msg = boost::str(boost::format("Adding index %s") % index->indexname);
     	_mylog.log(pexLog::Log::DEBUG, msg);
 
         solver_add_index(_solver, index);
@@ -534,10 +534,10 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs()  {
 
     ///Astro.net conforms with wcslib in assuming that images are 1-indexed (i.e the bottom left-most pixel
     ///is (1,1). LSST is zero indexed, so we add 1 to the crpix values returned by _solver to convert
-    lsst::afw::image::PointD crpix(_solver->best_match.wcstan.crpix[0] + 1,
-                                   _solver->best_match.wcstan.crpix[1] + 1);   
-    lsst::afw::image::PointD crval(_solver->best_match.wcstan.crval[0],
-                                   _solver->best_match.wcstan.crval[1]);
+    lsst::afw::geom::PointD crpix = lsst::afw::geom::makePointD(_solver->best_match.wcstan.crpix[0] + 1,
+                                                                _solver->best_match.wcstan.crpix[1] + 1);   
+    lsst::afw::geom::PointD crval = lsst::afw::geom::makePointD(_solver->best_match.wcstan.crval[0],
+                                                                _solver->best_match.wcstan.crval[1]);
     
     int naxis = 2;   //This is hardcoded into the sip_t structure
     Eigen::Matrix2d CD;
@@ -547,8 +547,10 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs()  {
         }
     }
 
-    lsst::afw::image::Wcs::Ptr wcsPtr(new lsst::afw::image::Wcs(crval, crpix, CD, _equinox, _raDecSys)); 
-    return wcsPtr;
+    std::string const ctype1="RA---TAN";
+    std::string const ctype2="DEC--TAN";
+    return lsst::afw::image::Wcs::Ptr(new lsst::afw::image::Wcs(crval, crpix, CD,
+                                                                ctype1, ctype2, _equinox, _raDecSys)); 
 }
 
 
@@ -589,10 +591,10 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
 
     ///Astro.net conforms with wcslib in assuming that images are 1-indexed (i.e the bottom left-most pixel
     ///is (1,1). LSST is zero indexed, so we add 1 to the crpix values returned by _solver to convert
-    lsst::afw::image::PointD crpix(sip->wcstan.crpix[0] + 1,
-                                   sip->wcstan.crpix[1] + 1);
-    lsst::afw::image::PointD crval(sip->wcstan.crval[0],
-                                   sip->wcstan.crval[1]);
+    lsst::afw::geom::PointD crpix = lsst::afw::geom::makePointD(sip->wcstan.crpix[0] + 1,
+                                                                sip->wcstan.crpix[1] + 1);
+    lsst::afw::geom::PointD crval = lsst::afw::geom::makePointD(sip->wcstan.crval[0],
+                                                                sip->wcstan.crval[1]);
 
     //Linear conversion matrix
     int naxis = 2;   //This is hardcoded into the sip_t structure
@@ -642,10 +644,8 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
         }
     }    
         
-    
-    lsst::afw::image::Wcs::Ptr wcsPtr(new lsst::afw::image::Wcs(crval, crpix, CD, 
-                                      sipA, sipB, sipAp, sipBp, _equinox, _raDecSys));
-
+    lsst::afw::image::Wcs::Ptr
+        wcsPtr(new lsst::afw::image::TanWcs(crval, crpix, CD, sipA, sipB, sipAp, sipBp, _equinox, _raDecSys));
     
     sip_free(sip);
     return wcsPtr;
@@ -840,7 +840,7 @@ double GlobalAstrometrySolution::getSolvedImageScale(){
         throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
 
-    return(_solver->best_match.scale);
+    return _solver->best_match.scale;
 } 
 
 

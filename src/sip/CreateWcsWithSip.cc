@@ -13,6 +13,8 @@ using namespace std;
 
 namespace except = lsst::pex::exceptions;
 namespace pexLog = lsst::pex::logging;
+namespace afwCoord = lsst::afw::coord;
+namespace afwGeom = lsst::afw::geom;
 namespace afwImg = lsst::afw::image;
 namespace det = lsst::afw::detection;
 namespace math = lsst::afw::math;
@@ -69,7 +71,7 @@ CreateWcsWithSip::CreateWcsWithSip(const std::vector<det::SourceMatch> match,
 
 
 ///Return a Wcs object including the SIP matrices
-afwImg::Wcs CreateWcsWithSip::getNewWcs() {
+afwImg::TanWcs CreateWcsWithSip::getNewWcs() {
     return _newWcs;
 }
 
@@ -88,7 +90,7 @@ double CreateWcsWithSip::getScatterInPixels() {
         double imgX = imgSrc->getXAstrom();
         double imgY = imgSrc->getYAstrom();
         
-        afwImg::PointD xy = _newWcs.raDecToXY(catSrc->getRa(), catSrc->getDec());    
+        afwGeom::PointD xy = _newWcs.skyToPixel(catSrc->getRa(), catSrc->getDec());    
         double catX = xy[0];
         double catY = xy[1];
         
@@ -119,7 +121,7 @@ double CreateWcsWithSip::getScatterInArcsec() {
         double catDec = catSrc->getDec();
         
         
-        afwImg::PointD ad = _newWcs.xyToRaDec(imgSrc->getXAstrom(), imgSrc->getYAstrom());    
+        afwCoord::Coord ad = *_newWcs.pixelToSky(imgSrc->getXAstrom(), imgSrc->getYAstrom());    
         double imgRa = ad[0];
         double imgDec = ad[1];
         
@@ -160,7 +162,7 @@ void CreateWcsWithSip::_createWcs(int order){
     pexLog::Log mylog(pexLog::Log::getDefaultLog(), "meas.astrom.sip", pexLog::Log::DEBUG);
     mylog.log(pexLog::Log::DEBUG, "Determining Sip parameters");    
                               
-    afwImg::PointD wcsOrigin = _linearWcs.getOriginXY();
+    afwGeom::PointD wcsOrigin = _linearWcs.getPixelOrigin();
     
     //Note on naming convention.
     //u,v are as defined in the Shupe et al. (2000) paper as relative pixel coordinates
@@ -192,7 +194,7 @@ void CreateWcsWithSip::_createWcs(int order){
         v.push_back(imgSrc->getYAstrom() - wcsOrigin[1]);
         
         //Linear pixel position
-        afwImg::PointD xy = _linearWcs.raDecToXY(catSrc->getRa(), catSrc->getDec());    
+        afwGeom::PointD xy = _linearWcs.skyToPixel(catSrc->getRa(), catSrc->getDec());    
         lu.push_back(xy[0] - wcsOrigin[0]);
         lv.push_back(xy[1] - wcsOrigin[1]);
         
@@ -215,13 +217,13 @@ void CreateWcsWithSip::_createWcs(int order){
 
     //Construct a new wcs from the old one
     mylog.log(pexLog::Log::DEBUG, "Creating new wcs structure");        
-    afwImg::PointD crval = _linearWcs.getOriginRaDec();
-    afwImg::PointD crpix = _linearWcs.getOriginXY();
-    Eigen::Matrix2d CD = _linearWcs.getLinearTransformMatrix();
+    afwGeom::PointD crval = _linearWcs.getSkyOrigin();
+    afwGeom::PointD crpix = _linearWcs.getPixelOrigin();
+    Eigen::Matrix2d CD = _linearWcs.getCDMatrix();
     
     //The zeroth element of the SIP matrices is just an offset, so the standard calls 
     //for this offset to be folded into a refined value for crpix
-    crpix = crpix - afwImg::PointD(_sipA(0, 0), _sipB(0, 0));
+    crpix = afwGeom::PointD(crpix - afwGeom::makePointD(_sipA(0, 0), _sipB(0, 0)));
     _sipA(0, 0) = _sipB(0, 0) = 0;
     
     //The A01, A10, B01 and B10 terms in the SIP matrices are just linear corrections, so
@@ -251,13 +253,13 @@ void CreateWcsWithSip::_createWcs(int order){
     vector<double> lf;  //Reverse Distortion
     vector<double> lg;  //Reverse Distortion
 
-    wcsOrigin = tmpWcs.getOriginXY();
+    wcsOrigin = tmpWcs.getPixelOrigin();
     for (unsigned int i = 0; i< _matchList.size(); ++i) {
         det::Source::Ptr catSrc = _matchList[i].first;
         det::Source::Ptr imgSrc = _matchList[i].second;
 
         //Linear pixel position
-        afwImg::PointD xy = tmpWcs.raDecToXY(catSrc->getRa(), catSrc->getDec());    
+        afwGeom::PointD xy = tmpWcs.skyToPixel(catSrc->getRa(), catSrc->getDec());    
         lu.push_back(xy[0] - wcsOrigin[0]);
         lv.push_back(xy[1] - wcsOrigin[1]);
 
@@ -269,7 +271,7 @@ void CreateWcsWithSip::_createWcs(int order){
     Eigen::MatrixXd sipAp = _calculateSip(lu, lv, lf, sf, order);
     Eigen::MatrixXd sipBp = _calculateSip(lu, lv, lg, sg, order);
 
-    _newWcs = afwImg::Wcs(crval, crpix, CD, _sipA, _sipB, sipAp, sipBp);
+    _newWcs = afwImg::TanWcs(crval, crpix, CD, _sipA, _sipB, sipAp, sipBp);
 }
 
 

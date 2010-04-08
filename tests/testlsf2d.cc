@@ -10,6 +10,7 @@ using namespace std;
 
 #include <vector>
 #include <cmath>
+#include <cassert>
 #include "boost/shared_ptr.hpp"
 #include "Eigen/Core.h"
 #include "lsst/afw/math/FunctionLibrary.h"
@@ -257,10 +258,10 @@ BOOST_AUTO_TEST_CASE(fitLinearXSurface2)
     int order=2;
     sip::LeastSqFitter2d<math::PolynomialFunction1<double> > lsf(x, y, z, s, order);
     Eigen::MatrixXd par = lsf.getParams();
+    assert (par[0] == par[0]);          // stop compiler whining about par not being used
 
     lsf.printParams();
-    for(unsigned int i=0; i<x.size(); ++i)
-    {
+    for(unsigned int i = 0; i < x.size(); ++i) {
         printf("%.3f %.3f %.3f %.3f\n", x[i], y[i], z[i], lsf.valueAt(x[i], y[i]));
         BOOST_CHECK_CLOSE(z[i], lsf.valueAt(x[i], y[i]), .001);
     }

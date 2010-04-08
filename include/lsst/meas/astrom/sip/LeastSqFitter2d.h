@@ -123,7 +123,7 @@ template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const 
         throw LSST_EXCEPT(except::RuntimeErrorException, "x and z vectors of different lengths");        
     }
 
-    for (unsigned int i = 0; i<_nData; ++i) {
+    for (unsigned int i = 0; i < _nData; ++i) {
         if ( _s[i] == 0 ) {
             std::string msg = "Illegal zero value for fit weight encountered.";
             throw LSST_EXCEPT(except::RuntimeErrorException, msg);        
@@ -177,8 +177,8 @@ template<class FittingFunc> Eigen::MatrixXd LeastSqFitter2d<FittingFunc>::getPar
     Eigen::MatrixXd out = Eigen::MatrixXd::Zero(_order, _order);  //Should be a shared ptr?
 
     int count = 0;
-    for (unsigned int i = 0; i< _order; ++i) {
-        for (unsigned int j = 0; j< _order - i; ++j) {
+    for (unsigned int i = 0; i < _order; ++i) {
+        for (unsigned int j = 0; j < _order - i; ++j) {
             out(i, j) = _par(count++);
         }
     }
@@ -194,8 +194,8 @@ template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::printParams() {
     Eigen::MatrixXd out = Eigen::MatrixXd::Zero(_order, _order);  //Should be a shared ptr?
 
     int count = 0;
-    for (unsigned int i = 0; i< _order; ++i) {
-        for (unsigned int j = 0; j< _order - i; ++j) {
+    for (unsigned int i = 0; i < _order; ++i) {
+        for (unsigned int j = 0; j < _order - i; ++j) {
             printf("%7e  ", _par(count++));
         }
         printf("\n");
@@ -208,7 +208,7 @@ template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::printParams() {
 template<class FittingFunc> double LeastSqFitter2d<FittingFunc>::getChiSq() {
     
     double chisq = 0;
-    for (unsigned int i = 0; i< _nData; ++i) {
+    for (unsigned int i = 0; i < _nData; ++i) {
         double val = _z[i] - valueAt(_x[i], _y[i]);
         val /= _s[i];
         chisq += pow(val, 2);
@@ -234,7 +234,7 @@ template<class FittingFunc>  double LeastSqFitter2d<FittingFunc>::valueAt(double
     double val = 0;
     
     //Sum the values of the different orders to get the value of the fitted function
-    for (unsigned int i = 0; i< _nPar; ++i) {
+    for (unsigned int i = 0; i < _nPar; ++i) {
         val += _par[i] * func2d(x, y, i);
     }
     return val;
@@ -247,7 +247,7 @@ template<class FittingFunc>  std::vector<double> LeastSqFitter2d<FittingFunc>::r
     std::vector<double> out;
     out.reserve(_nData);
     
-    for (unsigned int i; i< _nData; ++i) {
+    for (unsigned int i = 0; i < _nData; ++i) {
         out.push_back(_z[i] - valueAt(_x[i], _y[i]));
     }
     
@@ -261,9 +261,9 @@ template<class FittingFunc> Eigen::MatrixXd LeastSqFitter2d<FittingFunc>::getErr
     Eigen::VectorXd w = _A.svd().singularValues();
 
     Eigen::VectorXd err(_nPar);
-    for (unsigned int i = 0; i<_nPar; ++i) {
+    for (unsigned int i = 0; i < _nPar; ++i) {
         err(i) = 0;
-        for (unsigned int j = 0; j<_nPar; ++j) {
+        for (unsigned int j = 0; j < _nPar; ++j) {
             double val =  V(i, j)/w(j);
             err(i) += val*val;
         }
@@ -280,7 +280,7 @@ template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::initFunctions() {
     coeff.reserve( _order);
     
     coeff.push_back(1);
-    for (unsigned int i = 0; i< _order; ++i) {
+    for (unsigned int i = 0; i < _order; ++i) {
         boost::shared_ptr<FittingFunc> p(new FittingFunc(coeff));
         _funcArray.push_back(p);
         
@@ -295,10 +295,10 @@ template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::calculateA() {
     assert(_nPar != 0);
     _A = Eigen::MatrixXd(static_cast<int> (_nPar), static_cast<int> (_nPar));
 
-    for (unsigned int i = 0; i< _nPar; ++i) {
-        for (unsigned int j = 0; j< _nPar; ++j) {
+    for (unsigned int i = 0; i < _nPar; ++i) {
+        for (unsigned int j = 0; j < _nPar; ++j) {
             double val = 0;
-            for (unsigned int k = 0; k< _nData; ++k) {
+            for (unsigned int k = 0; k < _nData; ++k) {
                 val += func2d(_x[k], _y[k], i) * func2d(_x[k], _y[k], j)/( _s[k]*_s[k]);
             }
             _A(i, j) = val;
@@ -314,9 +314,9 @@ template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::calculateBeta() {
     _beta = Eigen::VectorXd(_nPar);
 
     double val;
-    for (unsigned int i = 0; i< _nPar; ++i) {
+    for (unsigned int i = 0; i < _nPar; ++i) {
         _beta(i) = 0;
-        for (unsigned int j = 0; j< _nData; ++j) {
+        for (unsigned int j = 0; j < _nData; ++j) {
             val = _z[j]*func2d(_x[j], _y[j], i)/ (_s[i]*_s[i]);
             _beta(i) += val;
         }

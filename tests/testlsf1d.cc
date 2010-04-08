@@ -4,13 +4,12 @@
 //The boost unit test header
 #include "boost/test/unit_test.hpp"
 
-
 using namespace std;
-
 
 #include <vector>
 #include <cmath>
 #include <cstdio>
+#include <cassert>
 #include "boost/shared_ptr.hpp"
 #include "Eigen/Core.h"
 #include "lsst/afw/math/FunctionLibrary.h"
@@ -103,8 +102,7 @@ BOOST_AUTO_TEST_CASE(fitLinear2)
     int order=2;
     sip::LeastSqFitter1d<math::PolynomialFunction1<double> > lsf(x, y, s, order);
     Eigen::VectorXd par = lsf.getParams();
-    
-
+    assert (par[0] == par[0]);          // stop compiler whining about par not being used
 }
 
 
@@ -162,9 +160,9 @@ BOOST_AUTO_TEST_CASE(fitQuadratic2)
     int order=3;
     sip::LeastSqFitter1d<math::PolynomialFunction1<double> > lsf(x, y, s, order);
     Eigen::VectorXd par = lsf.getParams();
+    assert (par[0] == par[0]);          // stop compiler whining about par not being used
 
-    for(unsigned int i=0; i<x.size(); ++i)
-    {
+    for (unsigned int i = 0; i != x.size(); ++i) {
         //printf("%.3f %.3f %.3f \n", x[i], y[i], lsf.valueAt(x[i]));
         BOOST_CHECK_CLOSE(y[i], lsf.valueAt(x[i]), 10);
     }

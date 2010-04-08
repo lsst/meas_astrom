@@ -16,6 +16,7 @@
 #include "lsst/afw/math/FunctionLibrary.h"
 #include "lsst/afw/math/Statistics.h"
 #include "lsst/afw/image/Wcs.h"
+#include "lsst/afw/image/TanWcs.h"
 #include "lsst/afw/detection/SourceMatch.h"
 #include "lsst/afw/detection/Source.h"
 
@@ -79,7 +80,7 @@ public:
                           double maxScatterInArcsec,
                           int maxOrder);
 
-    afwImg::Wcs getNewWcs();
+    afwImg::TanWcs getNewWcs();
     double getScatterInPixels();
     double getScatterInArcsec();
     ///Get the number of terms in the SIP matrix
@@ -89,7 +90,7 @@ private:
     
     const std::vector<det::SourceMatch> _matchList;
     const afwImg::Wcs _linearWcs;
-    afwImg::Wcs _newWcs;
+    afwImg::TanWcs _newWcs;
     Eigen::MatrixXd _sipA, _sipB;
     Eigen::MatrixXd _sipAp, _sipBp;
     

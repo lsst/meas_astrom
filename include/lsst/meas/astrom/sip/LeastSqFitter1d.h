@@ -202,7 +202,7 @@ template<class FittingFunc>  std::vector<double> LeastSqFitter1d<FittingFunc>::r
     
     FittingFunc f = getBestFitFunction();
     
-    for (unsigned int i; i< _nData; ++i) {
+    for (unsigned int i = 0; i< _nData; ++i) {
         out.push_back(_y[i] - f(_x[i]));
     }
     
@@ -217,7 +217,7 @@ template<class FittingFunc> double LeastSqFitter1d<FittingFunc>::getChiSq() {
     FittingFunc f = getBestFitFunction();
 
     double chisq = 0;
-    for (unsigned int i = 0; i< _nData; ++i) {
+    for (unsigned int i = 0; i < _nData; ++i) {
         double val = _y[i] - f(_x[i]);
         val /= _s[i];
         chisq += pow(val, 2);
@@ -265,7 +265,7 @@ template<class FittingFunc> void LeastSqFitter1d<FittingFunc>::calculateA() {
     for (i = 0; i< _order; ++i) {
         for (j = 0; j< _order; ++j) {
             double val = 0;
-            for (unsigned int k = 0; k< _nData; ++k) {
+            for (unsigned int k = 0; k < _nData; ++k) {
                 val += func1d(_x[k], i) * func1d(_x[k], j)/( _s[k]*_s[k]);
             }
             _A(i, j) = val;
@@ -282,7 +282,7 @@ template<class FittingFunc> void LeastSqFitter1d<FittingFunc>::calculateBeta() {
 
     double val;
     unsigned int j;
-    for (unsigned int i = 0; i< _order; ++i) {
+    for (unsigned int i = 0; i < _order; ++i) {
         _beta(i) = 0;
         for (j = 0; j< _nData; ++j) {
             val = _y[j]*func1d(_x[j], i)/ (_s[i]*_s[i]);
