@@ -235,7 +235,7 @@ class WCSTestCaseNetUSNOB(unittest.TestCase):
         if flag:
             #Test xy->radec
             wcs = self.gas.getWcs()
-            radec = wcs.xyToRaDec(crpix.getX(), crpix.getY())
+            radec = wcs.pixelToSky(crpix.getX(), crpix.getY())
             self.assertAlmostEqual(radec.getX(), crval.getX(), 6, "Ra doesn't match")
             self.assertAlmostEqual(radec.getY(), crval.getY(), 6, "Dec doesn't match")
 
@@ -296,7 +296,7 @@ class WCSTestCaseNetUSNOB(unittest.TestCase):
 
         solvedWcs = self.gas.getWcs()
         if flag:
-            radec = solvedWcs.xyToRaDec(890,890)
+            radec = solvedWcs.pixelToSky(890,890)
             strr="rd= (%.6f, %.6f): crval=(%.6f %.6f)" %(radec.getX(), radec.getY(), crval.getX(), crval.getY())
             self.assertAlmostEqual(crval.getX(), radec.getX(), 6, "Ra doesn't match: %s" %(strr))
             self.assertAlmostEqual(crval.getY(), radec.getY(), 6, "Dec doesn't match: %s" %(strr))
@@ -317,7 +317,7 @@ class WCSTestCaseNetUSNOB(unittest.TestCase):
                 realRA = sourceSet[i].getRa()
                 realDec = sourceSet[i].getDec()
                 realRaDec = afwImage.PointD(realRA, realDec)
-                wRaDec = solvedWcs.xyToRaDec(sXY)
+                wRaDec = solvedWcs.pixelToSky(sXY)
                 anRA = wRaDec.getX()
                 anDec = wRaDec.getY()
                 anxy = solvedWcs.raDecToXY(realRaDec)
@@ -335,7 +335,7 @@ class WCSTestCaseNetUSNOB(unittest.TestCase):
             y = sourceSet[i].getDec()
             sRaDec  = afwImage.PointD(x,y)
             
-            wRaDec = solvedWcs.xyToRaDec(sXY)
+            wRaDec = solvedWcs.pixelToSky(sXY)
 
             # All coordinates should match to within 5 pixels ~= 5 arcsec ~= 0.0014 deg
             # As of Astrometry.net rev 14444, the max distance is 4.4 pixels.
@@ -465,7 +465,7 @@ class SmallSolveGASTestCFHT(unittest.TestCase):
         if expectPass:
             self.assertTrue(flag, "No solution found")
             wcs = self.gas.getWcs()
-            result = wcs.getOriginRaDec()
+            result = wcs.getSkyOrigin()
             scale= self.gas.getSolvedImageScale()
             if verbose:
                 print "%.6f %.6f %.3f" %(result.getX(), result.getY(), scale)

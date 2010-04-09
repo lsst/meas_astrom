@@ -31,7 +31,7 @@ def clean(srcMatch, wcs, order=3, nsigma=3):
     wcsX = np.zeros(len(catRa))
     wcsY = np.zeros(len(catRa))
     for i in range(len(catRa)):
-        tmp1, tmp2 = wcs.raDecToXY(catRa[i], catDec[i])
+        tmp1, tmp2 = wcs.skyToPixel(catRa[i], catDec[i])
         wcsX[i] = tmp1
         wcsY[i] = tmp2
 
