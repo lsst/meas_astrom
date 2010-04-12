@@ -4,7 +4,6 @@ import os
 import sys
 import glob
 import math
-import pdb                          # we may want to say pdb.set_trace()
 import unittest
 
 import eups
@@ -105,8 +104,8 @@ class DistortedImageTestCase(unittest.TestCase):
         #Set catalogue ra and decs
         for src in cat:
             raDec = catWcs.pixelToSky(src.getXAstrom(), src.getYAstrom())
-            src.setRa(raDec[0])
-            src.setDec(raDec[1])
+            src.setRa(math.degrees(raDec[0]))
+            src.setDec(math.degrees(raDec[1]))
 
         return cat
 
