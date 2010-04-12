@@ -121,9 +121,9 @@ double CreateWcsWithSip::getScatterInArcsec() {
         double catDec = catSrc->getDec();
         
         
-        afwCoord::Coord const& ad = *_newWcs.pixelToSky(imgSrc->getXAstrom(), imgSrc->getYAstrom());    
-        double imgRa = ad[0];
-        double imgDec = ad[1];
+        afwCoord::Coord::ConstPtr ad = _newWcs.pixelToSky(imgSrc->getXAstrom(), imgSrc->getYAstrom());    
+        double imgRa = ad->getLongitude(afwCoord::DEGREES);
+        double imgDec = ad->getLatitude(afwCoord::DEGREES);
         
         //This is not strictly the correct calculation for distance in raDec space,
         //but because we are dealing with distances hopefully << 1" it's a reasonable 

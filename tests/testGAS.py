@@ -198,7 +198,7 @@ class WCSTestCaseNetUSNOB(unittest.TestCase):
         self.gas = GAS("usnob")
 
     def tearDown(self):
-        self.gas.reset()
+        del self.gas
 
     def solveOrVerify(self, starlist, crval, crpix,  plateScale=0, nBright=50, verify=False):
         """Test the solve() function
@@ -446,7 +446,7 @@ class SmallSolveGASTestCFHT(unittest.TestCase):
         self.gas = GAS("cfhttemplate")
 
     def tearDown(self):
-        self.gas.reset()
+        del self.gas
 
     def solve(self, imgListFile, raDec, nBright=50, expectPass=True):
         starlist = loadXYFromFile(imgListFile)

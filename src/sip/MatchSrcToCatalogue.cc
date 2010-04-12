@@ -1,7 +1,5 @@
 // -*- LSST-C++ -*-
-
 #include "lsst/meas/astrom/sip/MatchSrcToCatalogue.h"
-
 
 namespace except = lsst::pex::exceptions;
 namespace afwCoord = lsst::afw::coord;
@@ -81,23 +79,21 @@ void sip::MatchSrcToCatalogue::findMatches() {
         double x = _imgSet[i]->getXAstrom();
         double y = _imgSet[i]->getYAstrom();
 
-        afwCoord::Coord const& raDec = *_wcs.pixelToSky(x, y);
+        afwCoord::Coord::ConstPtr raDec = _wcs.pixelToSky(x, y);
 
-        _imgSet[i]->setRa(raDec[0]);
-        _imgSet[i]->setDec(raDec[1]);
+        _imgSet[i]->setRa(raDec->getLongitude(afwCoord::DEGREES));
+        _imgSet[i]->setDec(raDec->getLatitude(afwCoord::DEGREES));
     }
 
     _match = det::matchRaDec(_catSet, _imgSet, _distInArcsec);
 
     _removeOneToMany();  
     _removeManyToOne();  
-    
    
     if (_match.size() == 0) {
         std::cout << _imgSet.size() << " " << _catSet.size() << std::endl;
         throw LSST_EXCEPT(except::RuntimeErrorException, "No matching objects found");
     }
-    
 }
 
 

@@ -4,7 +4,6 @@ import os
 import sys
 import glob
 import math
-import pdb                          # we may want to say pdb.set_trace()
 import unittest
 
 import eups
@@ -54,7 +53,6 @@ class DistortedImageTestCase(unittest.TestCase):
         self.singleTestInstance(self.filename, distort.linearYDistort, 
             GLOBALGAS, self.orderlist)
 
-
     #
     # Implementation functions
     #
@@ -65,8 +63,7 @@ class DistortedImageTestCase(unittest.TestCase):
 
         #Get a wcs
         gas.setStarlist(img)
-        flag = gas.solve()
-        if flag == True:
+        if gas.solve() == True:
             imgWcs = gas.getWcs()
         else:
             print "Failed to solve distorted image. Too much distortion?"
@@ -95,8 +92,7 @@ class DistortedImageTestCase(unittest.TestCase):
         cat = sourceSetIO.read(filename)
 
         gas.setStarlist(cat)
-        flag = gas.solve()
-        if flag == True:
+        if gas.solve() is True:
             catWcs = gas.getWcs()
             gas.reset()        
         else:
@@ -106,8 +102,8 @@ class DistortedImageTestCase(unittest.TestCase):
         #Set catalogue ra and decs
         for src in cat:
             raDec = catWcs.pixelToSky(src.getXAstrom(), src.getYAstrom())
-            src.setRa(raDec[0])
-            src.setDec(raDec[1])
+            src.setRa(math.degrees(raDec[0]))
+            src.setDec(math.degrees(raDec[1]))
 
         return cat
 
@@ -143,10 +139,7 @@ class DistortedImageTestCase(unittest.TestCase):
 
         return x, y, dx, dy
 
-        
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-
 
 def suite():
     """Returns a suite containing all the test cases in this module."""
@@ -160,10 +153,7 @@ def suite():
 
 def run(exit=False):
     """Run the tests"""
-    utilsTests.run(suite(), exit)
-
-
-
+    return utilsTests.run(suite(), exit)
  
 if __name__ == "__main__":
     run(True)

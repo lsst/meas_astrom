@@ -164,7 +164,7 @@ template<class FittingFunc> Eigen::VectorXd LeastSqFitter1d<FittingFunc>::getErr
 
     Eigen::VectorXd vec = Eigen::VectorXd::Zero(_order);
     for (unsigned int i = 0; i< _order; ++i) {
-        printf("%i %g\n", i, Ainv(i,i));
+        printf("%ud %g\n", i, Ainv(i,i));
         vec(i) = std::sqrt(Ainv(i,i));
     }
     return vec;

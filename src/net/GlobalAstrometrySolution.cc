@@ -12,7 +12,8 @@ namespace net {
 
 
 using namespace std;
-namespace Except = lsst::pex::exceptions;
+namespace afwCoord = lsst::afw::coord;
+namespace pexExcept = lsst::pex::exceptions;
 namespace Det = lsst::afw::detection;
 namespace pexLog = lsst::pex::logging;
 
@@ -135,7 +136,7 @@ void GlobalAstrometrySolution::setDefaultValues() {
 void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec ///<List of Sources
                                           ) {
     if (vec.empty()) {
-        throw(LSST_EXCEPT(Except::LengthErrorException, "Src list contains no objects"));
+        throw(LSST_EXCEPT(pexExcept::LengthErrorException, "Src list contains no objects"));
     }
 
     if (_starxy != NULL) {
@@ -168,7 +169,7 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
 void GlobalAstrometrySolution::setNumBrightObjects(int N) {
 
     if (N <= 0) {
-        throw(LSST_EXCEPT(Except::RangeErrorException, "Illegal request. N must be greater than zero"));
+        throw(LSST_EXCEPT(pexExcept::RangeErrorException, "Illegal request. N must be greater than zero"));
     }
 
     _numBrightObjects = N;
@@ -182,12 +183,12 @@ void GlobalAstrometrySolution::setNumBrightObjects(int N) {
 void GlobalAstrometrySolution::_solverSetField() {
 
     if ( ! _starxy) {
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "Starlist hasn't been set yet"));
     }
 
     int starxySize = starxy_n(_starxy);
     if ( starxySize == 0){
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist has zero elements"));
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "Starlist has zero elements"));
     }
 
     int N = _numBrightObjects;  //Because I'm a lazy typist
@@ -199,7 +200,7 @@ void GlobalAstrometrySolution::_solverSetField() {
 
     if (N > starxySize) {
         string msg = "numBrightObjects set to a larger value than number of stars";
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, msg));
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
     }
 
     starxy_t *shortlist = starxy_subset(_starxy, N);
@@ -233,7 +234,7 @@ void GlobalAstrometrySolution::allowDistortion(bool hasDistortion) {
 ///1 and 2 are typically good values to use. 4 will print so much to the screen that it slows execution
 void GlobalAstrometrySolution::setLogLevel(int level) {
     if (level < 0 || level > 4) {
-        throw(LSST_EXCEPT(Except::DomainErrorException, "Logging level must be between 0 and 4"));
+        throw(LSST_EXCEPT(pexExcept::DomainErrorException, "Logging level must be between 0 and 4"));
     }
     
     log_init((enum log_level) level);
@@ -261,7 +262,7 @@ void GlobalAstrometrySolution::setParity(int parity){
             break;
             return;
         default:
-            throw LSST_EXCEPT(Except::DomainErrorException, "Illegal parity setting");
+            throw LSST_EXCEPT(pexExcept::DomainErrorException, "Illegal parity setting");
     }
 }
 
@@ -279,28 +280,27 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
 
     //This test is strictly unecessary as solverSetField throws the same exception
     if ( _starxy) {
-        throw LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet");
+        throw LSST_EXCEPT(pexExcept::RuntimeErrorException, "Starlist hasn't been set yet");
     }
 
     double xc = (_solver->field_maxx + _solver->field_minx)/2.0;
     double yc = (_solver->field_maxy + _solver->field_miny)/2.0;
 
     //Get the central ra/dec and plate scale
-    lsst::afw::coord::Coord const& raDec = *wcsPtr->pixelToSky(xc, yc);
-    double plateScaleArcsecPerPixel = sqrt(wcsPtr->pixArea(afwGeom::makePointD(raDec[0], raDec[1])))*3600;
+    afwCoord::Coord::ConstPtr raDec = wcsPtr->pixelToSky(xc, yc);
+    double const ra = raDec->getLongitude(afwCoord::DEGREES);
+    double const dec = raDec->getLatitude(afwCoord::DEGREES);
+    double const plateScaleArcsecPerPixel = ::sqrt(wcsPtr->pixArea(afwGeom::makePointD(ra, dec)))*3600;
     setMinimumImageScale(plateScaleArcsecPerPixel*(1 - unc));
     setMaximumImageScale(plateScaleArcsecPerPixel*(1 + unc));
     
-    
-    string msg = boost::str( boost::format("Solving using initial guess at position of\n %.7f %.7f\n") %
-                             raDec[0] % raDec[1]);
-    _mylog.log(pexLog::Log::DEBUG, msg);
+    _mylog.log(pexLog::Log::DEBUG,
+               boost::format("Solving using initial guess at position of\n %.7f %.7f\n") % ra % dec);
 
     double lwr = plateScaleArcsecPerPixel*(1 - unc);
     double upr = plateScaleArcsecPerPixel*(1 + unc);
-    msg = boost::str( boost::format("Scale range %.3f - %.3f arcsec/pixel\n") % lwr % upr);
-    _mylog.log(pexLog::Log::DEBUG, msg);
-    
+                     
+    _mylog.log(pexLog::Log::DEBUG, boost::format("Scale range %.3f - %.3f arcsec/pixel\n") % lwr % upr);
 
     if ( wcsPtr->isFlipped()) {
         setParity(FLIPPED_PARITY);
@@ -310,7 +310,7 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
         _mylog.log(pexLog::Log::DEBUG, "Setting Normal parity");        
     }
         
-    return solve(raDec[0], raDec[1]);
+    return solve(ra, dec);
 }
 
 
@@ -383,21 +383,21 @@ bool GlobalAstrometrySolution::solve()  {
 bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
     //Throw exceptions if setup is incorrect
     if ( ! _starxy) {
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist hasn't been set yet"));
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "Starlist hasn't been set yet"));
     }
 
     if (_indexList.size() == 0) {
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No index files loaded yet"));
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No index files loaded yet"));
     }
     
     if (_isSolved){
         string msg = "Solver indicated that a match has already been found. Do you need to reset?";
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, msg));
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
     }
 
     if ( _solver->funits_lower >= _solver->funits_upper) {
         string msg = "Minimum image scale must be strictly less than max scale";
-        throw(LSST_EXCEPT(Except::DomainErrorException, msg));
+        throw(LSST_EXCEPT(pexExcept::DomainErrorException, msg));
     }
 
     //Calculate the best guess at image size
@@ -511,7 +511,7 @@ int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double quadSizeArcsecL
         else {
             msg += "No indices of a suitable scale were found";
         }
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, msg));
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
     }
     
     return nSuitable;
@@ -526,7 +526,7 @@ int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double quadSizeArcsecL
 lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs()  {
 
     if (! _isSolved) {
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
 
     // CHECK THIS -- Astrometry.net probably doesn't add or subtract 1 from your coordinates;
@@ -558,11 +558,11 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs()  {
 ///After solving, return a full Wcs including SIP distortion matrics
 lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order)  {
     if (! _isSolved) {
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
 
     if (! _starxy){
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Starlist isn't set"));
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "Starlist isn't set"));
     }
 
     //Generate an array of radec of positions in the field
@@ -586,7 +586,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
 
     //Check that tweaking worked.
     if (sip == NULL) {
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "Tweaking failed"));
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "Tweaking failed"));
     }
 
     ///Astro.net conforms with wcslib in assuming that images are 1-indexed (i.e the bottom left-most pixel
@@ -659,7 +659,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
 ///getYAstrom()
 lsst::afw::detection::SourceSet GlobalAstrometrySolution::getMatchedSources(){
     if (! _isSolved) {
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
     
     lsst::afw::detection::SourceSet set;
@@ -750,7 +750,7 @@ lsst::afw::detection::SourceSet
 GlobalAstrometrySolution::getCatalogue(double radiusInArcsec, string filterName) {
 
     if (! _isSolved) {
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
 
     //Don't free this pointer. It points to memory that will still exist
@@ -800,14 +800,14 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
             // Grab tag-along data here. If it's not there, throw an exception
             if (! startree_has_tagalong(index->starkd) ) {
                 msg = boost::str(boost::format("Index file \"%s\" has no metadata") % index->indexname);
-                throw(LSST_EXCEPT(Except::RuntimeErrorException, msg));
+                throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
             }
             mag = startree_get_data_column(index->starkd, filterName.c_str(), starinds, nstars);
 
             if (mag == NULL) {
                 msg = boost::str(boost::format("No meta data called %s found in index %s") %
                     filterName % index->indexname);
-                throw(LSST_EXCEPT(Except::RuntimeErrorException, msg));            }
+                throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));            }
         }
 
         //Create a source for every position stored
@@ -837,7 +837,7 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
 ///which return the intial guesses of platescale.
 double GlobalAstrometrySolution::getSolvedImageScale(){
     if (! _isSolved) {
-        throw(LSST_EXCEPT(Except::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
 
     return _solver->best_match.scale;
