@@ -7,44 +7,7 @@ import numpy as np
 import eups
 import lsst.meas.astrom as measAst
 import lsst.meas.astrom.sip as sip
-import sourceSetIO as ssi
 import astNet
-
-#plot=False
-#if plot:
-    #import matplotlib.pyplot as mpl
-
-def prep():
-    filename = os.path.join(eups.productDir("meas_astrom"), "examples", "cfht.xy.txt")
-    srcSet = ssi.read(filename)
-    
-    gas = astNet.loadAstromSolver()
-    flag=astNet.solveSrcSet(gas, srcSet, numObject=50, raDec=[334.303012, -17.233988], plateScaleLwr=.18,
-                        plateScaleUpr=.19)
-    
-    if flag==False:
-        print "No solution found"
-        return
-        
-    wcs = gas.getWcs()
-    imgSizeInArcsec = measAst.getImageSizeInArcsec(srcSet, wcs)
-    cat = gas.getCatalogue(float(2*imgSizeInArcsec)) #Catalogue of nearby stars
-
-    #Now generate a list of matching objects
-    distInArcsec = 1
-    cleanParam = 3
-
-    matchList = measAst.matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=wcs, 
-        distInArcsec=distInArcsec, cleanParam=cleanParam)
-            
-    if len(matchList) == 0:
-        print "No matches found between input source and catalogue."
-        print "Something in wrong. Defaulting to input wcs"
-        return 
-    
-    return matchList
-        
-
 
     
 
