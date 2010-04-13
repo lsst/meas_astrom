@@ -7,9 +7,6 @@ import numpy as np
 import eups
 import lsst.meas.astrom as measAst
 import lsst.meas.astrom.sip as sip
-import astNet
-
-    
 
 def calcPhotoCal(sourceMatch, log=None):
     """Calculate photometric calibration, i.e the zero point magnitude"""
