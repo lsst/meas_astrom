@@ -199,15 +199,15 @@ def getImageSizeInArcsec(srcSet, wcs):
     miny = min(y)
     maxy = max(y)
     
-    llc = wcs.xyToRaDec(minx, miny)
-    urc = wcs.xyToRaDec(maxx, maxy)
+    llc = wcs.pixelToSky(minx, miny)
+    urc = wcs.pixelToSky(maxx, maxy)
     
-    deltaRa = urc[0]-llc[0]
+    deltaRa = urc[0] - llc[0]
     deltaDec = urc[1] - llc[1]
     
     #Approximately right
     dist = math.sqrt(deltaRa**2 + deltaDec**2)
-    return dist*3600  #arcsec
+    return 3600*math.degrees(dist)  #arcsec
 
 
 def matchSrcAndCatalogue(cat=None, img=None, wcs=None, distInArcsec=1.0, cleanParam=3):
