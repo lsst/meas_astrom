@@ -279,7 +279,7 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
     double unc = imageScaleUncertaintyPercent/100.0;
 
     //This test is strictly unecessary as solverSetField throws the same exception
-    if ( _starxy) {
+    if (! _starxy) {
         throw LSST_EXCEPT(pexExcept::RuntimeErrorException, "Starlist hasn't been set yet");
     }
 
@@ -290,7 +290,7 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
     afwCoord::Coord::ConstPtr raDec = wcsPtr->pixelToSky(xc, yc);
     double const ra = raDec->getLongitude(afwCoord::DEGREES);
     double const dec = raDec->getLatitude(afwCoord::DEGREES);
-    double const plateScaleArcsecPerPixel = ::sqrt(wcsPtr->pixArea(afwGeom::makePointD(ra, dec)))*3600;
+    double const plateScaleArcsecPerPixel = sqrt(wcsPtr->pixArea(afwGeom::makePointD(ra, dec)))*3600;
     setMinimumImageScale(plateScaleArcsecPerPixel*(1 - unc));
     setMaximumImageScale(plateScaleArcsecPerPixel*(1 + unc));
     
@@ -409,8 +409,10 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
 
     //Set the range of sizes of quads to examine. funits are stored in units of arcsec
     //@FIXME the 10% and 1100% should be parameters
-    double quadSizeArcsecLwr = .01 * _solver->funits_lower*minSizePixels;
-    double quadSizeArcsecUpr = 1.10 * _solver->funits_upper*maxSizePixels;
+    _solver->quadsize_min = .1*minSizePixels;
+    _solver->quadsize_max = 1.9*1.1*maxSizePixels;
+
+    
 
     //Output some useful debugging info
     string msg;
@@ -426,9 +428,16 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
         % (_solver->funits_lower*minSizePixels) % (_solver->funits_upper*maxSizePixels)  );
     _mylog.log(pexLog::Log::DEBUG, msg);
 
+    msg = boost::str(boost::format("Examine Quads between %g and %g pixels") 
+        % (_solver->quadsize_min) % (_solver->quadsize_max) );
+    _mylog.log(pexLog::Log::DEBUG, msg);
+
+    double quadSizeArcsecLwr = _solver->quadsize_min * _solver->funits_lower;
+    double quadSizeArcsecUpr = _solver->quadsize_max * _solver->funits_upper;
     msg = boost::str(boost::format("Examine Quads between %g and %g arcsec") 
         % (quadSizeArcsecLwr) % (quadSizeArcsecUpr)  );
     _mylog.log(pexLog::Log::DEBUG, msg);
+
 
     _mylog.log(pexLog::Log::DEBUG, "Setting indices");
     _addSuitableIndicesToSolver(quadSizeArcsecLwr, quadSizeArcsecUpr, ra, dec);
@@ -436,7 +445,7 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
 
     _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
 
-    //solver_print_to(_solver, stdout);
+    solver_print_to(_solver, stdout);
 
     solver_run(_solver);
 
