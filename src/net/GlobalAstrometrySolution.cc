@@ -461,7 +461,8 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
 
     _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
 
-    solver_print_to(_solver, stdout);
+    //Useful debugging code, but not available until astrometry_net v 0.27
+    //solver_print_to(_solver, stdout);
 
     solver_run(_solver);
 
