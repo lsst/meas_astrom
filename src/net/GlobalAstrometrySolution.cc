@@ -151,9 +151,22 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
         double const y    = (*ptr)->getYAstrom();
         double const flux = (*ptr)->getPsfFlux();
 
-        starxy_set(_starxy, i, x, y);
-        starxy_set_flux(_starxy, i, flux);
-        ++i;
+        //Only include objects where positions and fluxes are positive finite values
+        if( isfinite(x)    && (x>0) &&
+            isfinite(y)    && (y>0) &&
+            isfinite(flux) && (flux>0)
+          ) {
+            
+            starxy_set(_starxy, i, x, y);
+            starxy_set_flux(_starxy, i, flux);
+            ++i;
+        }
+    }
+
+    if (i == 0) {
+        string msg = "Src list contains no valid objects. ";
+        msg += "Valid objects have positive, finite values for x, y and psfFlux";
+        throw(LSST_EXCEPT(pexExcept::LengthErrorException, msg));
     }
 
     //Sort the array
@@ -214,6 +227,9 @@ void GlobalAstrometrySolution::_solverSetField() {
     //Find field boundaries and precompute kdtree
     solver_preprocess_field(_solver);
 }   
+
+
+
 
 ///Set the plate scale of the image in arcsec per pixel
 void GlobalAstrometrySolution::setImageScaleArcsecPerPixel(double imgScale ///< Plate scale of image
