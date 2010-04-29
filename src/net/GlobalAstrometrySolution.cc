@@ -139,11 +139,11 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
         throw(LSST_EXCEPT(pexExcept::LengthErrorException, "Src list contains no objects"));
     }
 
-    if (_starxy != NULL) {
-        starxy_free(_starxy);
-    }
+
+    // Step 1. Copy every valid element of the input vector into a tempory starlist structure
+    // Valid means all of x, y and psfFlux are positive and finite.
     int const size = vec.size();
-    _starxy = starxy_new(size, true, false);   
+    starxy_t *tmpStarxy = starxy_new(size, true, false);   
 
     int i = 0;
     for (lsst::afw::detection::SourceSet::iterator ptr = vec.begin(); ptr != vec.end(); ++ptr) {
@@ -152,13 +152,12 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
         double const flux = (*ptr)->getPsfFlux();
 
         //Only include objects where positions and fluxes are positive finite values
-        if( isfinite(x)    && (x>0) &&
-            isfinite(y)    && (y>0) &&
+        if( isfinite(x)    && (x>=0) &&
+            isfinite(y)    && (y>=0) &&
             isfinite(flux) && (flux>0)
           ) {
-            
-            starxy_set(_starxy, i, x, y);
-            starxy_set_flux(_starxy, i, flux);
+            starxy_set(tmpStarxy, i, x, y);
+            starxy_set_flux(tmpStarxy, i, flux);
             ++i;
         }
     }
@@ -167,6 +166,28 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
         string msg = "Src list contains no valid objects. ";
         msg += "Valid objects have positive, finite values for x, y and psfFlux";
         throw(LSST_EXCEPT(pexExcept::LengthErrorException, msg));
+    }
+
+
+    //Step 2. Copy these elements into a new starxy structure of the correct size. If we don't 
+    //do this, starxy will report its size incorrectly, and we'll get confused later on.
+    if (_starxy != NULL) {
+        starxy_free(_starxy);
+    }
+    
+    if(i == size) {
+        //Every part of tmpStarxy is valid
+        _starxy = tmpStarxy;
+    } else {
+        _starxy = starxy_new(i, true, false);
+        
+        for(int j=0; j<i; ++j) {
+            starxy_set_x( _starxy, j, starxy_get_x( tmpStarxy, j));
+            starxy_set_y( _starxy, j, starxy_get_y( tmpStarxy, j));
+            starxy_set_flux( _starxy, j, starxy_get_flux( tmpStarxy, j));
+        }
+        
+        starxy_free(tmpStarxy);
     }
 
     //Sort the array
@@ -205,7 +226,6 @@ void GlobalAstrometrySolution::_solverSetField() {
     }
 
     int N = _numBrightObjects;  //Because I'm a lazy typist
-    
     //The default value, -1, indicates that all objects should be used
     if (N == USE_ALL_STARS_FOR_SOLUTION) {
         N = starxySize;
@@ -462,7 +482,9 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
     _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
 
     //Useful debugging code, but not available until astrometry_net v 0.27
-    //solver_print_to(_solver, stdout);
+#if 0
+    solver_print_to(_solver, stdout);
+#endif
 
     solver_run(_solver);
 
