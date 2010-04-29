@@ -31,8 +31,9 @@ def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=
     trim        Check that all sources lie within the image, and remove those that don't.
     """
 
-    if log is not None:
-        log.log(Log.INFO, "In determineWcs")
+    if log is None:
+        log = StdoutLog()   #Write log messages to stdout
+    log.log(Log.INFO, "In determineWcs")
 
 
     #Short names
@@ -98,6 +99,8 @@ def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=
     imgSizeInArcsec = getImageSizeInArcsec(srcSet, linearWcs)
     
     #Do we want magnitude information
+    filterName = chooseFilterName(exposure, policy, solver, log)
+    
     if filterName is None:
         cat = solver.getCatalogue(2*imgSizeInArcsec, "") 
     else:
@@ -165,6 +168,20 @@ def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=
     return [matchList, outWcs]
 
 
+
+class StdoutLog():
+    """If no log is passed, this class just writes the output to stdout, regardless of
+    log verbosity"""
+    
+    def __init__(self):
+        self.DEBUG="DEBUG"
+        self.INFO="INFO"
+        self.WARN="WARN"
+        
+    def log(self, arg1, arg2):
+        print "%s" %(arg2)
+
+
 def trimBadPoints(exp, srcSet):
     """Remove elements from srcSet whose xy positions aren't within the boundaries of exp
     
@@ -185,6 +202,45 @@ def trimBadPoints(exp, srcSet):
     return goodSet
     
     
+def chooseFilterName(exposure, policy, solver, log):
+    """When extracting catalogue magnitudes, which colour filter should we request
+    e.g U,B,V etc."""
+    
+    filterName = exposure.getFilter().getName()
+    
+    if log is None:
+        log = StdoutLog()
+        
+    log.log(Log.DEBUG, "Exposure was taken in %s band" %(filterName))
+    
+    availableFilters = solver.getCatalogueMetadataFields()
+    availableFiltersStr = ", ".join(availableFilters) #Expressed as a string
+
+    
+    if filterName in availableFilters:
+        log.log(Log.DEBUG, "Have catalogue magnitudes for %s" %(filterName))
+        return filterName
+    else:
+        log.log(Log.DEBUG, "Catalogue doesn't contain %s, only [%s]" %(filterName, availableFiltersStr))
+        log.log(Log.DEBUG, "Searching for default filter")
+        
+        try:
+            defaultFilter = policy.get("defaultFilterName")
+        except LsstCppException, e:
+            log.log(log.DEBUG, "No default filter is set")
+            return None
+
+        if defaultFilter in availableFilters:
+            log.log(log.DEBUG, "Using default filter name (%s)" %(defaultFilter))
+            return defaultFilter
+        else:
+            raise ValueError("Default filter %s not included in catalogue [%s]" \
+                    %(defaultFilter, availableFiltersStr))
+            
+    raise RuntimeError("This function should have returned before getting to this point")
+
+
+
     
 def getImageSizeInArcsec(srcSet, wcs):
     """ Get the approximate size of the image in arcseconds
