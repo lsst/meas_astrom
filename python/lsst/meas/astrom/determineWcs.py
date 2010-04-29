@@ -39,8 +39,6 @@ def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=
     exp = exposure
     srcSet = sourceSet
     
-    outputWcsKey = policy.get('outputWcsKey')
-    
     if doTrim:
         nStart = len(srcSet)
         srcSet = trimBadPoints(exp, srcSet)
@@ -76,12 +74,13 @@ def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=
         log.log(log.DEBUG, "Solving")
     
     if doBlindSolve or True:
+        log.log(log.DEBUG, "Solving with no initial guess at position")
         isSolved = solver.solve()
     else:
         isSolved = solver.solve(wcsIn)
 
     if log is not None:
-        log.log(log.DEBUG, "Finished Solve step")
+        log.log(log.DEBUG, "Finished Solve step.")
     if not isSolved:
         if log is not None:
             log.log(log.WARN, "No solution found, using input Wcs")
@@ -99,12 +98,13 @@ def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=
     imgSizeInArcsec = getImageSizeInArcsec(srcSet, linearWcs)
     
     #Do we want magnitude information
-    if filterName == None:
+    if filterName is None:
         cat = solver.getCatalogue(2*imgSizeInArcsec, "") 
     else:
         try:
+            print "Reading %s from catalogue" %(filterName)
             cat = solver.getCatalogue(2*imgSizeInArcsec, filterName) 
-        except LsstCppException(e):
+        except LsstCppException, e:
             log.log(Log.WARN, str(e))
             log.log(Log.WARN, "Attempting to access catalogue positions and fluxes")
             version = eups.productDir("astrometry_net_data")
@@ -143,7 +143,7 @@ def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=
         
         try:
             sipObject = astromSip.CreateWcsWithSip(matchList, linearWcs, maxScatter, maxSipOrder)
-        except LsstCppException(e):
+        except LsstCppException, e:
             log.log(Log.WARN, "Failed to calculate distortion terms. Error:")
             log.log(Log.WARN, str(e))
             log.log(Log.WARN, "Reverting to linear Wcs")
@@ -153,7 +153,13 @@ def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=
             log.log(Log.INFO, "Using %i th order SIP polynomial. Scatter is %.g arcsec" \
                 %(sipObject.getOrder(), sipObject.getScatterInArcsec()))
     
-        newWcs = sipObject.getNewWcs()    
+        outWcs = sipObject.getNewWcs()    
+        
+        log.log(Log.DEBUG, "Updating wcs in input exposure with distorted wcs")
+        exposure.setWcs(outWcs)
+    else:
+        log.log(Log.DEBUG, "Updating wcs in input exposure with linear wcs")
+        exposure.setWcs(linearWcs)
         
     solver.reset()
     return [matchList, outWcs]
