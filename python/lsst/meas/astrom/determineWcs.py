@@ -12,7 +12,7 @@ import sip as astromSip
 import sip.cleanBadPoints as cleanBadPoints
 
 
-def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=False):
+def determineWcs(policy, exposure, sourceSet, log=None, doTrim=False):
     """Top level function for calculating a Wcs. 
     
     Given an initial guess at a Wcs (hidden inside an exposure) and a set of
@@ -25,8 +25,6 @@ def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=
                 this provides the initial guess at position and plate scale
     sourceSet   A list of lsst.afw.detection.Source objects, indicating the pixel positions of 
                 stars in the field
-    filterName  The filter (i.e passband) of this exposure. Used when extracting a catalogue 
-                of matched objects.
     log         A lsst.pex.logging.Log object (optional), used for printing progress
     trim        Check that all sources lie within the image, and remove those that don't.
     """
@@ -51,8 +49,7 @@ def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=
     #Extract an initial guess wcs if available    
     wcsIn = exp.getWcs() #May be None
     if wcsIn is None:
-        if log is not None:    
-            log.log(log.WARN, "No wcs found on exposure. Doing blind solve")
+        log.log(log.WARN, "No wcs found on exposure. Doing blind solve")
     
     #Setup solver
     path=os.path.join(eups.productDir("astrometry_net_data"), "metadata.paf")
@@ -61,9 +58,8 @@ def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=
     matchThreshold = policy.get('matchThreshold')
     solver.setMatchThreshold(matchThreshold)
 
-    if log is not None:
-        log.log(log.DEBUG, "Setting starlist")
-        log.log(log.DEBUG, "Setting numBrightObj")
+    log.log(log.DEBUG, "Setting starlist")
+    log.log(log.DEBUG, "Setting numBrightObj")
     
     solver.setStarlist(srcSet)
     solver.setNumBrightObjects(policy.get('numBrightStars'))
@@ -71,8 +67,7 @@ def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=
     #Do a blind solve if we're told to, or if we don't have an input wcs
     doBlindSolve = policy.get('blindSolve') or (wcsIn is None)
     
-    if log is not None:
-        log.log(log.DEBUG, "Solving")
+    log.log(log.DEBUG, "Solving")
     
     if doBlindSolve:
         log.log(log.DEBUG, "Solving with no initial guess at position")
@@ -80,11 +75,9 @@ def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=
     else:
         isSolved = solver.solve(wcsIn)
 
-    if log is not None:
-        log.log(log.DEBUG, "Finished Solve step.")
+    log.log(log.DEBUG, "Finished Solve step.")
     if not isSolved:
-        if log is not None:
-            log.log(log.WARN, "No solution found, using input Wcs")
+        log.log(log.WARN, "No solution found, using input Wcs")
         return None, wcsIn
     
 
@@ -93,8 +86,7 @@ def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=
     #
     
     #First obtain the catalogue-listed positions of stars
-    if log is not None:
-        log.log(log.DEBUG, "Determining match objects")
+    log.log(log.DEBUG, "Determining match objects")
     linearWcs = solver.getWcs()
     imgSizeInArcsec = getImageSizeInArcsec(srcSet, linearWcs)
     
@@ -126,13 +118,11 @@ def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=
         distInArcsec=distInArcsec, cleanParam=cleanParam)
             
     if len(matchList) == 0:
-        if log is not None:
-            log.log(Log.WARN, "No matches found between input source and catalogue.")
-            log.log(Log.WARN, "Something in wrong. Defaulting to input wcs")
+        log.log(Log.WARN, "No matches found between input source and catalogue.")
+        log.log(Log.WARN, "Something in wrong. Defaulting to input wcs")
         return None, wcsIn
         
-    if log is not None:
-        log.log(Log.INFO, "%i objects out of %i match sources listed in catalogue" %(len(matchList), len(srcSet)))
+    log.log(Log.INFO, "%i objects out of %i match sources listed in catalogue" %(len(matchList), len(srcSet)))
         
 
     #
@@ -152,9 +142,8 @@ def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=
             log.log(Log.WARN, "Reverting to linear Wcs")
             return [matchList, outWcs]
 
-        if log is not None:
-            log.log(Log.INFO, "Using %i th order SIP polynomial. Scatter is %.g arcsec" \
-                %(sipObject.getOrder(), sipObject.getScatterInArcsec()))
+        log.log(Log.INFO, "Using %i th order SIP polynomial. Scatter is %.g arcsec" \
+            %(sipObject.getOrder(), sipObject.getScatterInArcsec()))
     
         outWcs = sipObject.getNewWcs()    
         
