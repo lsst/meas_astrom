@@ -74,7 +74,7 @@ def determineWcs(policy, exposure, sourceSet, filterName=None, log=None, doTrim=
     if log is not None:
         log.log(log.DEBUG, "Solving")
     
-    if doBlindSolve or True:
+    if doBlindSolve:
         log.log(log.DEBUG, "Solving with no initial guess at position")
         isSolved = solver.solve()
     else:
