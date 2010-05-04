@@ -197,12 +197,17 @@ def chooseFilterName(exposure, policy, solver, log):
     
     if log is None:
         log = StdoutLog()
-        
+    
     filterName = exposure.getFilter().getName()
     if filterName == "_unknown_":   #No symbol for this in afw
         log.log(log.DEBUG, "Exposure has no filter info. Using default")
-        filterName = policy.get("defaultFilterName")
+        try:
+            filterName = policy.get("defaultFilterName")
+        except LsstCppException, e:
+            log.log(log.DEBUG, "No default filter is set")
+            return None
     
+
     log.log(Log.DEBUG, "Exposure was taken in %s band" %(filterName))
     
     availableFilters = solver.getCatalogueMetadataFields()
