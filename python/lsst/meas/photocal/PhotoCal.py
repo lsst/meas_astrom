@@ -8,17 +8,21 @@ import eups
 import lsst.meas.astrom as measAst
 import lsst.meas.astrom.sip as sip
 
+import matplotlib.pyplot as mpl
+
 def calcPhotoCal(sourceMatch, log=None):
     """Calculate photometric calibration, i.e the zero point magnitude"""
     
     #Convert fluxes to magnitudes
-    catMags, instMags = getMagnitudes(sourceMatch)
+    out = getMagnitudes(sourceMatch)
 
     #Fit to get zeropoint
-    lsf = robustFit(catMags, instMags, order=2, plot=True)
+    lsf = robustFit(out["src"], out["cat"], order=2, plot=True)
     par = lsf.getParams()
     err = lsf.getErrors()
     
+    print par
+    print err
     #Sanity check output
     if not(par[1] - err[1] < 1 and par[1] + err[1] > 1):
         raise RuntimeError("Slope of fitting function is not 1 (%g +- %g) " %(par[1], err[1]))
@@ -40,9 +44,6 @@ def getMagnitudes(sourceMatch):
     fluxSrc[ fluxSrc<=0 ] = 1e-99
     fluxCat[ fluxCat<=0 ] = 1e-99
 
-    #@DEBUG. Catalogue fluxes are currently set to zero, so we'll invent values for them
-    fluxCat = fluxSrc*.251
-    
     #Convert to mags
     magSrc = -2.5*np.log10(fluxSrc)
     magCat = -2.5*np.log10(fluxCat)
@@ -50,7 +51,17 @@ def getMagnitudes(sourceMatch):
     #magSrcErr = fluxSrcErr/fluxSrc/np.log(10)
     #magCatErr = fluxSrcErr/fluxSrc/np.log(10)
     
-    return magSrc, magCat
+    #mpl.plot(magSrc, magCat, "ro")
+    #mpl.show()
+    print magSrc
+    print magCat
+    
+    #I need to return two arrays, but am bound to get the order 
+    #confused at some point, so use a dictionary instead
+    out = dict()
+    out["src"] = magSrc
+    out["cat"] = magCat
+    return out
     
 
 
@@ -219,6 +230,4 @@ def clean(x, y, order=2, sigmaClip=3, maxIter=5):
 def main():
     sourceMatch = prep()
     print calcPhotometricZeroPoint(sourceMatch)  
-    if plot:
-        mpl.show()
 
