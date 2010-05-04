@@ -866,7 +866,7 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
             ptr->setDec(radec[2*j + 1]);
             
             if(mag != NULL) {   //convert mag to flux
-	      ptr->setPsfFlux( pow(10.0, -mag[j]/2.5) );
+                ptr->setPsfFlux( pow(10.0, -mag[j]/2.5) );
             }
 
             out.push_back(ptr);
