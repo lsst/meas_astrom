@@ -195,11 +195,14 @@ def chooseFilterName(exposure, policy, solver, log):
     """When extracting catalogue magnitudes, which colour filter should we request
     e.g U,B,V etc."""
     
-    filterName = exposure.getFilter().getName()
-    
     if log is None:
         log = StdoutLog()
         
+    filterName = exposure.getFilter().getName()
+    if filterName == "_unknown_":   #No symbol for this in afw
+        log.log(log.DEBUG, "Exposure has no filter info. Using default")
+        filterName = policy.get("defaultFilterName")
+    
     log.log(Log.DEBUG, "Exposure was taken in %s band" %(filterName))
     
     availableFilters = solver.getCatalogueMetadataFields()
