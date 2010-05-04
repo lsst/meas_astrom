@@ -8,6 +8,8 @@ import eups
 import lsst.meas.astrom as measAst
 import lsst.meas.astrom.sip as sip
 
+from lsst.meas.photocal.PhotometricMagnitude import PhotometricMagnitude
+
 import matplotlib.pyplot as mpl
 
 def calcPhotoCal(sourceMatch, log=None):
@@ -21,13 +23,17 @@ def calcPhotoCal(sourceMatch, log=None):
     par = lsf.getParams()
     err = lsf.getErrors()
     
-    print par
-    print err
     #Sanity check output
     if not(par[1] - err[1] < 1 and par[1] + err[1] > 1):
         raise RuntimeError("Slope of fitting function is not 1 (%g +- %g) " %(par[1], err[1]))
         
-    return float(par[0]), float(err[0])
+    
+    #Initialise and return a magnitude object
+    medianInstMag = np.median(out["src"])
+    medianFlux = np.power(10, -medianInstMag/2.5)
+    mag = lsf.valueAt(medianInstMag)
+    
+    return PhotometricMagnitude(zeroFlux=medianFlux, zeroMag=mag)
 
 
 def getMagnitudes(sourceMatch):
@@ -53,8 +59,6 @@ def getMagnitudes(sourceMatch):
     
     #mpl.plot(magSrc, magCat, "ro")
     #mpl.show()
-    print magSrc
-    print magCat
     
     #I need to return two arrays, but am bound to get the order 
     #confused at some point, so use a dictionary instead
@@ -102,6 +106,14 @@ def robustFit(x, y, order=2, plot=False):
     #if plot:
         #mpl.plot(x, y, 'ro')
         #mpl.plot(rx, ry, 'ks-')
+        #lsf = sip.LeastSqFitter1dPoly(list(rx), list(ry), list(rs), order)
+        #print lsf.getParams()
+        #
+        #fitx = range(-16, -9)
+        #fity = map(lambda x: lsf.valueAt(x), fitx)
+        #mpl.plot(fitx, fity, 'g-')
+        #
+        #mpl.show()
         
     return sip.LeastSqFitter1dPoly(list(rx), list(ry), list(rs), order)
     
@@ -217,17 +229,3 @@ def clean(x, y, order=2, sigmaClip=3, maxIter=5):
         oldSize=newSize
         newSize = len(x)
         
-
-
-
-
-
-
-
-
-
-
-def main():
-    sourceMatch = prep()
-    print calcPhotometricZeroPoint(sourceMatch)  
-
