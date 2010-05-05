@@ -136,23 +136,22 @@ def determineWcs(policy, exposure, sourceSet, log=None, doTrim=False):
         
         try:
             sipObject = astromSip.CreateWcsWithSip(matchList, linearWcs, maxScatter, maxSipOrder)
+            log.log(Log.INFO, "Using %i th order SIP polynomial. Scatter is %.g arcsec" \
+                    %(sipObject.getOrder(), sipObject.getScatterInArcsec()))
+    
+            log.log(Log.DEBUG, "Updating wcs in input exposure with distorted wcs")
+            outWcs = sipObject.getNewWcs()    
         except LsstCppException, e:
             log.log(Log.WARN, "Failed to calculate distortion terms. Error:")
             log.log(Log.WARN, str(e))
             log.log(Log.WARN, "Reverting to linear Wcs")
-            return [matchList, outWcs]
-
-        log.log(Log.INFO, "Using %i th order SIP polynomial. Scatter is %.g arcsec" \
-            %(sipObject.getOrder(), sipObject.getScatterInArcsec()))
-    
-        outWcs = sipObject.getNewWcs()    
+            log.log(Log.DEBUG, "Updating wcs in input exposure with linear wcs")
+            outWcs = linearWcs
         
-        log.log(Log.DEBUG, "Updating wcs in input exposure with distorted wcs")
-        exposure.setWcs(outWcs)
     else:
         log.log(Log.DEBUG, "Updating wcs in input exposure with linear wcs")
-        exposure.setWcs(linearWcs)
         
+    exposure.setWcs(outWcs)
     solver.reset()
     return [matchList, outWcs]
 
