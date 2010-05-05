@@ -105,7 +105,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, doTrim=False):
             version = eups.productDir("astrometry_net_data")
             log.log(Log.WARN, "Catalogue version: %s" %(version))
             log.log(Log.WARN, "Requested filter: %s" %(filterName))
-            log.log(Log.WARN, "Available filters: " + solver.getCatalogueMetadataFields())
+            log.log(Log.WARN, "Available filters: " + str(solver.getCatalogueMetadataFields()))
             raise
             
         
