@@ -10,8 +10,6 @@ import lsst.meas.astrom.sip as sip
 
 from lsst.meas.photocal.PhotometricMagnitude import PhotometricMagnitude
 
-import matplotlib.pyplot as mpl
-
 def calcPhotoCal(sourceMatch, log=None):
     """Calculate photometric calibration, i.e the zero point magnitude"""
     
