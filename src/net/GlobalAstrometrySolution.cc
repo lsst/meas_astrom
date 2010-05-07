@@ -13,11 +13,20 @@ namespace net {
 
 using namespace std;
 namespace afwCoord = lsst::afw::coord;
-namespace pexExcept = lsst::pex::exceptions;
+namespace Except = lsst::pex::exceptions;
 namespace Det = lsst::afw::detection;
 namespace pexLog = lsst::pex::logging;
 
+
 int const USE_ALL_STARS_FOR_SOLUTION = -1;
+
+//Refuse to try to solve star lists with fewer than this many objects. Doing so
+//increases the chances of returning a false match. The number twenty is
+//recommended by astrometry.net as a minimum value.
+static int defaultMinimumNumberOfObjectsToAccept = 20;
+
+
+
 //
 //Constructors, Destructors
 //
@@ -27,6 +36,7 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
     _solver(NULL), 
     _starxy(NULL), 
     _numBrightObjects(USE_ALL_STARS_FOR_SOLUTION),
+    _minimumNumberOfObjectsToAccept(defaultMinimumNumberOfObjectsToAccept),
     _isSolved(false) {
     
     _solver   = solver_new();
@@ -139,6 +149,11 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
         throw(LSST_EXCEPT(pexExcept::LengthErrorException, "Src list contains no objects"));
     }
 
+    if (vec.size() < (unsigned int) _minimumNumberOfObjectsToAccept) {
+        string msg = boost::str(boost::format("Source list should contain at least %i objects\n") % \
+                 _minimumNumberOfObjectsToAccept);
+        throw(LSST_EXCEPT(Except::LengthErrorException, msg));
+    }
 
     // Step 1. Copy every valid element of the input vector into a tempory starlist structure
     // Valid means all of x, y and psfFlux are positive and finite.
@@ -162,8 +177,9 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
         }
     }
 
-    if (i == 0) {
-        string msg = "Src list contains no valid objects. ";
+    if (i < (unsigned int) _minimumNumberOfObjectsToAccept) {
+        string msg = boost::str(boost::format( \
+            "Source list only has %i valid objects, needs %i\n") % i % _minimumNumberOfObjectsToAccept);
         msg += "Valid objects have positive, finite values for x, y and psfFlux";
         throw(LSST_EXCEPT(pexExcept::LengthErrorException, msg));
     }

@@ -82,6 +82,13 @@ public:
     void setMatchThreshold(double threshold);
     void setParity(int parity);
 
+    ///Finding a match requires a minimum number of objects in the field. astrometry.net
+    ///recommends at least 20, which is the default value for the class. Setting
+    ///the value any lower is probably not a good idea, and may lead to false matches.
+    void setMinimumNumberOfObjectsToAccept(double num){
+        _minimumNumberOfObjectsToAccept = num;
+    }
+
     //Solve for a wcs solution
     bool solve();
     bool solve(const afw::image::PointD raDec);
@@ -112,6 +119,8 @@ private:
     solver_t *_solver;
     starxy_t *_starxy;   ///List of sources to solve for
     int _numBrightObjects;   //Only use the brightest objects in solve.
+    //Refuse to add starlists with fewer objects than this value
+    int _minimumNumberOfObjectsToAccept; 
         
     //Variables indicating the coordinate system of the solution
     double _equinox;
