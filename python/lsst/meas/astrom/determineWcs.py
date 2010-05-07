@@ -61,8 +61,9 @@ def determineWcs(policy, exposure, sourceSet, log=None, doTrim=False):
     log.log(log.DEBUG, "Setting starlist")
     log.log(log.DEBUG, "Setting numBrightObj")
     
+    #Use at most numBrightStars in the solution.
     solver.setStarlist(srcSet)
-    solver.setNumBrightObjects(policy.get('numBrightStars'))
+    solver.setNumBrightObjects( min(policy.get('numBrightStars'), len(srcSet)))
 
     #Do a blind solve if we're told to, or if we don't have an input wcs
     doBlindSolve = policy.get('blindSolve') or (wcsIn is None)
