@@ -843,36 +843,41 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
         int nstars = 0;
         startree_search_for(index->starkd, center, radius2, NULL, &radec, &starinds, &nstars);
 
-        double *mag = NULL;
-        if (filterName != "") {
-            // Grab tag-along data here. If it's not there, throw an exception
-            if (! startree_has_tagalong(index->starkd) ) {
-                msg = boost::str(boost::format("Index file \"%s\" has no metadata") % index->indexname);
-                throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
-            }
-            mag = startree_get_data_column(index->starkd, filterName.c_str(), starinds, nstars);
+        if (nstars > 0) {
+            double *mag = NULL;
+            if (filterName != "") {
+                // Grab tag-along data here. If it's not there, throw an exception
+                if (! startree_has_tagalong(index->starkd) ) {
+                    msg = boost::str(boost::format("Index file \"%s\" has no metadata") % index->indexname);
+                    throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
+                }
+                mag = startree_get_data_column(index->starkd, filterName.c_str(), starinds, nstars);
 
-            if (mag == NULL) {
-                msg = boost::str(boost::format("No meta data called %s found in index %s") %
-                    filterName % index->indexname);
-                throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));            }
-        }
-
-        //Create a source for every position stored
-        for (int j = 0; j<nstars; ++j) {
-            Det::Source::Ptr ptr(new lsst::afw::detection::Source());
-
-            ptr->setRa(radec[2*j]);
-            ptr->setDec(radec[2*j + 1]);
-            
-            if(mag != NULL) {   //convert mag to flux
-                ptr->setPsfFlux( pow(10.0, -mag[j]/2.5) );
+                if (mag == NULL) {
+                    msg = boost::str(boost::format("No meta data called %s found in index %s") %
+                        filterName % index->indexname);
+                    throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));            }
             }
 
-            out.push_back(ptr);
+            //Create a source for every position stored
+            for (int j = 0; j<nstars; ++j) {
+                Det::Source::Ptr ptr(new lsst::afw::detection::Source());
+
+                ptr->setRa(radec[2*j]);
+                ptr->setDec(radec[2*j + 1]);
+
+                if(mag != NULL) {   //convert mag to flux
+                    ptr->setPsfFlux( pow(10.0, -mag[j]/2.5) );
+                }
+
+                out.push_back(ptr);
+            }
+
+            free(mag);
+
         }
+        
         free(radec);    
-        free(mag);
     }
 
     return out;
