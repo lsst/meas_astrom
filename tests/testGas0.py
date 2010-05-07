@@ -76,18 +76,18 @@ class GlobalAstrometrySolutionTest(unittest.TestCase):
             raise ValueError("Couldn't set up cfht version of astrometry_net_data: %s" %(reason))
         
         metaFile = os.path.join(eups.productDir("astrometry_net_data"), "metadata.paf")
-        
         self.gas = net.GlobalAstrometrySolution(metaFile)
+
+        starlistFile = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
+        self.starlist = loadXYFromFile(starlistFile)
 
     def tearDown(self):
         del self.gas
 
     
     def testSetStarlist(self):
-        starlistFile = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
-        starlist = loadXYFromFile(starlistFile)
-        
-        starlist = starlist[:10]
+        """Fail if too many objects in the starlist are in valid"""
+        starlist = self.starlist[:30]
         
         numStars = len(starlist)
         starlist[0].setXAstrom( float("nan"))   #Nan
@@ -105,6 +105,11 @@ class GlobalAstrometrySolutionTest(unittest.TestCase):
         self.assertRaises(pexExcept.LsstCppException, 
                 self.gas.setNumBrightObjects, (numStars-5))
 
+    def testSetStarlistThatIsTooShort(self):
+        """Don't accept a star list that's too short"""
+        starlist=self.starlist[:10]
+        self.assertRaises(pexExcept.LsstCppException, 
+                self.gas.setStarlist, starlist)
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
