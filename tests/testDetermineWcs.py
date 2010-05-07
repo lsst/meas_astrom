@@ -48,7 +48,7 @@ class chooseFilterNameTest(unittest.TestCase):
 
         #
         ##Load a solver
-        metaFile = os.path.join(eups.productDir("astrometry_net_data"), "short.paf")
+        metaFile = os.path.join(eups.productDir("astrometry_net_data"), "metadata.paf")
         self.solver = net.GlobalAstrometrySolution(metaFile)
         #
         #Load the policy file
