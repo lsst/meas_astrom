@@ -48,18 +48,6 @@ class PhotometricMagnitude():
         return output
         
     
-    def doFoo(self, inValue):
-        print "In doFoo"
-        print type(inValue), inValue.size, inValue.shape
-        
-        #out = np.array(inValue)
-        inType = type(inValue)
-        out = inType(inValue)
-        
-        print type(out), out.size, out.shape
-        print "Leaving doFoo"
-        return out
-        
     def getFlux(self, mag):
         """Convert a magnitude to a flux 
         
