@@ -26,11 +26,25 @@ import sourceSetIO as ssi
 class PhotoCalTest(unittest.TestCase):
 
     def setUp(self):
-        #Load the policy file
-        policyFile = pexPolicy.DefaultPolicyFile("meas_pipeline", 
-                    "WcsDeterminationStageDictionary.paf", "policy")
-                    
-        self.defaultPolicy = pexPolicy.Policy.createPolicy(policyFile, policyFile.getRepositoryPath(), True)
+        self.defaultPolicy = pexPolicy.Policy.createPolicy(pexPolicy.PolicyString(
+        """#<?cfg paf policy?>     
+        inputExposureKey: visitExposure
+        inputSourceSetKey: sourceSet
+        allowDistortion: true
+        matchThreshold: 22
+        blindSolve: false
+        outputWcsKey: measuredWcs
+        outputMatchListKey: matchList
+        distanceForCatalogueMatchinArcsec: 1.0
+        cleaningParameter: 3
+        calculateSip: true
+        numBrightStars: 75
+        defaultFilterName: mag
+        wcsToleranceInArcsec: .3
+        maxSipOrder: 9
+        """
+        ))
+        
 
         #Load sample input from disk
         path = os.path.join(eups.productDir("meas_astrom"), "examples")
@@ -41,8 +55,7 @@ class PhotoCalTest(unittest.TestCase):
         #print "Setting up meas_astrom cfhtlsDeep"
         eupsObj = eups.Eups()
 
-        #ok, version, reason = eupsObj.setup("astrometry_net_data", versionName="cfhtlsDeep")
-        ok, version, reason = eupsObj.setup("astrometry_net_data", versionName="fergalDebug")
+        ok, version, reason = eupsObj.setup("astrometry_net_data", versionName="cfhtlsDeep")
         if not ok:
             raise ValueError("Couldn't set up cfhtlsDeep version of astrometry_net_data: %s" %(reason))
 
@@ -56,6 +69,7 @@ class PhotoCalTest(unittest.TestCase):
         matches, wcs = measAstrom.determineWcs(self.defaultPolicy, self.exposure, \
                 self.srcSet)
         
+           
         pCal = photocal.calcPhotoCal(matches)
         print pCal
 
