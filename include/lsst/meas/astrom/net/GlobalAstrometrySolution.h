@@ -16,6 +16,7 @@
 #include "lsst/pex/exceptions.h"
 #include "lsst/pex/logging/Trace.h"
 #include "lsst/afw/detection/Source.h"
+#include "lsst/afw/detection/SourceMatch.h"
 #include "lsst/afw/image/Wcs.h"
 #include "lsst/afw/image/Utils.h"
 #include "lsst/pex/policy/Policy.h"
@@ -98,7 +99,7 @@ public:
     //Return the solution
     lsst::afw::image::Wcs::Ptr getWcs();
     lsst::afw::image::Wcs::Ptr getDistortedWcs(int order = 3);
-    lsst::afw::detection::SourceSet getMatchedSources();
+    std::vector<boost::shared_ptr<lsst::afw::detection::SourceMatch> > getMatchedSources();
     double getSolvedImageScale();
 
     std::vector<std::string> getCatalogueMetadataFields();

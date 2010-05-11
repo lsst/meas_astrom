@@ -560,7 +560,7 @@ class SmallSolveGASTestCFHT(unittest.TestCase):
             print "testCFHTc"
 
         if not self.gas.exists():
-            return            self.assertAlmostEqual(sRaDec.getY(), wRaDec.getY(), 3, "y coord failed for getMatchedSources()")
+            return self.assertAlmostEqual(sRaDec.getY(), wRaDec.getY(), 3, "y coord failed for getMatchedSources()")
 
 
         crval = afwImage.PointD(334.303215, -17.329315)
@@ -617,11 +617,6 @@ class SmallSolveGASTestCFHT(unittest.TestCase):
         wcs = self.gas.getDistortedWcs()
         self.gas.setLogLevel(0)
 
-
-    def testSolveWcs(self):
-        """Can't be tested until I figure out the LSST way of interfacing Eigen Matrices"""
-        pass
-
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 
@@ -630,6 +625,7 @@ def suite():
     utilsTests.init()
 
     suites = []
+    #These tests take to long to run, and only repeat what cfht is doing, so I should remove them.
     #suites += unittest.makeSuite(WCSTestCaseNetUSNOB)
     suites += unittest.makeSuite(SmallSolveGASTestCFHT)
     suites += unittest.makeSuite(utilsTests.MemoryTestCase)

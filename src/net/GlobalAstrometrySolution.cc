@@ -12,6 +12,7 @@ namespace net {
 
 
 using namespace std;
+namespace afwImg = lsst::afw::image;
 namespace afwCoord = lsst::afw::coord;
 namespace Except = lsst::pex::exceptions;
 namespace Det = lsst::afw::detection;
@@ -177,7 +178,7 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
         }
     }
 
-    if (i < (unsigned int) _minimumNumberOfObjectsToAccept) {
+    if (i < (int) _minimumNumberOfObjectsToAccept) {
         string msg = boost::str(boost::format( \
             "Source list only has %i valid objects, needs %i\n") % i % _minimumNumberOfObjectsToAccept);
         msg += "Valid objects have positive, finite values for x, y and psfFlux";
@@ -393,7 +394,7 @@ bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal
 
     if (_isSolved){
         char *indexname = _solver->index->indexname;
-        msg = boost::str(boost::format("Position verified. Solved index is %s") % indexname);
+        msg = boost::str(boost::format("Solved index is %s") % indexname);
     }
     else {
         msg = boost::str(boost::format("Failed to verify position (%.7f %.7f)\n") % ra % dec);
@@ -506,6 +507,11 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
 
     if(_solver->best_match_solves> 0) {
         _isSolved = true;
+
+        MatchObj* match = &_solver->best_match;
+        msg = boost::str(boost::format("Solved: %i matches, %i conflicts") \
+                % (int) match->nmatch % (int) match->nconflict);
+       _mylog.log(pexLog::Log::DEBUG, msg);
     } else {
         _isSolved = false;
     }
@@ -716,63 +722,63 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
 }    
 
 
-///\brief Return a list of the stars used to solve the image.
-///After solving an image, use this function to return the set of objects that was used to determine a
-///solution. Typically this list will be about 4 or 5 objects long. The ra dec of each object is 
-///accessed using src.getRa() and src.getDec(), while the chip coords are accessed with  getXAstrom(),
-///getYAstrom()
-lsst::afw::detection::SourceSet GlobalAstrometrySolution::getMatchedSources(){
+
+///\brief Return a list of the sources that match and the catalogue objects they matched to.
+///
+///For each object in the catalogue that matches an input source return a SourceMatch object
+///containing a) the catalogue object, b) the source object, c) the distance between them in pixels
+///For the two objects, X,YAstrom and Ra/Dec are set.
+vector<boost::shared_ptr<Det::SourceMatch> > GlobalAstrometrySolution::getMatchedSources(){
     if (! _isSolved) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
     
-    lsst::afw::detection::SourceSet set;
-
     MatchObj* match = &_solver->best_match;
-
-    // Grab tag-along data.
-    startree_t* skdt = match->index->starkd;
-    double* umag = startree_get_data_column(skdt, "u", match->refstarid, match->nindex);
-    double* gmag = startree_get_data_column(skdt, "g", match->refstarid, match->nindex);
-    double* rmag = startree_get_data_column(skdt, "r", match->refstarid, match->nindex);
-    double* imag = startree_get_data_column(skdt, "i", match->refstarid, match->nindex);
-    double* zmag = startree_get_data_column(skdt, "z", match->refstarid, match->nindex);
-    double* uerr = startree_get_data_column(skdt, "u_err", match->refstarid, match->nindex);
-    double* gerr = startree_get_data_column(skdt, "g_err", match->refstarid, match->nindex);
-    double* rerr = startree_get_data_column(skdt, "r_err", match->refstarid, match->nindex);
-    double* ierr = startree_get_data_column(skdt, "i_err", match->refstarid, match->nindex);
-    double* zerr = startree_get_data_column(skdt, "z_err", match->refstarid, match->nindex);
-    double* reddening = startree_get_data_column(skdt, "reddening", match->refstarid, match->nindex);
-
+    vector<boost::shared_ptr<Det::SourceMatch> > sourceMatchSet;
+    afwImg::Wcs::Ptr wcsPtr = this->getWcs();
+    wcsPtr->getPixelOrigin();
+    wcsPtr->pixelToSky(1587, 2926);
+    
     for (int i=0; i<match->nfield; i++) {
         // "theta" is the mapping from image (aka field) stars to index (aka reference) stars.
         // negative means no match.
         if (match->theta[i] < 0)
             continue;
-        lsst::afw::detection::Source::Ptr ptr(new lsst::afw::detection::Source());
-        ptr->setXAstrom(starxy_getx(_solver->fieldxy, i));
-        ptr->setYAstrom(starxy_gety(_solver->fieldxy, i));
-
-        double ra, dec;
-        //This function is defined in astrometry.net. It converts the position of the star
+        
+        //Matching input sources    
+        lsst::afw::detection::Source::Ptr sPtr(new lsst::afw::detection::Source());
+        double x = starxy_getx(_solver->fieldxy, i);
+        double y = starxy_gety(_solver->fieldxy, i);
+        sPtr->setXAstrom(x);
+        sPtr->setYAstrom(y);
+        
+        afwCoord::Coord::Ptr cooPtr = wcsPtr->pixelToSky(x, y);
+        sPtr->setRa(cooPtr->toFk5().getRa(afwCoord::DEGREES));
+        sPtr->setDec(cooPtr->toFk5().getDec(afwCoord::DEGREES));
+        
+        //Matching catalogue objects
+        lsst::afw::detection::Source::Ptr cPtr(new lsst::afw::detection::Source());
+        //xyzarr2radecdeg() is defined in astrometry.net. It converts the position of the star
         //as a three dimensional unit vector to ra,dec.
+        double ra, dec;
         xyzarr2radecdeg(match->refxyz + match->theta[i]*3, &ra, &dec);
-        ptr->setRa(ra);
-        ptr->setDec(dec);
+        cPtr->setRa(ra);
+        cPtr->setDec(dec);
 
-        // int I = match->theta[i]
-        // ptr->setMags(umag[I], gmag[I], rmag[I], imag[I], zmag[I])
-        // ptr->setMagErrs(uerr[I], gerr[I], rerr[I], ierr[I], zerr[I])
-        // ptr->setReddening(reddening[I]);  // e(b-v)
+        lsst::afw::geom::PointD p = wcsPtr->skyToPixel(ra, dec);
+        cPtr->setXAstrom(p[0]);
+        cPtr->setYAstrom(p[1]);
 
-        set.push_back(ptr);
+
+        double dx = cPtr->getXAstrom() - sPtr->getXAstrom();
+        double dy = cPtr->getYAstrom() - sPtr->getYAstrom();
+        double dist = hypot(dx, dy);
+        boost::shared_ptr<Det::SourceMatch> smPtr(new Det::SourceMatch(cPtr, sPtr, dist));
+        sourceMatchSet.push_back(smPtr);
     }
 
-    free(umag); free(gmag); free(rmag); free(imag); free(zmag);
-    free(uerr); free(gerr); free(rerr); free(ierr); free(zerr);
-    free(reddening);
 
-    return set;
+    return sourceMatchSet;
 }
 
 
