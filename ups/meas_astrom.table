@@ -1,4 +1,4 @@
-setupRequired(afw >= 3.3.21)
+setupRequired(afw >= 3.3.22)
 
 setupRequired(wcslib >= 4.4.4)
 setupRequired(astrometry_net >= 0.26)
