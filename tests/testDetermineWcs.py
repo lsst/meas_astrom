@@ -51,13 +51,25 @@ class chooseFilterNameTest(unittest.TestCase):
         metaFile = os.path.join(eups.productDir("astrometry_net_data"), "metadata.paf")
         self.solver = net.GlobalAstrometrySolution(metaFile)
         #
-        #Load the policy file
-        policyFile = pexPolicy.DefaultPolicyFile("meas_pipeline", 
-                    "WcsDeterminationStageDictionary.paf", "policy")
-                    
-        self.defaultPolicy = pexPolicy.Policy.createPolicy(policyFile, policyFile.getRepositoryPath(), True)
-        #self.policy = pexPolicy.Policy()
-        #self.policy.mergeDefaults(self.defaultPolicy.getDictionary())
+        self.defaultPolicy = pexPolicy.Policy.createPolicy(pexPolicy.PolicyString(
+        """#<?cfg paf policy?>     
+        inputExposureKey: visitExposure
+        inputSourceSetKey: sourceSet
+        allowDistortion: true
+        matchThreshold: 22
+        blindSolve: false
+        outputWcsKey: measuredWcs
+        outputMatchListKey: matchList
+        distanceForCatalogueMatchinArcsec: 1.0
+        cleaningParameter: 3
+        calculateSip: true
+        numBrightStars: 75
+        defaultFilterName: mag
+        wcsToleranceInArcsec: .3
+        maxSipOrder: 9
+        """
+        ))
+        
                     
     def tearDown(self):
         del self.exposure
@@ -100,7 +112,8 @@ class chooseFilterNameTest(unittest.TestCase):
         newPolicy = pexPolicy.Policy()
         newPolicy.set("defaultFilterName", "V")
         
-        newPolicy.mergeDefaults(self.defaultPolicy.getDictionary())
+        #self.defaultPolicy.mergeDefaults(newPolicy.getDictionary())
+        newPolicy.mergeDefaults(self.defaultPolicy)
         
         self.assertEqual( newPolicy.get("defaultFilterName"), "V")
 
