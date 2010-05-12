@@ -7,6 +7,7 @@
 #include <vector>
 #include <string>
 #include <cmath>
+#include <cfloat>
 
 #include "boost/cstdint.hpp"
 #include "boost/shared_ptr.hpp"
@@ -32,6 +33,7 @@ extern "C" {
 #include "bl.h"
 #include "log.h"
 #include "tic.h"
+#include "verify.h"
 }
 
 namespace lsst { 

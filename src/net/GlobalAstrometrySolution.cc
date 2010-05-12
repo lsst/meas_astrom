@@ -752,6 +752,11 @@ vector<boost::shared_ptr<Det::SourceMatch> > GlobalAstrometrySolution::getMatche
         sPtr->setXAstrom(x);
         sPtr->setYAstrom(y);
         
+        //Weight positions by confidence in the fact that they match
+        double confidence = verify_logodds_to_weight(match->matchodds[i]); //Can be == 0
+        sPtr->setXAstromErr( 1/(confidence + DBL_EPSILON));
+        sPtr->setYAstromErr( 1/(confidence + DBL_EPSILON));
+        
         afwCoord::Coord::Ptr cooPtr = wcsPtr->pixelToSky(x, y);
         sPtr->setRa(cooPtr->toFk5().getRa(afwCoord::DEGREES));
         sPtr->setDec(cooPtr->toFk5().getDec(afwCoord::DEGREES));
@@ -768,6 +773,9 @@ vector<boost::shared_ptr<Det::SourceMatch> > GlobalAstrometrySolution::getMatche
         lsst::afw::geom::PointD p = wcsPtr->skyToPixel(ra, dec);
         cPtr->setXAstrom(p[0]);
         cPtr->setYAstrom(p[1]);
+
+        cPtr->setXAstromErr( 1/(confidence + DBL_EPSILON));
+        cPtr->setYAstromErr( 1/(confidence + DBL_EPSILON));
 
 
         double dx = cPtr->getXAstrom() - sPtr->getXAstrom();

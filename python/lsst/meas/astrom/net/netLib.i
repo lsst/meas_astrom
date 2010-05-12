@@ -34,3 +34,5 @@ def version(HeadURL = r"$HeadURL: svn+ssh://svn.lsstcorp.org/DMS/afw/trunk/pytho
 %lsst_exceptions();
 //template(PointD) lsst::afw::image::PointD<double,double>;
 %include "lsst/meas/astrom/net/GlobalAstrometrySolution.h"
+
+%template(vectorSourceMatch) std::vector<boost::shared_ptr<lsst::afw::detection::SourceMatch> >;
