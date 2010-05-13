@@ -27,6 +27,7 @@ int const USE_ALL_STARS_FOR_SOLUTION = -1;
 static int defaultMinimumNumberOfObjectsToAccept = 20;
 
 
+static vector<double> getTagAlongFromIndex(index_t* index, string fieldName, int *ids, int numIds);
 
 //
 //Constructors, Destructors
@@ -741,24 +742,8 @@ vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filt
     afwImg::Wcs::Ptr wcsPtr = this->getWcs();
 
     //Load magnitude information from catalogue
-    double *tagAlong=NULL;
-    if (filterName != "") {
-        // Grab tag-along data here. If it's not there, throw an exception
-        if (! startree_has_tagalong(match->index->starkd) ) {
-            msg = boost::str(boost::format("Index file \"%s\" has no metadata") % match->index->indexname);
-            throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
-        }
+    vector<double> tagAlong = getTagAlongFromIndex(match->index, filterName, match->theta, match->nfield);
         
-        tagAlong = startree_get_data_column(match->index->starkd, filterName.c_str(), match->theta,\
-                match->nfield);
-
-        if( tagAlong == NULL) {
-            msg = boost::str(boost::format("No meta data called %s found in index %s") %
-                filterName % match->index->indexname);
-            throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
-        }
-    }
-    
     for (int i=0; i<match->nfield; i++) {
         // "theta" is the mapping from image (aka field) stars to index (aka reference) stars.
         // negative means no match.
@@ -793,7 +778,7 @@ vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filt
         cPtr->setRa(ra);
         cPtr->setDec(dec);
 
-        if( tagAlong != NULL) {
+        if( filterName != "") {
             double mag = tagAlong[i];
             cPtr->setPsfFlux( pow(10.0, -mag/2.5) );
         }
@@ -902,6 +887,7 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
         startree_search_for(index->starkd, center, radius2, NULL, &radec, &starinds, &nstars);
 
         if (nstars > 0) {
+#if 0        
             double *mag = NULL;
             if (filterName != "") {
                 // Grab tag-along data here. If it's not there, throw an exception
@@ -916,7 +902,9 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
                         filterName % index->indexname);
                     throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));            }
             }
-
+#else
+            vector<double> mag = getTagAlongFromIndex(index, filterName, starinds, nstars);
+#endif            
             //Create a source for every position stored
             for (int j = 0; j<nstars; ++j) {
                 Det::Source::Ptr ptr(new lsst::afw::detection::Source());
@@ -924,15 +912,12 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
                 ptr->setRa(radec[2*j]);
                 ptr->setDec(radec[2*j + 1]);
 
-                if(mag != NULL) {   //convert mag to flux
+                if(mag.size() > 0) {   //convert mag to flux
                     ptr->setPsfFlux( pow(10.0, -mag[j]/2.5) );
                 }
 
                 out.push_back(ptr);
             }
-
-            free(mag);
-
         }
         
         free(radec);    
@@ -942,6 +927,45 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
 
 }
 
+
+///A convenient interface to astrometry.net's startree_get_data_column. 
+///Checks that the fieldName exists, and that something is returned.
+///Returns an vector of length numIds
+///
+///\param index Astrometry.net index field to extract tagalong data from
+///\param fieldName Name of tagalong column to extract. If this is empty (i.e ""), nothing is
+///       extracted
+///\param ids   Indices you want extracted. Get this from a match object, or startree_search_for
+///\param numIds size of ids
+static vector<double> getTagAlongFromIndex(index_t* index, string fieldName, int *ids, int numIds) {
+
+    //Load magnitude information from catalogue
+    double *tagAlong=NULL;
+    string msg;
+    
+    if (fieldName != "") {
+        // Grab tag-along data here. If it's not there, throw an exception
+        if (! startree_has_tagalong(index->starkd) ) {
+            msg = boost::str(boost::format("Index file \"%s\" has no metadata") % index->indexname);
+            throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
+        }
+        
+        tagAlong = startree_get_data_column(index->starkd, fieldName.c_str(), ids, numIds);
+
+        if( tagAlong == NULL) {
+            msg = boost::str(boost::format("No meta data called %s found in index %s") %
+                fieldName % index->indexname);
+            throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
+        }
+
+        vector<double> out(&tagAlong[0], &tagAlong[numIds]);
+        return out;
+    }
+    
+    vector<double> out(0);
+    return out;
+    
+}
 
 
 ///Plate scale of solution in arcsec/pixel. Note this is different than getMin(Max)ImageScale()
