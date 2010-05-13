@@ -101,7 +101,7 @@ public:
     //Return the solution
     lsst::afw::image::Wcs::Ptr getWcs();
     lsst::afw::image::Wcs::Ptr getDistortedWcs(int order = 3);
-    std::vector<boost::shared_ptr<lsst::afw::detection::SourceMatch> > getMatchedSources();
+    std::vector<lsst::afw::detection::SourceMatch> getMatchedSources(std::string filterName="");
     double getSolvedImageScale();
 
     std::vector<std::string> getCatalogueMetadataFields();

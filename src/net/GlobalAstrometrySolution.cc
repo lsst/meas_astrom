@@ -728,16 +728,36 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
 ///For each object in the catalogue that matches an input source return a SourceMatch object
 ///containing a) the catalogue object, b) the source object, c) the distance between them in pixels
 ///For the two objects, X,YAstrom and Ra/Dec are set.
-vector<boost::shared_ptr<Det::SourceMatch> > GlobalAstrometrySolution::getMatchedSources(){
+vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filterName){
     if (! _isSolved) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
     
+    string msg="";  //Used for exception messages
     MatchObj* match = &_solver->best_match;
-    vector<boost::shared_ptr<Det::SourceMatch> > sourceMatchSet;
+    assert(match->nfield > 0);
+    
+    vector<Det::SourceMatch> sourceMatchSet;
     afwImg::Wcs::Ptr wcsPtr = this->getWcs();
-    wcsPtr->getPixelOrigin();
-    wcsPtr->pixelToSky(1587, 2926);
+
+    //Load magnitude information from catalogue
+    double *tagAlong=NULL;
+    if (filterName != "") {
+        // Grab tag-along data here. If it's not there, throw an exception
+        if (! startree_has_tagalong(match->index->starkd) ) {
+            msg = boost::str(boost::format("Index file \"%s\" has no metadata") % match->index->indexname);
+            throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
+        }
+        
+        tagAlong = startree_get_data_column(match->index->starkd, filterName.c_str(), match->theta,\
+                match->nfield);
+
+        if( tagAlong == NULL) {
+            msg = boost::str(boost::format("No meta data called %s found in index %s") %
+                filterName % match->index->indexname);
+            throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
+        }
+    }
     
     for (int i=0; i<match->nfield; i++) {
         // "theta" is the mapping from image (aka field) stars to index (aka reference) stars.
@@ -749,8 +769,11 @@ vector<boost::shared_ptr<Det::SourceMatch> > GlobalAstrometrySolution::getMatche
         lsst::afw::detection::Source::Ptr sPtr(new lsst::afw::detection::Source());
         double x = starxy_getx(_solver->fieldxy, i);
         double y = starxy_gety(_solver->fieldxy, i);
+        double flux = starxy_get_flux(_solver->fieldxy, i);
+        
         sPtr->setXAstrom(x);
         sPtr->setYAstrom(y);
+        sPtr->setPsfFlux(flux);
         
         //Weight positions by confidence in the fact that they match
         double confidence = verify_logodds_to_weight(match->matchodds[i]); //Can be == 0
@@ -770,6 +793,12 @@ vector<boost::shared_ptr<Det::SourceMatch> > GlobalAstrometrySolution::getMatche
         cPtr->setRa(ra);
         cPtr->setDec(dec);
 
+        if( tagAlong != NULL) {
+            double mag = tagAlong[i];
+            cPtr->setPsfFlux( pow(10.0, -mag/2.5) );
+        }
+        
+        
         lsst::afw::geom::PointD p = wcsPtr->skyToPixel(ra, dec);
         cPtr->setXAstrom(p[0]);
         cPtr->setYAstrom(p[1]);
@@ -781,8 +810,7 @@ vector<boost::shared_ptr<Det::SourceMatch> > GlobalAstrometrySolution::getMatche
         double dx = cPtr->getXAstrom() - sPtr->getXAstrom();
         double dy = cPtr->getYAstrom() - sPtr->getYAstrom();
         double dist = hypot(dx, dy);
-        boost::shared_ptr<Det::SourceMatch> smPtr(new Det::SourceMatch(cPtr, sPtr, dist));
-        sourceMatchSet.push_back(smPtr);
+        sourceMatchSet.push_back(Det::SourceMatch(cPtr, sPtr, dist));
     }
 
 

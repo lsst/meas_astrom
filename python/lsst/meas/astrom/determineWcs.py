@@ -110,20 +110,25 @@ def determineWcs(policy, exposure, sourceSet, log=None, doTrim=False):
             raise
             
         
-    
-    #Now generate a list of matching objects
-    distInArcsec = policy.get('distanceForCatalogueMatchinArcsec')
-    cleanParam = policy.get('cleaningParameter')
+    #We think letting astrometry.net give us its matches is a better approach    
+    if False:
+        #Now generate a list of matching objects
+        distInArcsec = policy.get('distanceForCatalogueMatchinArcsec')
+        cleanParam = policy.get('cleaningParameter')
 
-    matchList = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=linearWcs, 
-        distInArcsec=distInArcsec, cleanParam=cleanParam)
-            
-    if len(matchList) == 0:
-        log.log(Log.WARN, "No matches found between input source and catalogue.")
-        log.log(Log.WARN, "Something in wrong. Defaulting to input wcs")
-        return None, wcsIn
-        
+        matchList = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=linearWcs, 
+            distInArcsec=distInArcsec, cleanParam=cleanParam)
+
+        if len(matchList) == 0:
+            log.log(Log.WARN, "No matches found between input source and catalogue.")
+            log.log(Log.WARN, "Something in wrong. Defaulting to input wcs")
+            return None, wcsIn
+    else:
+        print "***** Getting matched sources. Fluxes in band %s " %(filterName)
+        matchList = solver.getMatchedSources(filterName)
+                
     log.log(Log.INFO, "%i objects out of %i match sources listed in catalogue" %(len(matchList), len(srcSet)))
+    print type(matchList)
         
 
     #
