@@ -22,7 +22,7 @@ def calcPhotoCal(sourceMatch, log=None):
     err = lsf.getErrors()
     
     #Sanity check output
-    if not(par[1] - err[1] < 1 and par[1] + err[1] > 1):
+    if not(par[1] - err[1] <= 1 and par[1] + err[1] >= 1):
         raise RuntimeError("Slope of fitting function is not 1 (%g +- %g) " %(par[1], err[1]))
         
     
