@@ -12,7 +12,7 @@ import sip as astromSip
 import sip.cleanBadPoints as cleanBadPoints
 
 
-def determineWcs(policy, exposure, sourceSet, log=None, doTrim=False):
+def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=False):
     """Top level function for calculating a Wcs. 
     
     Given an initial guess at a Wcs (hidden inside an exposure) and a set of
@@ -26,7 +26,9 @@ def determineWcs(policy, exposure, sourceSet, log=None, doTrim=False):
     sourceSet   A list of lsst.afw.detection.Source objects, indicating the pixel positions of 
                 stars in the field
     log         A lsst.pex.logging.Log object (optional), used for printing progress
-    trim        Check that all sources lie within the image, and remove those that don't.
+    doTrim        Check that all sources lie within the image, and remove those that don't.
+    solver      Optionally provide a previously created astrometry.net solver. If not provided
+                one will be created.
     """
 
     if log is None:
@@ -52,35 +54,35 @@ def determineWcs(policy, exposure, sourceSet, log=None, doTrim=False):
         log.log(log.WARN, "No wcs found on exposure. Doing blind solve")
     
     #Setup solver
-    path=os.path.join(eups.productDir("astrometry_net_data"), "metadata.paf")
-    solver = astromNet.GlobalAstrometrySolution(path)
-    solver.allowDistortion(policy.get('allowDistortion'))
-    matchThreshold = policy.get('matchThreshold')
-    solver.setMatchThreshold(matchThreshold)
+    if solver is None:
+        path=os.path.join(eups.productDir("astrometry_net_data"), "metadata.paf")
+        solver = astromNet.GlobalAstrometrySolution(path)
+        solver.allowDistortion(policy.get('allowDistortion'))
+        matchThreshold = policy.get('matchThreshold')
+        solver.setMatchThreshold(matchThreshold)
+    else:
+        solver.reset()
 
+    #Set solving params
     log.log(log.DEBUG, "Setting starlist")
-    log.log(log.DEBUG, "Setting numBrightObj")
-    
-    #Use at most numBrightStars in the solution.
     solver.setStarlist(srcSet)
+    log.log(log.DEBUG, "Setting numBrightObj")
     solver.setNumBrightObjects( min(policy.get('numBrightStars'), len(srcSet)))
 
     #Do a blind solve if we're told to, or if we don't have an input wcs
     doBlindSolve = policy.get('blindSolve') or (wcsIn is None)
-    
-    log.log(log.DEBUG, "Solving")
-    
     if doBlindSolve:
         log.log(log.DEBUG, "Solving with no initial guess at position")
         isSolved = solver.solve()
     else:
         isSolved = solver.solve(wcsIn)
 
+    #Did we solve?
     log.log(log.DEBUG, "Finished Solve step.")
     if not isSolved:
         log.log(log.WARN, "No solution found, using input Wcs")
-        return None, wcsIn
-    
+        return [], wcsIn
+    wcs = solver.getWcs()
 
     #
     # Generate a list of catalogue objects in the field.
@@ -88,78 +90,80 @@ def determineWcs(policy, exposure, sourceSet, log=None, doTrim=False):
     
     #First obtain the catalogue-listed positions of stars
     log.log(log.DEBUG, "Determining match objects")
-    linearWcs = solver.getWcs()
-    imgSizeInArcsec = getImageSizeInArcsec(srcSet, linearWcs)
+    imgSizeInArcsec = getImageSizeInArcsec(srcSet, wcs)
     
     #Do we want magnitude information
     filterName = chooseFilterName(exposure, policy, solver, log)
-    
-    if filterName is None:
-        cat = solver.getCatalogue(2*imgSizeInArcsec, "") 
-    else:
-        try:
-            print "Reading %s from catalogue" %(filterName)
-            cat = solver.getCatalogue(2*imgSizeInArcsec, filterName) 
-        except LsstCppException, e:
-            log.log(Log.WARN, str(e))
-            log.log(Log.WARN, "Attempting to access catalogue positions and fluxes")
-            version = eups.productDir("astrometry_net_data")
-            log.log(Log.WARN, "Catalogue version: %s" %(version))
-            log.log(Log.WARN, "Requested filter: %s" %(filterName))
-            log.log(Log.WARN, "Available filters: " + str(solver.getCatalogueMetadataFields()))
-            raise
+    try:
+        cat = solver.getCatalogue(2*imgSizeInArcsec, filterName) 
+    except LsstCppException, e:
+        log.log(Log.WARN, str(e))
+        log.log(Log.WARN, "Attempting to access catalogue positions and fluxes")
+        version = eups.productDir("astrometry_net_data")
+        log.log(Log.WARN, "Catalogue version: %s" %(version))
+        log.log(Log.WARN, "Requested filter: %s" %(filterName))
+        log.log(Log.WARN, "Available filters: " + str(solver.getCatalogueMetadataFields()))
+        raise
             
-        
-    #We think letting astrometry.net give us its matches is a better approach    
-    if False:
+
+    matchList=[]    #Make sure this stays in scope
+    if True:
         #Now generate a list of matching objects
         distInArcsec = policy.get('distanceForCatalogueMatchinArcsec')
         cleanParam = policy.get('cleaningParameter')
 
-        matchList = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=linearWcs, 
+        matchList = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=wcs, 
             distInArcsec=distInArcsec, cleanParam=cleanParam)
 
         if len(matchList) == 0:
             log.log(Log.WARN, "No matches found between input source and catalogue.")
             log.log(Log.WARN, "Something in wrong. Defaulting to input wcs")
-            return None, wcsIn
+            return [], wcsIn
+            
+        log.log(Log.DEBUG, "%i catalogue objects match input source list using linear Wcs" %(len(matchList)))
     else:
-        print "***** Getting matched sources. Fluxes in band %s " %(filterName)
+        log.log(Log.DEBUG, "Getting matched sources: Fluxes in band %s " %(filterName))
         matchList = solver.getMatchedSources(filterName)
-                
-    log.log(Log.INFO, "%i objects out of %i match sources listed in catalogue" %(len(matchList), len(srcSet)))
-    print type(matchList)
-        
-
-    #
-    #Do sip corrections
-    #
-    outWcs = linearWcs
-    if policy.get('calculateSip'):
-        #Now create a wcs with SIP polynomials
-        maxScatter = policy.get('wcsToleranceInArcsec')
-        maxSipOrder= policy.get('maxSipOrder')
-        
-        try:
-            sipObject = astromSip.CreateWcsWithSip(matchList, linearWcs, maxScatter, maxSipOrder)
-            log.log(Log.INFO, "Using %i th order SIP polynomial. Scatter is %.g arcsec" \
-                    %(sipObject.getOrder(), sipObject.getScatterInArcsec()))
     
-            log.log(Log.DEBUG, "Updating wcs in input exposure with distorted wcs")
-            outWcs = sipObject.getNewWcs()    
-        except LsstCppException, e:
-            log.log(Log.WARN, "Failed to calculate distortion terms. Error:")
-            log.log(Log.WARN, str(e))
-            log.log(Log.WARN, "Reverting to linear Wcs")
-            log.log(Log.DEBUG, "Updating wcs in input exposure with linear wcs")
-            outWcs = linearWcs
-        
+
+    if policy.get('calculateSip'):
+        #Iteratively calculate sip distortions and regenerate matchList based on improved wcs
+        sipOrder = policy.get('sipOrder')
+        matchSize = len(matchList)
+    
+        i=0
+        while True:
+            try:
+                sipObject = astromSip.CreateWcsWithSip(matchList, wcs, sipOrder)
+                wcs = sipObject.getNewWcs()
+            except LsstCppException, e:
+                log.log(Log.WARN, "Failed to calculate distortion terms. Error:")
+                log.log(Log.WARN, str(e))
+                log.log(Log.WARN, "Using best guess wcs")
+                break
+            
+            #Use the new wcs to update the match list        
+            proposedMatchlist = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=wcs, 
+                distInArcsec=distInArcsec, cleanParam=cleanParam)
+                
+            
+            if len(proposedMatchlist) <= matchSize:
+                #We're regressing, so stop
+                break
+            
+            matchList = proposedMatchlist 
+            matchSize = len(matchList)
+            
+            msg="Sip Iteration %i: %i objects match. rms scatter is %g arcsec or %g pixels" \
+                    %(i, matchSize, sipObject.getScatterInArcsec(), sipObject.getScatterInPixels())
+            log.log(Log.DEBUG, msg)
+            i=i+1
     else:
         log.log(Log.DEBUG, "Updating wcs in input exposure with linear wcs")
         
-    exposure.setWcs(outWcs)
+    exposure.setWcs(wcs)
     solver.reset()
-    return [matchList, outWcs]
+    return [matchList, wcs]
 
 
 
@@ -208,7 +212,7 @@ def chooseFilterName(exposure, policy, solver, log):
         log.log(log.DEBUG, "Exposure has no filter info. Using default")
         if not policy.exists("defaultFilterName"):
             log.log(log.DEBUG, "No default filter is set")
-            return None
+            return ""
         filterName = policy.get("defaultFilterName")
 
     log.log(Log.DEBUG, "Exposure was taken in %s band" %(filterName))
@@ -226,7 +230,7 @@ def chooseFilterName(exposure, policy, solver, log):
         
         if not policy.exists("defaultFilterName"):
             log.log(log.DEBUG, "No default filter is set")
-            return None
+            return ""
         defaultFilter = policy.get("defaultFilterName")
 
         if defaultFilter in availableFilters:

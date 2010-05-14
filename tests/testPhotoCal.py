@@ -37,11 +37,10 @@ class PhotoCalTest(unittest.TestCase):
         outputMatchListKey: matchList
         distanceForCatalogueMatchinArcsec: 1.0
         cleaningParameter: 3
-        calculateSip: true
+        calculateSip: false
         numBrightStars: 75
         defaultFilterName: mag
-        wcsToleranceInArcsec: .3
-        maxSipOrder: 9
+        sipOrder: 4
         """
         ))
         
@@ -83,7 +82,9 @@ class PhotoCalTest(unittest.TestCase):
             
             diff.append(mag-catMag)
 
+
         #A very loose test, but the input data has a lot of scatter
+
         diff = np.array(diff)
         self.assertAlmostEqual(np.mean(diff), 0, 0)
         

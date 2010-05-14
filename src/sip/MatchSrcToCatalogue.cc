@@ -85,6 +85,18 @@ void sip::MatchSrcToCatalogue::findMatches() {
         _imgSet[i]->setDec(raDec->getLatitude(afwCoord::DEGREES));
     }
 
+    //For completeness, set x and y for the catSrc
+    for (unsigned int i = 0; i< _catSet.size(); ++i) {
+        double ra = _catSet[i]->getRa();
+        double dec = _catSet[i]->getDec();
+
+        afwCoord::IcrsCoord::Ptr raDec(new afwCoord::IcrsCoord(ra, dec));
+        afwGeom::PointD p = _wcs.skyToPixel(raDec);
+
+        _catSet[i]->setXAstrom(p[0]);
+        _catSet[i]->setYAstrom(p[1]);
+    }
+    
     _match = det::matchRaDec(_catSet, _imgSet, _distInArcsec);
 
     _removeOneToMany();  

@@ -134,7 +134,7 @@ class chooseFilterNameTest(unittest.TestCase):
         self.defaultPolicy.remove("defaultFilterName")
         log=None
         filt = measAstrom.chooseFilterName(self.exposure, self.defaultPolicy, self.solver, log)
-        self.assertEqual(filt, None)
+        self.assertEqual(filt, '')
         
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
