@@ -159,7 +159,6 @@ template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const 
             }
         }
     }
-    
 }
 
         
@@ -317,7 +316,7 @@ template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::calculateBeta() {
     for (unsigned int i = 0; i < _nPar; ++i) {
         _beta(i) = 0;
         for (unsigned int j = 0; j < _nData; ++j) {
-            val = _z[j]*func2d(_x[j], _y[j], i)/ (_s[i]*_s[i]);
+            val = _z[j]*func2d(_x[j], _y[j], i)/ (_s[j]*_s[j]);
             _beta(i) += val;
         }
     }
