@@ -141,6 +141,10 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
                 log.log(Log.WARN, str(e))
                 log.log(Log.WARN, "Using best guess wcs")
                 break
+
+            msg="Sip Iteration %i: %i objects match. rms scatter is %g arcsec or %g pixels" \
+                    %(i, matchSize, sipObject.getScatterInArcsec(), sipObject.getScatterInPixels())
+            log.log(Log.DEBUG, msg)
             
             #Use the new wcs to update the match list        
             proposedMatchlist = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=wcs, 
@@ -153,10 +157,6 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
             
             matchList = proposedMatchlist 
             matchSize = len(matchList)
-            
-            msg="Sip Iteration %i: %i objects match. rms scatter is %g arcsec or %g pixels" \
-                    %(i, matchSize, sipObject.getScatterInArcsec(), sipObject.getScatterInPixels())
-            log.log(Log.DEBUG, msg)
             i=i+1
     else:
         log.log(Log.DEBUG, "Updating wcs in input exposure with linear wcs")
