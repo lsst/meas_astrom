@@ -12,6 +12,20 @@ from lsst.meas.photocal.PhotometricMagnitude import PhotometricMagnitude
 
 def calcPhotoCal(sourceMatch, log=None):
     """Calculate photometric calibration, i.e the zero point magnitude"""
+
+    if len(sourceMatch) == 0:
+        raise ValueError("sourceMatch contains no elements")
+        
+    #Only use stars for which the flags indicate the photometry is good.
+    goodFlagValue= 128 #Put some logic here
+    cleanList = []
+    for m in sourceMatch:
+        if m.second.getFlagForDetection() == goodFlagValue:
+            cleanList.append(m)
+    sourceMatch = cleanList
+    
+    if len(sourceMatch) == 0:
+        raise ValueError("flags indicate all elements of sourceMatch have bad photometry")
     
     #Convert fluxes to magnitudes
     out = getMagnitudes(sourceMatch)
@@ -23,7 +37,11 @@ def calcPhotoCal(sourceMatch, log=None):
     
     #Sanity check output
     if not(par[1] - err[1] <= 1 and par[1] + err[1] >= 1):
-        raise RuntimeError("Slope of fitting function is not 1 (%g +- %g) " %(par[1], err[1]))
+        msg = "Slope of fitting function is not 1 (%g +- %g) " %(par[1], err[1])
+        if log is None:
+            print msg
+        else:
+            log.log(Log.WARN, msg)
         
     
     #Initialise and return a magnitude object
@@ -36,33 +54,43 @@ def calcPhotoCal(sourceMatch, log=None):
 
 def getMagnitudes(sourceMatch):
     
-    #Extract the fluxes as numpy arrays
+    #Extract the fluxes as numpy arrays. Catalogues don't come with fluxes
+    #so do an estimate using sqrt(counts)
     fluxCat = np.array(map(lambda x: x.first.getPsfFlux(), sourceMatch))
     fluxSrc = np.array(map(lambda x: x.second.getPsfFlux(), sourceMatch))
-    
-    #I don't think I want errors
-    fluxCatErr = np.array(map(lambda x: x.first.getPsfFluxErr(), sourceMatch))
     fluxSrcErr = np.array(map(lambda x: x.second.getPsfFluxErr(), sourceMatch))
+    catSrcErr = np.sqrt(fluxCat)
     
-    #Remove bad values
-    fluxSrc[ fluxSrc<=0 ] = 1e-99
-    fluxCat[ fluxCat<=0 ] = 1e-99
-
+    #Remove objects where the source flux is bad
+    idx = where(fluxSrc >= 0)
+    fluxSrc = fluxSrc[idx]
+    fluxCat = fluxCat[idx]
+    
+    #Remove the (unlikely) objects with bad catalogue fluxes
+    idx = where(fluxCat >= 0)
+    fluxSrc = fluxSrc[idx]
+    fluxCat = fluxCat[idx]
+    
     #Convert to mags
     magSrc = -2.5*np.log10(fluxSrc)
     magCat = -2.5*np.log10(fluxCat)
+
+    #Fitting with error bars in both axes is hard, so transfer all the error to 
+    #src, then convert to magnitude
+    fluxSrcErr = np.hypot(fluxSrcErr, catSrcErr)
+    magSrcErr = fluxSrcErr/fluxSrc/np.log(10)
     
-    #magSrcErr = fluxSrcErr/fluxSrc/np.log(10)
-    #magCatErr = fluxSrcErr/fluxSrc/np.log(10)
     
     #mpl.plot(magSrc, magCat, "ro")
     #mpl.show()
     
-    #I need to return two arrays, but am bound to get the order 
+    #I need to return three arrays, but am bound to get the order 
     #confused at some point, so use a dictionary instead
     out = dict()
     out["src"] = magSrc
     out["cat"] = magCat
+    out["srcErr"] = magSrcErr
+    
     return out
     
 
