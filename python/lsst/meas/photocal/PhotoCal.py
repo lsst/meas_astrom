@@ -59,17 +59,23 @@ def getMagnitudes(sourceMatch):
     fluxCat = np.array(map(lambda x: x.first.getPsfFlux(), sourceMatch))
     fluxSrc = np.array(map(lambda x: x.second.getPsfFlux(), sourceMatch))
     fluxSrcErr = np.array(map(lambda x: x.second.getPsfFluxErr(), sourceMatch))
-    catSrcErr = np.sqrt(fluxCat)
+    
     
     #Remove objects where the source flux is bad
-    idx = where(fluxSrc >= 0)
+    idx = np.where(fluxSrc > 0)
+
     fluxSrc = fluxSrc[idx]
     fluxCat = fluxCat[idx]
+    fluxSrcErr = fluxSrcErr[idx]
     
     #Remove the (unlikely) objects with bad catalogue fluxes
-    idx = where(fluxCat >= 0)
+    idx = np.where(fluxCat > 0)
     fluxSrc = fluxSrc[idx]
     fluxCat = fluxCat[idx]
+    fluxSrcErr = fluxSrcErr[idx]
+    
+    #Catalogue won't have flux uncertainties in general
+    fluxCatErr = np.sqrt(fluxCat)
     
     #Convert to mags
     magSrc = -2.5*np.log10(fluxSrc)
@@ -77,12 +83,8 @@ def getMagnitudes(sourceMatch):
 
     #Fitting with error bars in both axes is hard, so transfer all the error to 
     #src, then convert to magnitude
-    fluxSrcErr = np.hypot(fluxSrcErr, catSrcErr)
+    fluxSrcErr = np.hypot(fluxSrcErr, fluxCatErr)
     magSrcErr = fluxSrcErr/fluxSrc/np.log(10)
-    
-    
-    #mpl.plot(magSrc, magCat, "ro")
-    #mpl.show()
     
     #I need to return three arrays, but am bound to get the order 
     #confused at some point, so use a dictionary instead
