@@ -89,6 +89,35 @@ class PhotoCalTest(unittest.TestCase):
         self.assertAlmostEqual(np.mean(diff), 0, 0)
         
         
+    def test2(self):
+        """Check that negative fluxes dealt with properly"""
+        
+        matches, wcs = measAstrom.determineWcs(self.defaultPolicy, self.exposure, \
+                self.srcSet)
+        
+        matches[0].first.setPsfFlux(0)
+        matches[1].first.setPsfFlux(-1)
+        matches[2].second.setPsfFlux(0)
+        
+        pCal = photocal.calcPhotoCal(matches)
+        print pCal
+
+
+        diff=[]
+        for m in matches:
+            catFlux = m[0].getPsfFlux()     #Catalogue flux
+            instFlux = m[1].getPsfFlux()    #Instrumental Flux
+            
+            if catFlux > 0 and instFlux > 0:
+                catMag = -2.5*np.log10(catFlux) #Cat mag
+                mag = pCal.getMag(instFlux)     #Instrumental mag
+                diff.append(mag-catMag)
+
+
+        #A very loose test, but the input data has a lot of scatter
+
+        diff = np.array(diff)
+        self.assertAlmostEqual(np.mean(diff), 0, 0)
         
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
