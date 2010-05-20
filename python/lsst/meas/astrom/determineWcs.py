@@ -135,7 +135,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         while True:
             try:
                 sipObject = astromSip.CreateWcsWithSip(matchList, wcs, sipOrder)
-                wcs = sipObject.getNewWcs()
+                proposedWcs = sipObject.getNewWcs()
             except LsstCppException, e:
                 log.log(Log.WARN, "Failed to calculate distortion terms. Error:")
                 log.log(Log.WARN, str(e))
@@ -147,7 +147,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
             log.log(Log.DEBUG, msg)
             
             #Use the new wcs to update the match list        
-            proposedMatchlist = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=wcs, 
+            proposedMatchlist = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=proposedWcs, 
                 distInArcsec=distInArcsec, cleanParam=cleanParam)
                 
             
@@ -155,6 +155,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
                 #We're regressing, so stop
                 break
             
+            wcs = proposedWcs
             matchList = proposedMatchlist 
             matchSize = len(matchList)
             i=i+1
