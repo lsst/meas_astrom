@@ -824,8 +824,9 @@ vector<string> GlobalAstrometrySolution::getCatalogueMetadataFields() {
     assert(table != NULL);
     
     sl *nameList = fitstable_get_fits_column_names(table, NULL);
-
-    for(int i=0; i< sl_size(nameList); ++i) {
+    
+    int numNames = sl_size(nameList);
+    for(int i=0; i< numNames; ++i) {
         string name(sl_pop(nameList));
         output.push_back(name);
     }
