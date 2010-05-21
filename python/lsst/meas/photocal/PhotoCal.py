@@ -7,6 +7,8 @@ import numpy as np
 import eups
 import lsst.meas.astrom as measAst
 import lsst.meas.astrom.sip as sip
+import lsst.meas.algorithms.utils as malgUtil
+from lsst.pex.logging import Log, Debug, LogRec, Prop
 
 from lsst.meas.photocal.PhotometricMagnitude import PhotometricMagnitude
 
@@ -17,7 +19,9 @@ def calcPhotoCal(sourceMatch, log=None):
         raise ValueError("sourceMatch contains no elements")
         
     #Only use stars for which the flags indicate the photometry is good.
-    goodFlagValue= 128 #Put some logic here
+    flags = malgUtil.getDetectionFlags()
+    goodFlagValue= flags['BINNED1'] | flags['STAR']
+    
     cleanList = []
     for m in sourceMatch:
         if m.second.getFlagForDetection() == goodFlagValue:
