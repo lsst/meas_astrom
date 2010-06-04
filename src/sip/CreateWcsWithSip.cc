@@ -264,7 +264,7 @@ void CreateWcsWithSip::_createWcs(int order){
         lv.push_back(xy[1] - wcsOrigin[1]);
 
         //Reverse distortion tersm
-        lf.push_back((imgSrc->getXAstrom()-xy[0]));
+        lf.push_back(imgSrc->getXAstrom()-xy[0]);
         lg.push_back(imgSrc->getYAstrom()-xy[1]);
     }
     

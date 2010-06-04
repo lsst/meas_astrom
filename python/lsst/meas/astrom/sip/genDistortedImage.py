@@ -30,15 +30,15 @@ def linearXDistort(src, frac=.001):
 
 
 def linearYDistort(src, frac=.001):
-    """Increase the xAstrom value in a Source object by frac. E.g
+    """Increase the yAstrom value in a Source object by frac. E.g
     src.xAstrom = 1000 --> 1001 if frac=.001
     
     Input:
     src     A Source object
-    frac    How much to change X by
+    frac    How much to change Y by
     
     Output:
-    A deep copy of src, with the value of xAstrom changed
+    A deep copy of src, with the value of yAstrom changed
     """
 
     out = afwDet.Source(src)
