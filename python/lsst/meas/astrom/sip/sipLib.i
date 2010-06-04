@@ -44,6 +44,7 @@ def version(HeadURL = r"$HeadURL: svn+ssh://svn.lsstcorp.org/DMS/afw/trunk/pytho
 
 %lsst_exceptions();
 
+%include "lsst/base.h"
 %include "lsst/meas/astrom/sip/MatchSrcToCatalogue.h"
 %include "lsst/afw/math/FunctionLibrary.h"
 %include "lsst/meas/astrom/sip/LeastSqFitter1d.h"

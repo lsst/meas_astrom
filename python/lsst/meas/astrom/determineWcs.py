@@ -11,6 +11,17 @@ import net as astromNet
 import sip as astromSip
 import sip.cleanBadPoints as cleanBadPoints
 
+import lsst.afw.display.ds9 as ds9
+
+try:
+    import lsstDebug
+
+    display = lsstDebug.Info(__name__).display
+except ImportError, e:
+    try:
+        type(display)
+    except NameError:
+        display = False
 
 def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=False):
     """Top level function for calculating a Wcs. 
@@ -39,14 +50,21 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     #Short names
     exp = exposure
     srcSet = sourceSet
-    
+
+    if display:
+        frame = 1
+        ds9.mtv(exposure, frame=frame, title="wcsDet")
+
     if doTrim:
         nStart = len(srcSet)
         srcSet = trimBadPoints(exp, srcSet)
         if log:
             nEnd = len(srcSet)
             log.log(log.DEBUG, "Kept %i of %i sources after trimming" %(nEnd, nStart))
-            
+
+    if display:
+        for s in srcSet:
+            ds9.dot("o", s.getXAstrom(), s.getYAstrom(), size=3, ctype=ds9.RED, frame=frame)
         
     #Extract an initial guess wcs if available    
     wcsIn = exp.getWcs() #May be None
@@ -164,9 +182,13 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         
     exposure.setWcs(wcs)
     solver.reset()
+
+    if display:
+        for s1, s2, d in matchList:
+            # plot the catalogue positions
+            ds9.dot("+", s1.getXAstrom(), s1.getYAstrom(), size=3, ctype=ds9.BLUE, frame=frame)
+
     return [matchList, wcs]
-
-
 
 class StdoutLog():
     """If no log is passed, this class just writes the output to stdout, regardless of

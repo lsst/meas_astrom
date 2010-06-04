@@ -6,13 +6,17 @@
 #include <iostream>
 #include <cmath>
 
+#include "lsst/base.h"
 #include "lsst/pex/exceptions/Runtime.h"
 #include "lsst/afw/detection/Source.h"
 #include "lsst/afw/detection/SourceMatch.h"
-#include "lsst/afw/image/Wcs.h"
 
-
-namespace lsst { 
+namespace lsst {
+    namespace afw {
+        namespace image {
+            class Wcs;
+        }
+    }
 namespace meas { 
 namespace astrom { 
 namespace sip {
@@ -34,9 +38,9 @@ public:
     typedef boost::shared_ptr<MatchSrcToCatalogue> Ptr;
     typedef boost::shared_ptr<MatchSrcToCatalogue const> ConstPtr;
     
-    MatchSrcToCatalogue(const det::SourceSet &catSet,       
-                        const det::SourceSet &imgSet,       
-                        const lsst::afw::image::Wcs wcs,   
+    MatchSrcToCatalogue(det::SourceSet const& catSet,
+                        det::SourceSet const& imgSet,       
+                        CONST_PTR(lsst::afw::image::Wcs) wcs,   
                         double distInArcsec = 1.0     
                        );
 
@@ -47,7 +51,7 @@ public:
 
     //Mutators
     void setDist(double distInArcsec);
-    void setWcs(const lsst::afw::image::Wcs &wcs);
+    void setWcs(CONST_PTR(lsst::afw::image::Wcs) wcs);
     void setCatSrcSet(const det::SourceSet &srcSet);
     void setImgSrcSet(const det::SourceSet &srcSet);
 
@@ -58,10 +62,10 @@ public:
     
 
 private:
-    det::SourceSet _imgSet, _catSet;    ///< Copies of input sets
-    std::vector<det::SourceMatch> _match;  ///List of tuples of matching indices
-    lsst::afw::image::Wcs _wcs;
-    double _distInArcsec;                        ///< How close must two objects be to match 
+    det::SourceSet _imgSet, _catSet;      ///< Copies of input sets
+    std::vector<det::SourceMatch> _match; ///List of tuples of matching indices
+    CONST_PTR(lsst::afw::image::Wcs) _wcs;
+    double _distInArcsec;               ///< How close must two objects be to match 
 
     det::SourceSet _deepCopySourceSet(const det::SourceSet &in);
     void _removeOneToMany();

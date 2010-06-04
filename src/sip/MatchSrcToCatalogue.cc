@@ -1,5 +1,6 @@
 // -*- LSST-C++ -*-
 #include "lsst/meas/astrom/sip/MatchSrcToCatalogue.h"
+#include "lsst/afw/image/Wcs.h"
 
 namespace except = lsst::pex::exceptions;
 namespace afwCoord = lsst::afw::coord;
@@ -22,10 +23,10 @@ namespace sip = lsst::meas::astrom::sip;
 /// \param wcs     A Wcs object to convert from xy to radec
 /// \param distInArcsec How close to objects need to be in order to be considered the same
 /// 
-sip::MatchSrcToCatalogue::MatchSrcToCatalogue(const det::SourceSet &catSet,  
-                                         const det::SourceSet &imgSet, 
-                                         const lsst::afw::image::Wcs wcs, 
-                                         double distInArcsec  
+sip::MatchSrcToCatalogue::MatchSrcToCatalogue(det::SourceSet const& catSet,  
+                                              det::SourceSet const& imgSet, 
+                                              CONST_PTR(lsst::afw::image::Wcs) wcs, 
+                                              double distInArcsec  
                                         ){
     setImgSrcSet(imgSet);
     setCatSrcSet(catSet);
@@ -49,8 +50,9 @@ void sip::MatchSrcToCatalogue::setDist(double distInArcsec){
 
 
 /// Set a different Wcs solution
-void sip::MatchSrcToCatalogue::setWcs(const lsst::afw::image::Wcs &wcs){
-    _wcs = wcs;  //Shallow copy
+void sip::MatchSrcToCatalogue::setWcs(CONST_PTR(lsst::afw::image::Wcs) wcs)
+{
+    _wcs = wcs;
 }
 
 //void MatchSrcToCatalogue::setCatSrcSet(const det::SourceSet &srcSet);
@@ -79,7 +81,7 @@ void sip::MatchSrcToCatalogue::findMatches() {
         double x = _imgSet[i]->getXAstrom();
         double y = _imgSet[i]->getYAstrom();
 
-        afwCoord::Coord::ConstPtr raDec = _wcs.pixelToSky(x, y);
+        afwCoord::Coord::ConstPtr raDec = _wcs->pixelToSky(x, y);
 
         _imgSet[i]->setRa(raDec->getLongitude(afwCoord::DEGREES));
         _imgSet[i]->setDec(raDec->getLatitude(afwCoord::DEGREES));
@@ -91,7 +93,7 @@ void sip::MatchSrcToCatalogue::findMatches() {
         double dec = _catSet[i]->getDec();
 
         afwCoord::IcrsCoord::Ptr raDec(new afwCoord::IcrsCoord(ra, dec));
-        afwGeom::PointD p = _wcs.skyToPixel(raDec);
+        afwGeom::PointD p = _wcs->skyToPixel(raDec);
 
         _catSet[i]->setXAstrom(p[0]);
         _catSet[i]->setYAstrom(p[1]);
