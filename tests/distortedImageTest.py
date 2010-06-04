@@ -22,9 +22,19 @@ import sourceSetIO
 #shouldn't depend on data packages to build successfully.
 dataDir = eups.productDir("astrometry_net_data")
 if not dataDir:
-    print "Warning. distortedImageTest not run because"
-    print "astrometry_net_data not set up"
-    sys.exit()
+    print >> sys.stderr, "Warning: distortedImageTest not run because astrometry_net_data is not set up"
+    sys.exit(1)
+
+if eups.getSetupVersion("astrometry_net_data") != "cfhttemplate":
+    try:
+        setupCmds = eups.setup("astrometry_net_data", "cfhttemplate")
+    except AttributeError:              # old eups
+        setupCmds = ['false']
+        
+    if len(setupCmds) == 1 and setupCmds[0] == 'false':
+        print >> sys.stderr, "Warning: distortedImageTest not run because " \
+              "astrometry_net_data cfttemplate is unavailable"
+        sys.exit(1)
 
 #Create a globally accessible instance of a GAS. This takes a few seconds
 #to load, so we don't want to do it everytime we setup a test case

@@ -18,15 +18,21 @@ import lsst.meas.astrom.sip.cleanBadPoints as cleanBadPoints
 
 import sourceSetIO
 
-
-
-
 dataDir = eups.productDir("astrometry_net_data")
 if not dataDir:
-    print "Warning. createWcsWithSip.py not run because"
-    print "astrometry_net_data not set up"
-    sys.exit()
+    print >> sys.stderr, "Warning: createWcsWithSip not run because astrometry_net_data is not set up"
+    sys.exit(1)
 
+if eups.getSetupVersion("astrometry_net_data") != "cfhttemplate":
+    try:
+        setupCmds = eups.setup("astrometry_net_data", "cfhttemplate")
+    except AttributeError:              # old eups
+        setupCmds = ['false']
+
+    if len(setupCmds) == 1 and setupCmds[0] == 'false':
+        print >> sys.stderr, "Warning: createWcsWithSip not run because " \
+              "astrometry_net_data cfttemplate is unavailable"
+        sys.exit(1)
 
 #Create a globally accessible instance of a GAS. This takes a few seconds
 #to load, so we don't want to do it everytime we setup a test case
@@ -35,7 +41,7 @@ policyFile=os.path.join(policyFile, "metadata.paf")
 GLOBALGAS = net.GlobalAstrometrySolution(policyFile)
 
 
-class DistortedImageTestCase(unittest.TestCase):
+class CreateWcsWithSipCase(unittest.TestCase):
     def setUp(self):
         path=eups.productDir("meas_astrom")
         self.filename=os.path.join(path, "tests", "cat.xy.list")
@@ -137,7 +143,7 @@ def suite():
     utilsTests.init()
 
     suites = []
-    suites += unittest.makeSuite(DistortedImageTestCase)
+    suites += unittest.makeSuite(CreateWcsWithSipCase)
     suites += unittest.makeSuite(utilsTests.MemoryTestCase)
 
     return unittest.TestSuite(suites)
