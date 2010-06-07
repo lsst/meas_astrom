@@ -25,16 +25,19 @@ if not dataDir:
     print >> sys.stderr, "Warning: distortedImageTest not run because astrometry_net_data is not set up"
     sys.exit(1)
 
-if eups.getSetupVersion("astrometry_net_data") != "cfhttemplate":
-    try:
+try:
+    if eups.getSetupVersion("astrometry_net_data") != "cfhttemplate":
         setupCmds = eups.setup("astrometry_net_data", "cfhttemplate")
-    except AttributeError:              # old eups
+except AttributeError, e:              # old eups
+    if eups.Eups().findSetupVersion("astrometry_net_data")[0] == "cfhttemplate":
+        setupCmds = ['true']
+    else:
         setupCmds = ['false']
-        
-    if len(setupCmds) == 1 and setupCmds[0] == 'false':
-        print >> sys.stderr, "Warning: distortedImageTest not run because " \
-              "astrometry_net_data cfttemplate is unavailable"
-        sys.exit(1)
+
+if len(setupCmds) == 1 and setupCmds[0] == 'false':
+    print >> sys.stderr, "Warning: createWcsWithSip not run because " \
+          "astrometry_net_data cfttemplate is unavailable"
+    sys.exit(1)
 
 #Create a globally accessible instance of a GAS. This takes a few seconds
 #to load, so we don't want to do it everytime we setup a test case
