@@ -1,3 +1,4 @@
+import math
 
 import lsst.afw.image as afwImg
 import lsst.afw.detection as afwDet
@@ -29,6 +30,48 @@ def linearXDistort(src, frac=.001):
     return out
 
 
+def quadraticDistortX(src, frac=1e-6):
+    """Distort image by terms with power <=2
+    i.e y, y^2, x, xy, x^2
+    """
+    
+    out = afwDet.Source(src)
+    x = out.getXAstrom()
+    y = out.getYAstrom()
+    val = x**2
+    
+    out.setXAstrom(x + val*frac)
+    out.setYAstrom(y)
+    return out
+
+
+def cubicDistortX(src, frac=1e-9):
+    """Distort image by terms with power <=2
+    i.e y, y^2, x, xy, x^2
+    """
+    
+    out = afwDet.Source(src)
+    x = out.getXAstrom()
+    y = out.getYAstrom()
+    val = x**3
+    
+    out.setXAstrom(x + val*frac)
+    out.setYAstrom(y)
+    return out
+
+
+def manyTermX(src, frac=1e-9):
+    out = afwDet.Source(src)
+    x = out.getXAstrom()
+    y = out.getYAstrom()
+    val = x**3 - 2*x**2 + 4*x - 9
+    
+    out.setXAstrom(x + val*frac)
+    out.setYAstrom(y)
+    return out
+
+
+
 def linearYDistort(src, frac=.001):
     """Increase the yAstrom value in a Source object by frac. E.g
     src.xAstrom = 1000 --> 1001 if frac=.001
@@ -46,7 +89,7 @@ def linearYDistort(src, frac=.001):
     return out
 
 
-def quadraticDistortX(src, frac=1e-6):
+def quadraticDistortY(src, frac=1e-6):
     """Distort image by terms with power <=2
     i.e y, y^2, x, xy, x^2
     """
@@ -54,11 +97,72 @@ def quadraticDistortX(src, frac=1e-6):
     out = afwDet.Source(src)
     x = out.getXAstrom()
     y = out.getYAstrom()
-    val = x**2
+    val = y**2
     
-    out.setXAstrom(x + val*frac)
+    out.setXAstrom(x)
+    out.setYAstrom(y + val*frac)
+    return out
+
+
+def cubicDistortY(src, frac=1e-9):
+    """Distort image by terms with power <=2
+    i.e y, y^2, x, xy, x^2
+    """
+    
+    out = afwDet.Source(src)
+    x = out.getXAstrom()
+    y = out.getYAstrom()
+    val = x**3
+    
+    out.setXAstrom(x)
+    out.setYAstrom(y + val*frac)
+    return out
+
+
+def manyTermY(src, frac=1e-9):
+    out = afwDet.Source(src)
+    x = out.getXAstrom()
+    y = out.getYAstrom()
+    val = y**3 - 2*y**2 + 4*y - 9
+    
+    out.setXAstrom(x)
+    out.setYAstrom(y + val*frac)
+    return out
+
+
+def crossTerms1(src, frac=1e-9):
+    out = afwDet.Source(src)
+    x = out.getXAstrom()
+    y = out.getYAstrom()
+    val = x**3 - 2*x**2 + 4*x - 9
+    
+    out.setXAstrom(x)
+    out.setYAstrom(y + val*frac)
+    return out
+
+
+def crossTerms2(src, frac=1e-9):
+    out = afwDet.Source(src)
+    x = out.getXAstrom()
+    y = out.getYAstrom()
+    val = y**3 - 2*y**2 + 4*y - 9
+    
+    out.setXAstrom(x+ val*frac)
     out.setYAstrom(y)
     return out
+
+
+def crossTerms3(src, frac=1e-9):
+    out = afwDet.Source(src)
+    x = out.getXAstrom()
+    y = out.getYAstrom()
+    valx = x**3 - 2*x**2 + 4*x - 9
+    valy = y**3 - 2*y**2 + 4*y - 9
+    
+    out.setXAstrom(x + valy*frac)
+    out.setYAstrom(y + valx*frac)
+    return out
+
 
 def quadraticDistort(src, frac=1e-6):
     """Distort image by terms with power <=2
@@ -100,4 +204,17 @@ def distortList(srcList, function):
     for src in srcList:
         out.push_back( function(src) )
 
+    maxDiff=0
+    for i in range(len(srcList)):
+        s = srcList[i]
+        o = out[i]
+        
+        x1, y1 = s.getXAstrom(), s.getYAstrom()
+        x2, y2 = o.getXAstrom(), o.getYAstrom()
+        
+        diff = math.hypot(x1-x2, y1-y2)
+        maxDiff = max(diff, maxDiff)
+        
+    print "Max deviation is %e pixels" %(maxDiff)
+    
     return out
