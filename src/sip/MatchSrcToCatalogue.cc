@@ -116,7 +116,9 @@ void sip::MatchSrcToCatalogue::findMatches() {
 ///which does not garauntee that. This function does the (slow) search and removal.
 void sip::MatchSrcToCatalogue::_removeOneToMany() {
 
-    
+    //astrometry.net often returns the same catalogue object twice, so removing all the duplicate
+    //catalogue objects is a bad idea.
+
     unsigned int size = _match.size();
     for (unsigned int i = 0; i< size; ++i) {
         for (unsigned int j = i + 1; j< size; ++j) {
@@ -149,6 +151,7 @@ void sip::MatchSrcToCatalogue::_removeManyToOne()  {
         for (unsigned int j = i + 1; j< size; ++j) {
             //If the same Source appears twice
             if ( _match[i].second == _match[j].second ) {
+#if 0           //The old way is to remove the worse match
                 //Keep the one with the shorter match distance, and disgard the other
                 if ( _match[i].distance < _match[j].distance ){
                     _match.erase(_match.begin() + j);
@@ -160,6 +163,11 @@ void sip::MatchSrcToCatalogue::_removeManyToOne()  {
                     i--;    //Otherwise the for loop will skip an element
                     j = size + 1; //Nothing else to do for the deleted element
                 }
+#else
+                //The new way is to remove both objects
+                _match.erase(_match.begin() + i);   
+                _match.erase(_match.begin() + j);
+#endif
             }
         }
     }
