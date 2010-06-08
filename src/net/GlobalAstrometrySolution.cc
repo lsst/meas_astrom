@@ -88,8 +88,7 @@ index_t *GlobalAstrometrySolution::_loadIndexMeta(std::string filename){
   double t0 = timenow();
   index_t* index = index_load(filename.c_str(), INDEX_ONLY_LOAD_METADATA, NULL);
   double dt = timenow() - t0;
-  string msg = boost::str(boost::format("loading index file %s took %s sec.") % filename % dt);
-  _mylog.log(pexLog::Log::DEBUG, msg);
+
   return index;
 }
 
@@ -417,6 +416,9 @@ bool GlobalAstrometrySolution::solve()  {
 
     if (_isSolved){
         _mylog.log(pexLog::Log::DEBUG, "Position Found");
+        char *indexname = _solver->index->indexname;
+        string msg = boost::str(boost::format("Solved index is %s") % indexname);
+        _mylog.log(pexLog::Log::DEBUG, msg);            
 
         // Grab everything we need from the index file while it is still open!
         //index_t* index = _solver->best_match.index;
