@@ -97,8 +97,6 @@ double CreateWcsWithSip::getScatterInPixels() {
         val.push_back(hypot(imgX - catX, imgY - catY));
    }
     
-    //Because we're looking at a hypotenuse which is always greater than zero
-    //the median is a good metric of the typical size
     math::Statistics stat = math::makeStatistics(val, math::MEDIAN);
     double scatter = stat.getValue(math::MEDIAN);
     
@@ -126,15 +124,13 @@ double CreateWcsWithSip::getScatterInArcsec() {
         double imgDec = ad->getLatitude(afwCoord::DEGREES);
         
         //This is not strictly the correct calculation for distance in raDec space,
-        //but because we are dealing with distances hopefully << 1" it's a reasonable 
+        //but because we are dealing with distances hopefully < 1" it's a reasonable 
         //approximation
         val.push_back(hypot(imgRa - catRa, imgDec - catDec));
     }
     
     assert(val.size() > 0);
     
-    //Because we're looking at a hypotenuse which is always greater than zero
-    //the median is a good metric of the typical size
     math::Statistics stat = math::makeStatistics(val, math::MEDIAN);
     double scatter = stat.getValue(math::MEDIAN);
     
@@ -217,7 +213,10 @@ void CreateWcsWithSip::_createWcs(int order){
 
     //Construct a new wcs from the old one
     mylog.log(pexLog::Log::DEBUG, "Creating new wcs structure");        
-    afwGeom::PointD crval = _linearWcs->getSkyOrigin();
+    afwCoord::Fk5Coord crvalCoord = _linearWcs->getSkyOrigin()->toFk5();
+    
+    afwGeom::PointD crval = afwGeom::makePointD(crvalCoord.getRa(afwCoord::DEGREES), \
+                            crvalCoord.getDec(afwCoord::DEGREES));
     afwGeom::PointD crpix = _linearWcs->getPixelOrigin();
     Eigen::Matrix2d CD = _linearWcs->getCDMatrix();
     

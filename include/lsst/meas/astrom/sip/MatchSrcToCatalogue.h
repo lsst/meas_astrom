@@ -68,6 +68,7 @@ private:
     double _distInArcsec;               ///< How close must two objects be to match 
 
     det::SourceSet _deepCopySourceSet(const det::SourceSet &in);
+    bool _isNewCatSource(const det::Source::Ptr srcPtr);
     void _removeOneToMany();
     void _removeManyToOne();
 };

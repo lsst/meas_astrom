@@ -1,6 +1,8 @@
 // -*- LSST-C++ -*-
 #include "lsst/meas/astrom/sip/MatchSrcToCatalogue.h"
 #include "lsst/afw/image/Wcs.h"
+#include <assert.h>
+
 
 namespace except = lsst::pex::exceptions;
 namespace afwCoord = lsst::afw::coord;
@@ -63,14 +65,39 @@ void sip::MatchSrcToCatalogue::setWcs(CONST_PTR(lsst::afw::image::Wcs) wcs)
 /// pointed to so that we can freely mutate them inside the object without affecting
 /// the input argument.
 void sip::MatchSrcToCatalogue::setImgSrcSet(const det::SourceSet &srcSet) {
-    //Destroy the old imgSet
-    //imgSet.~imgSet();
     _imgSet = _deepCopySourceSet(srcSet);
 }
 
+
 void sip::MatchSrcToCatalogue::setCatSrcSet(const det::SourceSet &srcSet) {
-    _catSet = _deepCopySourceSet(srcSet);
+    for(unsigned int i=0; i< srcSet.size(); ++i) {
+        if (_isNewCatSource(srcSet[i])) {
+            _catSet.push_back(srcSet[i]);
+        }
+    }
 }
+
+
+bool sip::MatchSrcToCatalogue::_isNewCatSource(const det::Source::Ptr srcPtr) {
+
+    for(unsigned int i=0; i< _catSet.size(); ++i)
+    {   
+        double ra1 = srcPtr->getRa();
+        double dec1= srcPtr->getDec();
+        
+        double ra2 = _catSet[i]->getRa();
+        double dec2= _catSet[i]->getDec();
+        
+        double diffRa = fabs(ra1-ra2);
+        double diffDec= fabs(dec1-dec2);
+        
+        if( (diffRa < 1e-7) && (diffDec < 1e-7) ) { //If positions agree
+            return false;
+        }
+    }
+    return true;
+}
+
 
 void sip::MatchSrcToCatalogue::findMatches() {
     //The design of this class ensures all private variables must be set at this point,
@@ -121,24 +148,29 @@ void sip::MatchSrcToCatalogue::_removeOneToMany() {
 
     unsigned int size = _match.size();
     for (unsigned int i = 0; i< size; ++i) {
+    
+        bool mark = false;
         for (unsigned int j = i + 1; j< size; ++j) {
-            //If the same Source appears twice keep the one with the smaller separation from its match
+
+            //We cleaned our catalogue, so if the same catalogue object appears 
+            //twice it means it matched two nearby stars
             if ( _match[i].first == _match[j].first ) {
-                //Keep the one with the shorter match distance, and disgard the other
-                if ( _match[i].distance < _match[j].distance){
-                    _match.erase(_match.begin() + j);
-                    size--;
-                }
-                else {  
-                    _match.erase(_match.begin() + i);
-                    size--;
-                    i--;    //Otherwise the for loop will skip an element
-                    j = size + 1; //Nothing else to do for the deleted element
-                }
-            }
+        
+                mark = true;        
+                _match.erase(_match.begin() + j);
+                size--;     //Our list got smaller
+                j--;        //Don't skip over the next source
+            } 
+        }
+        
+        if(mark) {
+            _match.erase(_match.begin() + i);
+            size--;
+            i--;
         }
     }
 }
+
 
 
 /// This function is identical to
@@ -148,10 +180,50 @@ void sip::MatchSrcToCatalogue::_removeManyToOne()  {
     
     unsigned int size = _match.size();
     for (unsigned int i = 0; i< size; ++i) {
+
+        //The new way
+#if 1
+        bool mark = false;
         for (unsigned int j = i + 1; j< size; ++j) {
+            assert(i != j);
             //If the same Source appears twice
             if ( _match[i].second == _match[j].second ) {
-#if 0           //The old way is to remove the worse match
+//                 printf("Removing object j=%d\n", j);
+//                 printf("%g %g\n", (_match[j].second)->getXAstrom(), (_match[j].second)->getYAstrom());
+                
+                //mark the ith object for deletion, but don't delete it yet, because
+                //there may be more matches to find
+                mark = true; 
+                                
+                //remove the jth object, and continue searching for other matches
+                _match.erase(_match.begin() + j);
+                j--;
+
+                size--; //Our list got smaller
+                
+            }
+        }
+        
+        //ith object has been checked against every object > i.  it's now safe to delete it
+        //if it matched something in position,
+        if(mark) {
+//             printf("Removing object i=%d\n", i);
+//             printf("%g %g\n", _match[i].second->getXAstrom(), _match[i].second->getYAstrom());
+
+            _match.erase(_match.begin() + i);
+            i--;    //so we don't skip the next element
+            size--; //because our list got smaller
+            
+        }
+
+#else
+        for (unsigned int j = i + 1; j< size; ++j) {
+        
+            bool mark = false;
+            
+            //If the same Source appears twice
+            if ( _match[i].second == _match[j].second ) {
+
                 //Keep the one with the shorter match distance, and disgard the other
                 if ( _match[i].distance < _match[j].distance ){
                     _match.erase(_match.begin() + j);
@@ -163,15 +235,16 @@ void sip::MatchSrcToCatalogue::_removeManyToOne()  {
                     i--;    //Otherwise the for loop will skip an element
                     j = size + 1; //Nothing else to do for the deleted element
                 }
-#else
-                //The new way is to remove both objects
-                _match.erase(_match.begin() + i);   
-                _match.erase(_match.begin() + j);
-#endif
             }
         }
+#endif
     }
+
+    
+    assert(size>0);
 }
+
+
 
 
 std::vector<det::SourceMatch> sip::MatchSrcToCatalogue::getMatches() {
