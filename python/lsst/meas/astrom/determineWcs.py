@@ -86,6 +86,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     solver.setStarlist(srcSet)
     log.log(log.DEBUG, "Setting numBrightObj")
     solver.setNumBrightObjects( min(policy.get('numBrightStars'), len(srcSet)))
+    solver.setLogLevel(3)
 
     #Do a blind solve if we're told to, or if we don't have an input wcs
     doBlindSolve = policy.get('blindSolve') or (wcsIn is None)
@@ -140,43 +141,14 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
             
         log.log(Log.DEBUG, "%i catalogue objects match input source list using linear Wcs" %(len(matchList)))
     else:
+        #Use list of matches returned by astrometry.net
         log.log(Log.DEBUG, "Getting matched sources: Fluxes in band %s " %(filterName))
         matchList = solver.getMatchedSources(filterName)
     
 
     if policy.get('calculateSip'):
-        #Iteratively calculate sip distortions and regenerate matchList based on improved wcs
         sipOrder = policy.get('sipOrder')
-        matchSize = len(matchList)
-    
-        i=0
-        while True:
-            try:
-                sipObject = astromSip.CreateWcsWithSip(matchList, wcs, sipOrder)
-                proposedWcs = sipObject.getNewWcs()
-            except LsstCppException, e:
-                log.log(Log.WARN, "Failed to calculate distortion terms. Error:")
-                log.log(Log.WARN, str(e))
-                log.log(Log.WARN, "Using best guess wcs")
-                break
-
-            msg="Sip Iteration %i: %i objects match. rms scatter is %g arcsec or %g pixels" \
-                    %(i, matchSize, sipObject.getScatterInArcsec(), sipObject.getScatterInPixels())
-            log.log(Log.DEBUG, msg)
-            
-            #Use the new wcs to update the match list        
-            proposedMatchlist = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=proposedWcs, 
-                distInArcsec=distInArcsec, cleanParam=cleanParam)
-                
-            
-            if len(proposedMatchlist) <= matchSize:
-                #We're regressing, so stop
-                break
-            
-            wcs = proposedWcs
-            matchList = proposedMatchlist 
-            matchSize = len(matchList)
-            i=i+1
+        wcs, matchList = calculateSipTerms(wcs, cat, srcSet, distInArcsec, cleanParam, sipOrder, log)
     else:
         log.log(Log.DEBUG, "Updating wcs in input exposure with linear wcs")
         
@@ -297,6 +269,54 @@ def getImageSizeInArcsec(srcSet, wcs):
     dist = math.sqrt(deltaRa**2 + deltaDec**2)
     return 3600*math.degrees(dist)  #arcsec
 
+
+def calculateSipTerms(inputWcs, cat, srcSet, distInArcsec, cleanParam, sipOrder, log=None):
+    """Iteratively calculate sip distortions and regenerate matchList based on improved wcs"""
+
+    if log is None:
+        log = StdoutLog()
+
+    wcs = inputWcs
+
+    #Create a first pass at a set of matching objects
+    matchList = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=wcs, 
+        distInArcsec=distInArcsec, cleanParam=cleanParam)
+
+    i=0
+    while True:
+        try:
+            sipObject = astromSip.CreateWcsWithSip(matchList, wcs, sipOrder)
+            proposedWcs = sipObject.getNewWcs()
+        except LsstCppException, e:
+            log.log(Log.WARN, "Failed to calculate distortion terms. Error:")
+            log.log(Log.WARN, str(e))
+            log.log(Log.WARN, "Using best guess wcs")
+            break
+
+        matchSize = len(matchList)
+        msg="Sip Iteration %i: %i objects match. rms scatter is %g arcsec or %g pixels" \
+                %(i, matchSize, sipObject.getScatterInArcsec(), sipObject.getScatterInPixels())
+        log.log(Log.DEBUG, msg)
+
+        #Use the new wcs to update the match list        
+        proposedMatchlist = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=proposedWcs, 
+            distInArcsec=distInArcsec, cleanParam=cleanParam)
+
+
+        if len(proposedMatchlist) <= matchSize:
+            #We're regressing, so stop
+            break
+
+        wcs = proposedWcs
+        matchList = proposedMatchlist 
+        matchSize = len(matchList)
+        i=i+1
+
+    if not wcs.hasDistortion():
+        log.log(Log.WARN, "Distortion fitter failed to improve on linear WCS")
+        
+    return wcs, matchList
+            
 
 def matchSrcAndCatalogue(cat=None, img=None, wcs=None, distInArcsec=1.0, cleanParam=3):
     """Given an input catalogue, match a list of objects in an image, given
