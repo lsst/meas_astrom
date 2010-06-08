@@ -11,6 +11,7 @@ import lsst.afw.image as afwImage
 import lsst.meas.astrom.net as net
 import lsst.utils.tests as utilsTests
 import lsst.afw.image as afwImg
+import lsst.afw.coord as afwCoord
 import lsst.afw.detection.detectionLib as detect
 try:
     type(verbose)
@@ -217,10 +218,10 @@ class SmallSolveGASTestCFHT(unittest.TestCase):
         if expectPass:
             self.assertTrue(flag, "No solution found")
             wcs = self.gas.getWcs()
-            result = wcs.getSkyOrigin()
+            result = wcs.getSkyOrigin().toFk5()
             scale= self.gas.getSolvedImageScale()
             if verbose:
-                print "%.6f %.6f %.3f" %(result.getX(), result.getY(), scale)
+                print "%.6f %.6f %.3f" %(result.getRa(afwCoord.DEGREES), result.getDec(afwCoord.DEGREES), scale)
 
         else:
             self.assertFalse(flag, "Solution found, but none expected")
