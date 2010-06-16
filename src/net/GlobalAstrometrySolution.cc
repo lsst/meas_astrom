@@ -733,7 +733,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
 ///For the two objects, X,YAstrom and Ra/Dec are set.
 //
 // If "run_tweak2" is true, runs the "tweak2()" function in Astrometry.net to tune up the set of matches.
-vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filterName, bool run_tweak2=false) {
+vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filterName, bool run_tweak2) {
     if (! _isSolved) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
@@ -743,7 +743,7 @@ vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filt
     assert(match->nfield > 0);
 
     if (run_tweak2) {
-        double* xy = starxy_to_xy_array(_solver->fieldxy);
+      double* xy = starxy_to_xy_array(_solver->fieldxy, NULL);
         int Nxy = starxy_n(_solver->fieldxy);
         double jitter = 1.0; // pixel positional noise sigma
         // FIXME -- surely we can get the image size, correctly, from somewhere else...?
@@ -762,8 +762,9 @@ vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filt
         // SIP order
         int order = 1;
         // initial WCS
-        sip_t* startsip = sip_wrap_tan(mo->wcstan);
-        double* theta;
+        sip_t startsip;
+	sip_wrap_tan(&(mo->wcstan), &startsip);
+        int* theta;
         double* odds;
 
         assert(mo->refradec); // or use refxyz...
@@ -771,8 +772,8 @@ vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filt
         sip_t* newsip = tweak2(xy, Nxy, jitter, W, H, mo->refradec, mo->nindex,
                                indexjitter,
                                qc, Q2, distractors, logodds_bail, order,
-                               startsip, NULL, &theta, &odds, NULL);
-        assert(sip);
+                               &startsip, NULL, &theta, &odds, NULL);
+        assert(newsip);
 
         // Yoink the TAN solution.
         memcpy(&(mo->wcstan), &(newsip->wcstan), sizeof(tan_t));

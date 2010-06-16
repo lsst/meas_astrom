@@ -102,7 +102,7 @@ public:
     //Return the solution
     lsst::afw::image::Wcs::Ptr getWcs();
     lsst::afw::image::Wcs::Ptr getDistortedWcs(int order = 3);
-    std::vector<lsst::afw::detection::SourceMatch> getMatchedSources(std::string filterName="");
+    std::vector<lsst::afw::detection::SourceMatch> getMatchedSources(std::string filterName="", bool use_tweak2=false);
     double getSolvedImageScale();
 
     std::vector<std::string> getCatalogueMetadataFields();
