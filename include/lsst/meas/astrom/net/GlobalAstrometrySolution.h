@@ -34,6 +34,7 @@ extern "C" {
 #include "log.h"
 #include "tic.h"
 #include "verify.h"
+#include "tweak2.h"
 }
 
 namespace lsst { 

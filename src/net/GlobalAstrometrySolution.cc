@@ -731,7 +731,9 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
 ///For each object in the catalogue that matches an input source return a SourceMatch object
 ///containing a) the catalogue object, b) the source object, c) the distance between them in pixels
 ///For the two objects, X,YAstrom and Ra/Dec are set.
-vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filterName){
+//
+// If "run_tweak2" is true, runs the "tweak2()" function in Astrometry.net to tune up the set of matches.
+vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filterName, bool run_tweak2=false) {
     if (! _isSolved) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
@@ -739,6 +741,48 @@ vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filt
     string msg="";  //Used for exception messages
     MatchObj* match = &_solver->best_match;
     assert(match->nfield > 0);
+
+    if (run_tweak2) {
+        double* xy = starxy_to_xy_array(_solver->fieldxy);
+        int Nxy = starxy_n(_solver->fieldxy);
+        double jitter = 1.0; // pixel positional noise sigma
+        // FIXME -- surely we can get the image size, correctly, from somewhere else...?
+        int W = solver_field_width(_solver);
+        int H = solver_field_height(_solver);
+        MatchObj* mo = &(_solver->best_match);
+        double indexjitter = mo->index->index_jitter; // ref cat positional error, in arcsec.
+        // quad center
+        double qc[2];
+        qc[0] = (mo->quadpix[0] + mo->quadpix[2]) / 2.0;
+        qc[1] = (mo->quadpix[1] + mo->quadpix[3]) / 2.0;
+        // quad radius-squared
+        double Q2 = pow(mo->quadpix[0] - qc[0], 2) + pow(mo->quadpix[1] - qc[1], 2);
+        double distractors = 0.25;
+        double logodds_bail = -100;
+        // SIP order
+        int order = 1;
+        // initial WCS
+        sip_t* startsip = sip_wrap_tan(mo->wcstan);
+        double* theta;
+        double* odds;
+
+        assert(mo->refradec); // or use refxyz...
+
+        sip_t* newsip = tweak2(xy, Nxy, jitter, W, H, mo->refradec, mo->nindex,
+                               indexjitter,
+                               qc, Q2, distractors, logodds_bail, order,
+                               startsip, NULL, &theta, &odds, NULL);
+        assert(sip);
+
+        // Yoink the TAN solution.
+        memcpy(&(mo->wcstan), &(newsip->wcstan), sizeof(tan_t));
+        // Plug in the new "theta" and "odds".
+        // FIXME -- check to ensure that none of the other fields in matchobj.h become out of sync by doing this...
+        free(mo->theta);
+        free(mo->matchodds);
+        mo->theta = theta;
+        mo->matchodds = odds;
+    }
     
     vector<Det::SourceMatch> sourceMatchSet;
     afwImg::Wcs::Ptr wcsPtr = this->getWcs();
