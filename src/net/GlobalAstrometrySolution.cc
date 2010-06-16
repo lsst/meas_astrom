@@ -85,9 +85,7 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
 
 index_t *GlobalAstrometrySolution::_loadIndexMeta(std::string filename){
   //return index_load(filename.c_str(), INDEX_ONLY_LOAD_METADATA, NULL);
-  double t0 = timenow();
   index_t* index = index_load(filename.c_str(), INDEX_ONLY_LOAD_METADATA, NULL);
-  double dt = timenow() - t0;
 
   return index;
 }
@@ -602,13 +600,8 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs()  {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
 
-    // CHECK THIS -- Astrometry.net probably doesn't add or subtract 1 from your coordinates;
-    // this if you pass in zero-indexed source positions, that's what you'll get back.
-
-    ///Astro.net conforms with wcslib in assuming that images are 1-indexed (i.e the bottom left-most pixel
-    ///is (1,1). LSST is zero indexed, so we add 1 to the crpix values returned by _solver to convert
-    lsst::afw::geom::PointD crpix = lsst::afw::geom::makePointD(_solver->best_match.wcstan.crpix[0] + 1,
-                                                                _solver->best_match.wcstan.crpix[1] + 1);   
+    lsst::afw::geom::PointD crpix = lsst::afw::geom::makePointD(_solver->best_match.wcstan.crpix[0],
+                                                                _solver->best_match.wcstan.crpix[1]);   
     lsst::afw::geom::PointD crval = lsst::afw::geom::makePointD(_solver->best_match.wcstan.crval[0],
                                                                 _solver->best_match.wcstan.crval[1]);
     
@@ -662,10 +655,8 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "Tweaking failed"));
     }
 
-    ///Astro.net conforms with wcslib in assuming that images are 1-indexed (i.e the bottom left-most pixel
-    ///is (1,1). LSST is zero indexed, so we add 1 to the crpix values returned by _solver to convert
-    lsst::afw::geom::PointD crpix = lsst::afw::geom::makePointD(sip->wcstan.crpix[0] + 1,
-                                                                sip->wcstan.crpix[1] + 1);
+    lsst::afw::geom::PointD crpix = lsst::afw::geom::makePointD(sip->wcstan.crpix[0],
+                                                                sip->wcstan.crpix[1]);
     lsst::afw::geom::PointD crval = lsst::afw::geom::makePointD(sip->wcstan.crval[0],
                                                                 sip->wcstan.crval[1]);
 

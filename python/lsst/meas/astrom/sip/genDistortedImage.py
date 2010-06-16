@@ -130,18 +130,18 @@ def manyTermY(src, frac=1e-9):
     return out
 
 
-def crossTerms1(src, frac=1e-9):
+def crossTerms1(src, frac=1e-11):
     out = afwDet.Source(src)
     x = out.getXAstrom()
     y = out.getYAstrom()
-    val = x**3 - 2*x**2 + 4*x - 9
+    val = x**3 - 2*x**2 #+ 4*x - 9
     
     out.setXAstrom(x)
     out.setYAstrom(y + val*frac)
     return out
 
 
-def crossTerms2(src, frac=1e-9):
+def crossTerms2(src, frac=1e-11):
     out = afwDet.Source(src)
     x = out.getXAstrom()
     y = out.getYAstrom()
