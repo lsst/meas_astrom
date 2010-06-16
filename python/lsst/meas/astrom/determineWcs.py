@@ -126,7 +126,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
             
 
     matchList=[]    #Make sure this stays in scope
-    if True:
+    if False:
         #Now generate a list of matching objects
         distInArcsec = policy.get('distanceForCatalogueMatchinArcsec')
         cleanParam = policy.get('cleaningParameter')
@@ -143,8 +143,9 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     else:
         #Use list of matches returned by astrometry.net
         log.log(Log.DEBUG, "Getting matched sources: Fluxes in band %s " %(filterName))
-        matchList = solver.getMatchedSources(filterName)
-    
+        # true: use "tweak2" to get a more complete match list.
+        matchList = solver.getMatchedSources(filterName, true)
+
 
     if policy.get('calculateSip'):
         sipOrder = policy.get('sipOrder')
