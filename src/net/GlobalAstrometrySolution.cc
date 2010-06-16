@@ -768,12 +768,20 @@ vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filt
         double* odds;
 
         assert(mo->refradec); // or use refxyz...
+        /*
+         double* refradec = malloc(3 * mo->nindex * sizeof(double));
+         for (int i=0; i<mo->nindex; i++) {
+         xyzarr2radecdegarr(mo->refxyz + i*3, refradec + i*2);
+         }
+         */
 
         sip_t* newsip = tweak2(xy, Nxy, jitter, W, H, mo->refradec, mo->nindex,
                                indexjitter,
                                qc, Q2, distractors, logodds_bail, order,
                                &startsip, NULL, &theta, &odds, NULL);
         assert(newsip);
+
+        // free(refradec);
 
         // Yoink the TAN solution.
         memcpy(&(mo->wcstan), &(newsip->wcstan), sizeof(tan_t));
@@ -783,6 +791,9 @@ vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filt
         free(mo->matchodds);
         mo->theta = theta;
         mo->matchodds = odds;
+
+        sip_free(newsip);
+        free(xy);
     }
     
     vector<Det::SourceMatch> sourceMatchSet;
