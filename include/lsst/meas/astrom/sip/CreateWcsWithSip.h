@@ -10,6 +10,10 @@
 #include "boost/shared_ptr.hpp"
 #include "lsst/base.h"
 #include "Eigen/Core.h"
+#include "Eigen/SVD"
+#include "Eigen/Cholesky"
+#include "Eigen/LU"
+
 
 #include "lsst/pex/logging/Log.h"
 #include "lsst/pex/exceptions/Runtime.h"
@@ -18,8 +22,11 @@
 #include "lsst/afw/math/Statistics.h"
 #include "lsst/afw/detection/SourceMatch.h"
 #include "lsst/afw/detection/Source.h"
+#include "lsst/afw/geom/Point.h"
+#include "lsst/afw/image/Wcs.h"
+#include "lsst/afw/image/TanWcs.h"
 
-#include "lsst/meas/astrom/sip/LeastSqFitter2d.h"
+
 
 namespace lsst { 
     namespace afw {
@@ -70,17 +77,14 @@ public:
     typedef boost::shared_ptr<CreateWcsWithSip const> ConstPtr;
 
     CreateWcsWithSip(const std::vector<lsst::afw::detection::SourceMatch> match,
-                     const lsst::afw::image::Wcs &linearWcs,
+                     const lsst::afw::image::Wcs::Ptr linearWcs,
                      int order);
 
-    CreateWcsWithSip(const std::vector<lsst::afw::detection::SourceMatch> match,
-                          const lsst::afw::image::Wcs &linearWcs,
-                          double maxScatterInArcsec,
-                          int maxOrder);
 
     PTR(lsst::afw::image::TanWcs) getNewWcs();
     double getScatterInPixels();
     double getScatterInArcsec();
+
     ///Get the number of terms in the SIP matrix
     inline int getOrder() { return  _sipA.rows(); }
 
@@ -88,19 +92,29 @@ private:
     
     const std::vector<lsst::afw::detection::SourceMatch> _matchList;
     CONST_PTR(lsst::afw::image::Wcs) _linearWcs;
-    PTR(lsst::afw::image::TanWcs) _newWcs;
+    CONST_PTR(lsst::afw::image::Wcs) _origWcs;
+    //size is number of input points. _sipOrder is polynomial order for forward transform.
+    //_reverseSipOrder is order for reverse transform, not necessarily the same.
+    const int _sipOrder, _reverseSipOrder, _size;      
+
     Eigen::MatrixXd _sipA, _sipB;
     Eigen::MatrixXd _sipAp, _sipBp;
-    
-    void _createWcs(int order);
 
-    Eigen::MatrixXd _calculateSip(const std::vector<double> u, const std::vector<double> v, 
-                  const std::vector<double> z, const std::vector<double> s, int order);
-
-    void _scaleVector(std::vector<double>& v);
+    PTR(lsst::afw::image::TanWcs) _newWcs;    
     
-    Eigen::MatrixXd _convertChebyToSip(Eigen::MatrixXd const & cheby);
-                  
+    void _calculateForwardMatrices();
+    void _calculateReverseMatrices();
+    
+    Eigen::MatrixXd _calculateCMatrix(Eigen::VectorXd axis1, Eigen::VectorXd axis2, int order);
+    Eigen::VectorXd _leastSquaresSolve(Eigen::VectorXd b, Eigen::MatrixXd A);
+    
+    lsst::afw::geom::PointD _getCrvalAsGeomPoint();
+    
+    int getUIndex(int j, int order);
+    int getVIndex(int j, int order);
+    
+    void debug();
+    
 };    
     
 
