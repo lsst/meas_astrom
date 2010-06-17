@@ -143,8 +143,8 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     else:
         #Use list of matches returned by astrometry.net
         log.log(Log.DEBUG, "Getting matched sources: Fluxes in band %s " %(filterName))
-        # true: use "tweak2" to get a more complete match list.
-        matchList = solver.getMatchedSources(filterName, true)
+        # True: use "tweak2" to get a more complete match list.
+        matchList = solver.getMatchedSources(filterName, True)
 
 
     if policy.get('calculateSip'):
