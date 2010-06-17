@@ -88,11 +88,17 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     solver.setNumBrightObjects( min(policy.get('numBrightStars'), len(srcSet)))
     solver.setLogLevel(3)
 
+    # Input WCS pixel scale uncertainty, in %
+    #unc = policy.get('pixelScaleUncertainty')
+    unc = 2
+
     #Do a blind solve if we're told to, or if we don't have an input wcs
     doBlindSolve = policy.get('blindSolve') or (wcsIn is None)
     if doBlindSolve:
         log.log(log.DEBUG, "Solving with no initial guess at position")
         isSolved = solver.solve()
+    elif unc:
+        isSolved = solver.solve(wcsIn, unc)
     else:
         isSolved = solver.solve(wcsIn)
 
@@ -147,7 +153,8 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         matchList = solver.getMatchedSources(filterName, True)
 
 
-    if policy.get('calculateSip'):
+    # dstn
+    if False: #policy.get('calculateSip'):
         sipOrder = policy.get('sipOrder')
         wcs, matchList = calculateSipTerms(wcs, cat, srcSet, distInArcsec, cleanParam, sipOrder, log)
     else:
