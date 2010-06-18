@@ -8,8 +8,7 @@ using namespace std;
 
 #include <vector>
 #include <cmath>
-#include <cstdio>
-#include <cassert>
+#include <iostream>
 #include "boost/shared_ptr.hpp"
 #include "Eigen/Core.h"
 
@@ -133,6 +132,8 @@ BOOST_AUTO_TEST_CASE(trivial)
     //Add no distortion
 
     lsst::meas::astrom::sip::CreateWcsWithSip sipObject(sourceMatchSet, wcsPtr, 2);
+    std::cout << "trivial" << std::endl;
+    std::cout << sipObject.getNewWcs()->getFitsMetadata()->toString() << std::endl;
     checkResults(wcsPtr, sipObject.getNewWcs(), sourceMatchSet);
 }
 
@@ -144,7 +145,7 @@ BOOST_AUTO_TEST_CASE(offset)
     vector<afwDet::SourceMatch> sourceMatchSet = generateSourceSet(wcsPtr);
     
     //Add an offset to each point
-    for(unsigned int i; i<sourceMatchSet.size(); ++i)
+    for(unsigned int i = 0; i<sourceMatchSet.size(); ++i)
     {
         double x = sourceMatchSet[i].second->getXAstrom();
         double y = sourceMatchSet[i].second->getYAstrom();
@@ -154,6 +155,8 @@ BOOST_AUTO_TEST_CASE(offset)
     }
 
     lsst::meas::astrom::sip::CreateWcsWithSip sipObject(sourceMatchSet, wcsPtr, 2);
+    std::cout << "offset" << std::endl;
+    std::cout << sipObject.getNewWcs()->getFitsMetadata()->toString() << std::endl;
     checkResults(wcsPtr, sipObject.getNewWcs(), sourceMatchSet);
 }
 
@@ -166,16 +169,18 @@ BOOST_AUTO_TEST_CASE(linearX)
     vector<afwDet::SourceMatch> sourceMatchSet = generateSourceSet(wcsPtr);
     
     //Add an offset to each point
-    for(unsigned int i; i<sourceMatchSet.size(); ++i)
+    for(unsigned int i = 0; i<sourceMatchSet.size(); ++i)
     {
         double x = sourceMatchSet[i].second->getXAstrom();
         double y = sourceMatchSet[i].second->getYAstrom();
         
         sourceMatchSet[i].second->setXAstrom(2*x);
-        sourceMatchSet[i].second->setYAstrom(x+7);
+        sourceMatchSet[i].second->setYAstrom(y+7);
     }
 
     lsst::meas::astrom::sip::CreateWcsWithSip sipObject(sourceMatchSet, wcsPtr, 2);
+    std::cout << "linearX" << std::endl;
+    std::cout << sipObject.getNewWcs()->getFitsMetadata()->toString() << std::endl;
     checkResults(wcsPtr, sipObject.getNewWcs(), sourceMatchSet);
 }
 
@@ -187,7 +192,7 @@ BOOST_AUTO_TEST_CASE(linearXY)
     vector<afwDet::SourceMatch> sourceMatchSet = generateSourceSet(wcsPtr);
     
     //Add an offset to each point
-    for(unsigned int i; i<sourceMatchSet.size(); ++i)
+    for(unsigned int i = 0; i<sourceMatchSet.size(); ++i)
     {
         double x = sourceMatchSet[i].second->getXAstrom();
         double y = sourceMatchSet[i].second->getYAstrom();
@@ -197,6 +202,8 @@ BOOST_AUTO_TEST_CASE(linearXY)
     }
 
     lsst::meas::astrom::sip::CreateWcsWithSip sipObject(sourceMatchSet, wcsPtr, 2);
+    std::cout << "linearXY" << std::endl;
+    std::cout << sipObject.getNewWcs()->getFitsMetadata()->toString() << std::endl;
     checkResults(wcsPtr, sipObject.getNewWcs(), sourceMatchSet);
 }
 
@@ -208,7 +215,7 @@ BOOST_AUTO_TEST_CASE(linearYX)
     vector<afwDet::SourceMatch> sourceMatchSet = generateSourceSet(wcsPtr);
     
     //Add an offset to each point
-    for(unsigned int i; i<sourceMatchSet.size(); ++i)
+    for(unsigned int i = 0; i<sourceMatchSet.size(); ++i)
     {
         double x = sourceMatchSet[i].second->getXAstrom();
         double y = sourceMatchSet[i].second->getYAstrom();
@@ -218,6 +225,8 @@ BOOST_AUTO_TEST_CASE(linearYX)
     }
 
     lsst::meas::astrom::sip::CreateWcsWithSip sipObject(sourceMatchSet, wcsPtr, 2);
+    std::cout << "linearYX" << std::endl;
+    std::cout << sipObject.getNewWcs()->getFitsMetadata()->toString() << std::endl;
     checkResults(wcsPtr, sipObject.getNewWcs(), sourceMatchSet);
 }
 
@@ -230,7 +239,7 @@ BOOST_AUTO_TEST_CASE(quadraticX)
     vector<afwDet::SourceMatch> sourceMatchSet = generateSourceSet(wcsPtr);
     
     //Add an offset to each point
-    for(unsigned int i; i<sourceMatchSet.size(); ++i)
+    for(unsigned int i = 0; i<sourceMatchSet.size(); ++i)
     {
         double x = sourceMatchSet[i].second->getXAstrom();
         double y = sourceMatchSet[i].second->getYAstrom();
@@ -240,6 +249,8 @@ BOOST_AUTO_TEST_CASE(quadraticX)
     }
 
     lsst::meas::astrom::sip::CreateWcsWithSip sipObject(sourceMatchSet, wcsPtr, 3);
+    std::cout << "quadraticX" << std::endl;
+    std::cout << sipObject.getNewWcs()->getFitsMetadata()->toString() << std::endl;
     checkResults(wcsPtr, sipObject.getNewWcs(), sourceMatchSet);
 }
 
