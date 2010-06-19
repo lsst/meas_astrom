@@ -135,10 +135,10 @@ void CreateWcsWithSip::_calculateForwardMatrices() {
     assert(getUIndex(ord, ord) == 1 && getVIndex(ord, ord) == 0);
 
     Eigen::Matrix2d CD;
-    CD(1,0) = mu[1];
+    CD(1,0) = nu[ord];
     CD(1,1) = nu[1];
     CD(0,0) = mu[ord];
-    CD(0,1) = nu[ord];
+    CD(0,1) = mu[1];
 
     Eigen::Matrix2d CDinv = CD.inverse();   //Direct inverse OK for 2x2 matrix in Eigen
 

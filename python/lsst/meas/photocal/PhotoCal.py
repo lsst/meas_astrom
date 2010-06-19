@@ -34,6 +34,9 @@ def calcPhotoCal(sourceMatch, log=None):
     #Convert fluxes to magnitudes
     out = getMagnitudes(sourceMatch)
 
+    print(out["cat"])
+    print(out["src"])
+
     #Fit to get zeropoint
     lsf = robustFit(out["src"], out["cat"], order=2, plot=True)
     par = lsf.getParams()

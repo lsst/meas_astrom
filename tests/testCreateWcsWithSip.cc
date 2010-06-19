@@ -110,8 +110,8 @@ void checkResults(afwImg::Wcs::Ptr wcsPtr, afwImg::TanWcs::Ptr sipWcsPtr, vector
         double srcD = srcCoo.getDec(afwCoord::DEGREES);
 
         //Forward transform (units are degrees)    
-        BOOST_CHECK_CLOSE(catA, srcA, 1e-8);         
-        BOOST_CHECK_CLOSE(catD, srcD, 1e-8);         
+        BOOST_CHECK_CLOSE(catA, srcA, 1e-4);         
+        BOOST_CHECK_CLOSE(catD, srcD, 1e-4);         
         
         //Reverse tranform (units are pixels)
         afwGeom::PointD sipxy = sipWcsPtr->skyToPixel(catA, catD);
@@ -244,7 +244,7 @@ BOOST_AUTO_TEST_CASE(quadraticX)
         double x = sourceMatchSet[i].second->getXAstrom();
         double y = sourceMatchSet[i].second->getYAstrom();
         
-        sourceMatchSet[i].second->setXAstrom(x + 1e-4*x*x);
+        sourceMatchSet[i].second->setXAstrom(x + 1e-5*x*x);
         sourceMatchSet[i].second->setYAstrom(y);
     }
 

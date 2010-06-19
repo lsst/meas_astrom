@@ -42,7 +42,9 @@ if len(setupCmds) == 1 and setupCmds[0] == 'false':
 #to load, so we don't want to do it everytime we setup a test case
 policyFile=eups.productDir("astrometry_net_data")
 policyFile=os.path.join(policyFile, "metadata.paf")
+print "GLOBALGAS"
 GLOBALGAS = net.GlobalAstrometrySolution(policyFile)
+print "...done"
 
 
 class CreateWcsWithSipCase(unittest.TestCase):
@@ -56,14 +58,17 @@ class CreateWcsWithSipCase(unittest.TestCase):
         pass
         
     def testLinearXDistort(self):
+	print "linearXDistort"
         self.singleTestInstance(self.filename, distort.linearXDistort, 
             GLOBALGAS)
 
     def testLinearYDistort(self):
+	print "linearYDistort"
         self.singleTestInstance(self.filename, distort.linearYDistort, 
             GLOBALGAS)
 
     def testQuadraticDistort(self):
+	print "linearQuadraticDistort"
         self.singleTestInstance(self.filename, distort.linearYDistort, 
             GLOBALGAS)
 
