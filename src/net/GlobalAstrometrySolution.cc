@@ -256,6 +256,7 @@ void GlobalAstrometrySolution::_solverSetField() {
 
     //Set the pointer in the solver to the new, smaller field
     starxy_free(_solver->fieldxy);
+    solver_free_field(_solver);
     solver_set_field(_solver, shortlist);
     solver_reset_field_size(_solver);
 
@@ -913,8 +914,8 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
                 out.push_back(ptr);
             }
         }
-        
-        free(radec);    
+        free(radec);
+        free(starinds);
     }
 
     return out;
@@ -953,6 +954,9 @@ static vector<double> getTagAlongFromIndex(index_t* index, string fieldName, int
         }
 
         vector<double> out(&tagAlong[0], &tagAlong[numIds]);
+        // the vector constructor makes a copy of the data. (right?)
+        // http://www.sgi.com/tech/stl/Vector.html#1
+        free(tagAlong);
         return out;
     }
     
