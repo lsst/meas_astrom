@@ -143,7 +143,7 @@ void CreateWcsWithSip::_calculateForwardMatrices() {
     Eigen::Matrix2d CDinv = CD.inverse();   //Direct inverse OK for 2x2 matrix in Eigen
 
     //The zeroth elements correspond to a shift in crpix
-    crpix[0] -= mu[0]*CDinv(0,0) + nu[0]*CD(0,1); 
+    crpix[0] -= mu[0]*CDinv(0,0) + nu[0]*CDinv(0,1); 
     crpix[1] -= mu[0]*CDinv(1,0) + nu[0]*CDinv(1,1);
 
     afwGeom::PointD crval = _getCrvalAsGeomPoint();
