@@ -86,7 +86,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     solver.setStarlist(srcSet)
     log.log(log.DEBUG, "Setting numBrightObj")
     solver.setNumBrightObjects( min(policy.get('numBrightStars'), len(srcSet)))
-	solver.setImageSize(exp.getWidth(), exp.getHeight())
+    solver.setImageSize(exp.getWidth(), exp.getHeight())
     solver.setLogLevel(3)
 
     #Do a blind solve if we're told to, or if we don't have an input wcs
