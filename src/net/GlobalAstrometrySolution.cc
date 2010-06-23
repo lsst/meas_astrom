@@ -141,6 +141,10 @@ void GlobalAstrometrySolution::setDefaultValues() {
 // Setup functions
 //
 
+void GlobalAstrometrySolution::setImageSize(int W, int H) {
+	 solver_set_field_bounds(_solver, 0, W, 0, H);
+}
+
 ///Set the image to be solved. The image is abstracted as a list of positions in pixel space
 void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec ///<List of Sources
                                           ) {
