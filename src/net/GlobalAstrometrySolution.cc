@@ -839,14 +839,14 @@ vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filt
             cPtr->setPsfFlux( pow(10.0, -mag/2.5) );
         }
         
-        
+        // FIXME -- 1-indexed pixel coords?
         lsst::afw::geom::PointD p = wcsPtr->skyToPixel(ra, dec);
         cPtr->setXAstrom(p[0]);
         cPtr->setYAstrom(p[1]);
 
+        // FIXME -- really?
         cPtr->setXAstromErr( 1/(confidence + DBL_EPSILON));
         cPtr->setYAstromErr( 1/(confidence + DBL_EPSILON));
-
 
         double dx = cPtr->getXAstrom() - sPtr->getXAstrom();
         double dy = cPtr->getYAstrom() - sPtr->getYAstrom();
