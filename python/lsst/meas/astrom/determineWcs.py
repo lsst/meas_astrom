@@ -89,11 +89,17 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     solver.setImageSize(exp.getWidth(), exp.getHeight())
     solver.setLogLevel(3)
 
+    # FIXME -- add policy entry for this...
+    #dscale = policy.get('pixelScaleUncertainty')
+    dscale = None
+
     #Do a blind solve if we're told to, or if we don't have an input wcs
     doBlindSolve = policy.get('blindSolve') or (wcsIn is None)
     if doBlindSolve:
         log.log(log.DEBUG, "Solving with no initial guess at position")
         isSolved = solver.solve()
+    elif dscale is not None:
+        isSolved = solver.solve(wcsIn, dscale)
     else:
         isSolved = solver.solve(wcsIn)
 

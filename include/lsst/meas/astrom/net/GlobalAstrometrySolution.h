@@ -97,7 +97,7 @@ public:
     bool solve();
     bool solve(const afw::image::PointD raDec);
     bool solve(double ra, double dec);
-    bool solve(const lsst::afw::image::Wcs::Ptr wcsPtr, double imageScaleUncertaintyPercent = 20);
+    bool solve(const lsst::afw::image::Wcs::Ptr wcsPtr, double imageScaleUncertaintyPercent = 5);
 
     //Return the solution
     lsst::afw::image::Wcs::Ptr getWcs();
