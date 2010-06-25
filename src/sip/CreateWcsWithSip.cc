@@ -1,8 +1,6 @@
 // -*- LSST-C++ -*-
 
 #include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
-#include "lsst/afw/image/Wcs.h"
-#include "lsst/afw/image/TanWcs.h"
 
 namespace lsst { 
 namespace meas { 
@@ -21,59 +19,219 @@ namespace math = lsst::afw::math;
 
 
 
-/// Create a wcs including SIP polynomials of the requested order
-/// 
-/// \param match A vector of SourceMatches. Each source match consists of two
-/// sources (one from the catalogue, one from the image), and the distance
-/// between them
-/// \param linearWcs A linear WCS that maps pixel position to ra/dec
-/// \param order How many terms to compute for the SIP polynomial
-CreateWcsWithSip::CreateWcsWithSip(const std::vector<det::SourceMatch> match, 
-                                   const afwImg::Wcs &linearWcs, 
-                                   int order) :
-                                   _matchList(match), 
-                                   _linearWcs(linearWcs.clone()) {
-    
-    _createWcs(order);
-}
 
+///Constructor
+CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::SourceMatch> match,
+                     const lsst::afw::image::Wcs::Ptr linearWcs,
+                     int order):
+                     _matchList(match), 
+                     _linearWcs(linearWcs->clone()),
+                     _sipOrder(order+1),
+                     _reverseSipOrder(order+2), //Higher order for reverse transform
+                     _size(match.size()),
+                     _sipA(Eigen::MatrixXd::Zero(_sipOrder, _sipOrder)),
+                     _sipB(Eigen::MatrixXd::Zero(_sipOrder, _sipOrder)),
+                     _sipAp(Eigen::MatrixXd::Zero(_reverseSipOrder, _reverseSipOrder)),
+                     _sipBp(Eigen::MatrixXd::Zero(_reverseSipOrder, _reverseSipOrder)),
+                     _newWcs() {
 
-/// Create a wcs including SIP polynomials that reproduces positions to better than a given tolerance.
-/// Sip polynomials of progressively higher order are tried until the tolerance is exceeded, or the
-/// order of the correction becomes to large
-/// 
-/// Beware that the SIP can't reproduce positions better than the uncertainty in your centroiding.
-/// 
-/// \param match A vector of SourceMatches. Each source match consists of two
-/// sources (one from the catalogue, one from the image), and the distance
-/// between them
-/// \param linearWcs A linear WCS that maps pixel position to ra/dec
-/// \param maxScatterInArcsec Fit must be better than this value.
-/// \param maxOrder If the order of the corrections exceeds this value give up.
-CreateWcsWithSip::CreateWcsWithSip(const std::vector<det::SourceMatch> match,
-                                   const afwImg::Wcs &linearWcs,
-                                   double maxScatterInArcsec,
-                                   int maxOrder):
-                                   _matchList(match), 
-                                   _linearWcs(linearWcs.clone()) {
-
-    for (int order = 3; order<maxOrder; ++order) {
-        _createWcs(order);
-        double scatter = getScatterInArcsec();
-
-        if (scatter < maxScatterInArcsec){
-           return;
-        }
+    if  (order < 2) {
+        throw LSST_EXCEPT(except::RuntimeErrorException, "Sip matrices are at least 2nd order");        
     }
     
-    throw LSST_EXCEPT(except::RuntimeErrorException, "Failed to reach required tolerance"); 
+    if (_size < _sipOrder) {
+        throw LSST_EXCEPT(except::RuntimeErrorException, "Number of matches less than requested sip order");
+    }
+
+
+    _calculateForwardMatrices();
+    _calculateReverseMatrices();
+
+    //Build a new wcs incorporating thee sip matrices
+    afwGeom::PointD crval = _getCrvalAsGeomPoint();
+    afwGeom::PointD crpix = _linearWcs->getPixelOrigin();
+    Eigen::MatrixXd CD = _linearWcs->getCDMatrix();
+    
+    _newWcs = afwImg::TanWcs::Ptr(new afwImg::TanWcs(crval, crpix, CD, _sipA, _sipB, _sipAp, _sipBp));
+
 }
 
 
-///Return a Wcs object including the SIP matrices
 afwImg::TanWcs::Ptr CreateWcsWithSip::getNewWcs() {
     return _newWcs;
 }
+
+
+int CreateWcsWithSip::getUIndex(int j, int order) {
+    int decrement = order;
+    int k=0;
+    
+    while ((j>= decrement) && (decrement > 0)) {
+        j -= decrement;
+        decrement--;
+        k++;
+    }
+    
+    return k;
+}
+
+int CreateWcsWithSip::getVIndex(int j, int order) {
+    int decrement = order;
+    
+    while ((j>= decrement) && (decrement > 0)) {
+        j -= decrement;
+        decrement--;
+    }
+    return j;
+    
+}
+
+
+void CreateWcsWithSip::_calculateForwardMatrices() {
+    //If for some reason the code stops working, this line may be to blame. It assumes that
+    //the function call returns crpix in fits coordinates. If wcs is ever changed to return crpix
+    //in lsst coords, this will cause problems
+    afwGeom::PointD crpix = _linearWcs->getPixelOrigin();
+
+    //Setup
+    //
+
+    //Calculate u, v and intermediate world coordinates
+    Eigen::VectorXd u(_size), v(_size), iwc1(_size), iwc2(_size);
+    
+    for(int i=0; i < _size; ++i) {
+    
+        //iwc's store the intermediate world coordinate positions of catalogue objects
+        double ra = _matchList[i].first->getRa();
+        double dec = _matchList[i].first->getDec();
+        afwCoord::Coord::Ptr  c = afwCoord::Coord::Ptr( new afwCoord::Fk5Coord(ra, dec));
+        afwGeom::PointD p = _linearWcs->skyToIntermediateWorldCoord(c);
+        iwc1[i] = p[0];
+        iwc2[i] = p[1];
+        
+        //u and v are intermediate pixel coordinates of observed (distorted) positions
+        u[i] = _matchList[i].second->getXAstrom() - crpix[0];
+        v[i] = _matchList[i].second->getYAstrom() - crpix[1];
+    }
+    
+   
+    //Forward transform
+    //
+    int ord = _sipOrder;    //shorthand
+    Eigen::MatrixXd forwardC = _calculateCMatrix(u, v, ord);
+    Eigen::VectorXd mu = _leastSquaresSolve(iwc1, forwardC);
+    Eigen::VectorXd nu = _leastSquaresSolve(iwc2, forwardC);
+
+
+    //Use mu and nu to refine CD
+    //
+
+    //Given the implementation of getUIndex() and getVIndex(), the refined values
+    //of the elements of the CD matrices are in elements 1 and "_sipOrder" of mu and nu.
+    //If the implementation of getUIndex() and getVIndex() change, these assertions
+    //will catch that change.
+    assert(getUIndex(0, ord) == 0 && getVIndex(0, ord) == 0);
+    assert(getUIndex(1, ord) == 0 && getVIndex(1, ord) == 1);
+    assert(getUIndex(ord, ord) == 1 && getVIndex(ord, ord) == 0);
+
+    Eigen::Matrix2d CD;
+    CD(1,0) = nu[ord];
+    CD(1,1) = nu[1];
+    CD(0,0) = mu[ord];
+    CD(0,1) = mu[1];
+
+    Eigen::Matrix2d CDinv = CD.inverse();   //Direct inverse OK for 2x2 matrix in Eigen
+
+    //The zeroth elements correspond to a shift in crpix
+    crpix[0] -= mu[0]*CDinv(0,0) + nu[0]*CDinv(0,1); 
+    crpix[1] -= mu[0]*CDinv(1,0) + nu[0]*CDinv(1,1);
+
+    afwGeom::PointD crval = _getCrvalAsGeomPoint();
+    _linearWcs = afwImg::Wcs::Ptr( new afwImg::Wcs(crval, crpix, CD));
+
+
+    //Get Sip terms
+    //
+    
+    //The rest of the elements correspond to
+    //mu[i] == CD11*Apq + CD12*Bpq and
+    //nu[i] == CD21*Apq + CD22*Bpq and
+    //
+    //We solve for Apq and Bpq with the equation
+    // (Apq)  = (CD11 CD12)-1  * (mu[i])  
+    // (Bpq)    (CD21 CD22)      (nu[i])
+    
+    for(int i=1; i< mu.rows(); ++i) {
+        int p = getUIndex(i, ord);
+        int q = getVIndex(i, ord);
+        
+        if( (p+q > 1) && (p+q < ord)) {    
+            Eigen::Vector2d munu(2,1);
+            munu(0) = mu(i);
+            munu(1) = nu(i);
+            
+            Eigen::Vector2d AB = CDinv * munu;
+            
+            _sipA(p,q) = AB[0];
+            _sipB(p,q) = AB[1];
+        }
+    }
+}
+
+
+
+
+    
+void CreateWcsWithSip::_calculateReverseMatrices() {
+
+    //If for some reason the code stops working, this line may be to blame. It assumes that
+    //the function call returns crpix in fits coordinates. If wcs is ever changed to return crpix
+    //in lsst coords, this will cause problems
+    afwGeom::PointD crpix = _linearWcs->getPixelOrigin();
+
+
+    Eigen::VectorXd u(_size), v(_size);
+    Eigen::VectorXd U(_size), V(_size);
+    Eigen::VectorXd delta1(_size), delta2(_size);
+    
+    for(int i=0; i < _size; ++i) {
+
+        //u and v are intermediate pixel coordinates of observed (distorted) positions
+        u[i] = _matchList[i].second->getXAstrom() - crpix[0];
+        v[i] = _matchList[i].second->getYAstrom() - crpix[1];
+
+        //U and V are the true, undistorted intermediate pixel positions as calculated
+        //from the catalogue ra and decs and the (updated) linear wcs
+        double ra = _matchList[i].first->getRa();
+        double dec = _matchList[i].first->getDec();
+        afwCoord::Fk5Coord::Ptr  c = afwCoord::Fk5Coord::Ptr( new afwCoord::Fk5Coord(ra, dec));
+        afwGeom::PointD p = _linearWcs->skyToPixel(c);
+        U[i] = p[0] - crpix[0];
+        V[i] = p[1] - crpix[1];
+        
+        delta1[i] = u[i] - U[i];
+        delta2[i] = v[i] - V[i];
+    }
+    
+    
+    //Reverse transform
+    int ord = _reverseSipOrder;
+    Eigen::MatrixXd reverseC = _calculateCMatrix(U, V, ord); 
+    Eigen::VectorXd tmpA = _leastSquaresSolve(delta1, reverseC);
+    Eigen::VectorXd tmpB = _leastSquaresSolve(delta2, reverseC);
+    
+    assert(tmpA.rows() == tmpB.rows());
+    for(int j=0; j< tmpA.rows(); ++j) {
+        int p = getUIndex(j, ord);
+        int q = getVIndex(j, ord);
+
+        _sipAp(p,q) = tmpA[j];
+        _sipBp(p,q) = tmpB[j];   
+    } 
+    
+       
+}
+
 
 
 ///Get the scatter in position in pixel space 
@@ -86,7 +244,7 @@ double CreateWcsWithSip::getScatterInPixels() {
     for (unsigned int i = 0; i< size; ++i) {
         det::Source::Ptr catSrc = _matchList[i].first;
         det::Source::Ptr imgSrc = _matchList[i].second;
-
+        
         double imgX = imgSrc->getXAstrom();
         double imgY = imgSrc->getYAstrom();
         
@@ -139,235 +297,81 @@ double CreateWcsWithSip::getScatterInArcsec() {
 
 
 
-//
-// Private functions
-//
+Eigen::MatrixXd CreateWcsWithSip::_calculateCMatrix(Eigen::VectorXd axis1, Eigen::VectorXd axis2, int order) {
 
-///Does the donkey work.
-void CreateWcsWithSip::_createWcs(int order){
-
-    if (order < 1) {
-        string msg = "Order must be greater than or equal to 1";
-        throw LSST_EXCEPT(except::RuntimeErrorException, msg); 
-    }
-
-    if (_matchList.size() ==0) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "Match vector is empty"); 
-    }
-
-    pexLog::Log mylog(pexLog::Log::getDefaultLog(), "meas.astrom.sip", pexLog::Log::DEBUG);
-    mylog.log(pexLog::Log::DEBUG, "Determining Sip parameters");    
-                              
-    afwGeom::PointD wcsOrigin = _linearWcs->getPixelOrigin();
-    
-    //Note on naming convention.
-    //u,v are as defined in the Shupe et al. (2000) paper as relative pixel coordinates
-    //What Shupe calls U,V (undistorted, Linear, pixel coordinates), I call lu and lv. 
-    //Having variables u and U seems confusing to me.
-    //In a similar style, Shupe uses f,g and F,G to denote forward and reverse distortions,
-    //I use f,g and lf, lg
-    vector<double> u;   //Relative distorted x position (relative to wcsOrigin)
-    vector<double> v;   //Relative y distorted position
-    
-    vector<double> lu;  //Relative linear x position (relative to wcsOrigin)
-    vector<double> lv;  //Relative linear y position
-
-    vector<double> f;  //Difference between image and catalogue position. 
-    vector<double> g;  //Difference between image and catalogue position
-
-    vector<double> sf;  //Uncertainty in x position
-    vector<double> sg;  //Uncertainty in y position
-   
-    //Unpack the SourceMatch vector
-    mylog.log(pexLog::Log::DEBUG, "Unpacking SourceMatchSet");    
-    for (unsigned int i = 0; i< _matchList.size(); ++i) {
-    
-        det::Source::Ptr catSrc = _matchList[i].first;
-        det::Source::Ptr imgSrc = _matchList[i].second;
-    
-        //Distorted pixel position
-        u.push_back(imgSrc->getXAstrom() - wcsOrigin[0]);
-        v.push_back(imgSrc->getYAstrom() - wcsOrigin[1]);
-        
-        //Linear pixel position
-        afwGeom::PointD xy = _linearWcs->skyToPixel(catSrc->getRa(), catSrc->getDec());    
-        lu.push_back(xy[0] - wcsOrigin[0]);
-        lv.push_back(xy[1] - wcsOrigin[1]);
-        
-        //Forward distortion terms
-        f.push_back(xy[0] - imgSrc->getXAstrom());
-        g.push_back(xy[1] - imgSrc->getYAstrom());
-        
-        //Reverse distortion terms are calculated later
-        
-        //Uncertainties in distortion        
-        //The +1s are temporary workarounds guarding against AstromErr's not being set
-        sf.push_back(imgSrc->getXAstromErr() + 1);
-        sg.push_back(imgSrc->getYAstromErr() + 1);
-    }
-
-    //Now fit the forward distortions
-    mylog.log(pexLog::Log::DEBUG, "Calculating forward distortion coeffecients");    
-    _sipA = _calculateSip(u, v, f, sf, order);
-    _sipB = _calculateSip(u, v, g, sg, order);
-
-    //Construct a new wcs from the old one
-    mylog.log(pexLog::Log::DEBUG, "Creating new wcs structure");        
-    afwCoord::Fk5Coord crvalCoord = _linearWcs->getSkyOrigin()->toFk5();
-    
-    afwGeom::PointD crval = afwGeom::makePointD(crvalCoord.getRa(afwCoord::DEGREES), \
-                            crvalCoord.getDec(afwCoord::DEGREES));
-    afwGeom::PointD crpix = _linearWcs->getPixelOrigin();
-    Eigen::Matrix2d CD = _linearWcs->getCDMatrix();
-    
-    //The zeroth element of the SIP matrices is just an offset, so the standard calls 
-    //for this offset to be folded into a refined value for crpix
-    crpix = afwGeom::PointD(crpix - afwGeom::makePointD(_sipA(0, 0), _sipB(0, 0)));
-    _sipA(0, 0) = _sipB(0, 0) = 0;
-    
-    //The A01, A10, B01 and B10 terms in the SIP matrices are just linear corrections, so
-    //the standard calls for these to be folded into the CD matrix. The algebra is
-    //a little involved here.
-    double c00 = CD(0, 0);
-    double c01 = CD(0, 1);
-    double c10 = CD(1, 0);
-    double c11 = CD(1, 1);
-    
-    CD(0, 0) = c00*(1 + _sipA(1, 0)) + c01*_sipB(1, 0);
-    CD(0, 1) = c01*(1 + _sipB(0, 1)) + c00*_sipA(0, 1);
-    CD(1, 0) = c10*(1 + _sipA(1, 0)) + c11*_sipB(1, 0);
-    CD(1, 1) = c11*(1 + _sipB(0, 1)) + c10*_sipA(0, 1);
-    
-    _sipA(0, 1) = _sipA(1, 0) = 0;
-    _sipB(0, 1) = _sipB(1, 0) = 0;
-
-    afwImg::Wcs tmpWcs(crval, crpix, CD);
-
-    //Now that we've revised our Wcs, we can now calculate our reverse terms
-    mylog.log(pexLog::Log::DEBUG, "Calculating reverse distortion coeffecients");        
-
-    lu.clear();  //Relative linear x position (relative to wcsOrigin)
-    lv.clear();  //Relative linear y position
-
-    vector<double> lf;  //Reverse Distortion
-    vector<double> lg;  //Reverse Distortion
-
-    wcsOrigin = tmpWcs.getPixelOrigin();
-    for (unsigned int i = 0; i< _matchList.size(); ++i) {
-        det::Source::Ptr catSrc = _matchList[i].first;
-        det::Source::Ptr imgSrc = _matchList[i].second;
-
-        //Linear pixel position
-        afwGeom::PointD xy = tmpWcs.skyToPixel(catSrc->getRa(), catSrc->getDec());    
-        lu.push_back(xy[0] - wcsOrigin[0]);
-        lv.push_back(xy[1] - wcsOrigin[1]);
-
-        //Reverse distortion tersm
-        lf.push_back(imgSrc->getXAstrom()-xy[0]);
-        lg.push_back(imgSrc->getYAstrom()-xy[1]);
+    int nTerms = 0;
+    for(int i =1; i<= order; ++i) {
+        nTerms += i;
     }
     
-    Eigen::MatrixXd sipAp = _calculateSip(lu, lv, lf, sf, order);
-    Eigen::MatrixXd sipBp = _calculateSip(lu, lv, lg, sg, order);
-
-    _newWcs = afwImg::TanWcs::Ptr(new afwImg::TanWcs(crval, crpix, CD, _sipA, _sipB, sipAp, sipBp));
+    Eigen::MatrixXd C = Eigen::MatrixXd::Zero(_size, nTerms);
+    for(int i=0; i< _size; ++i) {
+        for(int j=0; j < nTerms; ++j) {
+            int p = getUIndex(j, order);
+            int q = getVIndex(j, order);
+            assert(p+q < order);
+            
+            C(i,j) = pow(axis1[i], p) * pow(axis2[i], q);
+        }
+        
+    }
+    return C;
 }
-
-
-/// Calculates the Sip matrices A and B.
-/// \param u Relative x position on image ( x - CRPIX1)
-/// \param v Relative y position on image ( y - CRPIX2)
-/// \param z Amount of distortion at (u,v)
-/// \param s variances on z
-/// \param order Order of polynomial to fit
-/// \param range
-/// 
-/// For calculating forward distortion polynomials, A,B:
-/// u and v are observed pixel positions on the chip, normalised to lie between -1 and 1. 
-/// z is the amount of distortion parallel either to u or v. If parallel to u, the Sip A matrix
-/// is returned. If parallel to v, the sip B matrix is returned. This parameter is not checked
-/// so you have to make sure you are passing in the right thing.
-///  
-/// To get the reverse distortion polynomials, Ap, Bp, the arguments should be lu, lv, lf (or lg)
-/// etc.
-Eigen::MatrixXd CreateWcsWithSip::_calculateSip(const std::vector<double> u, const std::vector<double> v,
-    const std::vector<double> z, const std::vector<double> s, int order) {
-
-    sip::LeastSqFitter2d<math::PolynomialFunction1<double> > lsf(u, v, z, s, order);
-    return lsf.getParams();
     
-}
 
 
+///Given a vector b and a matrix A, solve b - Ax = 0
+/// b is an m x 1 vector, A is an n x m matrix, and x, the output is a 
+///\param b An m x 1 vector, where m is the number of parameters in the fit
+///\param A An n x m vecotr, where n is the number of equations in the solution
+///
+///\returns x, an m x 1 vector of best fit params
+Eigen::VectorXd CreateWcsWithSip::_leastSquaresSolve(Eigen::VectorXd b, Eigen::MatrixXd A) {
 
-/// Needed if we're fitting Chebychev coefficents to calculate the distortion
-void CreateWcsWithSip::_scaleVector(std::vector<double>& v) {
-    if (v.size() == 0) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "Trying to rescale an empty vector"); 
+    int rowsA = A.rows();
+    int colsA = A.cols();
+    int rowsB = b.rows();
+    
+    if  (rowsA != rowsB) {
+        throw LSST_EXCEPT(except::RuntimeErrorException, "vector b of wrong size");        
     }
 
-    double min = *min_element(v.begin(), v.end());
-    double max = *max_element(v.begin(), v.end());
+    Eigen::MatrixXd Atr = A.transpose();
+    Eigen::MatrixXd AtrA = Atr * A;  //A transpose x A
+    Eigen::MatrixXd Atrb = Atr * b; //A transpose x b
 
-    if (min == max) {
-        string msg = "Trying to rescale a vector where all elements have the same value";
-        throw LSST_EXCEPT(except::RuntimeErrorException, msg); 
-    }
-    
-    for (unsigned int i = 0; i< v.size(); ++i) {
-        v[i] -= min;
-        v[i] /= max - min;
-        v[i] = 2*v[i] - 1;
-    }
+    //Try three different methods of solving the linear equation
+    Eigen::VectorXd par(colsA);
+    if (! AtrA.ldlt().solve(Atrb, &par)) {
+         pexLog::TTrace<5>("lsst.meas.astrom.sip.LeastSquaresSolve",
+                           "Unable fit data with Cholesky LDL^t");
 
-}
+        if (! AtrA.llt().solve(Atrb, &par)) {
+             pexLog::TTrace<5>("lsst.meas.astrom.sip.LeastSquaresSolve",
+                           "Unable fit data with Cholesky LL^t either");
+                        
+            if (! AtrA.lu().solve(Atrb, &par)) {
+                 pexLog::TTrace<5>("lsst.meas.astrom.sip.LeastSquaresSolve",
+                               "Unable fit data with LU decomposition either");
 
- 
-///Convert a 2d matrix of Chebyshev coefficients (as produced by LeastSqFitter2d) into
-///a SIP matrix.
-Eigen::MatrixXd CreateWcsWithSip::_convertChebyToSip(Eigen::MatrixXd const & cheby) {
-    int maxOrder = 5; // Because I've only defined the coeffiencents up to this order
-    
-    //Coeffs is a lookup table of the polynomial coeffecients of Chebychev functions
-    //with order less than maxorder. For example, T2 = 2x^2 - 1, so coeff[2,0] == -1,
-    //coeff[2,1] = 0 and coeff[2,2] = 2
-    Eigen::MatrixXd coeff(Eigen::MatrixXd::Zero(maxOrder, maxOrder));
-    
-    
-    coeff(0, 0) = 1; //T0
-    coeff(1, 1) = 1; //T1
-    coeff(2, 0) = -1; coeff(2, 2) = 2;    //T2
-    coeff(3, 1) = -3; coeff(3, 3) = 4;
-    coeff(4, 0) = 1; coeff(4, 2) = -8, coeff(4, 4) = 8;
-    
-    int rows = cheby.rows();
-    
-    if (rows > maxOrder) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "Input matrix is too large. Maxorder==5"); 
-    }
-        
-    if (rows != cheby.cols()) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "Input matrix is not square"); 
-    }
-
-    Eigen::MatrixXd out(rows, rows);
-    for (int i = 0; i<rows; ++i) {
-        for (int j = 0; j<rows; ++j) { //For the (i,j)th elt of the output matrix (x^i y^j
-            out(i, j) = 0;
-            for (int k = 0; k<rows; ++k) {
-                for (int el = 0; el<rows; ++el) {    
-                    out(i, j) += cheby(k, el) * coeff(k, i) * coeff(el, j);
-                }
+                 throw LSST_EXCEPT(pexExcept::Exception,
+                     "Unable to solve least squares equation in LeastSquaresSolve()");
             }
         }
     }
     
-    return out;
+    return par;
 }
 
 
+afwGeom::PointD CreateWcsWithSip::_getCrvalAsGeomPoint() {
+    afwCoord::Fk5Coord coo = _linearWcs->getSkyOrigin()->toFk5();
     
-        
-            
+    double ra =coo.getRa(afwCoord::DEGREES);
+    double dec=coo.getDec(afwCoord::DEGREES);
+    return afwGeom::makePointD(ra,dec );
+
+}
+
         
 }}}}

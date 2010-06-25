@@ -86,6 +86,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     solver.setStarlist(srcSet)
     log.log(log.DEBUG, "Setting numBrightObj")
     solver.setNumBrightObjects( min(policy.get('numBrightStars'), len(srcSet)))
+    solver.setImageSize(exp.getWidth(), exp.getHeight())
     solver.setLogLevel(3)
 
     # Input WCS pixel scale uncertainty, in %

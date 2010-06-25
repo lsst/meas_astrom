@@ -78,6 +78,7 @@ public:
     void setDefaultValues();
     void setStarlist(lsst::afw::detection::SourceSet vec);
     void setNumBrightObjects(int N);
+    void setImageSize(int W, int H);
     inline void setMinimumImageScale(double scale){   _solver->funits_lower = scale; }
     inline void setMaximumImageScale(double scale){   _solver->funits_upper = scale; }
     void setImageScaleArcsecPerPixel(double scale);

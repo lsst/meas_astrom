@@ -85,9 +85,7 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
 
 index_t *GlobalAstrometrySolution::_loadIndexMeta(std::string filename){
   //return index_load(filename.c_str(), INDEX_ONLY_LOAD_METADATA, NULL);
-  double t0 = timenow();
   index_t* index = index_load(filename.c_str(), INDEX_ONLY_LOAD_METADATA, NULL);
-  double dt = timenow() - t0;
 
   return index;
 }
@@ -142,6 +140,10 @@ void GlobalAstrometrySolution::setDefaultValues() {
 //
 // Setup functions
 //
+
+void GlobalAstrometrySolution::setImageSize(int W, int H) {
+	 solver_set_field_bounds(_solver, 0, W, 0, H);
+}
 
 ///Set the image to be solved. The image is abstracted as a list of positions in pixel space
 void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec ///<List of Sources
@@ -258,6 +260,7 @@ void GlobalAstrometrySolution::_solverSetField() {
 
     //Set the pointer in the solver to the new, smaller field
     starxy_free(_solver->fieldxy);
+    solver_free_field(_solver);
     solver_set_field(_solver, shortlist);
     solver_reset_field_size(_solver);
 
@@ -602,13 +605,8 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs()  {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
 
-    // CHECK THIS -- Astrometry.net probably doesn't add or subtract 1 from your coordinates;
-    // this if you pass in zero-indexed source positions, that's what you'll get back.
-
-    ///Astro.net conforms with wcslib in assuming that images are 1-indexed (i.e the bottom left-most pixel
-    ///is (1,1). LSST is zero indexed, so we add 1 to the crpix values returned by _solver to convert
-    lsst::afw::geom::PointD crpix = lsst::afw::geom::makePointD(_solver->best_match.wcstan.crpix[0] + 1,
-                                                                _solver->best_match.wcstan.crpix[1] + 1);   
+    lsst::afw::geom::PointD crpix = lsst::afw::geom::makePointD(_solver->best_match.wcstan.crpix[0],
+                                                                _solver->best_match.wcstan.crpix[1]);   
     lsst::afw::geom::PointD crval = lsst::afw::geom::makePointD(_solver->best_match.wcstan.crval[0],
                                                                 _solver->best_match.wcstan.crval[1]);
     
@@ -662,10 +660,8 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "Tweaking failed"));
     }
 
-    ///Astro.net conforms with wcslib in assuming that images are 1-indexed (i.e the bottom left-most pixel
-    ///is (1,1). LSST is zero indexed, so we add 1 to the crpix values returned by _solver to convert
-    lsst::afw::geom::PointD crpix = lsst::afw::geom::makePointD(sip->wcstan.crpix[0] + 1,
-                                                                sip->wcstan.crpix[1] + 1);
+    lsst::afw::geom::PointD crpix = lsst::afw::geom::makePointD(sip->wcstan.crpix[0],
+                                                                sip->wcstan.crpix[1]);
     lsst::afw::geom::PointD crval = lsst::afw::geom::makePointD(sip->wcstan.crval[0],
                                                                 sip->wcstan.crval[1]);
 
@@ -976,8 +972,8 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
                 out.push_back(ptr);
             }
         }
-        
-        free(radec);    
+        free(radec);
+        free(starinds);
     }
 
     return out;
@@ -1016,6 +1012,9 @@ static vector<double> getTagAlongFromIndex(index_t* index, string fieldName, int
         }
 
         vector<double> out(&tagAlong[0], &tagAlong[numIds]);
+        // the vector constructor makes a copy of the data. (right?)
+        // http://www.sgi.com/tech/stl/Vector.html#1
+        free(tagAlong);
         return out;
     }
     
