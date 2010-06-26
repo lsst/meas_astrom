@@ -1,7 +1,6 @@
 import os
 import math
 
-import eups
 import lsst.pex.policy as pexPolicy
 from lsst.pex.logging import Log, Debug, LogRec, Prop
 from lsst.pex.exceptions import LsstCppException
@@ -73,7 +72,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     
     #Setup solver
     if solver is None:
-        path=os.path.join(eups.productDir("astrometry_net_data"), "metadata.paf")
+        path=os.path.join(os.environ['ASTROMETRY_NET_DATA_DIR'], "metadata.paf")
         solver = astromNet.GlobalAstrometrySolution(path)
         solver.allowDistortion(policy.get('allowDistortion'))
         matchThreshold = policy.get('matchThreshold')
@@ -119,7 +118,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     except LsstCppException, e:
         log.log(Log.WARN, str(e))
         log.log(Log.WARN, "Attempting to access catalogue positions and fluxes")
-        version = eups.productDir("astrometry_net_data")
+        version = os.environ['ASTROMETRY_NET_DATA_DIR']
         log.log(Log.WARN, "Catalogue version: %s" %(version))
         log.log(Log.WARN, "Requested filter: %s" %(filterName))
         log.log(Log.WARN, "Available filters: " + str(solver.getCatalogueMetadataFields()))
