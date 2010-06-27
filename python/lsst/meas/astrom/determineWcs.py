@@ -22,7 +22,7 @@ except ImportError, e:
     except NameError:
         display = False
 
-def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=False):
+def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=False, forceImageSize=None):
     """Top level function for calculating a Wcs. 
     
     Given an initial guess at a Wcs (hidden inside an exposure) and a set of
@@ -39,6 +39,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     doTrim        Check that all sources lie within the image, and remove those that don't.
     solver      Optionally provide a previously created astrometry.net solver. If not provided
                 one will be created.
+    forceImageSize  tuple of (W,H): force this image size, rather than getting it from the Exposure.
     """
 
     if log is None:
@@ -85,8 +86,12 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     solver.setStarlist(srcSet)
     log.log(log.DEBUG, "Setting numBrightObj")
     solver.setNumBrightObjects( min(policy.get('numBrightStars'), len(srcSet)))
-    solver.setImageSize(exp.getWidth(), exp.getHeight())
-    solver.setLogLevel(3)
+    if forceImageSize is not None:
+        solver.setImageSize(*forceImageSize)
+    else:
+        solver.setImageSize(exp.getWidth(), exp.getHeight())
+    solver.setLogLevel(2)
+    #solver.printSolverSettings(stdout)
 
     #Do a blind solve if we're told to, or if we don't have an input wcs
     doBlindSolve = policy.get('blindSolve') or (wcsIn is None)

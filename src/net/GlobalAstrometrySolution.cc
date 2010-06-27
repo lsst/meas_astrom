@@ -356,7 +356,7 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
     double lwr = plateScaleArcsecPerPixel*(1 - unc);
     double upr = plateScaleArcsecPerPixel*(1 + unc);
                      
-    _mylog.log(pexLog::Log::DEBUG, boost::format("Scale range %.3f - %.3f arcsec/pixel\n") % lwr % upr);
+    _mylog.log(pexLog::Log::DEBUG, boost::format("Exposure's WCS scale: %g arcsec/pix; setting scale range %.3f - %.3f arcsec/pixel\n") % plateScaleArcsecPerPixel % lwr % upr);
 
     if ( wcsPtr->isFlipped()) {
         setParity(FLIPPED_PARITY);
@@ -435,7 +435,6 @@ bool GlobalAstrometrySolution::solve()  {
     return _isSolved;
 }
 
-
 ///Check that all the setup was done correctly, then set the solver to work
 ///By default, _callSolver does a blind solve, unless the optional ra and dec
 ///are given values. Sets _isSolved to true if a solution is found
@@ -471,8 +470,6 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
     _solver->quadsize_min = .1*minSizePixels;
     _solver->quadsize_max = 1.9*1.1*maxSizePixels;
 
-    
-
     //Output some useful debugging info
     string msg;
     msg = boost::str(boost::format("Image size %.0f x %.0f pixels") % xSizePixels % ySizePixels);
@@ -501,13 +498,9 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
     _mylog.log(pexLog::Log::DEBUG, "Setting indices");
     _addSuitableIndicesToSolver(quadSizeArcsecLwr, quadSizeArcsecUpr, ra, dec);
 
-
     _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
 
-    //Useful debugging code, but not available until astrometry_net v 0.27
-#if 0
     solver_print_to(_solver, stdout);
-#endif
 
     solver_run(_solver);
 
