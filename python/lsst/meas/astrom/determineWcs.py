@@ -1,7 +1,6 @@
 import os
 import math
 
-import eups
 import lsst.pex.policy as pexPolicy
 from lsst.pex.logging import Log, Debug, LogRec, Prop
 from lsst.pex.exceptions import LsstCppException
@@ -23,7 +22,7 @@ except ImportError, e:
     except NameError:
         display = False
 
-def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=False):
+def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=False, forceImageSize=None):
     """Top level function for calculating a Wcs. 
     
     Given an initial guess at a Wcs (hidden inside an exposure) and a set of
@@ -40,6 +39,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     doTrim        Check that all sources lie within the image, and remove those that don't.
     solver      Optionally provide a previously created astrometry.net solver. If not provided
                 one will be created.
+    forceImageSize  tuple of (W,H): force this image size, rather than getting it from the Exposure.
     """
 
     if log is None:
@@ -73,7 +73,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     
     #Setup solver
     if solver is None:
-        path=os.path.join(eups.productDir("astrometry_net_data"), "metadata.paf")
+        path=os.path.join(os.environ['ASTROMETRY_NET_DATA_DIR'], "metadata.paf")
         solver = astromNet.GlobalAstrometrySolution(path)
         solver.allowDistortion(policy.get('allowDistortion'))
         matchThreshold = policy.get('matchThreshold')
@@ -86,8 +86,12 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     solver.setStarlist(srcSet)
     log.log(log.DEBUG, "Setting numBrightObj")
     solver.setNumBrightObjects( min(policy.get('numBrightStars'), len(srcSet)))
-    solver.setImageSize(exp.getWidth(), exp.getHeight())
-    solver.setLogLevel(3)
+    if forceImageSize is not None:
+        solver.setImageSize(*forceImageSize)
+    else:
+        solver.setImageSize(exp.getWidth(), exp.getHeight())
+    solver.setLogLevel(2)
+    #solver.printSolverSettings(stdout)
 
     # FIXME -- add policy entry for this...
     #dscale = policy.get('pixelScaleUncertainty')
@@ -125,7 +129,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     except LsstCppException, e:
         log.log(Log.WARN, str(e))
         log.log(Log.WARN, "Attempting to access catalogue positions and fluxes")
-        version = eups.productDir("astrometry_net_data")
+        version = os.environ['ASTROMETRY_NET_DATA_DIR']
         log.log(Log.WARN, "Catalogue version: %s" %(version))
         log.log(Log.WARN, "Requested filter: %s" %(filterName))
         log.log(Log.WARN, "Available filters: " + str(solver.getCatalogueMetadataFields()))
