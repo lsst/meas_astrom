@@ -511,6 +511,23 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
         msg = boost::str(boost::format("Solved: %i matches, %i conflicts") \
                 % (int) match->nmatch % (int) match->nconflict);
        _mylog.log(pexLog::Log::DEBUG, msg);
+
+#if defined(SOLVER_TWEAK2_AVAILABLE)
+       _mylog.log(pexLog::Log::DEBUG, "Calling tweak2() to tune up match...");
+       msg = boost::str(boost::format("Starting log-odds: %g") % match->logodds);
+       _mylog.log(pexLog::Log::DEBUG, msg);
+       // Use "tweak2" to tune up this match, resulting in a better WCS and more catalog matches.
+       // magic 1: only go to linear order (no SIP distortions).
+       solver_tweak2(_solver, match, 1);
+       msg = boost::str(boost::format("After tweak2(): %i matches, %i conflicts") \
+                        % (int) match->nmatch % (int) match->nconflict);
+       _mylog.log(pexLog::Log::DEBUG, msg);
+       msg = boost::str(boost::format("Final log-odds: %g") % match->logodds);
+       _mylog.log(pexLog::Log::DEBUG, msg);
+#else
+       _mylog.log(pexLog::Log::DEBUG, "solver_tweak2() is not available.");
+#endif
+
     } else {
         _isSolved = false;
     }
