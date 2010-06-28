@@ -25,6 +25,9 @@ class SipTransformationTest(unittest.TestCase):
         metaData = afwImage.readMetadata(sipfn)
         self.sip = afwImage.makeWcs(metaData)
 
+        #print 'TAN is', self.tan
+        #print 'SIP is', self.sip
+
         # Using Astrometry.net on SIP solution:
 
         '''
@@ -33,15 +36,31 @@ class SipTransformationTest(unittest.TestCase):
         wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.sipheader -x 2168.54521667 -y 2020.40323873
 
         wcs-rd2xy -w tests/imgCharSources-v85501867-R01-S00.sipheader -r 1.5 -d 3.3
+
+        wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.sipheader -x 0 -y 0
+
+        Roundtrip:
+        > wcs-rd2xy -w tests/imgCharSources-v85501867-R01-S00.sipheader -r 1.5 -d 3.3
+        RA,Dec (1.5000000000, 3.3000000000) -> pixel (3711.0128841126, 3134.4402504066)
+        > wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.sipheader -x 3711.0128841126 -y 3134.4402504066
+        Pixel (3711.0128841126, 3134.4402504066) -> RA,Dec (1.5000000064, 3.3000000037)
+        > wcs-rd2xy -w tests/imgCharSources-v85501867-R01-S00.sipheader -r 1.5000000064 -d 3.3000000037
+        RA,Dec (1.5000000064, 3.3000000037) -> pixel (3711.0128347543, 3134.4403740779)
+
+        --> good to about 8 digits in RA,Dec in degrees.
+
+        (3711.0128841126, 3134.4402504066)
+        (3711.0128347543, 3134.4403740779)
+
+        --> and about 3-4 digits in pixels.
         '''
         
-        self.sip_rdxy = [
-            (1.42667846826, 3.37583321746, 2167.54521667 - 1, 2020.40323873 - 1),
-
-            (1.4266863759, 3.3757783481,  2168.5452166700 - 1, 2020.4032387300 - 1),
-
-            (1.5000000000, 3.3000000000, 3711.0128841126 - 1, 3134.4402504066 - 1),
-            ]
+        self.sip_rdxy = [(r,d,x-1,y-1) for (r,d,x,y) in [
+            (1.42667846826, 3.37583321746, 2167.54521667, 2020.40323873),
+            (1.4266863759, 3.3757783481,  2168.5452166700, 2020.4032387300),
+            (1.5000000000, 3.3000000000, 3711.0128841126, 3134.4402504066),
+            (1.2986490876, 3.4785952816, 0.0000000000, 0.0000000000),
+            ]]
 
 
         # If only TAN is used:
@@ -84,12 +103,13 @@ class SipTransformationTest(unittest.TestCase):
 
         # --> good to about 5 decimal digits in pixels.
 
-        self.tan_rdxy = [
-            (1.42667846826, 3.37583321746, 2167.54521667 - 1,   2020.40323873 - 1),
-            (1.4266863759,  3.3757783481,  2168.5452166700 - 1, 2020.4032387300 - 1),
-            (1.5000000000, 3.3000000000,  3711.9022585704 - 1, 3134.0179793251 - 1),
-            (1.5000161440, 3.3000521757, 3711.0128841126 - 1, 3134.4402504066 - 1),
-            ]
+        self.tan_rdxy = [(r,d,x-1,y-1) for (r,d,x,y) in [
+            (1.42667846826, 3.37583321746, 2167.54521667,   2020.40323873),
+            (1.4266863759,  3.3757783481,  2168.5452166700, 2020.4032387300),
+            (1.5000000000, 3.3000000000,  3711.9022585704, 3134.0179793251),
+            (1.5000161440, 3.3000521757, 3711.0128841126, 3134.4402504066),
+            (1.2986453989, 3.4785959230, 0.0000000000, 0.0000000000),
+            ]]
 
     # UGH, the coord interface is nasty.
     def pixelToRaDec(self, wcs, xx, yy):
@@ -106,8 +126,8 @@ class SipTransformationTest(unittest.TestCase):
             xx,yy = wcs.skyToPixel(ra, dec)
             rr,dd = self.pixelToRaDec(wcs, xx, yy)
             print
-            print 'RA,Dec %-14.10g, %-14.10g --> pixel %g, %g -->' % (ra, dec, xx, yy)
-            print 'RA,Dec %-14.10g, %-14.10g' % (rr, dd)
+            print 'RA,Dec %-14.12g, %-14.12g --> pixel %g, %g -->' % (ra, dec, xx, yy)
+            print 'RA,Dec %-14.12g, %-14.12g' % (rr, dd)
 
             #print 'pixels are', type(xx), type(yy)
             #print 'ra,dec are', type(rr), type(rr)
@@ -118,10 +138,10 @@ class SipTransformationTest(unittest.TestCase):
             ra,dec = self.pixelToRaDec(wcs, x, y)
             xx,yy = wcs.skyToPixel(ra, dec)
             print
-            print 'Pixel %-14.10g, %-14.10g --> RA,Dec %-14.10g, %-14.10g -->' %  (x, y, ra, dec)
-            print 'Pixel %-14.10g, %-14.10g' % (xx, yy)
-            self.assertAlmostEqual(x, xx, 5)
-            self.assertAlmostEqual(y, yy, 5)
+            print 'Pixel %-14.12g, %-14.12g --> RA,Dec %-14.12g, %-14.12g -->' %  (x, y, ra, dec)
+            print 'Pixel %-14.12g, %-14.12g' % (xx, yy)
+            self.assertAlmostEqual(x, xx, 3)
+            self.assertAlmostEqual(y, yy, 3)
         
 
     def testRoundTripTAN(self):
@@ -137,13 +157,15 @@ class SipTransformationTest(unittest.TestCase):
     def againstReality(self, wcs, rdxy):
         for (ra, dec, x, y) in rdxy:
             xx,yy = wcs.skyToPixel(ra, dec)
-            print 'RA,Dec %-14.10g, %-14.10g --> x,y %-14.10g, %-14.10g' % (ra, dec, xx, yy)
-            print '  Expected:                                   %-14.10g, %-14.10g' % (x,y)
-            self.assertAlmostEqual(x, xx, 5)
-            self.assertAlmostEqual(y, yy, 5)
+            print 'RA,Dec %-14.12g, %-14.12g --> x,y %-14.12g, %-14.12g' % (ra, dec, xx, yy)
+            print '  Expected:                                   %-14.12g, %-14.12g' % (x,y)
+            self.assertAlmostEqual(x, xx, 3)
+            self.assertAlmostEqual(y, yy, 3)
             rr,dd = self.pixelToRaDec(wcs, x, y)
             self.assertAlmostEqual(ra, rr, 5)
             self.assertAlmostEqual(dec, dd, 5)
+            print 'x,y %-14.12g, %-14.12g --> ra,dec %-14.12g, %-14.12g' % (x, y, ra, dec)
+            print '  Expected:                                   %-14.12g, %-14.12g' % (rr,dd)
 
     def testTan1(self):
         print
