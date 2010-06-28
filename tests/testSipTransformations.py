@@ -54,6 +54,19 @@ class SipTransformationTest(unittest.TestCase):
 
         --> and about 3-4 digits in pixels.
         '''
+
+        ''' WCSTools 3.8.0:
+        > sky2xy -v -j tests/imgCharSources-v85501867-R01-S00.wcs 1.5 3.3
+        1.5 3.3 J2000 -> 3711.013 3134.440
+
+        > xy2sky -v -j -d tests/imgCharSources-v85501867-R01-S00.wcs 3711.013 3134.440
+        XY2SKY WCSTools 3.8.0, 12 November 2009, Doug Mink (dmink@cfa.harvard.edu)
+        Print sky coordinates from tests/imgCharSources-v85501867-R01-S00.wcs image coordinates
+        RA           Dec       Sys          X        Y
+        1.50000   3.30000 J2000  <- 3711.013 3134.440
+
+        '''
+
         
         self.sip_rdxy = [(r,d,x-1,y-1) for (r,d,x,y) in [
             (1.42667846826, 3.37583321746, 2167.54521667, 2020.40323873),
