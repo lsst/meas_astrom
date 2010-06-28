@@ -27,23 +27,20 @@ class SipTransformationTest(unittest.TestCase):
 
         # Using Astrometry.net on SIP solution:
 
-        # > wcs-rd2xy -w tests/imgCharSources-v85501867-R01-S00.header -r 1.5 -d 3.3
-        # RA,Dec (1.5000000000, 3.3000000000) -> pixel (3711.0128841126, 3134.4402504066)
+        '''
+        wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.header -x 2168.54521667 -y 2020.40323873
 
-        # > wcs-rd2xy -w $V.wcs -r 1.5 -d 3.3
-        # RA,Dec (1.500000, 3.300000) -> pixel (3711.012884, 3134.440250)
-        # > wcs-xy2rd -w $V.wcs -x 3711.012884 -y 3134.440250
-        # Pixel (3711.012884, 3134.440250) -> RA,Dec (1.500000, 3.300000)
+        wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.header -x 2168.54521667 -y 2020.40323873
 
-        # > wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.header -x 2168.54521667 -y 2020.40323873
-        # Pixel (2168.545217, 2020.403239) -> RA,Dec (1.426686, 3.375778)
-
+        wcs-rd2xy -w tests/imgCharSources-v85501867-R01-S00.header -r 1.5 -d 3.3
+        '''
+        
         self.sip_rdxy = [
             (1.42667846826, 3.37583321746, 2167.54521667 - 1, 2020.40323873 - 1),
-            (1.426686,      3.375778,      2168.545217 - 1,   2020.403239 - 1),
+
+            (1.4266863759, 3.3757783481,  2168.5452166700 - 1, 2020.4032387300 - 1),
 
             (1.5000000000, 3.3000000000, 3711.0128841126 - 1, 3134.4402504066 - 1),
-        
             ]
 
 
@@ -111,6 +108,10 @@ class SipTransformationTest(unittest.TestCase):
             print
             print 'RA,Dec %-14.10g, %-14.10g --> pixel %g, %g -->' % (ra, dec, xx, yy)
             print 'RA,Dec %-14.10g, %-14.10g' % (rr, dd)
+
+            #print 'pixels are', type(xx), type(yy)
+            #print 'ra,dec are', type(rr), type(rr)
+            
             self.assertAlmostEqual(rr, ra, 5)
             self.assertAlmostEqual(dd, dec, 5)
 
@@ -150,6 +151,8 @@ class SipTransformationTest(unittest.TestCase):
         self.againstReality(self.tan, self.tan_rdxy)
 
     def testSip1(self):
+        print
+        print 'SIP against reality:'
         self.againstReality(self.sip, self.sip_rdxy)
 
 
