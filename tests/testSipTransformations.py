@@ -15,8 +15,8 @@ class SipTransformationTest(unittest.TestCase):
     def setUp(self):
         basefn = os.path.join(os.path.dirname(__file__), 'imgCharSources-v85501867-R01-S00')
 
-        sipfn = basefn + '.header' #'.wcs'
-        tanfn = basefn + '.tanheader' #'.wcs'
+        sipfn = basefn + '.sipheader'
+        tanfn = basefn + '.tanheader'
         print 'TAN WCS filename:', tanfn
         print 'SIP WCS filename:', sipfn
 
@@ -28,11 +28,11 @@ class SipTransformationTest(unittest.TestCase):
         # Using Astrometry.net on SIP solution:
 
         '''
-        wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.header -x 2168.54521667 -y 2020.40323873
+        wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.sipheader -x 2168.54521667 -y 2020.40323873
 
-        wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.header -x 2168.54521667 -y 2020.40323873
+        wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.sipheader -x 2168.54521667 -y 2020.40323873
 
-        wcs-rd2xy -w tests/imgCharSources-v85501867-R01-S00.header -r 1.5 -d 3.3
+        wcs-rd2xy -w tests/imgCharSources-v85501867-R01-S00.sipheader -r 1.5 -d 3.3
         '''
         
         self.sip_rdxy = [
