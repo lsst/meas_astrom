@@ -34,14 +34,20 @@ class SipTransformationTest(unittest.TestCase):
 
         # These are 1-indexed pixels, hence the '-1's below.
 
+        # crpix0 2167.54521667
+        # crpix1 2020.40323873
+        # crval0 1.42667846826
+        # crval1 3.37583321746
+
         self.rdxy = [
+            (1.42667846826, 3.37583321746, 2167.54521667 - 1, 2020.40323873 - 1),
             (1.500000, 3.300000, 3711.012884 - 1, 3134.440250 - 1),
             ]
 
     # UGH, the coord interface is nasty.
     def pixelToRaDec(self, wcs, xx, yy):
             rd = wcs.pixelToSky(xx, yy)
-            print 'rd is', rd
+            #print 'rd is', rd
             #rr = rd.getRa(DEGREES)
             #dd = rd.getDec(DEGREES)
             rr = rd.getLongitude(DEGREES)
@@ -52,11 +58,17 @@ class SipTransformationTest(unittest.TestCase):
         for (ra,dec,x,y) in self.rdxy:
             xx,yy = self.wcs.skyToPixel(ra, dec)
             rr,dd = self.pixelToRaDec(self.wcs, xx, yy)
+            print
+            print 'RA,Dec %-14.10g, %-14.10g --> pixel %g, %g -->' % (ra, dec, xx, yy)
+            print 'RA,Dec %-14.10g, %-14.10g' % (rr, dd)
             self.assertAlmostEqual(rr, ra, 5)
             self.assertAlmostEqual(dd, dec, 5)
 
             ra,dec = self.pixelToRaDec(self.wcs, x, y)
             xx,yy = self.wcs.skyToPixel(ra, dec)
+            print
+            print 'Pixel %-14.10g, %-14.10g --> RA,Dec %-14.10g, %-14.10g -->' %  (x, y, ra, dec)
+            print 'Pixel %-14.10g, %-14.10g' % (xx, yy)
             self.assertAlmostEqual(x, xx, 5)
             self.assertAlmostEqual(y, yy, 5)
 
