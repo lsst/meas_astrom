@@ -460,8 +460,13 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
                   arcsec2arcmin(lower * xSizePixels), arcsec2arcmin(lower * ySizePixels), 
                   arcsec2arcmin(upper * xSizePixels), arcsec2arcmin(upper * ySizePixels));
 
+    double qlo, qhi;
+    solver_get_quad_size_range_arcsec(_solver, &qlo, &qhi);
+    _mylog.format(pexLog::Log::DEBUG, "Using indices with quads in the range %.2f to %.2f arcmin\n",
+                  arcsec2arcmin(qlo), arcsec2arcmin(qhi));
+
     _mylog.log(pexLog::Log::DEBUG, "Setting indices");
-    _addSuitableIndicesToSolver(quadSizeArcsecLwr, quadSizeArcsecUpr, ra, dec);
+    _addSuitableIndicesToSolver(qlo, qhi, ra, dec);
 
     _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
 
