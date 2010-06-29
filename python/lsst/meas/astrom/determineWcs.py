@@ -75,7 +75,6 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     if solver is None:
         path=os.path.join(os.environ['ASTROMETRY_NET_DATA_DIR'], "metadata.paf")
         solver = astromNet.GlobalAstrometrySolution(path)
-        solver.allowDistortion(policy.get('allowDistortion'))
         matchThreshold = policy.get('matchThreshold')
         solver.setMatchThreshold(matchThreshold)
     else:

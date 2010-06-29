@@ -378,7 +378,7 @@ bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal
     _callSolver(ra, dec);
 
     if (_isSolved){
-        char* indexname = solver_get_best_match_index_name(_solver);
+        const char* indexname = solver_get_best_match_index_name(_solver);
         msg = boost::str(boost::format("Solved index is %s") % indexname);
     } else {
         msg = boost::str(boost::format("Failed to verify position (%.7f %.7f)\n") % ra % dec);
@@ -400,7 +400,7 @@ bool GlobalAstrometrySolution::solve()  {
 
     if (_isSolved){
         _mylog.log(pexLog::Log::DEBUG, "Position Found");
-        char* indexname = solver_get_best_match_index_name(_solver);
+        const char* indexname = solver_get_best_match_index_name(_solver);
         string msg = boost::str(boost::format("Solved index is %s") % indexname);
         _mylog.log(pexLog::Log::DEBUG, msg);            
 
@@ -438,7 +438,7 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
     double upper = solver_get_pixscale_high(_solver);
 
     if (lower >= upper) {
-        string msg = boost::str(boost::format("Minimum image scale (%g) must be strictly less than max scale (%g)" % lower % upper));
+        string msg = boost::str(boost::format("Minimum image scale (%g) must be strictly less than max scale (%g)") % lower % upper);
         throw(LSST_EXCEPT(pexExcept::DomainErrorException, msg));
     }
 
