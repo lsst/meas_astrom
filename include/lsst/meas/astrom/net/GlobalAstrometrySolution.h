@@ -81,7 +81,6 @@ public:
     inline void setMinimumImageScale(double scale){   _solver->funits_lower = scale; }
     inline void setMaximumImageScale(double scale){   _solver->funits_upper = scale; }
     void setImageScaleArcsecPerPixel(double scale);
-    void allowDistortion(bool hasDistortion);
     void setLogLevel(int level);
     void setMatchThreshold(double threshold);
     void setParity(int parity);

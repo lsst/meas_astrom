@@ -41,7 +41,7 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
     _minimumNumberOfObjectsToAccept(defaultMinimumNumberOfObjectsToAccept),
     _isSolved(false) {
     
-    _solver   = solver_new();
+    _solver = solver_new();
 
     setDefaultValues();
     
@@ -122,9 +122,6 @@ void GlobalAstrometrySolution::setDefaultValues() {
     //These values still exceed anything you'll find in a real image
     setMinimumImageScale(1e-6);
     setMaximumImageScale(3600*360);  //2pi radians per pixel
-
-    //Do we allow the solver to assume the image may have some distortion in it?
-    allowDistortion(true);
 
     //How good must a match be to be considered good enough?  Log-odds.
     setMatchThreshold(log(1e12));
@@ -259,7 +256,7 @@ void GlobalAstrometrySolution::_solverSetField() {
     assert(shortlist);
 
     //Set the pointer in the solver to the new, smaller field
-    starxy_free(_solver->fieldxy);
+    starxy_free(solver_get_field(_solver));
     solver_free_field(_solver);
     solver_set_field(_solver, shortlist);
     solver_reset_field_size(_solver);
@@ -280,12 +277,6 @@ void GlobalAstrometrySolution::setImageScaleArcsecPerPixel(double imgScale ///< 
 }
 
 
-///Inform the solver that the image may suffer from some distortion. Turn this on if a purely linear
-///wcs solution will get the postions of some stars wrong by more than 1 pixel. Turned on by default
-void GlobalAstrometrySolution::allowDistortion(bool hasDistortion) {
-    _solver->distance_from_quad_bonus = (hasDistortion) ? true : false;
-}
-
 ///Set the verbosity level for astrometry.net. The higher the level the more information is returned.
 ///1 and 2 are typically good values to use. 4 will print so much to the screen that it slows execution
 void GlobalAstrometrySolution::setLogLevel(int level) {
@@ -300,7 +291,7 @@ void GlobalAstrometrySolution::setLogLevel(int level) {
 ///    
 ///How good does a match need to be to be accepted. Typical value is log(1e12) approximately 27
 void GlobalAstrometrySolution::setMatchThreshold(double threshold) {
-    _solver->logratio_record_threshold = threshold;
+    solver_set_record_logodds(_solver, threshold);
 }
 
 
@@ -308,20 +299,11 @@ void GlobalAstrometrySolution::setMatchThreshold(double threshold) {
 ///North up and East right (or some rotation thereof) is parity==NORMAL_PARITY, the opposite is
 ///parity==FLIPPED_PARITY. The default is UNKNOWN_PARITY
 void GlobalAstrometrySolution::setParity(int parity){
-
     //Insist on legal values.
-    switch (parity){
-        case UNKNOWN_PARITY:
-        case FLIPPED_PARITY:
-        case NORMAL_PARITY:
-            _solver->parity = parity;
-            break;
-            return;
-        default:
-            throw LSST_EXCEPT(pexExcept::DomainErrorException, "Illegal parity setting");
+    if (solver_set_parity(_solver, parity)) {
+        throw LSST_EXCEPT(pexExcept::DomainErrorException, "Illegal parity setting");
     }
 }
-
 
 //
 // Solve functions
@@ -339,8 +321,8 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
         throw LSST_EXCEPT(pexExcept::RuntimeErrorException, "Starlist hasn't been set yet");
     }
 
-    double xc = (_solver->field_maxx + _solver->field_minx)/2.0;
-    double yc = (_solver->field_maxy + _solver->field_miny)/2.0;
+    double xc, yc;
+    solver_get_field_center(_solver, &xc, &yc);
 
     //Get the central ra/dec and plate scale
     afwCoord::Coord::ConstPtr raDec = wcsPtr->pixelToSky(xc, yc);
@@ -387,7 +369,7 @@ bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal
 
     // Tell the solver to only consider matches within the image size of the supposed RA,Dec.
     // The magic number 2.0 out front says to accept matches within 2 radii of the given *center* position.
-    double maxRadius = 2.0 * arcsec2deg(_solver->funits_upper * _solver->field_diag / 2.0);
+    double maxRadius = 2.0 * arcsec2deg(solver_get_max_radius_arcsec(_solver));
     msg = boost::str(boost::format("Setting RA,Dec = (%g, %g), radius = %g deg") % ra % dec % maxRadius);
     _mylog.log(pexLog::Log::DEBUG, msg);
     solver_set_radec(_solver, ra, dec, maxRadius);
@@ -396,14 +378,13 @@ bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal
     _callSolver(ra, dec);
 
     if (_isSolved){
-        char *indexname = _solver->index->indexname;
+        char* indexname = solver_get_best_match_index_name(_solver);
         msg = boost::str(boost::format("Solved index is %s") % indexname);
-    }
-    else {
+    } else {
         msg = boost::str(boost::format("Failed to verify position (%.7f %.7f)\n") % ra % dec);
     }
-
     _mylog.log(pexLog::Log::DEBUG, msg);            
+
     return _isSolved;
 }
 
@@ -419,7 +400,7 @@ bool GlobalAstrometrySolution::solve()  {
 
     if (_isSolved){
         _mylog.log(pexLog::Log::DEBUG, "Position Found");
-        char *indexname = _solver->index->indexname;
+        char* indexname = solver_get_best_match_index_name(_solver);
         string msg = boost::str(boost::format("Solved index is %s") % indexname);
         _mylog.log(pexLog::Log::DEBUG, msg);            
 
@@ -453,8 +434,11 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
     }
 
-    if ( _solver->funits_lower >= _solver->funits_upper) {
-        string msg = "Minimum image scale must be strictly less than max scale";
+    double lower = solver_get_pixscale_low(_solver);
+    double upper = solver_get_pixscale_high(_solver);
+
+    if (lower >= upper) {
+        string msg = boost::str(boost::format("Minimum image scale (%g) must be strictly less than max scale (%g)" % lower % upper));
         throw(LSST_EXCEPT(pexExcept::DomainErrorException, msg));
     }
 
@@ -465,35 +449,16 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
     double maxSizePixels = max(xSizePixels, ySizePixels);
     assert(maxSizePixels >= minSizePixels && minSizePixels > 0);
 
-    //Set the range of sizes of quads to examine. funits are stored in units of arcsec
-    //@FIXME the 10% and 1100% should be parameters
-    _solver->quadsize_min = .1*minSizePixels;
-    _solver->quadsize_max = 1.9*1.1*maxSizePixels;
+    //Set the range of sizes of quads to examine, in pixels.
+    solver_set_quad_size_fraction(_solver, 0.1, 1.0);
 
     //Output some useful debugging info
-    string msg;
-    msg = boost::str(boost::format("Image size %.0f x %.0f pixels") % xSizePixels % ySizePixels);
-    _mylog.log(pexLog::Log::DEBUG, msg);
-    
-    msg = boost::str(boost::format("Platescale is %.3f -- %.3f arcsec/pixel") \
-        % _solver->funits_lower % _solver->funits_upper);
-    _mylog.log(pexLog::Log::DEBUG, msg);
-    
-
-    msg = boost::str(boost::format("Image size between %g and %g arcsec") 
-        % (_solver->funits_lower*minSizePixels) % (_solver->funits_upper*maxSizePixels)  );
-    _mylog.log(pexLog::Log::DEBUG, msg);
-
-    msg = boost::str(boost::format("Examine Quads between %g and %g pixels") 
-        % (_solver->quadsize_min) % (_solver->quadsize_max) );
-    _mylog.log(pexLog::Log::DEBUG, msg);
-
-    double quadSizeArcsecLwr = _solver->quadsize_min * _solver->funits_lower;
-    double quadSizeArcsecUpr = _solver->quadsize_max * _solver->funits_upper;
-    msg = boost::str(boost::format("Examine Quads between %g and %g arcsec") 
-        % (quadSizeArcsecLwr) % (quadSizeArcsecUpr)  );
-    _mylog.log(pexLog::Log::DEBUG, msg);
-
+    _mylog.format(pexLog::Log::DEBUG, "Image size %.0f x %.0f pixels", xSizePixels, ySizePixels);
+    _mylog.format(pexLog::Log::DEBUG, "Searching plate scale range %.3f -- %.3f arcsec/pixel",
+                  lower, upper);
+    _mylog.format(pexLog::Log::DEBUG, "--> Image size %.3f x %.3f to %.3f x %.3f arcmin",
+                  arcsec2arcmin(lower * xSizePixels), arcsec2arcmin(lower * ySizePixels), 
+                  arcsec2arcmin(upper * xSizePixels), arcsec2arcmin(upper * ySizePixels));
 
     _mylog.log(pexLog::Log::DEBUG, "Setting indices");
     _addSuitableIndicesToSolver(quadSizeArcsecLwr, quadSizeArcsecUpr, ra, dec);
@@ -504,29 +469,23 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
 
     solver_run(_solver);
 
-    if(_solver->best_match_solves> 0) {
+    
+    if (solver_did_solve(_solver)) {
         _isSolved = true;
 
-        MatchObj* match = &_solver->best_match;
-        msg = boost::str(boost::format("Solved: %i matches, %i conflicts") \
-                % (int) match->nmatch % (int) match->nconflict);
-       _mylog.log(pexLog::Log::DEBUG, msg);
+        MatchObj* match = solver_get_best_match(_solver);
+        _mylog.format(pexLog::Log::DEBUG, "Solved: %i matches, %i conflicts, %i unmatched",
+                      (int)match->nmatch, (int)match->nconflict, (int)match->ndistractor);
 
-#if defined(SOLVER_TWEAK2_AVAILABLE)
-       _mylog.log(pexLog::Log::DEBUG, "Calling tweak2() to tune up match...");
-       msg = boost::str(boost::format("Starting log-odds: %g") % match->logodds);
-       _mylog.log(pexLog::Log::DEBUG, msg);
-       // Use "tweak2" to tune up this match, resulting in a better WCS and more catalog matches.
-       // magic 1: only go to linear order (no SIP distortions).
-       solver_tweak2(_solver, match, 1);
-       msg = boost::str(boost::format("After tweak2(): %i matches, %i conflicts") \
-                        % (int) match->nmatch % (int) match->nconflict);
-       _mylog.log(pexLog::Log::DEBUG, msg);
-       msg = boost::str(boost::format("Final log-odds: %g") % match->logodds);
-       _mylog.log(pexLog::Log::DEBUG, msg);
-#else
-       _mylog.log(pexLog::Log::DEBUG, "solver_tweak2() is not available.");
-#endif
+        _mylog.log(pexLog::Log::DEBUG, "Calling tweak2() to tune up match...");
+        _mylog.format(pexLog::Log::DEBUG, "Starting log-odds: %g", match->logodds);
+        // Use "tweak2" to tune up this match, resulting in a better WCS and more catalog matches.
+        // magic 1: only go to linear order (no SIP distortions).
+        solver_tweak2(_solver, match, 1);
+
+        _mylog.format(pexLog::Log::DEBUG, "After tweak2: %i matches, %i conflicts, %i unmatched",
+                      (int)match->nmatch, (int)match->nconflict, (int)match->ndistractor);
+        _mylog.format(pexLog::Log::DEBUG, "After tweak2: log-odds: %g", match->logodds);
 
     } else {
         _isSolved = false;
@@ -615,16 +574,18 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs()  {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
 
-    lsst::afw::geom::PointD crpix = lsst::afw::geom::makePointD(_solver->best_match.wcstan.crpix[0],
-                                                                _solver->best_match.wcstan.crpix[1]);   
-    lsst::afw::geom::PointD crval = lsst::afw::geom::makePointD(_solver->best_match.wcstan.crval[0],
-                                                                _solver->best_match.wcstan.crval[1]);
+    MatchObj* match = solver_get_best_match(_solver);
+
+    lsst::afw::geom::PointD crpix = lsst::afw::geom::makePointD(match->wcstan.crpix[0],
+                                                                match->wcstan.crpix[1]);   
+    lsst::afw::geom::PointD crval = lsst::afw::geom::makePointD(match->wcstan.crval[0],
+                                                                match->wcstan.crval[1]);
     
     int naxis = 2;   //This is hardcoded into the sip_t structure
     Eigen::Matrix2d CD;
     for (int i = 0; i<naxis; ++i) {
         for (int j = 0; j<naxis; ++j) {
-            CD(i, j) = _solver->best_match.wcstan.cd[i][j];
+            CD(i, j) = match->wcstan.cd[i][j];
         }
     }
 
@@ -647,13 +608,13 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     }
 
     //Generate an array of radec of positions in the field
-    MatchObj* mo = &_solver->best_match;
+    MatchObj* mo = solver_get_best_match(_solver);
 
     //Call the tweaking algorthim to generate the distortion coeffecients
     
     //jitter is a measure of how much we can expect the xy of stars to scatter from the expected
     //radec due to noise in our measurments.
-    double jitterArcsec = tan_pixel_scale(&mo->wcstan)*_solver->verify_pix;
+    double jitterArcsec = tan_pixel_scale(&mo->wcstan) * solver_get_field_jitter(_solver);
     jitterArcsec = hypot(jitterArcsec, mo->index_jitter);
     int inverseOrder = order;
     int iterations = 5;        //blind.c:628 uses 5
@@ -676,7 +637,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
                                                                 sip->wcstan.crval[1]);
 
     //Linear conversion matrix
-    int naxis = 2;   //This is hardcoded into the sip_t structure
+    int naxis = 2;
     Eigen::Matrix2d CD;
     for (int i = 0; i<naxis; ++i) {
         for (int j = 0; j<naxis; ++j) {
@@ -743,7 +704,7 @@ vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filt
     }
     
     string msg="";  //Used for exception messages
-    MatchObj* match = &_solver->best_match;
+    MatchObj* match = solver_get_best_match(_solver);
     assert(match->nfield > 0);
     
     vector<Det::SourceMatch> sourceMatchSet;
@@ -751,6 +712,8 @@ vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filt
 
     //Load magnitude information from catalogue
     vector<double> tagAlong = getTagAlongFromIndex(match->index, filterName, match->theta, match->nfield);
+
+    const starxy_t* fieldxy = solver_get_field(_solver);
         
     for (int i=0; i<match->nfield; i++) {
         // "theta" is the mapping from image (aka field) stars to index (aka reference) stars.
@@ -760,9 +723,9 @@ vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filt
         
         //Matching input sources    
         lsst::afw::detection::Source::Ptr sPtr(new lsst::afw::detection::Source());
-        double x = starxy_getx(_solver->fieldxy, i);
-        double y = starxy_gety(_solver->fieldxy, i);
-        double flux = starxy_get_flux(_solver->fieldxy, i);
+        double x = starxy_getx(fieldxy, i);
+        double y = starxy_gety(fieldxy, i);
+        double flux = starxy_get_flux(fieldxy, i);
         
         sPtr->setXAstrom(x);
         sPtr->setYAstrom(y);
@@ -855,7 +818,8 @@ GlobalAstrometrySolution::getCatalogue(double radiusInArcsec, string filterName)
 
     //Don't free this pointer. It points to memory that will still exist
     //when this function goes out of scope.
-    double *center = _solver->best_match.center;
+    MatchObj* match = solver_get_best_match(_solver);
+    double *center = match->center;
     double ra, dec;
     xyzarr2radecdeg(center, &ra, &dec);
     
@@ -987,7 +951,9 @@ double GlobalAstrometrySolution::getSolvedImageScale(){
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
 
-    return _solver->best_match.scale;
+    MatchObj* match = solver_get_best_match(_solver);
+    return match->scale;
+    //return tan_pixel_scale(&match->wcstan)
 } 
 
 
