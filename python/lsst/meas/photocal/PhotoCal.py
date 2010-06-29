@@ -12,8 +12,15 @@ from lsst.pex.logging import Log, Debug, LogRec, Prop
 
 from lsst.meas.photocal.PhotometricMagnitude import PhotometricMagnitude
 
+class fakelog(object):
+    def log(self, x, msg):
+        print msg
+
 def calcPhotoCal(sourceMatch, log=None):
     """Calculate photometric calibration, i.e the zero point magnitude"""
+
+    if log is None:
+        log = fakelog()
 
     if len(sourceMatch) == 0:
         raise ValueError("sourceMatch contains no elements")
@@ -21,7 +28,11 @@ def calcPhotoCal(sourceMatch, log=None):
     #Only use stars for which the flags indicate the photometry is good.
     flags = malgUtil.getDetectionFlags()
     goodFlagValue= flags['BINNED1'] | flags['STAR']
-    
+
+    log.log(Log.INFO, 'Flag value BINNED1: 0x%x, %i' % (flags['BINNED1'], flags['BINNED1']))
+    log.log(Log.INFO, 'Flag value STAR   : 0x%x, %i' %  (flags['STAR'], flags['STAR']))
+    log.log(Log.INFO, 'Good flag value: %i' % goodFlagValue)
+
     cleanList = []
     for m in sourceMatch:
         if m.second.getFlagForDetection() == goodFlagValue:
@@ -45,11 +56,7 @@ def calcPhotoCal(sourceMatch, log=None):
     #Sanity check output
     if not(par[1] - err[1] <= 1 and par[1] + err[1] >= 1):
         msg = "Slope of fitting function is not 1 (%g +- %g) " %(par[1], err[1])
-        if log is None:
-            print msg
-        else:
-            log.log(Log.WARN, msg)
-        
+        log.log(Log.WARN, msg)
     
     #Initialise and return a magnitude object
     medianInstMag = np.median(out["src"])
