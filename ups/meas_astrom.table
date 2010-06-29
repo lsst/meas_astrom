@@ -3,7 +3,7 @@ setupRequired(afw >= 3.3.22)
 setupRequired(meas_algorithms)
 
 setupRequired(wcslib >= 4.4.4)
-setupRequired(astrometry_net >= 0.27)
+setupRequired(astrometry_net >= 0.30)
 
 setupOptional(astrometry_net_data)
 
