@@ -41,6 +41,9 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
                 one will be created.
     forceImageSize  tuple of (W,H): force this image size, rather than getting it from the Exposure.
     """
+	sipwcs = None
+	tanMatches = None
+	sipMatches = None
 
     if log is None:
         log = StdoutLog()   #Write log messages to stdout
@@ -85,10 +88,13 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     solver.setStarlist(srcSet)
     log.log(log.DEBUG, "Setting numBrightObj")
     solver.setNumBrightObjects( min(policy.get('numBrightStars'), len(srcSet)))
+
     if forceImageSize is not None:
-        solver.setImageSize(*forceImageSize)
+        W,H = forceImageSize
     else:
-        solver.setImageSize(exp.getWidth(), exp.getHeight())
+        W,H = exp.getWidth(), exp.getHeight()
+
+	solver.setImageSize(W, H)
     solver.setLogLevel(2)
     #solver.printSolverSettings(stdout)
 
@@ -112,6 +118,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         log.log(log.WARN, "No solution found, using input Wcs")
         return [], wcsIn
     wcs = solver.getWcs()
+	tanwcs = wcs
 
     #
     # Generate a list of catalogue objects in the field.
@@ -143,6 +150,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
 
         matchList = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=wcs, 
             distInArcsec=distInArcsec, cleanParam=cleanParam)
+		tanMatches = matchList
 
         if len(matchList) == 0:
             log.log(Log.WARN, "No matches found between input source and catalogue.")
@@ -159,10 +167,32 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     if policy.get('calculateSip'):
         sipOrder = policy.get('sipOrder')
         wcs, matchList = calculateSipTerms(wcs, cat, srcSet, distInArcsec, cleanParam, sipOrder, log)
+		sipwcs = wcs
+		sipMatches = matchList
     else:
         log.log(Log.DEBUG, "Updating wcs in input exposure with linear wcs")
         
     exposure.setWcs(wcs)
+
+	# We want, for diagnostic plots:
+	# -TAN WCS
+	# -SIP WCS, if computed
+	# -all image sources (sourceSet)
+	# -image size (W,H)
+	# -all reference sources ("cat")
+	# -matchList / Astrometry.net matches
+	# - (tan / sip)
+	# -solver?
+	# -MatchObj?
+
+	#  (better grab this before solver.reset() !)
+
+	if True:
+		wcsPlots.wcsPlots(tanwcs, sourceSet, cat, tanMatches, W, H, 'tan-')
+		if sipwcs and sipMatches:
+			wcsPlots.wcsPlots(sipwcs, sourceSet, cat, sipMatches, W, H, 'sip-')
+
+
     solver.reset()
 
     if display:
