@@ -850,6 +850,7 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
     Det::SourceSet out;
 
 
+    // FIXME -- this leads to many duplicate entries!!
     for (unsigned int i=0; i<_indexList.size(); i++) {
         index_t* index = _indexList[i];
         if (!index_is_within_range(index, ra, dec, arcsec2deg(radiusInArcsec)))

@@ -7,6 +7,7 @@ from numpy import array
 
 #import lsst.afw.image.imageLib as afwImage
 import lsst.afw.geom.geomLib as afwGeom
+import lsst.afw.coord.coordLib as afwCoord
 
 '''
 matches
@@ -88,6 +89,95 @@ def wcsPlots(wcs, imgsources, refsources, matches, W, H, prefix, titleprefix):
 	fn = prefix + '-matches.png'
 	print 'Saving', fn
 	savefig(fn)
+
+	# All the id fields are zero, so I guess we have to do it the hard way...
+	for s in imgsources[:10]:
+		print 'source id:', s.getSourceId()
+		print 'id:', s.getId()
+		print 'objid:', s.getObjectId()
+	for s in refsources[:10]:
+		print 'refsource id:', s.getSourceId()
+		print 'id:', s.getId()
+		print 'objid:', s.getObjectId()
+	# Photometry...
+	for m in matches[:10]:
+		print 'match ids:', m.first.getSourceId(), m.second.getSourceId()
+		print 'id:', m.first.getId(), m.second.getId()
+		print 'objid:', m.first.getObjectId(), m.second.getObjectId()
+
+	# Swig objs don't have .id ?
+	#for s in imgsources[:10]:
+	#	print 'source pyid', s.id
+	#for s in refsources[:10]:
+	#	print 'refsource pyid', s.id
+	#for m in matches[:10]:
+	#	print 'match'
+	#	for s in [m.first, m.second]:
+	#		print '  source pyid', s.id
+
+	# NOTE that the reference source list here can contain duplicate
+	# RA,Dec entries from each Astrometry.net index!
+
+	# Also, ref sources can be *far* outside the image bounds.
+
+	onemas = 1./(3600.*1000.)
+
+	print '%i ref sources' % len(refsources)
+
+	uniqrefsources = []
+	for i,r1 in enumerate(refsources):
+		#ra1,dec1 = r1.getRa(), r1.getDec()
+		c1 = afwCoord.Coord(r1.getRa(), r1.getDec(), 2000.0)
+		duplicate = False
+		for r2 in uniqrefsources:
+			#ra2,dec2 = r2.getRa(), r2.getDec()
+			c2 = afwCoord.Coord(r2.getRa(), r2.getDec(), 2000.0)
+			if c1.angularSeparation(c2, afwCoord.DEGREES) <= onemas:
+				duplicate = True
+				break
+		if not duplicate:
+			uniqrefsources.append(r1)
+
+	print 'Trimmed reference sources from %i to %i\n' % (len(refsources), len(uniqrefsources))
+
+	
+
+	# Check for object equality...
+	# match order is (cat,img).
+	for m in matches[:10]:
+		mcat = m.first
+		print 'match ref', mcat
+		print 'ra,dec', mcat.getRa(), mcat.getDec()
+		mradec = afwCoord.Coord(mcat.getRa(), mcat.getDec(), 2000.0)
+		for s in refsources:
+			# This doesn't work.
+			if s == mcat:
+				print 'Equal!', s
+			sradec = afwCoord.Coord(s.getRa(), s.getDec(), 2000.0)
+			# This doesn't work.
+			if mradec == sradec:
+				print 'Coords equal!', s
+			# This works -- but is a bit fragile...
+			if mcat.getRa() == s.getRa() and mcat.getDec() == s.getDec():
+				print 'RA,Decs equal!', s
+			sep = mradec.angularSeparation(sradec, afwCoord.DEGREES)
+			# 1 mas.
+			if sep < 1./(3600.*1000.):
+				print 'Close:', s
+				print 'sep', sep
+		mimg = m.second
+		print 'match img', mimg
+		for s in imgsources:
+			# Nope.
+			if s == mimg:
+				print 'Equal!', s
+			sep = hypot(mimg.getXAstrom() - s.getXAstrom(),
+						mimg.getYAstrom() - s.getYAstrom())
+			# 1 milli-pixel
+			if sep < 1e-3:
+				print 'Close:', s
+				print 'sep', sep
+
 	
 def plotDistortion(sip, W, H, ncells, prefix, title, exaggerate=1.):
 	print 'SIP:', sip
@@ -152,3 +242,4 @@ def plotDistortion(sip, W, H, ncells, prefix, title, exaggerate=1.):
 	fn = prefix + '-distort.png'
 	print 'Saving', fn
 	savefig(fn)
+
