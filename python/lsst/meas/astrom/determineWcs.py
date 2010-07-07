@@ -133,7 +133,9 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     #Do we want magnitude information
     filterName = chooseFilterName(exposure, policy, solver, log)
     try:
-        cat = solver.getCatalogue(2*imgSizeInArcsec, filterName) 
+        #cat = solver.getCatalogue(2*imgSizeInArcsec, filterName) 
+        margin = 50 # pixels
+        cat = solver.getCatalogueForSolvedField(filterName, margin)
     except LsstCppException, e:
         log.log(Log.WARN, str(e))
         log.log(Log.WARN, "Attempting to access catalogue positions and fluxes")
