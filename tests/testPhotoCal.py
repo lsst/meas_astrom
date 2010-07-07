@@ -44,25 +44,24 @@ class PhotoCalTest(unittest.TestCase):
         """
         ))
         
-
         #Load sample input from disk
-        path = os.path.join(eups.productDir("meas_astrom"), "examples")
+        mypath = eups.productDir("meas_astrom")
+        path = os.path.join(mypath, "examples")
         self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci"))
         self.srcSet = ssi.read(os.path.join(path, "v695833-e0-c000.xy.txt"))
 
         # The .xy.txt file has sources in the range ~ [0,2000],[0,4500], but
-        # the exposure is onlyl one amp -- 1024x1153.  Work around.
+        # the exposure is only one amp -- 1024x1153.  Work around.
         print 'Exposure image size: %i x %i' % (self.exposure.getWidth(), self.exposure.getHeight())
         self.forceImageSize = (2048, 4612) # approximately; 2x4 x (1024 x 1153)
         print 'Forcing image size to %i x %i to match source list.' % (self.forceImageSize[0], self.forceImageSize[1])
 
-        #Setup up astrometry_net_data
-        #print "Setting up meas_astrom cfhtlsDeep"
-        eupsObj = eups.Eups()
-
-        ok, version, reason = eupsObj.setup("astrometry_net_data", versionName="cfhtlsDeep")
+        # Set up local astrometry_net_data
+        datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
+        eupsObj = eups.Eups(root=datapath)
+        ok, version, reason = eupsObj.setup('astrometry_net_data')
         if not ok:
-            raise ValueError("Couldn't set up cfhtlsDeep version of astrometry_net_data: %s" %(reason))
+            raise ValueError("Couldn't set up local photocal version of astrometry_net_data (from path: %s): %s" % (datapath, reason))
 
     def tearDown(self):
         del self.defaultPolicy
