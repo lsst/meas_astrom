@@ -45,11 +45,11 @@ def sourceMatchStatistics(matchList, log=None):
         quartiles.append(dist[i])
     
     values = {}
-    values['diffInPixels_q25'] = quartiles[0]
+    values['diffInPixels_Q25'] = quartiles[0]
     values['diffInPixels_Q50'] = quartiles[1]
     values['diffInPixels_Q75'] = quartiles[2]
     values['diffInPixels_mean'] = dist.mean()
-    values['dDiffInPixels_std'] = dist.std()
+    values['diffInPixels_std'] = dist.std()
     
     return values
     
