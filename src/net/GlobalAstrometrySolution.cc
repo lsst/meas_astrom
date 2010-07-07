@@ -333,12 +333,12 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
     setMaximumImageScale(plateScaleArcsecPerPixel*(1 + unc));
     
     _mylog.log(pexLog::Log::DEBUG,
-               boost::format("Solving using initial guess at position of\n %.7f %.7f\n") % ra % dec);
+               boost::format("Solving using initial guess at position of (%.7f %.7f)") % ra % dec);
 
     double lwr = plateScaleArcsecPerPixel*(1 - unc);
     double upr = plateScaleArcsecPerPixel*(1 + unc);
                      
-    _mylog.log(pexLog::Log::DEBUG, boost::format("Exposure's WCS scale: %g arcsec/pix; setting scale range %.3f - %.3f arcsec/pixel\n") % plateScaleArcsecPerPixel % lwr % upr);
+    _mylog.log(pexLog::Log::DEBUG, boost::format("Exposure's WCS scale: %g arcsec/pix; setting scale range %.3f - %.3f arcsec/pixel") % plateScaleArcsecPerPixel % lwr % upr);
 
     if ( wcsPtr->isFlipped()) {
         setParity(FLIPPED_PARITY);
@@ -462,7 +462,7 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
 
     double qlo, qhi;
     solver_get_quad_size_range_arcsec(_solver, &qlo, &qhi);
-    _mylog.format(pexLog::Log::DEBUG, "Using indices with quads in the range %.2f to %.2f arcmin\n",
+    _mylog.format(pexLog::Log::DEBUG, "Using indices with quads in the range %.2f to %.2f arcmin",
                   arcsec2arcmin(qlo), arcsec2arcmin(qhi));
 
     _mylog.log(pexLog::Log::DEBUG, "Setting indices");
@@ -479,8 +479,8 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
         _isSolved = true;
 
         MatchObj* match = solver_get_best_match(_solver);
-        _mylog.format(pexLog::Log::DEBUG, "Solved: %i matches, %i conflicts, %i unmatched",
-                      (int)match->nmatch, (int)match->nconflict, (int)match->ndistractor);
+        _mylog.format(pexLog::Log::DEBUG, "Solved: %i matches, %i conflicts, %i unmatched; %i in index",
+                      (int)match->nmatch, (int)match->nconflict, (int)match->ndistractor, (int)match->nindex);
 
         _mylog.log(pexLog::Log::DEBUG, "Calling tweak2() to tune up match...");
         _mylog.format(pexLog::Log::DEBUG, "Starting log-odds: %g", match->logodds);
