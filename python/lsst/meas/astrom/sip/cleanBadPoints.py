@@ -21,7 +21,7 @@ def clean(srcMatch, wcs, order=3, nsigma=3):
     std::vector<det::SourceMatch> of the good data points
     """
     
-    #Cataloge ra and dec
+    #Catalogue ra and dec
     raFunc = lambda x: (x.first).getRa()
     catRa = map(raFunc, srcMatch)
     decFunc = lambda x: (x.first).getDec()
@@ -73,7 +73,7 @@ def indicesOfGoodPoints(x, y, s, order=1, nsigma=3, maxiter=100):
         
         sigma = (y-f).std()
         deviance = np.fabs( (y - f) /sigma)
-        newidx = np.where(deviance < nsigma)
+        newidx = np.flatnonzero(deviance < nsigma)
 
         if False:
             import matplotlib.pyplot as mpl
@@ -95,13 +95,11 @@ def indicesOfGoodPoints(x, y, s, order=1, nsigma=3, maxiter=100):
         flag=False
     
     #We get here because we either a) stopped finding bad points
-    #or b) ran out of iterations. Eitherway, we just return our
+    #or b) ran out of iterations. Either way, we just return our
     #list of indices of good points.
-    #Somewhere along the line, newidx becomes a tuple, only the 0th
-    #elt of which is the list we need
-    if len(newidx[0]) == 0:
+    if len(newidx) == 0:
         raise RuntimeError("All points cleaned out. This is probably a bug")
-    return newidx[0]
+    return newidx
     
 
 def chooseRx(x, idx, order):
