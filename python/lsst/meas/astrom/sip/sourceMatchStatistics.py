@@ -32,31 +32,24 @@ def sourceMatchStatistics(matchList, log=None):
         sx = srcObj.getXAstrom()
         sy = srcObj.getYAstrom()
         
-        dist[i] = np.hypot( cx-sx, cy-cx)
+        dist[i] = np.hypot(cx-sx, cy-sy)
         i = i+1
         
-    
     dist.sort()
 
-    quartile = []
-    quartile.append(dist[0])
+    quartiles = []
+    for f in (0.25, 0.50, 0.75):
+        i = int(f*size + 0.5)
+        if i >= size:
+            i = size - 1
+        quartiles.append(dist[i])
     
-    i = int(size/4.)
-    quartile.append(dist[i])
+    values = {}
+    values['diffInPixels_Q25'] = quartiles[0]
+    values['diffInPixels_Q50'] = quartiles[1]
+    values['diffInPixels_Q75'] = quartiles[2]
+    values['diffInPixels_mean'] = dist.mean()
+    values['diffInPixels_std'] = dist.std()
     
-    i = int(size/2.)
-    quartile.append(dist[i])
-    
-    i = int(3*size/4.)
-    quartile.append(dist[i])
-    
-    quartile.append(dist[-1])
-    
-    returnObject = dict()
-    returnObject['quartilesOfDiffInPixels'] = quartile
-    returnObject['meanOfDiffInPixels'] = dist.mean()
-    returnObject['rmsOfDiffInPixels'] = dist.std()
-    
-    
-    return returnObject
+    return values
     
