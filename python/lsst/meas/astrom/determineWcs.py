@@ -190,10 +190,10 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     #  (better grab this before solver.reset() !)
 
     if True:
-        wcsPlots.wcsPlots(tanwcs, sourceSet, cat, tanMatches, W, H, 'tan')
+        wcsPlots.wcsPlots(tanwcs, sourceSet, cat, tanMatches, W, H, 'tan', '')
         if sipwcs and sipMatches:
-            wcsPlots.wcsPlots(sipwcs, sourceSet, cat, sipMatches, W, H, 'sip')
-
+            wcsPlots.wcsPlots(sipwcs, sourceSet, cat, sipMatches, W, H, 'sip', '')
+            wcsPlots.plotDistortion(sipwcs, W, H, 200, 'sip', '', exaggerate=10.)
 
     solver.reset()
 
