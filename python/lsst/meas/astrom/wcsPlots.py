@@ -166,6 +166,8 @@ def wcsPlots(wcs, imgsources, refsources, matches, W, H, prefix, titleprefix):
 
 	clf()
 	p1 = plot(mimgmag, mrefmag, 'b.')
+	imag = append(mimgmag, uimgmag)
+	axis([floor(min(imag))-0.5, ceil(max(imag)), floor(min(refmags))-0.5, ceil(max(refmags))])
 	ax = axis()
 
 	# unmatched:
