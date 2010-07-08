@@ -91,103 +91,126 @@ def wcsPlots(wcs, imgsources, refsources, matches, W, H, prefix, titleprefix):
 	savefig(fn)
 
 	# All the id fields are zero, so I guess we have to do it the hard way...
-	for s in imgsources[:10]:
-		print 'source id:', s.getSourceId()
-		print 'id:', s.getId()
-		print 'objid:', s.getObjectId()
-	for s in refsources[:10]:
-		print 'refsource id:', s.getSourceId()
-		print 'id:', s.getId()
-		print 'objid:', s.getObjectId()
-	# Photometry...
-	for m in matches[:10]:
-		print 'match ids:', m.first.getSourceId(), m.second.getSourceId()
-		print 'id:', m.first.getId(), m.second.getId()
-		print 'objid:', m.first.getObjectId(), m.second.getObjectId()
-
-	# Swig objs don't have .id ?
-	#for s in imgsources[:10]:
-	#	print 'source pyid', s.id
-	#for s in refsources[:10]:
-	#	print 'refsource pyid', s.id
-	#for m in matches[:10]:
-	#	print 'match'
-	#	for s in [m.first, m.second]:
-	#		print '  source pyid', s.id
 
 	# NOTE that the reference source list here can contain duplicate
 	# RA,Dec entries from each Astrometry.net index!
-
 	# Also, ref sources can be *far* outside the image bounds.
+	# --> not any more.
 
+	# one milli-arcsec in degrees
 	onemas = 1./(3600.*1000.)
 
 	print '%i ref sources' % len(refsources)
 
+	# Probably no longer necessary (and could be made *much* faster)...
 	uniqrefsources = []
 	for i,r1 in enumerate(refsources):
-		#ra1,dec1 = r1.getRa(), r1.getDec()
 		c1 = afwCoord.Coord(r1.getRa(), r1.getDec(), 2000.0)
 		duplicate = False
 		for r2 in uniqrefsources:
-			#ra2,dec2 = r2.getRa(), r2.getDec()
 			c2 = afwCoord.Coord(r2.getRa(), r2.getDec(), 2000.0)
 			if c1.angularSeparation(c2, afwCoord.DEGREES) <= onemas:
 				duplicate = True
 				break
 		if not duplicate:
 			uniqrefsources.append(r1)
-
 	print 'Trimmed reference sources from %i to %i\n' % (len(refsources), len(uniqrefsources))
+	origrefsources = refsources
+	refsources = uniqrefsources
 
-	
 
-	# Check for object equality...
+	matchinds = []
 	# match order is (cat,img).
-	for m in matches[:10]:
+	for m in matches:
 		mcat = m.first
-		print 'match ref', mcat
-		print 'ra,dec', mcat.getRa(), mcat.getDec()
 		mradec = afwCoord.Coord(mcat.getRa(), mcat.getDec(), 2000.0)
-		for s in refsources:
-			# This doesn't work.
-			if s == mcat:
-				print 'Equal!', s
+		cati = -1
+		for i,s in enumerate(refsources):
 			sradec = afwCoord.Coord(s.getRa(), s.getDec(), 2000.0)
-			# This doesn't work.
-			if mradec == sradec:
-				print 'Coords equal!', s
-			# This works -- but is a bit fragile...
-			if mcat.getRa() == s.getRa() and mcat.getDec() == s.getDec():
-				print 'RA,Decs equal!', s
 			sep = mradec.angularSeparation(sradec, afwCoord.DEGREES)
-			# 1 mas.
-			if sep < 1./(3600.*1000.):
-				print 'Close:', s
-				print 'sep', sep
+			if sep < onemas:
+				cati = i
+				break
 		mimg = m.second
-		print 'match img', mimg
-		for s in imgsources:
-			# Nope.
-			if s == mimg:
-				print 'Equal!', s
+
+		imgi = -1
+		for i,s in enumerate(imgsources):
 			sep = hypot(mimg.getXAstrom() - s.getXAstrom(),
 						mimg.getYAstrom() - s.getYAstrom())
 			# 1 milli-pixel
 			if sep < 1e-3:
-				print 'Close:', s
-				print 'sep', sep
+				imgi = i
+				break
+		matchinds.append((cati, imgi))
+	matchinds = array(matchinds)
+
+	print 'Match indices:', matchinds
+
+	def flux2mag(f):
+		return -2.5*log10(f)
+
+	refmags = array([flux2mag(s.getPsfFlux()) for s in refsources])
+
+	imgfluxes = array([s.getPsfFlux() for s in imgsources])
+	#okflux = (imgfluxes > 1)
+
+	matchrefi = matchinds[:,0]
+	matchimgi = matchinds[:,1]
+
+	mimgflux = imgfluxes[matchimgi]
+	mrefmag  = refmags[matchrefi]
+
+	okflux = (mimgflux > 1)
+	mimgmag = flux2mag(mimgflux[okflux])
+	mrefmag = mrefmag[okflux]
+
+	clf()
+	p1 = plot(mimgmag, mrefmag, 'b.')
+	ax = axis()
+
+	# unmatched:
+	Uimg = ones(len(imgfluxes)).astype(bool)
+	Uimg[matchimgi] = False
+	Uref = ones(len(refmags)).astype(bool)
+	Uimg[matchrefi] = False
+
+	uimgflux = imgfluxes[Uimg]
+	okflux = (uimgflux > 1)
+	uimgmag = flux2mag(uimgflux[okflux])
+
+	urefmag = refmags[Uref]
+
+	dy = (ax[3]-ax[2]) * 0.05
+	y0 = ones_like(uimgmag) * ax[2]
+	p2 = plot(vstack((uimgmag, uimgmag)), vstack((y0, y0+dy)), 'r-', alpha=0.5)
+	p2 = p2[0]
+	y0 = ones_like(mimgmag) * ax[2]
+	p3 = plot(vstack((mimgmag, mimgmag)), vstack((y0+(0.25*dy), y0+(1.25*dy))), 'b-', alpha=0.5)
+	p3 = p3[0]
+
+	dx = (ax[1]-ax[0]) * 0.05
+	x0 = ones_like(urefmag) * ax[0]
+	p4 = plot(vstack((x0, x0+dx)), vstack((urefmag, urefmag)), 'r-', alpha=0.5)
+	p4 = p4[0]
+	x0 = ones_like(mrefmag) * ax[0]
+	p5 = plot(vstack((x0+(0.25*dx), x0+(1.25*dx))), vstack((mrefmag, mrefmag)), 'b-', alpha=0.5)
+	p5 = p5[0]
+
+	figlegend((p1, p3, p2), ('Matched sources', 'Matched sources', 'Unmatched sources',),
+			  'center right', numpoints=1, prop=FontProperties(size='small'))
+
+	axis(ax)
+	xlabel('Image instrumental mag')
+	ylabel('Reference catalog mag')
+	
+	fn = prefix + '-photom.png'
+	print 'Saving', fn
+	savefig(fn)
+	
+
 
 	
 def plotDistortion(sip, W, H, ncells, prefix, title, exaggerate=1.):
-	print 'SIP:', sip
-	pix = afwGeom.makePointD(W/2, H/2)
-	print 'Pixel position', pix
-	distpix = sip.distortPixel(pix)
-	print 'Distorted:', distpix
-	dx,dy = distpix[0]-pix[0], distpix[1]-pix[1]
-	print 'dx,dy', dx, dy
-
 	ncells = float(ncells)
 	cellsize = sqrt(W * H / ncells)
 	nw = int(floor(W / cellsize))
