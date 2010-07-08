@@ -144,31 +144,22 @@ def wcsPlots(wcs, imgsources, refsources, matches, W, H, prefix, titleprefix):
 		matchinds.append((cati, imgi))
 	matchinds = array(matchinds)
 
-	print 'Match indices:', matchinds
+	#print 'Match indices:', matchinds
 
 	def flux2mag(f):
 		return -2.5*log10(f)
 
 	refmags = array([flux2mag(s.getPsfFlux()) for s in refsources])
-
 	imgfluxes = array([s.getPsfFlux() for s in imgsources])
-	#okflux = (imgfluxes > 1)
 
+	# Matched mags:
 	matchrefi = matchinds[:,0]
 	matchimgi = matchinds[:,1]
 
 	mimgflux = imgfluxes[matchimgi]
-	mrefmag  = refmags[matchrefi]
-
 	okflux = (mimgflux > 1)
 	mimgmag = flux2mag(mimgflux[okflux])
-	mrefmag = mrefmag[okflux]
-
-	clf()
-	p1 = plot(mimgmag, mrefmag, 'b.')
-	imag = append(mimgmag, uimgmag)
-	axis([floor(min(imag))-0.5, ceil(max(imag)), floor(min(refmags))-0.5, ceil(max(refmags))])
-	ax = axis()
+	mrefmag  = (refmags[matchrefi])[okflux]
 
 	# unmatched:
 	Uimg = ones(len(imgfluxes)).astype(bool)
@@ -179,8 +170,13 @@ def wcsPlots(wcs, imgsources, refsources, matches, W, H, prefix, titleprefix):
 	uimgflux = imgfluxes[Uimg]
 	okflux = (uimgflux > 1)
 	uimgmag = flux2mag(uimgflux[okflux])
-
 	urefmag = refmags[Uref]
+
+	clf()
+	p1 = plot(mimgmag, mrefmag, 'b.')
+	imag = append(mimgmag, uimgmag)
+	axis([floor(min(imag))-0.5, ceil(max(imag)), floor(min(refmags))-0.5, ceil(max(refmags))])
+	ax = axis()
 
 	dy = (ax[3]-ax[2]) * 0.05
 	y0 = ones_like(uimgmag) * ax[2]
