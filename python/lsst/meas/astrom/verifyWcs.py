@@ -39,7 +39,10 @@ def checkMatches(srcMatchSet, exposure, log=None):
         csrc.setXAstrom(src.getXAstrom())
         csrc.setYAstrom(src.getYAstrom())
 
-        cellSet.insertCandidate(measAlg.PsfCandidateF(csrc, exposure.getMaskedImage()))
+        try:
+            cellSet.insertCandidate(measAlg.PsfCandidateF(csrc, exposure.getMaskedImage()))
+        except Exception, e:
+            log.log(log.WARN, str(e))
 
     ncell = len(cellSet.getCellList())
     nobj = numpy.ndarray(ncell, dtype='i')
