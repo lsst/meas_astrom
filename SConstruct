@@ -49,6 +49,7 @@ if True:
 for d in (
     ".",
     "doc",
+    "doc/latex",
     "examples",
     "lib",
     "python/lsst/meas/astrom/net",
@@ -76,6 +77,7 @@ Alias("install", [
 ])
 
 scons.CleanTree(r"*~ core *.so *.os *.o")
+#Clean("doc", "latex")
 #
 # Build TAGS files
 #

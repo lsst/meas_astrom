@@ -1,0 +1,23 @@
+# -*- python -*-
+Import('env')
+
+##################
+# build the local documentation
+filebase = "meas_astrom"
+pdfOutput = env.PDF(target = filebase + '.pdf',source = filebase + '.tex')
+Depends(pdfOutput, Glob("*.tex"))
+
+
+##################
+# make the html
+# - this is local, so -split 4 ... break pages at \section
+#
+latex2html = 'latex2html -split 4 -html_version "4.0" -local_icons -mkdir -dir ../htmlManual $SOURCE'
+Latex2HtmlAction = Action(latex2html)
+Latex2HtmlBuilder = Builder(action = Latex2HtmlAction, chdir=1)
+env.Append(BUILDERS = {'Latex2Html' : Latex2HtmlBuilder})
+
+htmlOutput = env.Latex2Html(source = filebase + '.tex')
+Clean(".", "../htmlManual")
+
+Depends(htmlOutput, Glob("*.tex"))
