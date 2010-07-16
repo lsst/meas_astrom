@@ -247,21 +247,15 @@ void GlobalAstrometrySolution::_solverSetField() {
         N = starxySize;
     }
 
-    if (N > starxySize) {
-        string msg = "numBrightObjects set to a larger value than number of stars";
-        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
-    }
-
-    starxy_t *shortlist = starxy_subset(_starxy, N);
+    // Ownership of this object passes to _solver, so we make a copy here.
+    starxy_t *shortlist = starxy_subset(_starxy, min(N, starxySize));
     assert(shortlist);
-
-    //Set the pointer in the solver to the new, smaller field
+    // Set the pointer in the solver
     starxy_free(solver_get_field(_solver));
     solver_free_field(_solver);
     solver_set_field(_solver, shortlist);
     solver_reset_field_size(_solver);
-
-    //Find field boundaries and precompute kdtree
+    // Find field boundaries and precompute kdtree
     solver_preprocess_field(_solver);
 }   
 
