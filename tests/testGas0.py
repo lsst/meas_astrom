@@ -84,27 +84,6 @@ class GlobalAstrometrySolutionTest(unittest.TestCase):
     def tearDown(self):
         del self.gas
 
-    
-    def testSetStarlist(self):
-        """Fail if too many objects in the starlist are in valid"""
-        starlist = self.starlist[:30]
-        
-        numStars = len(starlist)
-        starlist[0].setXAstrom( float("nan"))   #Nan
-        starlist[1].setYAstrom( float("nan"))   #Nan
-        starlist[2].setPsfFlux( float("nan"))   #Nan
-
-        starlist[3].setXAstrom( -1.)   #-ve
-        starlist[4].setYAstrom( -1.)   #-ve
-        starlist[5].setPsfFlux( -1. )   #-ve
-        
-        self.gas.setStarlist(starlist)
-        
-        #The first six objects should be skipped over, so this command should
-        #raise an exception because we're setting the starlist to be too big.
-        self.assertRaises(pexExcept.LsstCppException, 
-                self.gas.setNumBrightObjects, (numStars-5))
-
     def testSetStarlistThatIsTooShort(self):
         """Don't accept a star list that's too short"""
         starlist=self.starlist[:10]
