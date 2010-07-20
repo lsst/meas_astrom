@@ -137,8 +137,8 @@ void checkResults(afwImg::Wcs::Ptr wcsPtr, afwImg::TanWcs::Ptr sipWcsPtr, vector
         
         //Reverse tranform (units are pixels)
         afwGeom::PointD sipxy = sipWcsPtr->skyToPixel(catA, catD);
-        BOOST_CHECK_CLOSE(srcX+1, sipxy[0]+1, 1e-4);         
-        BOOST_CHECK_CLOSE(srcY+1, sipxy[1]+1, 1e-4);         
+        BOOST_CHECK_CLOSE(srcX+1, sipxy[0]+1, 1e-8);         
+        BOOST_CHECK_CLOSE(srcY+1, sipxy[1]+1, 1e-8);         
 
     }
 

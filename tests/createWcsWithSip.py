@@ -41,25 +41,20 @@ import lsst.meas.astrom.sip.cleanBadPoints as cleanBadPoints
 
 import sourceSetIO
 
-dataDir = eups.productDir("astrometry_net_data")
-if not dataDir:
-    print >> sys.stderr, "Warning: createWcsWithSip not run because astrometry_net_data is not set up"
-    sys.exit(1)
+############################
+# Set up local astrometry_net_data
+meas_astrom_dir = eups.productDir("meas_astrom")
+datapath = os.path.join(meas_astrom_dir, 'tests', 'astrometry_net_data', 'cfhttemplate')
 
-setupCmds = ['false']
-try:
-    if eups.getSetupVersion("astrometry_net_data") == "cfhttemplate":
-        setupCmds = ['true']
-    else:
-        setupCmds = eups.setup("astrometry_net_data", "cfhttemplate")
-except AttributeError:              # old eups
-    if eups.Eups().findSetupVersion("astrometry_net_data")[0] == "cfhttemplate":
-        setupCmds = ['true']
+# Work around lame scons bug (doesn't pass HOME)
+os.environ['HOME'] = 'iswheretheheartis' 
+eupsObj = eups.Eups(root=datapath)
 
-if len(setupCmds) == 1 and setupCmds[0] == 'false':
-    print >> sys.stderr, "Warning: createWcsWithSip not run because " \
-          "astrometry_net_data cfttemplate is unavailable"
-    sys.exit(1)
+ok, version, reason = eupsObj.setup('astrometry_net_data')
+
+if not ok:
+    raise ValueError("Can't find astrometry_net_data version cfhttemplate (from path: %s): %s" %
+                     (datapath, reason))
 
 #Create a globally accessible instance of a GAS. This takes a few seconds
 #to load, so we don't want to do it everytime we setup a test case

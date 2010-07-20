@@ -7,5 +7,7 @@ equinox: 2000.0
 raDecSys: "FK5"
 
 #Index files to load. Paths are give relative to $ASTROMETRY_NET_DATA_DIR
-indexFile: index-2031.fits
-
+indexFile : templ-D1.index.fits
+indexFile : templ-D2.index.fits
+indexFile : templ-D3.index.fits
+indexFile : templ-D4.index.fits
