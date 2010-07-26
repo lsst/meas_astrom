@@ -65,6 +65,7 @@ PyObject* starkd_search_stars(startree_t* s, double ra, double dec, double radiu
 
 %extend lsst::meas::astrom::net::GlobalAstrometrySolution {
     PyObject* getIndexStars(double ra, double dec, double radius) {
+        $self->loadIndices();
         std::vector<const index_t*> indexList = $self->getIndexList();
         printf("%i indices\n", indexList.size());
         startree_t* skdt = indexList[0]->starkd;

@@ -105,6 +105,10 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
     _mylog.log(pexLog::Log::DEBUG, "Meta information loaded...");    
 }
 
+void GlobalAstrometrySolution::loadIndices() {
+    for (unsigned int i=0; i<_indexList.size(); i++)
+        index_reload(_indexList[i]);
+}
 
 std::vector<const index_t*> GlobalAstrometrySolution::getIndexList() {
     std::vector<const index_t*> rtn;

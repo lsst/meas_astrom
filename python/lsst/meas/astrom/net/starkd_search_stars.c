@@ -102,7 +102,7 @@ PyObject* starkd_search_stars(startree_t* s, double ra, double dec, double radiu
 		radecdeg2xyzarr(ra, dec, xyz);
 		r2 = deg2distsq(radius);
 		startree_search_for(s, xyz, r2, &xyzres, &radecres, &inds, &N);
-		printf("Found %i index stars\n");
+		//printf("Found %i index stars\n", N);
 	}
 
 	assert(N == 0 || xyzres);
