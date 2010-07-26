@@ -71,32 +71,11 @@ class TagAlongTest2(unittest.TestCase):
         """
         ))
 
-        # Load fake image header from disk
         mypath = eups.productDir('meas_astrom')
         tests = os.path.join(mypath, 'tests')
 
-        # Create fake blank image using a FITS image; this is only required
-        # because measAstrom requires an Exposure.
-        #self.tempimage = tempfile.NamedTemporaryFile(suffix='_img.fits')
-        # delete=True (only available in python >= 2.6)
-
-        (fd,self.tempimage) = tempfile.mkstemp(suffix='_img.fits')
-        os.close(fd)
-        f = open(self.tempimage, 'wb')
-
-        hdr = open(os.path.join(tests, 'fpobjc-0745-3-0564-cut.hdr')).read()
-        f.write(hdr)
-        W,H = (2048,1489)
-        bpp = 1
-        #for i in range(H):
-        #   self.tempimage.write(chr(0)*W)
-        fitsbytes = 2880 * int(ceil(W*H*bpp / 2880.))
-        f.write(chr(0)*fitsbytes)
-        f.close()
-        print 'Wrote fake image to temp file', self.tempimage
-        base = self.tempimage.replace('_img.fits', '')
-        #self.exposure = afwImg.ExposureF(base)
-
+        # Create a fake blank image of the appropriate size
+        (W,H) = (2048,1489)
         self.exposure = afwImg.ExposureF(W, H)
 
         # Grab source list
