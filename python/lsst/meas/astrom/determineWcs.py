@@ -90,7 +90,9 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         
     #Extract an initial guess wcs if available    
     wcsIn = exp.getWcs() #May be None
-    if wcsIn is None:
+    # Exposure uses the special object "NoWcs" instead of NULL.  Because they're special.
+    haswcs = exp.hasWcs()
+    if not haswcs:
         log.log(log.WARN, "No wcs found on exposure. Doing blind solve")
     
     #Setup solver
@@ -119,7 +121,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     dscale = None
 
     #Do a blind solve if we're told to, or if we don't have an input wcs
-    doBlindSolve = policy.get('blindSolve') or (wcsIn is None)
+    doBlindSolve = policy.get('blindSolve') or (not haswcs)
     if doBlindSolve:
         log.log(log.DEBUG, "Solving with no initial guess at position")
         isSolved = solver.solve()

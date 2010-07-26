@@ -1,0 +1,29 @@
+This is an index built from a single SDSS field (tsObj file; run 745,
+camcol 3, rerun 40, field 564); near RA,Dec = (243,0).  This was
+chosen because tsObj files have a wide variety of FITS column types.
+
+You can get the tsObj file via:
+  sdss_das.py -r 745 -f 564 -c 3 -b r tsObj
+
+The index was build via:
+
+fitscopy tsObj-000745-3-40-0564.fit"[col rmag=psfcounts[2]]" X
+column-merge tsObj-000745-3-40-0564.fit X Y
+fitscopy Y"[rmag > -99]" Z
+build-index -i Z -o tsobj-0745-3-40-0564.index -N 880 -l 4 -u 5.6 -S rmag -r 8 -j 1 -L 20 -E -I 9999 -M
+
+
+
+We match this with the corresponding fpObjc file (so the match should be
+almost unreasonably good):
+
+sdss_das.py -r 745 -f 564 -c 3 -b r fpObjc
+fitscopy fpObjc-000745-3-0564.fit"[col x=colc[2];y=rowc[2];flux=psfcounts[2]]" X
+fitsgetext -i X -e 0 -e 1 -o fpobjc-0745-3-0564-cut.fits
+
+
+You can solve it using Astrometry.net command-line tools via:
+
+solve-field --just-augment tests/fpobjc-0745-3-0564-cut.fits --sort-column flux -v --extension 1 --width 2048 --height 1489 --continue --no-tweak
+backend -c none -i tests/astrometry_net_data/tagalong/tsobj-0745-3-40-0564.index -p tests/fpobjc-0745-3-0564-cut.axy  -v
+

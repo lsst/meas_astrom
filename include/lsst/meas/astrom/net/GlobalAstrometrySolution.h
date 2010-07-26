@@ -134,6 +134,9 @@ public:
 
     void loadIndices();
     std::vector<const index_t*> getIndexList();
+    // returns the star kd-tree of the astrometry.net index that solved the field.
+    //startree_t* getSolvedStartree();
+    MatchObj* getMatchObject();
 
     //Call this before performing a new match
     void reset();

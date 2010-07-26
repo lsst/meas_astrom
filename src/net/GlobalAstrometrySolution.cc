@@ -996,6 +996,22 @@ double GlobalAstrometrySolution::getSolvedImageScale(){
     //return tan_pixel_scale(&match->wcstan)
 } 
 
+/*
+startree_t* GlobalAstrometrySolution::getSolvedStartree() {
+    MatchObj* match = solver_get_best_match(_solver);
+    if (!match)
+        return NULL;
+    if (!match->index)
+        return NULL;
+    index_reload(match->index);
+    return match->index->starkd;
+}
+ */
+
+MatchObj* GlobalAstrometrySolution::getMatchObject() {
+    return solver_get_best_match(_solver);
+}
+
 
 ///Reset the object so it's ready to match another field.
 void GlobalAstrometrySolution::reset() {

@@ -82,32 +82,14 @@ PyObject* starkd_search_stars(PyObject* self, PyObject* args) {
 	}
  */
 
-PyObject* starkd_search_stars(startree_t* s, double ra, double dec, double radius) {
-    int N;
+static PyObject* starkd_return_pystuff(startree_t* s, double* radecres, double* xyzres, int* inds, int N) {
+	unsigned char tag = 1;
 	PyObject* pyxyz;
 	PyObject* pyradec;
 	PyObject* pyinds;
-	double* xyzres = NULL;
-	double* radecres = NULL;
-	int* inds = NULL;
-	unsigned char tag = 1;
 	int i, C;
 	PyObject* pydict;
 
-	//startree_search_for_radec(s, ra, dec, radius, &xyzres, &radecres, &inds, &N);
-	// v0.30:
-	{
-		double xyz[3];
-		double r2;
-		radecdeg2xyzarr(ra, dec, xyz);
-		r2 = deg2distsq(radius);
-		startree_search_for(s, xyz, r2, &xyzres, &radecres, &inds, &N);
-		//printf("Found %i index stars\n", N);
-	}
-
-	assert(N == 0 || xyzres);
-	assert(N == 0 || radecres);
-	assert(N == 0 || inds);
 	pyxyz = arrayd_to_pylist2(xyzres, N, 3);
 	pyradec = arrayd_to_pylist2(radecres, N, 2);
 	pyinds = arrayi_to_pylist(inds, N);
@@ -176,4 +158,72 @@ PyObject* starkd_search_stars(startree_t* s, double ra, double dec, double radiu
 		}
 	}
 	return Py_BuildValue("(OOOO)", pyxyz, pyradec, pyinds, pydict);
+}
+
+PyObject* starkd_search_stars_in_field(startree_t* s, tan_t* tanwcs, double pixelmargin) {
+    int N;
+	double* xyzres = NULL;
+	double* radecres = NULL;
+	int* inds = NULL;
+	int i;
+	int Nkeep;
+
+	{
+		double xyz[3];
+		double r2;
+		double px = (tanwcs->imagew + 1.0) / 2.0;
+		double py = (tanwcs->imageh + 1.0) / 2.0;
+		tan_pixelxy2xyzarr(tanwcs, px, py, xyz);
+		r2 = arcsec2distsq((hypot(px, py) + pixelmargin) * tan_pixel_scale(tanwcs));
+		startree_search_for(s, xyz, r2, &xyzres, &radecres, &inds, &N);
+		//printf("Found %i index stars\n", N);
+	}
+
+	assert(N == 0 || xyzres);
+	assert(N == 0 || radecres);
+	assert(N == 0 || inds);
+
+	Nkeep = 0;
+	for (i=0; i<N; i++) {
+		double x,y;
+		if (!tan_radec2pixelxy(tanwcs, radecres[2*i+0], radecres[2*i+1], &x, &y))
+			continue;
+		if (x < pixelmargin || y < pixelmargin ||
+			x > tanwcs->imagew + pixelmargin || y > tanwcs->imageh + pixelmargin)
+			continue;
+
+		if (Nkeep != i) {
+			memcpy(radecres + 2*Nkeep, radecres + 2*i, 2*sizeof(double));
+			memcpy(xyzres   + 3*Nkeep, xyzres   + 3*i, 3*sizeof(double));
+			inds[Nkeep] = inds[i];
+		}
+		Nkeep++;
+	}
+	// FIXME -- realloc?
+
+	return starkd_return_pystuff(s, radecres, xyzres, inds, Nkeep);
+}
+
+PyObject* starkd_search_stars(startree_t* s, double ra, double dec, double radius) {
+    int N;
+	double* xyzres = NULL;
+	double* radecres = NULL;
+	int* inds = NULL;
+
+	//startree_search_for_radec(s, ra, dec, radius, &xyzres, &radecres, &inds, &N);
+	// v0.30:
+	{
+		double xyz[3];
+		double r2;
+		radecdeg2xyzarr(ra, dec, xyz);
+		r2 = deg2distsq(radius);
+		startree_search_for(s, xyz, r2, &xyzres, &radecres, &inds, &N);
+		//printf("Found %i index stars\n", N);
+	}
+
+	assert(N == 0 || xyzres);
+	assert(N == 0 || radecres);
+	assert(N == 0 || inds);
+
+	return starkd_return_pystuff(s, radecres, xyzres, inds, N);
 }
