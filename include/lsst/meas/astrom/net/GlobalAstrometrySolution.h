@@ -132,6 +132,8 @@ public:
                                                  std::string filterName);
     lsst::afw::detection::SourceSet getCatalogue(double radiusInArcsec, std::string filterName);
 
+    std::vector<const index_t*> getIndexList();
+
     //Call this before performing a new match
     void reset();
 

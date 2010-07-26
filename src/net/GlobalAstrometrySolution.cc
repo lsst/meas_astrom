@@ -106,6 +106,14 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
 }
 
 
+std::vector<const index_t*> GlobalAstrometrySolution::getIndexList() {
+    std::vector<const index_t*> rtn;
+    for (unsigned int i=0; i<_indexList.size(); i++)
+        rtn.push_back(_indexList[i]);
+    return rtn;
+}
+
+
 index_t *GlobalAstrometrySolution::_loadIndexMeta(std::string filename){
   //return index_load(filename.c_str(), INDEX_ONLY_LOAD_METADATA, NULL);
   index_t* index = index_load(filename.c_str(), INDEX_ONLY_LOAD_METADATA, NULL);
