@@ -67,7 +67,11 @@ PyObject* starkd_search_stars(startree_t* s, double ra, double dec, double radiu
     PyObject* getIndexStars(double ra, double dec, double radius) {
         $self->loadIndices();
         std::vector<const index_t*> indexList = $self->getIndexList();
-        printf("%i indices\n", indexList.size());
+        //printf("%i indices\n", indexList.size());
+        if (indexList.size() == 0) {
+            PyErr_SetString(PyExc_ValueError, "No index files are loaded.");
+            return NULL;
+        }
         startree_t* skdt = indexList[0]->starkd;
         //MatchObj* match = solver_get_best_match($self->_solver);
         //startree_t* skdt = match->index->starkd;

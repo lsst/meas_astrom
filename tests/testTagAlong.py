@@ -110,12 +110,17 @@ class TagAlongTest(unittest.TestCase):
         #radius = wcs.pixArea(afwGeom.makePointD(self.forceImageSize[0]/2, self.forceImageSize[1]/2))
         #(xyz,radec,inds,tag) = gas.getIndexStars(ra, dec, radius)
 
-        (ra,dec,radius) = (-145, 53, 0.1)
+        (ra,dec,radius) = (-145, 53, 0.02)
         print 'Searching RA,Dec %g,%g, radius %g deg' % (ra,dec,radius)
         (xyz,radec,inds,tag) = gas.getIndexStars(ra,dec,radius)
+        print 'Found %i index stars' % len(xyz)
+        print 'Found tag-along columns:', tag.keys()
 
-        print tag
-        #self.assertAlmostEqual(np.mean(diff), 0, 0)
+        self.assertEqual(9, len(xyz))
+        self.assertEqual(len(xyz), len(radec))
+        self.assertEqual(len(xyz), len(inds))
+        self.assertTrue('mag' in tag)
+        self.assertEqual(len(tag['mag']), len(xyz))
         
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
