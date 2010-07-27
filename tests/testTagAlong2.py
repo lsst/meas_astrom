@@ -42,7 +42,6 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.coord as afwCoord
 import lsst.utils.tests as utilsTests
 import lsst.pex.policy as pexPolicy
-import lsst.meas.photocal as photocal
 from astrometry.util.pyfits_utils import fits_table
 
 from lsst.pex.exceptions import LsstCppException
@@ -73,6 +72,7 @@ class TagAlongTest2(unittest.TestCase):
 
         mypath = eups.productDir('meas_astrom')
         tests = os.path.join(mypath, 'tests')
+        self.testdir = tests
 
         # Create a fake blank image of the appropriate size
         (W,H) = (2048,1489)
@@ -126,11 +126,72 @@ class TagAlongTest2(unittest.TestCase):
         print 'Found %i index stars in field' % len(xyz)
         print 'Found tag-along columns:', tag.keys()
 
-        #(ra,dec,radius) = (-145, 53, 0.02)
-        #print 'Searching RA,Dec %g,%g, radius %g deg' % (ra,dec,radius)
-        #(xyz,radec,inds,tag) = gas.getIndexStars(ra,dec,radius)
-        #print 'Found %i index stars' % len(xyz)
-        #print 'Found tag-along columns:', tag.keys()
+        self.assertEqual(123, len(xyz))
+        self.assertEqual(145, len(tag.keys()))
+        for k,v in tag.items():
+            self.assertEqual(len(v), len(xyz))
+
+        # This is from:
+        # liststruc tests/astrometry_net_data/tagalong/tsobj-0745-3-40-0564.index+13 | awk '{printf("\"%s\", ", $2);}' > cols
+        keys = ["run", "camCol", "rerun", "field", "parent", "id", "nchild", "objc_type", "objc_prob_psf", "catID", "objc_flags", "objc_flags2", "objc_rowc", "objc_rowcErr", "objc_colc", "objc_colcErr", "rowv", "rowvErr", "colv", "colvErr", "rowc", "rowcErr", "colc", "colcErr", "sky", "skyErr", "psfCounts", "psfCountsErr", "fiberCounts", "fiberCountsErr", "petroCounts", "petroCountsErr", "petroRad", "petroRadErr", "petroR50", "petroR50Err", "petroR90", "petroR90Err", "Q", "QErr", "U", "UErr", "M_e1", "M_e2", "M_e1e1Err", "M_e1e2Err", "M_e2e2Err", "M_rr_cc", "M_rr_ccErr", "M_cr4", "M_e1_psf", "M_e2_psf", "M_rr_cc_psf", "M_cr4_psf", "iso_rowc", "iso_rowcErr", "iso_rowcGrad", "iso_colc", "iso_colcErr", "iso_colcGrad", "iso_a", "iso_aErr", "iso_aGrad", "iso_b", "iso_bErr", "iso_bGrad", "iso_phi", "iso_phiErr", "iso_phiGrad", "r_deV", "r_deVErr", "ab_deV", "ab_deVErr", "phi_deV", "phi_deVErr", "counts_deV", "counts_deVErr", "r_exp", "r_expErr", "ab_exp", "ab_expErr", "phi_exp", "phi_expErr", "counts_exp", "counts_expErr", "counts_model", "counts_modelErr", "texture", "star_L", "star_lnL", "exp_L", "exp_lnL", "deV_L", "deV_lnL", "fracPSF", "flags", "flags2", "type", "prob_psf", "nprof", "profMean", "profErr", "status", "lambda", "eta", "l", "b", "offsetRa", "offsetDec", "primTarget", "secTarget", "reddening", "propermotionmatch", "propermotiondelta", "propermotion", "propermotionangle", "usnoBlue", "usnoRed", "firstMatch", "firstId", "firstLambda", "firstEta", "firstDelta", "firstPeak", "firstInt", "firstRms", "firstMajor", "firstMinor", "firstPa", "rosatMatch", "rosatDelta", "rosatPosErr", "rosatCps", "rosatCpsErr", "rosatHr1", "rosatHr1Err", "rosatHr2", "rosatHr2Err", "rosatExt", "rosatExtLike", "rosatDetectLike", "rosatExposure", "priority", "matchid", "rmag"]
+        for k in keys:
+            self.assertTrue(k in tag)
+
+        # Check a single row... id=3
+        #X = (tag['id'])[:]
+        #X.sort()
+        #print X
+        I = tag['id'].index(3)
+        print I
+        # I got these values from:
+        #    sdss_das.py -r 745 -f 564 -c 3 -b r tsObj
+        #    python tests/testTagAlong2.py truetags > tests/truetags.py
+        # And then I checked them against:
+        #    tablist tsObj-000745-3-40-0564.fit"[id==3]"
+
+        # By the way, the row id==3 is row 63 in the index's tag-along table:
+        #    tablist tests/astrometry_net_data/tagalong/tsobj-0745-3-40-0564.index+13"[#row==63]"
+
+        # Column "priority":
+        # the tsobj file has the value 0x80000000 and type J (signed int);
+        # it seems that both pyfits and tablist handle this incorrectly and produce 0.
+        # This code, on the other hand, correctly produces -2147483648
+
+        # To see this: the tsobj file has 2732 bytes/row, and the data chunk starts at 40320.
+        #   "priority" is the second-last column, format 1J, followed by format 50J.
+        #  id==3 is in row 3, thus is at byte offset  '%x'%(40320 + (3*2732) - (51*4)) --> 0xbcb8
+        # hexedit tsObj-000745-3-40-0564.fit
+        # od -N 4 -j 48312 -t xC tsObj-000745-3-40-0564.fit
+        # --> 0136270    80  00  00  00
+
+        # In the index file, it starts at 123840, is followed by 50J + 1D,
+        # and rows are 2724 bytes, and it's in row 63:
+        # 123840 + (63*2724) - (51*4 + 1*8)   = 295240
+        # fitsgetext -i tests/astrometry_net_data/tagalong/tsobj-0745-3-40-0564.index
+        # --> Extension 13 : header start 86400 , length 37440 ; data start 123840 , length 336960 .
+        # modhead tests/astrometry_net_data/tagalong/tsobj-0745-3-40-0564.index+13 NAXIS1
+        # --> NAXIS1  =                 2724 / Bytes in row
+        # od -N 4 -j 295240 -t xC tests/astrometry_net_data/tagalong/tsobj-0745-3-40-0564.index
+        # --> 1100510 80 00 00 00
+
+        sys.path.append(self.testdir)
+        from truetags import truetags
+
+        for k,truev in truetags.items():
+            self.assertTrue(k in tag)
+            v = (tag[k])[I]
+            #print k, type(v), type(truev)
+            if k == 'priority':
+                print 'Skipping bad column "priority"'
+                continue
+            if type(v) is float:
+                if truev == 0.0:
+                    self.assertEqual(v, truev)
+                else:
+                    #print k, v, truev, abs(v - truev) / abs(truev)
+                    self.assertTrue(abs(v - truev) / abs(truev) < 1e-15)
+            else:
+                self.assertEqual(v, truev)
         
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -149,4 +210,28 @@ def run(exit=False):
     utilsTests.run(suite(), exit)
  
 if __name__ == "__main__":
+    if 'truetags' in sys.argv:
+        import numpy
+        T = fits_table('tsObj-000745-3-40-0564.fit')
+        T = T[T.id == 3]
+        T = T[0]
+        print 'truetags={'
+        # this is same as above, but minus "rmag", since we hacked that in.
+        keys = ["run", "camCol", "rerun", "field", "parent", "id", "nchild", "objc_type", "objc_prob_psf", "catID", "objc_flags", "objc_flags2", "objc_rowc", "objc_rowcErr", "objc_colc", "objc_colcErr", "rowv", "rowvErr", "colv", "colvErr", "rowc", "rowcErr", "colc", "colcErr", "sky", "skyErr", "psfCounts", "psfCountsErr", "fiberCounts", "fiberCountsErr", "petroCounts", "petroCountsErr", "petroRad", "petroRadErr", "petroR50", "petroR50Err", "petroR90", "petroR90Err", "Q", "QErr", "U", "UErr", "M_e1", "M_e2", "M_e1e1Err", "M_e1e2Err", "M_e2e2Err", "M_rr_cc", "M_rr_ccErr", "M_cr4", "M_e1_psf", "M_e2_psf", "M_rr_cc_psf", "M_cr4_psf", "iso_rowc", "iso_rowcErr", "iso_rowcGrad", "iso_colc", "iso_colcErr", "iso_colcGrad", "iso_a", "iso_aErr", "iso_aGrad", "iso_b", "iso_bErr", "iso_bGrad", "iso_phi", "iso_phiErr", "iso_phiGrad", "r_deV", "r_deVErr", "ab_deV", "ab_deVErr", "phi_deV", "phi_deVErr", "counts_deV", "counts_deVErr", "r_exp", "r_expErr", "ab_exp", "ab_expErr", "phi_exp", "phi_expErr", "counts_exp", "counts_expErr", "counts_model", "counts_modelErr", "texture", "star_L", "star_lnL", "exp_L", "exp_lnL", "deV_L", "deV_lnL", "fracPSF", "flags", "flags2", "type", "prob_psf", "nprof", "profMean", "profErr", "status", "lambda", "eta", "l", "b", "offsetRa", "offsetDec", "primTarget", "secTarget", "reddening", "propermotionmatch", "propermotiondelta", "propermotion", "propermotionangle", "usnoBlue", "usnoRed", "firstMatch", "firstId", "firstLambda", "firstEta", "firstDelta", "firstPeak", "firstInt", "firstRms", "firstMajor", "firstMinor", "firstPa", "rosatMatch", "rosatDelta", "rosatPosErr", "rosatCps", "rosatCpsErr", "rosatHr1", "rosatHr1Err", "rosatHr2", "rosatHr2Err", "rosatExt", "rosatExtLike", "rosatDetectLike", "rosatExposure", "priority", "matchid"]
+        #for k in T.columns():
+        for k in keys:
+            v = T.getcolumn(k)
+            print "'%s':" % k,
+            #print type(v)
+            if isinstance(v, numpy.ndarray):
+                print v.tolist(),
+            elif type(v) in [numpy.float32, numpy.float64]:
+                print '%.16g' % v,
+            else:
+                print v,
+            print ','
+            #print ' # ', type(v)
+        print '}'
+        sys.exit(0)
+
     run(True)

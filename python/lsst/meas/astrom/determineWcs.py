@@ -187,7 +187,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         log.log(Log.DEBUG, "Updating wcs in input exposure with linear wcs")
         
     exposure.setWcs(wcs)
-    solver.reset()
+    #solver.reset()
 
     if display:
         for s1, s2, d in matchList:

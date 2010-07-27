@@ -188,7 +188,7 @@ PyObject* starkd_search_stars_in_field(startree_t* s, tan_t* tanwcs, double pixe
 		double x,y;
 		if (!tan_radec2pixelxy(tanwcs, radecres[2*i+0], radecres[2*i+1], &x, &y))
 			continue;
-		if (x < pixelmargin || y < pixelmargin ||
+		if (x < -pixelmargin || y < -pixelmargin ||
 			x > tanwcs->imagew + pixelmargin || y > tanwcs->imageh + pixelmargin)
 			continue;
 
