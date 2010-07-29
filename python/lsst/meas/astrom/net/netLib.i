@@ -34,6 +34,9 @@ Python interface to lsst::afw::meas::astrom::net classes
 %{
 #include "lsst/meas/astrom/net/GlobalAstrometrySolution.h"
 #include "lsst/afw/geom.h" // should not be needed; ticket #1121
+
+#include "starkd_search_stars.c"
+
 %}
 
 %include "lsst/p_lsstSwig.i"
@@ -58,4 +61,34 @@ def version(HeadURL = r"$HeadURL: svn+ssh://svn.lsstcorp.org/DMS/afw/trunk/pytho
 //template(PointD) lsst::afw::image::PointD<double,double>;
 %include "lsst/meas/astrom/net/GlobalAstrometrySolution.h"
 
+PyObject* starkd_search_stars(startree_t* s, double ra, double dec, double radius);
+
+%extend lsst::meas::astrom::net::GlobalAstrometrySolution {
+    // Arbitrarily loads the first index.
+    PyObject* getIndexStars(double ra, double dec, double radius) {
+        $self->loadIndices();
+        std::vector<const index_t*> indexList = $self->getIndexList();
+        //printf("%i indices\n", indexList.size());
+        if (indexList.size() == 0) {
+            PyErr_SetString(PyExc_ValueError, "No index files are loaded.");
+            return NULL;
+        }
+        startree_t* skdt = indexList[0]->starkd;
+        //MatchObj* match = solver_get_best_match($self->_solver);
+        //startree_t* skdt = match->index->starkd;
+        return starkd_search_stars(skdt, ra, dec, radius);
+    }
+
+    PyObject* getIndexStarsInSolvedField(double pixelmargin) {
+        MatchObj* mo = $self->getMatchObject();
+        index_t* index = mo->index;
+        index_reload(index);
+        startree_t* skdt = index->starkd;
+        tan_t* tanwcs = &(mo->wcstan);
+        return starkd_search_stars_in_field(skdt, tanwcs, pixelmargin);
+    }
+
+ };
+
 %template(vectorSourceMatch) std::vector<boost::shared_ptr<lsst::afw::detection::SourceMatch> >;
+

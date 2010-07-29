@@ -105,6 +105,18 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
     _mylog.log(pexLog::Log::DEBUG, "Meta information loaded...");    
 }
 
+void GlobalAstrometrySolution::loadIndices() {
+    for (unsigned int i=0; i<_indexList.size(); i++)
+        index_reload(_indexList[i]);
+}
+
+std::vector<const index_t*> GlobalAstrometrySolution::getIndexList() {
+    std::vector<const index_t*> rtn;
+    for (unsigned int i=0; i<_indexList.size(); i++)
+        rtn.push_back(_indexList[i]);
+    return rtn;
+}
+
 
 index_t *GlobalAstrometrySolution::_loadIndexMeta(std::string filename){
   //return index_load(filename.c_str(), INDEX_ONLY_LOAD_METADATA, NULL);
@@ -983,6 +995,22 @@ double GlobalAstrometrySolution::getSolvedImageScale(){
     return match->scale;
     //return tan_pixel_scale(&match->wcstan)
 } 
+
+/*
+startree_t* GlobalAstrometrySolution::getSolvedStartree() {
+    MatchObj* match = solver_get_best_match(_solver);
+    if (!match)
+        return NULL;
+    if (!match->index)
+        return NULL;
+    index_reload(match->index);
+    return match->index->starkd;
+}
+ */
+
+MatchObj* GlobalAstrometrySolution::getMatchObject() {
+    return solver_get_best_match(_solver);
+}
 
 
 ///Reset the object so it's ready to match another field.
