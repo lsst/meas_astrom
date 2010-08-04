@@ -32,18 +32,19 @@ import unittest
 import numpy as np
 
 import eups
-import lsst.meas.astrom as measAstrom
-import lsst.meas.astrom.net as net
-import lsst.afw.detection as det
-import lsst.afw.math as afwMath
-import lsst.afw.image as afwImg
-import lsst.utils.tests as utilsTests
-import lsst.pex.policy as pexPolicy
-import lsst.meas.photocal as photocal
+import lsst.meas.astrom            as measAstrom
+import lsst.meas.algorithms.utils  as measAlgUtil
+import lsst.meas.astrom.net        as net
+import lsst.afw.detection          as afwDet
+import lsst.afw.math               as afwMath
+import lsst.afw.image              as afwImg
+import lsst.utils.tests            as utilsTests
+import lsst.pex.policy             as pexPolicy
+import lsst.meas.photocal          as photocal
 
 from lsst.pex.exceptions import LsstCppException
 
-import sourceSetIO as ssi
+import sourceSetIO                 as ssi
 
 
 class PhotoCalTest(unittest.TestCase):
@@ -77,7 +78,8 @@ class PhotoCalTest(unittest.TestCase):
         # the exposure is only one amp -- 1024x1153.  Work around.
         print 'Exposure image size: %i x %i' % (self.exposure.getWidth(), self.exposure.getHeight())
         self.forceImageSize = (2048, 4612) # approximately; 2x4 x (1024 x 1153)
-        print 'Forcing image size to %i x %i to match source list.' % (self.forceImageSize[0], self.forceImageSize[1])
+        print 'Forcing image size to %i x %i to match source list.' % (self.forceImageSize[0],
+                                                                       self.forceImageSize[1])
 
         # Set up local astrometry_net_data
         datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
@@ -86,7 +88,8 @@ class PhotoCalTest(unittest.TestCase):
         eupsObj = eups.Eups(root=datapath)
         ok, version, reason = eupsObj.setup('astrometry_net_data')
         if not ok:
-            raise ValueError("Couldn't set up local photocal version of astrometry_net_data (from path: %s): %s" % (datapath, reason))
+            raise ValueError("Need photocal version of astrometry_net_data (from path: %s): %s" %
+                             (datapath, reason))
 
     def tearDown(self):
         del self.defaultPolicy
@@ -109,7 +112,6 @@ class PhotoCalTest(unittest.TestCase):
             catMag = -2.5*np.log10(catFlux) #Cat mag
             instFlux = m[1].getPsfFlux()    #Instrumental Flux
             mag = pCal.getMag(instFlux)     #Instrumental mag
-            
             diff.append(mag-catMag)
 
 
@@ -148,7 +150,65 @@ class PhotoCalTest(unittest.TestCase):
 
         diff = np.array(diff)
         self.assertAlmostEqual(np.mean(diff), 0, 0)
+
+
+    def testKnownZP(self):
+        """Verify we recover a known zeropoint"""
         
+        nS = 20
+        magLo = 10.0
+        magHi = 20.0
+        dmag = (magHi - magLo)/nS
+
+        # This test only works if zpCat == 0
+        # - calcPhotoCal() assumes the getPsfFlux() values for catalog Sources
+        #   were computed as f = 10**(-(mag-zp)/2.5), with zp=0, so we must do exactly that.
+        zpCat = 0
+        zpSrc = 20
+
+        flags = measAlgUtil.getDetectionFlags()
+        def fluxToMag(flux, zp=0):
+            return zp - 2.5*math.log10(flux)
+        def magToFlux(mag, zp=0):
+            return 10**(-(mag-zp)/2.5)
+
+        
+        matchList = []
+        for i in range(nS + 1):
+            s1 = afwDet.Source()
+            s2 = afwDet.Source()
+            s1.setFlagForDetection(flags["BINNED1"])
+            s2.setFlagForDetection(flags["BINNED1"])
+            
+            m1 = magLo + i*dmag
+            f1 = magToFlux(m1, zp=zpCat) # the catalog mag
+
+            # set the instrument flux for a different zeropoint
+            f2 = magToFlux(m1, zp=zpSrc) 
+            
+            s1.setPsfFlux(f1)
+            s2.setPsfFlux(f2)
+
+            print f1, f2
+            matchList.append(afwDet.SourceMatch(s1, s2, 0.0))
+
+        # do the cal
+        pCal = photocal.calcPhotoCal(matchList, goodFlagValue=flags["BINNED1"])
+
+        print "ZP_known = ", zpSrc, "ZP = ", pCal.zeroMag, "Zflux = ", pCal.zeroFlux
+        self.assertAlmostEqual(zpSrc, pCal.zeroMag)
+
+        for m in matchList:
+            s1, s2 = m.first, m.second
+            mag1Known = fluxToMag(s1.getPsfFlux(), zpCat)  # catalog
+            mag2Known = fluxToMag(s2.getPsfFlux(), zpSrc)  # inst
+
+            # calibrate the fluxes and see if we get back the mags we put in.
+            mag2 = pCal(s2.getPsfFlux())                    # inst calib
+            
+            print mag1Known, mag2Known, mag2
+            self.assertAlmostEqual(mag2Known, mag2)
+            
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 
