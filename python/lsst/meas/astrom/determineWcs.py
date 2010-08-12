@@ -47,15 +47,15 @@ except ImportError, e:
         display = False
 
 def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=False, forceImageSize=None):
-    """Top level function for calculating a Wcs. 
+    """Top level function for calculating a WCS. 
     
-    Given an initial guess at a Wcs (hidden inside an exposure) and a set of
-    sources (sourceSet), use astrometry.net to confirm the Wcs, then calculate
+    Given an initial guess at a WCS (hidden inside an exposure) and a set of
+    sources (sourceSet), use astrometry.net to confirm the WCS, then calculate
     distortion terms.
     
     Input:
     policy:     An lsst.pex.policy.Policy object containing the parameters for the solver
-    exposure    lsst.afw.image.Exposure representation of an image and a wcs 
+    exposure    lsst.afw.image.Exposure representation of an image and a WCS 
                 this provides the initial guess at position and plate scale
     sourceSet   A list of lsst.afw.detection.Source objects, indicating the pixel positions of 
                 stars in the field
@@ -93,10 +93,10 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         for s in srcSet:
             ds9.dot("o", s.getXAstrom(), s.getYAstrom(), size=3, ctype=ds9.RED, frame=frame)
         
-    #Extract an initial guess wcs if available    
+    #Extract an initial guess WCS if available    
     wcsIn = exp.getWcs() #May be None
     if wcsIn is None:
-        log.log(log.WARN, "No wcs found on exposure. Doing blind solve")
+        log.log(log.WARN, "No WCS found in exposure. Doing blind solve")
     
     #Setup solver
     if solver is None:
@@ -126,7 +126,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     #dscale = policy.get('pixelScaleUncertainty')
     dscale = None
 
-    #Do a blind solve if we're told to, or if we don't have an input wcs
+    #Do a blind solve if we're told to, or if we don't have an input WCS
     doBlindSolve = policy.get('blindSolve') or (wcsIn is None)
     if doBlindSolve:
         log.log(log.DEBUG, "Solving with no initial guess at position")
@@ -139,7 +139,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     #Did we solve?
     log.log(log.DEBUG, "Finished Solve step.")
     if not isSolved:
-        log.log(log.WARN, "No solution found, using input Wcs")
+        log.log(log.WARN, "No solution found, using input WCS")
         return [], wcsIn
     wcs = solver.getWcs()
     tanwcs = wcs
@@ -168,7 +168,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         raise
             
 
-    matchList=[]    #Make sure this stays in scope
+    matchList=[]
     if True:
         #Now generate a list of matching objects
         distInArcsec = policy.get('distanceForCatalogueMatchinArcsec')
@@ -180,10 +180,10 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
 
         if len(matchList) == 0:
             log.log(Log.WARN, "No matches found between input source and catalogue.")
-            log.log(Log.WARN, "Something in wrong. Defaulting to input wcs")
+            log.log(Log.WARN, "Something is wrong. Defaulting to input WCS")
             return [], wcsIn
             
-        log.log(Log.DEBUG, "%i catalogue objects match input source list using linear Wcs" %(len(matchList)))
+        log.log(Log.DEBUG, "%i catalogue objects match input source list using linear WCS" %(len(matchList)))
     else:
         #Use list of matches returned by astrometry.net
         log.log(Log.DEBUG, "Getting matched sources: Fluxes in band %s " %(filterName))
@@ -196,7 +196,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         sipwcs = wcs
         sipMatches = matchList
     else:
-        log.log(Log.DEBUG, "Updating wcs in input exposure with linear wcs")
+        log.log(Log.DEBUG, "Updating WCS in input exposure with linear WCS")
         
     exposure.setWcs(wcs)
 
