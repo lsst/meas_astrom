@@ -9,7 +9,7 @@ import lsst.afw.detection                as afwDet
 from astrometry.util.pyfits_utils import *
 from numpy import array
 
-def ssio(fn):
+def sourceset_read_boost(fn):
     loc = dafPersist.LogicalLocation(fn)
     storageList = dafPersist.StorageList()
     additionalData = dafBase.PropertySet()
@@ -29,7 +29,7 @@ if __name__ == '__main__':
     infn = args[0]
     outfn = args[1]
 
-    ss = ssio(infn)
+    ss = sourceset_read_boost(infn)
     print 'Read %i sources from %s' % (len(ss), infn)
     # Find all methods in Source called "getXXX".  Create columns in the FITS
     # table called "XXX".
