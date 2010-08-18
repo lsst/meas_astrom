@@ -10,7 +10,8 @@ from numpy import array
 from sourceset_boost_to_fits import *
 
 class ducky(object):
-    pass
+    def __str__(self):
+        return 'ducky: ' + '; '.join([''+str(k)+'='+str(v) for k,v in self.__dict__.items()])
 
 class fakeExposure(ducky):
     def __init__(self):
@@ -22,13 +23,13 @@ class fakeExposure(ducky):
     def getMaskedImage(self):
         fakey = ducky()
         fakey.xy0 = self.xy0
-        fakey.getXY0 = lambda(x): x.xy0
+        fakey.getXY0 = lambda x: x.xy0
         return fakey
 
     def getFilter(self):
         fakey = ducky()
         fakey.filterName = self.filterName
-        fakey.getName = lambda(x): x.filterName
+        fakey.getName = lambda x: x.filterName
         return fakey
 
     def getWcs(self):
@@ -67,7 +68,18 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
         exposure.setHeight(H)
 
     if policy is None:
-        policy = pexPolicy.Policy.createPolicy('') #'''#<?cfg paf policy?>''')
+        policy = pexPolicy.Policy.createPolicy(pexPolicy.PolicyString(
+            '''#<?cfg paf policy?>
+            matchThreshold: 30
+            numBrightStars: 50
+            blindSolve: true'''))
+
+    if exposure.getWidth() is None or exposure.getHeight() is None:
+        print 'Warning: exposure image width or height is None'
+
+    print 'Exposure:', exposure
+    print 'Filter:', exposure.getFilter()
+    print 'Filter name:', exposure.getFilter().getName()
 
     (matchList,wcs) = measAstrom.determineWcs(policy, exposure, sourceset)
 
@@ -75,8 +87,8 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
 if __name__ == '__main__':
     parser = OptionParser(usage='%prog [options] <*.boost SourceSets>')
     # or *.fits of sourcesets>')
-    parser.add_option('-W', '--width', dest='width', type='float', help='Image width (pixels)')
-    parser.add_option('-H', '--height', dest='height', type='float', help='Image height (pixels)')
+    parser.add_option('-W', '--width', dest='width', type='int', help='Image width (pixels)')
+    parser.add_option('-H', '--height', dest='height', type='int', help='Image height (pixels)')
     parser.add_option('-f', '--filter', dest='filter', help='Filter name')
     #parser.add_option('-x', '--x-column', dest='xcol', help='X column name (for FITS inputs)')
     parser.set_defaults(width=None, height=None, filter=None)
