@@ -45,7 +45,7 @@ def calcPhotoCal(sourceMatch, log=None,
 
     if log is None:
         log = fakelog()
-
+        
     if len(sourceMatch) == 0:
         raise ValueError("sourceMatch contains no elements")
         
@@ -259,7 +259,7 @@ def clean(x, y, order=2, sigmaClip=3, maxIter=5):
             
         deviance = np.fabs( (y - f) /sigma)
         idx = np.where(deviance < sigmaClip)
-        pdb.set_trace()
+
         x=x[idx]
         y=y[idx]
         

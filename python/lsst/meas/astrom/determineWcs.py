@@ -65,7 +65,8 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     """
 
     if log is None:
-        log = StdoutLog()   #Write log messages to stdout
+        #log = StdoutLog()   #Write log messages to stdout
+        log = Log.getDefaultLog()
     log.log(Log.INFO, "In determineWcs")
 
 
@@ -98,7 +99,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     #Setup solver
     if solver is None:
         path=os.path.join(os.environ['ASTROMETRY_NET_DATA_DIR'], "metadata.paf")
-        solver = astromNet.GlobalAstrometrySolution(path)
+        solver = astromNet.GlobalAstrometrySolution(path, log)
         matchThreshold = policy.get('matchThreshold')
         solver.setMatchThreshold(matchThreshold)
     else:

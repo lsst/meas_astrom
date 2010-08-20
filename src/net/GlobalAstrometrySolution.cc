@@ -55,8 +55,8 @@ static vector<double> getTagAlongFromIndex(index_t* index, string fieldName, int
 //
 //Constructors, Destructors
 //
-GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath):
-    _mylog(pexLog::Log::getDefaultLog(), "meas.astrom.net", pexLog::Log::DEBUG),
+    GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath, pexLog::Log mylog):
+    _mylog(mylog),
     _indexList(NULL), 
     _solver(NULL), 
     _starxy(NULL), 
@@ -505,7 +505,7 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
 
     _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
 
-    solver_print_to(_solver, stdout);
+    //solver_print_to(_solver, stdout);
 
     solver_run(_solver);
 
