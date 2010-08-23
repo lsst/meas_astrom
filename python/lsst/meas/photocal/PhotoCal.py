@@ -38,26 +38,29 @@ class fakelog(object):
     def log(self, x, msg):
         print msg
 
-def calcPhotoCal(sourceMatch, log=None):
+def calcPhotoCal(sourceMatch, log=None,
+                 goodFlagValue=(malgUtil.getDetectionFlags()['BINNED1'] |
+                                malgUtil.getDetectionFlags()['STAR'])):
     """Calculate photometric calibration, i.e the zero point magnitude"""
 
     if log is None:
         log = fakelog()
-
+        
     if len(sourceMatch) == 0:
         raise ValueError("sourceMatch contains no elements")
         
-    #Only use stars for which the flags indicate the photometry is good.
-    flags = malgUtil.getDetectionFlags()
-    goodFlagValue= flags['BINNED1'] | flags['STAR']
+    # Only use stars for which the flags indicate the photometry is good.
+    allFlags = malgUtil.getDetectionFlags()
 
-    log.log(Log.INFO, 'Flag value BINNED1: 0x%x, %i' % (flags['BINNED1'], flags['BINNED1']))
-    log.log(Log.INFO, 'Flag value STAR   : 0x%x, %i' %  (flags['STAR'], flags['STAR']))
+    for flag, val in allFlags.items():
+        if val & goodFlagValue:
+            log.log(Log.INFO, 'Flag value %s: 0x%x, %i' % (flag, val, val))
     log.log(Log.INFO, 'Good flag value: %i' % goodFlagValue)
+    log.log(Log.INFO, "Number of sources: %d" % (len(sourceMatch)))
 
     cleanList = []
     for m in sourceMatch:
-        if m.second.getFlagForDetection() == goodFlagValue:
+        if m.second.getFlagForDetection() & goodFlagValue == goodFlagValue:
             cleanList.append(m)
     sourceMatch = cleanList
     
@@ -66,9 +69,6 @@ def calcPhotoCal(sourceMatch, log=None):
     
     #Convert fluxes to magnitudes
     out = getMagnitudes(sourceMatch)
-
-    print(out["cat"])
-    print(out["src"])
 
     #Fit to get zeropoint
     lsf = robustFit(out["src"], out["cat"], order=2, plot=True)
@@ -84,8 +84,10 @@ def calcPhotoCal(sourceMatch, log=None):
     medianInstMag = np.median(out["src"])
     medianFlux = np.power(10, -medianInstMag/2.5)
     mag = lsf.valueAt(medianInstMag)
+    zp = mag - medianInstMag
     
-    return PhotometricMagnitude(zeroFlux=medianFlux, zeroMag=mag)
+    #return PhotometricMagnitude(zeroFlux=medianFlux, zeroMag=mag)
+    return PhotometricMagnitude(zeroFlux=1.0, zeroMag=zp)
 
 
 def getMagnitudes(sourceMatch):
@@ -162,8 +164,8 @@ def robustFit(x, y, order=2, plot=False):
     nBins = order+1
     idx = x.argsort()   #indices of the sorted array of x
     
-    rx = chooseRobustX(x, idx, nBins)
-    ry = chooseRobustY(y, idx, nBins)
+    rx = chooseRobustCoord(x, idx, nBins)
+    ry = chooseRobustCoord(y, idx, nBins)
     rs = np.ones(nBins)
 
 
@@ -183,7 +185,7 @@ def robustFit(x, y, order=2, plot=False):
     
 
 
-def chooseRobustX(x, idx, nBins):
+def chooseRobustCoord(x, idx, nBins):
     """\brief Create nBins values of the ordinate based on the mean of groups of elements of x
     
     Inputs:
@@ -209,35 +211,6 @@ def chooseRobustX(x, idx, nBins):
         rx[i] = np.median(x[idx[rng]])
     return rx
     
-
-
-def chooseRobustY(y, idx, nBins):
-    """\brief Create nBins values of the ordinate based on the mean of groups of elements of x
-    
-    Inputs:
-    \param y Co-ordinate to be binned
-    \param idx Indices of y in sorted order, i.e y[idx[i]] <= y[idx[i+1]]
-    \param nBins Number of desired bins
-    """
-
-    if len(y) == 0:
-        raise ValueError("y array has no data")
-        
-    if len(y) != len(idx):
-        raise ValueError("Length of y and idx don't agree")
-        
-    if nBins < 1:
-        raise ValueError("nBins < 1")
-
-    rSize = len(idx)/float(nBins)  #Note, a floating point number
-    ry = np.zeros(nBins)
-    
-    for i in range(nBins):
-        rng = range(int(rSize*i), int(rSize*(i+1)))
-        ry[i] = np.median(y[idx[rng]])
-    return ry
-
-
 
 def clean(x, y, order=2, sigmaClip=3, maxIter=5):
     """\brief Remove outliers from the set of {(x,y)}
@@ -286,7 +259,7 @@ def clean(x, y, order=2, sigmaClip=3, maxIter=5):
             
         deviance = np.fabs( (y - f) /sigma)
         idx = np.where(deviance < sigmaClip)
-        pdb.set_trace()
+
         x=x[idx]
         y=y[idx]
         

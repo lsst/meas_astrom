@@ -55,8 +55,8 @@ static vector<double> getTagAlongFromIndex(index_t* index, string fieldName, int
 //
 //Constructors, Destructors
 //
-GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath):
-    _mylog(pexLog::Log::getDefaultLog(), "meas.astrom.net", pexLog::Log::DEBUG),
+    GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath, pexLog::Log mylog):
+    _mylog(mylog),
     _indexList(NULL), 
     _solver(NULL), 
     _starxy(NULL), 
@@ -103,6 +103,18 @@ GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath)
         _indexList.push_back(meta);
     }
     _mylog.log(pexLog::Log::DEBUG, "Meta information loaded...");    
+}
+
+void GlobalAstrometrySolution::loadIndices() {
+    for (unsigned int i=0; i<_indexList.size(); i++)
+        index_reload(_indexList[i]);
+}
+
+std::vector<const index_t*> GlobalAstrometrySolution::getIndexList() {
+    std::vector<const index_t*> rtn;
+    for (unsigned int i=0; i<_indexList.size(); i++)
+        rtn.push_back(_indexList[i]);
+    return rtn;
 }
 
 
@@ -493,7 +505,7 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
 
     _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
 
-    solver_print_to(_solver, stdout);
+    //solver_print_to(_solver, stdout);
 
     solver_run(_solver);
 
@@ -1041,6 +1053,22 @@ double GlobalAstrometrySolution::getSolvedImageScale(){
     return match->scale;
     //return tan_pixel_scale(&match->wcstan)
 } 
+
+/*
+startree_t* GlobalAstrometrySolution::getSolvedStartree() {
+    MatchObj* match = solver_get_best_match(_solver);
+    if (!match)
+        return NULL;
+    if (!match->index)
+        return NULL;
+    index_reload(match->index);
+    return match->index->starkd;
+}
+ */
+
+MatchObj* GlobalAstrometrySolution::getMatchObject() {
+    return solver_get_best_match(_solver);
+}
 
 
 ///Reset the object so it's ready to match another field.

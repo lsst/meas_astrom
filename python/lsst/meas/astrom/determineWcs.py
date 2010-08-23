@@ -70,7 +70,8 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     sipMatches = None
 
     if log is None:
-        log = StdoutLog()   #Write log messages to stdout
+        #log = StdoutLog()   #Write log messages to stdout
+        log = Log.getDefaultLog()
     log.log(Log.INFO, "In determineWcs")
 
 
@@ -95,13 +96,15 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         
     #Extract an initial guess WCS if available    
     wcsIn = exp.getWcs() #May be None
-    if wcsIn is None:
+    # Exposure uses the special object "NoWcs" instead of NULL.  Because they're special.
+    haswcs = exp.hasWcs()
+    if not haswcs:
         log.log(log.WARN, "No WCS found in exposure. Doing blind solve")
     
     #Setup solver
     if solver is None:
         path=os.path.join(os.environ['ASTROMETRY_NET_DATA_DIR'], "metadata.paf")
-        solver = astromNet.GlobalAstrometrySolution(path)
+        solver = astromNet.GlobalAstrometrySolution(path, log)
         matchThreshold = policy.get('matchThreshold')
         solver.setMatchThreshold(matchThreshold)
     else:
@@ -127,7 +130,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     dscale = None
 
     #Do a blind solve if we're told to, or if we don't have an input WCS
-    doBlindSolve = policy.get('blindSolve') or (wcsIn is None)
+    doBlindSolve = policy.get('blindSolve') or (not haswcs)
     if doBlindSolve:
         log.log(log.DEBUG, "Solving with no initial guess at position")
         isSolved = solver.solve()
@@ -200,26 +203,11 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         
     exposure.setWcs(wcs)
 
-    # We want, for diagnostic plots:
-    # -TAN WCS
-    # -SIP WCS, if computed
-    # -all image sources (sourceSet)
-    # -image size (W,H)
-    # -all reference sources ("cat")
-    # -matchList / Astrometry.net matches
-    # - (tan / sip)
-    # -solver?
-    # -MatchObj?
-
-    #  (better grab this before solver.reset() !)
-
     if True:
         wcsPlots.wcsPlots(tanwcs, sourceSet, cat, tanMatches, W, H, 'tan', '')
         if sipwcs and sipMatches:
             wcsPlots.wcsPlots(sipwcs, sourceSet, cat, sipMatches, W, H, 'sip', '')
             wcsPlots.plotDistortion(sipwcs, W, H, 200, 'sip', '', exaggerate=10.)
-
-    solver.reset()
 
     if display:
         for s1, s2, d in matchList:

@@ -91,8 +91,14 @@ public:
     typedef boost::shared_ptr<GlobalAstrometrySolution const> ConstPtr;
 
     //Constructors
-    explicit GlobalAstrometrySolution(const std::string policyPath);
-    
+    explicit GlobalAstrometrySolution(const std::string policyPath,
+                                      lsst::pex::logging::Log mylog=lsst::pex::logging::Log(
+                                          lsst::pex::logging::Log::getDefaultLog(),
+                                          "meas.astrom.net",
+                                          lsst::pex::logging::Log::INFO
+                                                                                           )
+                                     );
+
     //Destructor
     ~GlobalAstrometrySolution();
 
@@ -134,6 +140,12 @@ public:
     lsst::afw::detection::SourceSet getCatalogue(double ra, double dec, double radiusInArcsec, 
                                                  std::string filterName);
     lsst::afw::detection::SourceSet getCatalogue(double radiusInArcsec, std::string filterName);
+
+    void loadIndices();
+    std::vector<const index_t*> getIndexList();
+    // returns the star kd-tree of the astrometry.net index that solved the field.
+    //startree_t* getSolvedStartree();
+    MatchObj* getMatchObject();
 
     //Call this before performing a new match
     void reset();
