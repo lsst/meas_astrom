@@ -1,8 +1,12 @@
 import sys
+import types
 from optparse import OptionParser
 
 import lsst.meas.astrom as measAstrom
 import lsst.pex.policy  as pexPolicy
+import lsst.pex.logging as pexLog
+import lsst.daf.persistence              as dafPersist
+import lsst.daf.base                     as dafBase
 
 from astrometry.util.pyfits_utils import *
 from numpy import array
@@ -29,7 +33,8 @@ class fakeExposure(ducky):
     def getFilter(self):
         fakey = ducky()
         fakey.filterName = self.filterName
-        fakey.getName = lambda x: x.filterName
+        # advanced duck-typing: here we give the duck a member function "getName()"
+        fakey.getName = types.MethodType(lambda x: x.filterName, fakey, fakey.__class__)
         return fakey
 
     def getWcs(self):
@@ -52,7 +57,7 @@ class fakeExposure(ducky):
 
 
 def rerun(sourceset, policy=None, exposure=None, wcs=None,
-          W=None, H=None, xy0=None, filtername=None):
+          W=None, H=None, xy0=None, filtername=None, log=None):
 
     if exposure is None:
         # Create a duck of the appropriate quackiness.
@@ -72,16 +77,50 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
             '''#<?cfg paf policy?>
             matchThreshold: 30
             numBrightStars: 50
-            blindSolve: true'''))
+            blindSolve: true
+            distanceForCatalogueMatchinArcsec: 5
+            cleaningParameter: 3
+            calculateSip: True
+            sipOrder: 2'''))
 
     if exposure.getWidth() is None or exposure.getHeight() is None:
         print 'Warning: exposure image width or height is None'
 
+    doTrim = False
+
     print 'Exposure:', exposure
     print 'Filter:', exposure.getFilter()
     print 'Filter name:', exposure.getFilter().getName()
+    print
+    print 'determineWcs()...'
+    print
 
-    (matchList,wcs) = measAstrom.determineWcs(policy, exposure, sourceset)
+    (matchList,wcs) = measAstrom.determineWcs(policy, exposure, sourceset, log=log,
+                                              doTrim=doTrim)
+
+    print
+    print 'determineWcs() finished.  Got:'
+    print
+    print '%i matches' % len(matchList)
+    #print 'WCS: ', wcs
+
+    fitshdr = wcs.getFitsMetadata()
+    #print 'FITS:', fitshdr
+    print 'Found WCS:'
+    print fitshdr.toString()
+
+    # No dice: daf_persistence can't write PropertySets to FITS.
+    if False:
+        outfn = 'out.wcs'
+        loc = dafPersist.LogicalLocation(outfn)
+        storageList = dafPersist.StorageList()
+        additionalData = dafBase.PropertySet()
+        persistence = dafPersist.Persistence.getPersistence(pexPolicy.Policy())
+        storageList.append(persistence.getPersistStorage("FitsStorage", loc))
+        persistence.persist(fitshdr, storageList, additionalData)
+
+
+
 
 
 if __name__ == '__main__':
@@ -90,18 +129,21 @@ if __name__ == '__main__':
     parser.add_option('-W', '--width', dest='width', type='int', help='Image width (pixels)')
     parser.add_option('-H', '--height', dest='height', type='int', help='Image height (pixels)')
     parser.add_option('-f', '--filter', dest='filter', help='Filter name')
+    parser.add_option('-v', '--verbose', dest='verb', help='+verbose', action='store_true')
     #parser.add_option('-x', '--x-column', dest='xcol', help='X column name (for FITS inputs)')
-    parser.set_defaults(width=None, height=None, filter=None)
+    parser.set_defaults(width=None, height=None, filter=None, verb=False)
     opt,args = parser.parse_args()
     if len(args) == 0:
         parser.print_help()
         sys.exit(0)
 
+    level = pexLog.Log.DEBUG if opt.verb else pexLog.Log.INFO
+    log = pexLog.Log(pexLog.Log.getDefaultLog(), "rerun-wcs", level);
+
     for fn in args:
-        #if fn.endswith('.boost'):
         print 'Reading', fn
         ss = sourceset_read_boost(fn)
-        #else:
-        #    ss = 
-        rerun(ss, W=opt.width, H=opt.height, filtername=opt.filter)
+        print 'Read %i sources' % (len(ss))
+
+        rerun(ss, W=opt.width, H=opt.height, filtername=opt.filter, log=log)
 
