@@ -34,7 +34,7 @@ import sip.cleanBadPoints as cleanBadPoints
 
 import lsst.afw.display.ds9 as ds9
 
-import wcsPlots
+#import wcsPlots
 
 try:
     import lsstDebug
@@ -204,6 +204,8 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     exposure.setWcs(wcs)
 
     if True:
+        import wcsPlots
+
         wcsPlots.wcsPlots(tanwcs, sourceSet, cat, tanMatches, W, H, 'tan', '')
         if sipwcs and sipMatches:
             wcsPlots.wcsPlots(sipwcs, sourceSet, cat, sipMatches, W, H, 'sip', '')

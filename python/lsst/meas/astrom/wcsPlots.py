@@ -11,28 +11,8 @@ import lsst.afw.coord.coordLib as afwCoord
 
 from astrometry.libkd import spherematch
 
-'''
-matches
-----------------------
-Produced by afw::detection::matchRaDec(_catSet, _imgSet, _distInArcsec);
-in afw/src/detection/SourceMatch.cc
-is a vector<det::SourceMatch>
-SourceMatch: Source first, Source second, double distance
-Source.{getXAstrom(), getYAstrom, getRaObject(), getDecObject(), etc}
 
-refsources
-----------------------
-Produced by solver.getCatalogue()
-is an afw::detection::SourceSet
-Source.getRa(), getDec()
-
---- both img sources and ref sources should have x,y,ra,dec set
- by meas_astrom:sip:MatchSrcToCatalogue.cc : findMatches()
-
-'''
-def wcsPlots(wcs, imgsources, refsources, matches, W, H, prefix, titleprefix):
-    print 'WCS plots'
-
+def plotMatches(imgsources, refsources, matches, prefix):
     clf()
 
     # Image sources
@@ -49,7 +29,6 @@ def wcsPlots(wcs, imgsources, refsources, matches, W, H, prefix, titleprefix):
 
     # Ref sources:
     # Only getRa() (not getRaAstrom(), getRaObject()) is non-zero.
-    #print r0.getRa(), r0.getRaAstrom(), r0.getRaObject()
 
     rx,ry = [],[]
     for r in refsources:
@@ -73,19 +52,15 @@ def wcsPlots(wcs, imgsources, refsources, matches, W, H, prefix, titleprefix):
     #plot(x, y, 's', mec='g', mfc='none', markersize=5)
     p4 = plot(x, y, 'o', mec='g', mfc='g', alpha=0.5, markersize=8, zorder=5)
     p5 = quiver(x, y, dx, dy, angles='xy', scale=30., zorder=30)
-
     axis('scaled')
     axis([0, W, 0, H])
-
-    print p1, p2, p3, p4, p5
+    #print p1, p2, p3, p4, p5
 
     figlegend((p1, p2, p3, p4), #, p5),
               ('Image sources (brightest 200)',
                'Image sources (rest)',
                'Reference sources',
                'Matches',),
-               #'Match difference'),
-              #'upper right')
               'center right',
               numpoints=1,
               prop=FontProperties(size='small'))
@@ -94,6 +69,8 @@ def wcsPlots(wcs, imgsources, refsources, matches, W, H, prefix, titleprefix):
     print 'Saving', fn
     savefig(fn)
 
+
+def plotPhotometry(imgsources, refsources, matches, prefix):
     # All the id fields are zero, so I guess we have to do it the hard way...
 
     # NOTE that the reference source list here can contain duplicate
@@ -121,7 +98,6 @@ def wcsPlots(wcs, imgsources, refsources, matches, W, H, prefix, titleprefix):
     print 'Trimmed reference sources from %i to %i\n' % (len(refsources), len(uniqrefsources))
     origrefsources = refsources
     refsources = uniqrefsources
-
 
     matchinds = []
     # match order is (cat,img).
@@ -210,6 +186,18 @@ def wcsPlots(wcs, imgsources, refsources, matches, W, H, prefix, titleprefix):
     savefig(fn)
 
 
+def plotCorrespondences(imgsources, refsources, matches, W, H, prefix):
+    ix = array([s.getXAstrom() for s in imgsources])
+    iy = array([s.getYAstrom() for s in imgsources])
+
+    rx,ry = [],[]
+    for r in refsources:
+        xy = wcs.skyToPixel(r.getRa(), r.getDec())
+        rx.append(xy[0])
+        ry.append(xy[1])
+    rx = array(rx)
+    ry = array(ry)
+
     # correspondences we could have hit...
     ixy = vstack((ix, iy)).T
     rxy = vstack((rx, ry)).T
@@ -280,12 +268,10 @@ def wcsPlots(wcs, imgsources, refsources, matches, W, H, prefix, titleprefix):
             print 'Cut to %i within %g x %g square' % (sum(ok), dcell*2, dcell*2)
 
             # Subplot places plots left-to-right, TOP-to-BOTTOM.
-            #subplot(nh, nw, thisbin+1)
             subplot(nh, nw, 1 + ((nh - i - 1)*nw + j))
 
             plot(matchdx, matchdy, 'ro', mec='r', mfc='r', ms=5, alpha=0.2)
             plot(matchdx, matchdy, 'ro', mec='r', mfc='none', ms=5, alpha=0.2)
-            #plot([0], [0], 'bo', mec='b', mfc='none')
             axhline(0, color='k', alpha=0.5)
             axvline(0, color='k', alpha=0.5)
             xticks([],[])
@@ -298,8 +284,56 @@ def wcsPlots(wcs, imgsources, refsources, matches, W, H, prefix, titleprefix):
     print 'Saving', fn
     savefig(fn)
 
+
+def wcsPlots(wcs, imgsources, refsources, matches, W, H, prefix, titleprefix):
+    '''Create diagnostic plots for WCS determination.
+
+    wcs -- an lsst.afw.image.Wcs
+    imgsources -- an lsst.afw.detection.SourceSet, of sources found in the image.
+    refsources -- an lsst.afw.detection.SourceSet, of sources in the reference catalog.
+    matches -- an lsst.afw.detection.SourceMatchSet (vector of SourceMatch)
+    W, H -- ints, the image width and height
+    prefix -- the output filename prefix for the plots.
+    '''
+
+    '''
+matches
+----------------------
+Produced by afw::detection::matchRaDec(_catSet, _imgSet, _distInArcsec);
+in afw/src/detection/SourceMatch.cc
+is a vector<det::SourceMatch>
+SourceMatch: Source first, Source second, double distance
+Source.{getXAstrom(), getYAstrom, getRaObject(), getDecObject(), etc}
+
+refsources
+----------------------
+Produced by solver.getCatalogue()
+is an afw::detection::SourceSet
+Source.getRa(), getDec()
+
+--- both img sources and ref sources should have x,y,ra,dec set
+ by meas_astrom:sip:MatchSrcToCatalogue.cc : findMatches()
+
+'''
+    print 'WCS plots'
+    plotMatches(imgsources, refsources, matches, prefix)
+    plotPhotometry(imgsources, refsources, matches, prefix)
+    plotCorrespondences(imgsources, refsources, matches, W, H, prefix)
+
     
 def plotDistortion(sip, W, H, ncells, prefix, title, exaggerate=1.):
+    '''
+    Produces a plot showing the SIP distortion that was found, by drawing
+    a grid and distorting it.  Allows exaggeration of the distortion for ease
+    of visualization.
+
+    sip -- an lsst.afw.image.TanWcs
+    W, H -- the image size
+    ncells -- the approximate number of grid cells to split the image into.
+    prefix -- output plot filename prefix.
+    exaggerate -- the factor by which to exaggerate the distortion.
+    
+    '''
     ncells = float(ncells)
     cellsize = sqrt(W * H / ncells)
     nw = int(floor(W / cellsize))
