@@ -7,6 +7,7 @@ import lsst.pex.policy  as pexPolicy
 import lsst.pex.logging as pexLog
 import lsst.daf.persistence              as dafPersist
 import lsst.daf.base                     as dafBase
+import lsst.afw.image                    as afwImage
 
 from astrometry.util.pyfits_utils import *
 from numpy import array
@@ -119,7 +120,13 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
         storageList.append(persistence.getPersistStorage("FitsStorage", loc))
         persistence.persist(fitshdr, storageList, additionalData)
 
+    # Add IMAGEW, IMAGEH header cards.
+    fitshdr.add('IMAGEW', W)
+    fitshdr.add('IMAGEH', H)
 
+    # Create a fake Image in order to abuse its writeFits() method.
+    im = afwImage.ImageF()
+    im.writeFits('out.wcs', fitshdr)
 
 
 
