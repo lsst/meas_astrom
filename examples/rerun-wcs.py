@@ -180,7 +180,7 @@ if __name__ == '__main__':
                 if not v in C:
                     continue
                 for src,val in zip(ss, T.getcolumn(v)):
-                    setter = getattr(src, 'get'+k)(val)
+                    getattr(src, 'set'+k)(val)
 
         print 'Read %i sources' % (len(ss))
 
