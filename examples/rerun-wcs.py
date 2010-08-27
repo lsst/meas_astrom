@@ -8,6 +8,7 @@ import lsst.pex.logging as pexLog
 import lsst.daf.persistence              as dafPersist
 import lsst.daf.base                     as dafBase
 import lsst.afw.image                    as afwImage
+import lsst.afw.detection                as afwDet
 
 from astrometry.util.pyfits_utils import *
 from numpy import array
@@ -131,8 +132,8 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
 
 
 if __name__ == '__main__':
-    parser = OptionParser(usage='%prog [options] <*.boost SourceSets>')
-    # or *.fits of sourcesets>')
+    parser = OptionParser(usage='%prog [options] <*.boost or *.fits SourceSets>')
+
     parser.add_option('-W', '--width', dest='width', type='int', help='Image width (pixels)')
     parser.add_option('-H', '--height', dest='height', type='int', help='Image height (pixels)')
     parser.add_option('-f', '--filter', dest='filter', help='Filter name')
@@ -148,9 +149,41 @@ if __name__ == '__main__':
     log = pexLog.Log(pexLog.Log.getDefaultLog(), "rerun-wcs", level);
 
     for fn in args:
-        print 'Reading', fn
-        ss = sourceset_read_boost(fn)
+        if fn.endswith('.boost'):
+            print 'Reading boost-format', fn
+            ss = sourceset_read_boost(fn)
+        else:
+            print 'Reading FITS-format', fn
+            T = fits_table(fn)
+            ss = afwDet.SourceSet()
+            C = T.get_columns()
+            # FITS -> Source.setXXX()
+            columnmap = { 'SourceId':'id',
+                          'XAstrom':'x',
+                          'YAstrom':'y',
+                          'XAstromErr': 'xerr',
+                          'YAstromErr': 'yerr',
+                          'Ra': 'ra',
+                          'Dec': 'dec',
+                          'Ixx': 'ixx',
+                          'Iyy': 'iyy',
+                          'PsfFlux': 'f_psf',
+                          'ApFlux': 'f_ap',
+                          }
+            for k,v in columnmap:
+                if not v in C:
+                    print 'Warning, column', v, 'is not in the FITS table -- won\'t set Source\'s', k
+            for i in range(len(T)):
+                src = afwDet.Source()
+                ss.append(src)
+            for k,v in columnmap:
+                if not v in C:
+                    continue
+                for src,val in zip(ss, T.getcolumn(v)):
+                    setter = getattr(src, 'get'+k)(val)
+
         print 'Read %i sources' % (len(ss))
+
 
         rerun(ss, W=opt.width, H=opt.height, filtername=opt.filter, log=log)
 
