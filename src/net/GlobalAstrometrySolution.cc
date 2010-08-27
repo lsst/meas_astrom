@@ -363,7 +363,7 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
     afwCoord::Coord::ConstPtr raDec = wcsPtr->pixelToSky(xc, yc);
     double const ra = raDec->getLongitude(afwCoord::DEGREES);
     double const dec = raDec->getLatitude(afwCoord::DEGREES);
-    double const plateScaleArcsecPerPixel = sqrt(wcsPtr->pixArea(afwGeom::makePointD(ra, dec)))*3600;
+    double const plateScaleArcsecPerPixel = sqrt(wcsPtr->pixArea(afwGeom::makePointD(xc, yc))) * 3600;
     setMinimumImageScale(plateScaleArcsecPerPixel*(1 - unc));
     setMaximumImageScale(plateScaleArcsecPerPixel*(1 + unc));
     
