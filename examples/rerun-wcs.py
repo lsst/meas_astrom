@@ -156,7 +156,7 @@ if __name__ == '__main__':
             print 'Reading FITS-format', fn
             T = fits_table(fn)
             ss = afwDet.SourceSet()
-            C = T.get_columns()
+            C = T.columns()
             # FITS -> Source.setXXX()
             columnmap = { 'SourceId':'id',
                           'XAstrom':'x',
