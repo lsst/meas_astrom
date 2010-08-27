@@ -170,13 +170,13 @@ if __name__ == '__main__':
                           'PsfFlux': 'f_psf',
                           'ApFlux': 'f_ap',
                           }
-            for k,v in columnmap:
+            for k,v in columnmap.items():
                 if not v in C:
                     print 'Warning, column', v, 'is not in the FITS table -- won\'t set Source\'s', k
             for i in range(len(T)):
                 src = afwDet.Source()
                 ss.append(src)
-            for k,v in columnmap:
+            for k,v in columnmap.items():
                 if not v in C:
                     continue
                 for src,val in zip(ss, T.getcolumn(v)):
