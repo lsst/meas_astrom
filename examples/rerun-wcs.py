@@ -8,6 +8,7 @@ import lsst.pex.logging as pexLog
 import lsst.daf.persistence              as dafPersist
 import lsst.daf.base                     as dafBase
 import lsst.afw.image                    as afwImage
+import lsst.afw.detection                as afwDet
 
 from astrometry.util.pyfits_utils import *
 from numpy import array
@@ -77,7 +78,7 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
         policy = pexPolicy.Policy.createPolicy(pexPolicy.PolicyString(
             '''#<?cfg paf policy?>
             matchThreshold: 30
-            numBrightStars: 50
+            numBrightStars: 1000
             blindSolve: true
             distanceForCatalogueMatchinArcsec: 5
             cleaningParameter: 3
@@ -102,37 +103,43 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
     print
     print 'determineWcs() finished.  Got:'
     print
-    print '%i matches' % len(matchList)
-    #print 'WCS: ', wcs
+    if wcs is None:
+        print 'WCS determination failed.'
+    else:
+        print '%i matches' % len(matchList)
 
-    fitshdr = wcs.getFitsMetadata()
-    #print 'FITS:', fitshdr
-    print 'Found WCS:'
-    print fitshdr.toString()
+        for sm in matchList:
+            print '  (%.1f, %.1f) flux %.1f   ---   (%.1f, %.1f) flux %.1f' % (
+                sm.first.getXAstrom(), sm.first.getYAstrom(), sm.first.getPsfFlux(),
+                sm.second.getXAstrom(), sm.second.getYAstrom(), sm.second.getPsfFlux())
 
-    # No dice: daf_persistence can't write PropertySets to FITS.
-    if False:
-        outfn = 'out.wcs'
-        loc = dafPersist.LogicalLocation(outfn)
-        storageList = dafPersist.StorageList()
-        additionalData = dafBase.PropertySet()
-        persistence = dafPersist.Persistence.getPersistence(pexPolicy.Policy())
-        storageList.append(persistence.getPersistStorage("FitsStorage", loc))
-        persistence.persist(fitshdr, storageList, additionalData)
+        fitshdr = wcs.getFitsMetadata()
+        print 'Found WCS:'
+        print fitshdr.toString()
 
-    # Add IMAGEW, IMAGEH header cards.
-    fitshdr.add('IMAGEW', W)
-    fitshdr.add('IMAGEH', H)
+        # No dice: daf_persistence can't write PropertySets to FITS.
+        if False:
+            outfn = 'out.wcs'
+            loc = dafPersist.LogicalLocation(outfn)
+            storageList = dafPersist.StorageList()
+            additionalData = dafBase.PropertySet()
+            persistence = dafPersist.Persistence.getPersistence(pexPolicy.Policy())
+            storageList.append(persistence.getPersistStorage("FitsStorage", loc))
+            persistence.persist(fitshdr, storageList, additionalData)
+            
+        # Add IMAGEW, IMAGEH header cards.
+        fitshdr.add('IMAGEW', W)
+        fitshdr.add('IMAGEH', H)
 
-    # Create a fake Image in order to abuse its writeFits() method.
-    im = afwImage.ImageF()
-    im.writeFits('out.wcs', fitshdr)
+        # Create a fake Image in order to abuse its writeFits() method.
+        im = afwImage.ImageF()
+        im.writeFits('out.wcs', fitshdr)
 
 
 
 if __name__ == '__main__':
-    parser = OptionParser(usage='%prog [options] <*.boost SourceSets>')
-    # or *.fits of sourcesets>')
+    parser = OptionParser(usage='%prog [options] <*.boost or *.fits SourceSets>')
+
     parser.add_option('-W', '--width', dest='width', type='int', help='Image width (pixels)')
     parser.add_option('-H', '--height', dest='height', type='int', help='Image height (pixels)')
     parser.add_option('-f', '--filter', dest='filter', help='Filter name')
@@ -148,9 +155,43 @@ if __name__ == '__main__':
     log = pexLog.Log(pexLog.Log.getDefaultLog(), "rerun-wcs", level);
 
     for fn in args:
-        print 'Reading', fn
-        ss = sourceset_read_boost(fn)
-        print 'Read %i sources' % (len(ss))
+        if fn.endswith('.boost'):
+            print 'Reading boost-format', fn
+            ss = sourceset_read_boost(fn)
+        else:
+            print 'Reading FITS-format', fn
+            T = fits_table(fn)
+            ss = afwDet.SourceSet()
+            C = T.columns()
+            # FITS -> Source.setXXX()
+            columnmap = { #'SourceId':'id',
+                          'XAstrom':'x',
+                          'YAstrom':'y',
+                          'XAstromErr': 'xerr',
+                          'YAstromErr': 'yerr',
+                          'Ra': 'ra',
+                          'Dec': 'dec',
+                          'Ixx': 'ixx',
+                          'Iyy': 'iyy',
+                          'PsfFlux': 'f_psf',
+                          'ApFlux': 'f_ap',
+                          }
+            for k,v in columnmap.items():
+                if not v in C:
+                    print 'Warning, column', v, 'is not in the FITS table -- won\'t set Source\'s', k
+            for i in range(len(T)):
+                src = afwDet.Source()
+                ss.append(src)
+            for k,v in columnmap.items():
+                if not v in C:
+                    continue
+                for src,val in zip(ss, T.getcolumn(v)):
+                    getattr(src, 'set'+k)(val)
 
+        print 'Read %i sources' % (len(ss))
+        #if opt.verb:
+        #    for i in range(100):
+        #        print '  (%.1f, %.1f) psf flux %.1f' % (ss[i].getXAstrom(), ss[i].getYAstrom(), ss[i].getPsfFlux())
+                                
         rerun(ss, W=opt.width, H=opt.height, filtername=opt.filter, log=log)
 

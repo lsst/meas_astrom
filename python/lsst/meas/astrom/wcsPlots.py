@@ -12,7 +12,7 @@ import lsst.afw.coord.coordLib as afwCoord
 from astrometry.libkd import spherematch
 
 
-def plotMatches(imgsources, refsources, matches, prefix):
+def plotMatches(imgsources, refsources, matches, wcs, W, H, prefix):
     clf()
 
     # Image sources
@@ -70,7 +70,7 @@ def plotMatches(imgsources, refsources, matches, prefix):
     savefig(fn)
 
 
-def plotPhotometry(imgsources, refsources, matches, prefix):
+def plotPhotometry(imgsources, refsources, matches, wcs, prefix):
     # All the id fields are zero, so I guess we have to do it the hard way...
 
     # NOTE that the reference source list here can contain duplicate
@@ -186,7 +186,7 @@ def plotPhotometry(imgsources, refsources, matches, prefix):
     savefig(fn)
 
 
-def plotCorrespondences(imgsources, refsources, matches, W, H, prefix):
+def plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix):
     ix = array([s.getXAstrom() for s in imgsources])
     iy = array([s.getYAstrom() for s in imgsources])
 
@@ -316,9 +316,9 @@ Source.getRa(), getDec()
 
 '''
     print 'WCS plots'
-    plotMatches(imgsources, refsources, matches, prefix)
-    plotPhotometry(imgsources, refsources, matches, prefix)
-    plotCorrespondences(imgsources, refsources, matches, W, H, prefix)
+    plotMatches(imgsources, refsources, matches, wcs, W, H, prefix)
+    plotPhotometry(imgsources, refsources, matches, wcs, prefix)
+    plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix)
 
     
 def plotDistortion(sip, W, H, ncells, prefix, title, exaggerate=1.):

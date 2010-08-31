@@ -122,7 +122,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         W,H = exp.getWidth(), exp.getHeight()
 
     solver.setImageSize(W, H)
-    solver.setLogLevel(2)
+    solver.setLogLevel(3)
     #solver.printSolverSettings(stdout)
 
     # FIXME -- add policy entry for this...
@@ -157,6 +157,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     
     #Do we want magnitude information
     filterName = chooseFilterName(exposure, policy, solver, log)
+    log.log(log.INFO, "Using filter: %s" % filterName)
     try:
         #cat = solver.getCatalogue(2*imgSizeInArcsec, filterName) 
         margin = 50 # pixels

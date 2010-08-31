@@ -282,11 +282,6 @@ void GlobalAstrometrySolution::_solverSetField() {
         N = starxySize;
     }
 
-    if (N > starxySize) {
-        string msg = "numBrightObjects set to a larger value than number of stars";
-        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
-    }
-
     starxy_t *shortlist = starxy_subset(_starxy, N);
     assert(shortlist);
 
