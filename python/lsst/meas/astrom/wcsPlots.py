@@ -5,12 +5,10 @@ from matplotlib.font_manager import FontProperties
 from pylab import *
 from numpy import array
 
-#import lsst.afw.image.imageLib as afwImage
 import lsst.afw.geom.geomLib as afwGeom
 import lsst.afw.coord.coordLib as afwCoord
 
 from astrometry.libkd import spherematch
-
 
 def plotMatches(imgsources, refsources, matches, wcs, W, H, prefix):
     clf()
@@ -71,33 +69,22 @@ def plotMatches(imgsources, refsources, matches, wcs, W, H, prefix):
 
 
 def plotPhotometry(imgsources, refsources, matches, wcs, prefix):
-    # All the id fields are zero, so I guess we have to do it the hard way...
-
-    # NOTE that the reference source list here can contain duplicate
-    # RA,Dec entries from each Astrometry.net index!
-    # Also, ref sources can be *far* outside the image bounds.
-    # --> not any more.
-
-    # one milli-arcsec in degrees
-    onemas = 1./(3600.*1000.)
-
     print '%i ref sources' % len(refsources)
+    print '%i image sources' % len(imgsources)
+    print '%i matches' % len(matches)
 
-    # Probably no longer necessary (and could be made *much* faster)...
-    uniqrefsources = []
-    for i,r1 in enumerate(refsources):
-        c1 = afwCoord.Coord(r1.getRa(), r1.getDec(), 2000.0)
-        duplicate = False
-        for r2 in uniqrefsources:
-            c2 = afwCoord.Coord(r2.getRa(), r2.getDec(), 2000.0)
-            if c1.angularSeparation(c2, afwCoord.DEGREES) <= onemas:
-                duplicate = True
-                break
-        if not duplicate:
-            uniqrefsources.append(r1)
-    print 'Trimmed reference sources from %i to %i\n' % (len(refsources), len(uniqrefsources))
-    origrefsources = refsources
-    refsources = uniqrefsources
+    # In the "matches" list:
+    #    m.first  is catalog
+    #    m.second is image
+
+    if False:
+        for m in matches[:10]:
+            print 'match: x,y,RA,Dec (%.1f,%.1f,%.5f,%.5f) -- x,y,RA,Dec (%.1f,%.1f,%.5f,%.5f)' % (
+                m.first.getXAstrom(), m.first.getYAstrom(), m.first.getRa(), m.first.getDec(),
+                m.second.getXAstrom(), m.second.getYAstrom(), m.second.getRa(), m.second.getDec())
+            print '  PSF flux: %.3g -- %.3g' % (m.first.getPsfFlux(), m.second.getPsfFlux())
+            #  match: x,y,RA,Dec (633.1,-0.5,150.57522,2.47127) -- x,y,RA,Dec (635.0,6.3,150.57512,2.47161)
+            #   PSF flux: 2.76e-09 -- 4.57e+03
 
     matchinds = []
     # match order is (cat,img).
@@ -142,9 +129,9 @@ def plotPhotometry(imgsources, refsources, matches, wcs, prefix):
     mrefmag  = (refmags[matchrefi])[okflux]
 
     # unmatched:
-    Uimg = ones(len(imgfluxes)).astype(bool)
+    Uimg = ones(len(imgfluxes), bool)
     Uimg[matchimgi] = False
-    Uref = ones(len(refmags)).astype(bool)
+    Uref = ones(len(refmags), bool)
     Uimg[matchrefi] = False
 
     uimgflux = imgfluxes[Uimg]

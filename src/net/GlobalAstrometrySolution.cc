@@ -76,33 +76,30 @@ static vector<double> getTagAlongFromIndex(index_t* index, string fieldName, int
     //Add meta information about every index listed in the policy file
     std::vector<std::string> indexArray = pol.getStringArray("indexFile");
 
-
-    _mylog.log(pexLog::Log::DEBUG, "Loading meta information on indices...");    
+    _mylog.log(pexLog::Log::DEBUG, "Loading Astrometry.net index files (AKA astrometry_net_data)...");
     for (unsigned int i = 0; i < indexArray.size(); ++i) {
         index_t *meta = _loadIndexMeta(pkgDir + "/" + indexArray[i]);
-        bool duplicate = false;
         if (!meta)
             continue;
         // Check for duplicates.
+        bool duplicate = false;
         for (unsigned int j=0; j<_indexList.size(); j++) {
             index_t* other = _indexList[j];
-            //These three values uniquely identify an index
+            //These three values [are supposed to] uniquely identify an index
             if (meta->indexid == other->indexid &&
                 meta->healpix == other->healpix &&
                 meta->hpnside == other->hpnside) {
-                string msg = boost::str(boost::format("Index file \"%s\" is a duplicate (has same index id, healpix and healpix nside) as index file \"%s\"")
-                                        % meta->indexname % other->indexname);
-                _mylog.log(pexLog::Log::WARN, msg);
+                _mylog.format(pexLog::Log::WARN, "Index file \"%s\" is a duplicate (has same index id, healpix and healpix nside) as index file \"%s\"",
+                              meta->indexname, other->indexname);
                 duplicate = true;
                 break;
             }
         }
         if (duplicate)
             continue;
-        
         _indexList.push_back(meta);
     }
-    _mylog.log(pexLog::Log::DEBUG, "Meta information loaded...");    
+    _mylog.format(pexLog::Log::DEBUG, "Loaded %i Astrometry.net index files", _indexList.size());
 }
 
 void GlobalAstrometrySolution::loadIndices() {
@@ -118,11 +115,8 @@ std::vector<const index_t*> GlobalAstrometrySolution::getIndexList() {
 }
 
 
-index_t *GlobalAstrometrySolution::_loadIndexMeta(std::string filename){
-  //return index_load(filename.c_str(), INDEX_ONLY_LOAD_METADATA, NULL);
-  index_t* index = index_load(filename.c_str(), INDEX_ONLY_LOAD_METADATA, NULL);
-
-  return index;
+index_t *GlobalAstrometrySolution::_loadIndexMeta(std::string filename) {
+    return index_load(filename.c_str(), INDEX_ONLY_LOAD_METADATA, NULL);
 }
 
 
@@ -163,7 +157,6 @@ void GlobalAstrometrySolution::setDefaultValues() {
 
     // Reset counters and record of best match found so far.
     solver_cleanup_field(_solver);
-    
 
     setParity(UNKNOWN_PARITY);
 }
@@ -856,13 +849,19 @@ GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, double m
     double r2;
     int i, W, H;
     int outi;
-
     Det::SourceSet out;
+
+    // since _isSolved is True, we should have the match...
+    assert(match);
 
     // arcsec/pix
     scale = tan_pixel_scale(&(match->wcstan));
     // add margin
     r2 = deg2distsq(match->radius_deg + arcsec2deg(scale * margin));
+
+    // The index should still be open...
+    assert(match->index);
+    assert(match->index->starkd);
     
     startree_search_for(match->index->starkd, match->center, r2, NULL, &radec, &starinds, &nstars);
     if (nstars == 0)
@@ -878,23 +877,30 @@ GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, double m
         // in bounds (+ margin) ?
         if (px < -margin || px > W+margin || py < -margin || py > H+margin)
             continue;
-
         // keep it
         Det::Source::Ptr src(new lsst::afw::detection::Source());
         src->setRa (radec[2*i+0]);
         src->setDec(radec[2*i+1]);
         out.push_back(src);
+        // record the indices that are in-bounds so we can retrieve tag-along data below...
         starinds[outi] = starinds[i];
         outi++;
     }
+    free(radec);
 
     vector<double> mag = getTagAlongFromIndex(match->index, filterName, starinds, outi);
     if (mag.size()) {
         for (unsigned int i=0; i<out.size(); i++) {
-            // seems crazy to convert back to flux...
-            out[i]->setPsfFlux(pow(10.0, -mag[i]/2.5));
+            // It seems crazy to convert mags back to fluxes...
+            double flux = pow(10.0, -mag[i]/2.5);
+            out[i]->setPsfFlux(flux);
+            _mylog.format(pexLog::Log::DEBUG, "catalog obj %i: mag %.1f, flux %.3g", i, mag[i], out[i]->getPsfFlux());
         }
+    } else {
+        _mylog.format(pexLog::Log::DEBUG, "Tag-along field \"%s\" was not found in the Astrometry.net index (file \"%s\").  Catalog fluxes will not be set.",
+                      filterName.c_str(), match->index->indexname);
     }
+    free(starinds);
 
     return out;
 }
@@ -1008,32 +1014,30 @@ static vector<double> getTagAlongFromIndex(index_t* index, string fieldName, int
     //Load magnitude information from catalogue
     double *tagAlong=NULL;
     string msg;
+
+    if (fieldName == "")
+        return vector<double>();
     
-    if (fieldName != "") {
-        // Grab tag-along data here. If it's not there, throw an exception
-        if (! startree_has_tagalong(index->starkd) ) {
-            msg = boost::str(boost::format("Index file \"%s\" has no metadata") % index->indexname);
-            throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
-        }
-        
-        tagAlong = startree_get_data_column(index->starkd, fieldName.c_str(), ids, numIds);
-
-        if( tagAlong == NULL) {
-            msg = boost::str(boost::format("No meta data called %s found in index %s") %
-                fieldName % index->indexname);
-            throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
-        }
-
-        vector<double> out(&tagAlong[0], &tagAlong[numIds]);
-        // the vector constructor makes a copy of the data. (right?)
-        // http://www.sgi.com/tech/stl/Vector.html#1
-        free(tagAlong);
-        return out;
+    // Grab tag-along data here. If it's not there, throw an exception
+    if (!startree_has_tagalong(index->starkd)) {
+        msg = boost::str(boost::format("Index file \"%s\" has no metadata") % index->indexname);
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
     }
-    
-    vector<double> out(0);
+
+    assert(index->starkd);
+    tagAlong = startree_get_data_column(index->starkd, fieldName.c_str(), ids, numIds);
+
+    if (tagAlong == NULL) {
+        msg = boost::str(boost::format("No meta data called %s found in index %s") %
+                         fieldName % index->indexname);
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
+    }
+
+    vector<double> out(tagAlong + 0, tagAlong + numIds);
+    // the vector constructor makes a copy of the data, so free() it
+    // http://www.sgi.com/tech/stl/Vector.html#1
+    free(tagAlong);
     return out;
-    
 }
 
 

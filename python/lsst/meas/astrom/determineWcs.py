@@ -170,7 +170,12 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         log.log(Log.WARN, "Requested filter: %s" %(filterName))
         log.log(Log.WARN, "Available filters: " + str(solver.getCatalogueMetadataFields()))
         raise
-            
+
+    if False:
+        for s in cat[:10]:
+            print 'cat: x,y,RA,Dec (%.1f,%.1f,%.2f,%.2f), psf flux %.3g' % (
+                s.getXAstrom(), s.getYAstrom(), s.getRa(), s.getDec(), s.getPsfFlux())
+    
 
     matchList=[]
     if True:
@@ -192,7 +197,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         #Use list of matches returned by astrometry.net
         log.log(Log.DEBUG, "Getting matched sources: Fluxes in band %s " %(filterName))
         matchList = solver.getMatchedSources(filterName)
-    
+
 
     if policy.get('calculateSip'):
         sipOrder = policy.get('sipOrder')
