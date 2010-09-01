@@ -80,19 +80,13 @@ void sip::MatchSrcToCatalogue::setWcs(CONST_PTR(lsst::afw::image::Wcs) wcs)
 
 //void MatchSrcToCatalogue::setCatSrcSet(const det::SourceSet &srcSet);
 
-/// Perform a deep copy of a set of sources from the image into this object
-///
-/// sourceSet is a vector of pointers to Sources. We create deep copies of the objects
-/// pointed to so that we can freely mutate them inside the object without affecting
-/// the input argument.
+/// sourceSet is a vector of pointers to Sources.
 void sip::MatchSrcToCatalogue::setImgSrcSet(const det::SourceSet &srcSet) {
-    //Destroy the old imgSet
-    //imgSet.~imgSet();
-    _imgSet = _deepCopySourceSet(srcSet);
+    _imgSet = srcSet;
 }
 
 void sip::MatchSrcToCatalogue::setCatSrcSet(const det::SourceSet &srcSet) {
-    _catSet = _deepCopySourceSet(srcSet);
+    _catSet = srcSet;
 }
 
 void sip::MatchSrcToCatalogue::findMatches() {
@@ -195,20 +189,3 @@ std::vector<det::SourceMatch> sip::MatchSrcToCatalogue::getMatches() {
 }
     
 
-det::SourceSet sip::MatchSrcToCatalogue::_deepCopySourceSet(const det::SourceSet &in) {
-
-    unsigned int size = in.size();
-    det::SourceSet out;
-
-    for (unsigned int i = 0; i<size; ++i){
-        //Allocate heap memory for a new object, pointed to by tmp
-        det::Source::Ptr tmp(new det::Source);
-        //Deep copy the ith Source
-        (*tmp) = *(in[i]);
-        out.push_back(tmp);
-    }
-
-    return out;
-}
-        
-    
