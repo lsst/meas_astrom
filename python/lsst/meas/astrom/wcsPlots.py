@@ -86,42 +86,102 @@ def plotPhotometry(imgsources, refsources, matches, wcs, prefix):
             #  match: x,y,RA,Dec (633.1,-0.5,150.57522,2.47127) -- x,y,RA,Dec (635.0,6.3,150.57512,2.47161)
             #   PSF flux: 2.76e-09 -- 4.57e+03
 
-    matchinds = []
-    # match order is (cat,img).
-    for m in matches:
-        mcat = m.first
-        mradec = afwCoord.Coord(mcat.getRa(), mcat.getDec(), 2000.0)
-        cati = -1
-        for i,s in enumerate(refsources):
-            sradec = afwCoord.Coord(s.getRa(), s.getDec(), 2000.0)
-            sep = mradec.angularSeparation(sradec, afwCoord.DEGREES)
-            if sep < onemas:
-                cati = i
-                break
-        mimg = m.second
+    if False:
+        unmatchedimgs = [x for x in imgsources if not x in matchedimgs]
+        unmatchedrefs = [x for x in refsources if not x in matchedrefs]
 
-        imgi = -1
-        for i,s in enumerate(imgsources):
-            sep = hypot(mimg.getXAstrom() - s.getXAstrom(),
-                        mimg.getYAstrom() - s.getYAstrom())
-            # 1 milli-pixel
-            if sep < 1e-3:
-                imgi = i
-                break
-        matchinds.append((cati, imgi))
-    matchinds = array(matchinds)
+    matchedimgs = [m.second for m in matches]
+    matchedrefs = [m.first  for m in matches]
 
-    #print 'Match indices:', matchinds
+    # At this point, none of the Id fields are set.
+    if False:
+        for field in dir(m.first):
+            print 'field:', field, '=', getattr(m.first, field)
+            if field.startswith('get'):
+                print '   -->', getattr(m.first, field)()
+
+    # Since we need to figure out which of the reference sources in the matched-list
+    # are which in the whole list, we need some unique ID for each one.
+    # These are weird swigged boost::shared_ptr objects; they don't compare correctly.
+
+    origrefids = [s.getId() for s in refsources]
+    origimgids = [s.getId() for s in imgsources]
+
+    for i,s in enumerate(imgsources):
+        s.setId(i)
+    for i,s in enumerate(refsources):
+        s.setId(i)
+
+    print 'ids:', [s.getId() for s in refsources]
+    print 'ref ids:', [s.getId() for s in imgsources]
+
+    matchrefi = [m.first.getId() for m in matches]
+    matchimgi = [m.second.getId() for m in matches]
+
+    imgsources = [s for s in imgsources]
+    refsources = [s for s in refsources]
+
+    from astrometry.libkd.spherematch import match_radec
+
+    (allrefi, mrefi, dist) = match_radec(array([s.getRa() for s in refsources]),
+                                         array([s.getDec() for s in refsources]),
+                                         array([s.getRa() for s in matchedrefs]),
+                                         array([s.getDec() for s in matchedrefs]),
+                                         0.001/3600.)
+    print allrefi
+    print mrefi
+    print dist
+
+    print repr(refsources[allrefi[0]])
+    print repr(matchedrefs[mrefi[0]])
+
+    print matchedimgs[:5]
+    print imgsources[:5]
+    print matchedrefs[:5]
+    print refsources[:5]
+
+    #matchrefi = array([i for i,m in enumerate(refsources) if m in matchedrefs])
+    #matchimgi = array([i for i,m in enumerate(imgsources) if m in matchedimgs])
+
+    print '%i matches.' % len(matches)
+    print 'Img inds:', matchimgi
+    print 'Ref inds:', matchrefi
+
+    if False:
+        matchinds = []
+        # match order is (cat,img).
+        for m in matches:
+            mcat = m.first
+            mradec = afwCoord.Coord(mcat.getRa(), mcat.getDec(), 2000.0)
+            cati = -1
+            for i,s in enumerate(refsources):
+                sradec = afwCoord.Coord(s.getRa(), s.getDec(), 2000.0)
+                sep = mradec.angularSeparation(sradec, afwCoord.DEGREES)
+                if sep < onemas:
+                    cati = i
+                    break
+            mimg = m.second
+
+            imgi = -1
+            for i,s in enumerate(imgsources):
+                sep = hypot(mimg.getXAstrom() - s.getXAstrom(),
+                            mimg.getYAstrom() - s.getYAstrom())
+                # 1 milli-pixel
+                if sep < 1e-3:
+                    imgi = i
+                    break
+            matchinds.append((cati, imgi))
+        matchinds = array(matchinds)
+        #print 'Match indices:', matchinds
+        # Matched mags:
+        matchrefi = matchinds[:,0]
+        matchimgi = matchinds[:,1]
 
     def flux2mag(f):
         return -2.5*log10(f)
 
     refmags = array([flux2mag(s.getPsfFlux()) for s in refsources])
     imgfluxes = array([s.getPsfFlux() for s in imgsources])
-
-    # Matched mags:
-    matchrefi = matchinds[:,0]
-    matchimgi = matchinds[:,1]
 
     mimgflux = imgfluxes[matchimgi]
     okflux = (mimgflux > 1)
