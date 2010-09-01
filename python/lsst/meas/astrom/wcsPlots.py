@@ -68,7 +68,7 @@ def plotMatches(imgsources, refsources, matches, wcs, W, H, prefix):
     savefig(fn)
 
 
-def plotPhotometry(imgsources, refsources, matches, wcs, prefix):
+def plotPhotometry(imgsources, refsources, matches, prefix):
     print '%i ref sources' % len(refsources)
     print '%i image sources' % len(imgsources)
     print '%i matches' % len(matches)
@@ -146,7 +146,7 @@ def plotPhotometry(imgsources, refsources, matches, wcs, prefix):
     axis(ax)
     xlabel('Image instrumental mag')
     ylabel('Reference catalog mag')
-    
+
     fn = prefix + '-photom.png'
     print 'Saving', fn
     savefig(fn)
@@ -283,7 +283,7 @@ Source.getRa(), getDec()
 '''
     print 'WCS plots'
     plotMatches(imgsources, refsources, matches, wcs, W, H, prefix)
-    plotPhotometry(imgsources, refsources, matches, wcs, prefix)
+    plotPhotometry(imgsources, refsources, matches, prefix)
     plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix)
 
     

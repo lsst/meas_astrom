@@ -44,7 +44,8 @@ except ImportError, e:
     except NameError:
         display = False
 
-def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=False, forceImageSize=None):
+def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=False, forceImageSize=None,
+                 returnRefStars=False):
     """Top level function for calculating a WCS. 
     
     Given an initial guess at a WCS (hidden inside an exposure) and a set of
@@ -149,15 +150,11 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     # Generate a list of catalogue objects in the field.
     #
     
-    #First obtain the catalogue-listed positions of stars
-    log.log(log.DEBUG, "Determining match objects")
-    imgSizeInArcsec = getImageSizeInArcsec(srcSet, wcs)
-    
-    #Do we want magnitude information
+    # First obtain the catalogue-listed positions of stars
+    log.log(log.DEBUG, "Finding catalog objects")
     filterName = chooseFilterName(exposure, policy, solver, log)
     log.log(log.INFO, "Using filter: %s" % filterName)
     try:
-        #cat = solver.getCatalogue(2*imgSizeInArcsec, filterName) 
         margin = 50 # pixels
         cat = solver.getCatalogueForSolvedField(filterName, margin)
     except LsstCppException, e:
@@ -173,7 +170,6 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         for s in cat[:10]:
             print 'cat: x,y,RA,Dec (%.1f,%.1f,%.2f,%.2f), psf flux %.3g' % (
                 s.getXAstrom(), s.getYAstrom(), s.getRa(), s.getDec(), s.getPsfFlux())
-    
 
     matchList=[]
     if True:
@@ -218,7 +214,10 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
             # plot the catalogue positions
             ds9.dot("+", s1.getXAstrom(), s1.getYAstrom(), size=3, ctype=ds9.BLUE, frame=frame)
 
-    return [matchList, wcs]
+    rtn = [matchList, wcs]
+    if returnRefStars:
+        rtn.append(cat)
+    return rtn
 
 class StdoutLog():
     """If no log is passed, this class just writes the output to stdout, regardless of

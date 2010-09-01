@@ -1,3 +1,4 @@
+import os
 import sys
 import types
 from optparse import OptionParser
@@ -9,6 +10,10 @@ import lsst.daf.persistence              as dafPersist
 import lsst.daf.base                     as dafBase
 import lsst.afw.image                    as afwImage
 import lsst.afw.detection                as afwDet
+
+import lsst.meas.astrom.net as astromNet
+import lsst.meas.astrom.wcsPlots as wcsPlots
+import lsst.meas.photocal as photocal
 
 from astrometry.util.pyfits_utils import *
 from numpy import array
@@ -59,7 +64,7 @@ class fakeExposure(ducky):
 
 
 def rerun(sourceset, policy=None, exposure=None, wcs=None,
-          W=None, H=None, xy0=None, filtername=None, log=None):
+          W=None, H=None, xy0=None, filtername=None, log=None, fieldname=None):
 
     if exposure is None:
         # Create a duck of the appropriate quackiness.
@@ -97,8 +102,14 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
     print 'determineWcs()...'
     print
 
-    (matchList,wcs) = measAstrom.determineWcs(policy, exposure, sourceset, log=log,
-                                              doTrim=doTrim)
+    # *sigh*.
+    path=os.path.join(os.environ['ASTROMETRY_NET_DATA_DIR'], "metadata.paf")
+    solver = astromNet.GlobalAstrometrySolution(path, log)
+    matchThreshold = policy.get('matchThreshold')
+    solver.setMatchThreshold(matchThreshold)
+
+    (matchList,wcs,refstars) = measAstrom.determineWcs(policy, exposure, sourceset, log=log,
+                                                       doTrim=doTrim, solver=solver, returnRefStars=True)
 
     print
     print 'determineWcs() finished.  Got:'
@@ -109,7 +120,7 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
         print '%i matches' % len(matchList)
 
         for sm in matchList:
-            print '  (%.1f, %.1f) flux %.1f   ---   (%.1f, %.1f) flux %.1f' % (
+            print '  (%.1f, %.1f) flux %.3g   ---   (%.1f, %.1f) flux %.3g' % (
                 sm.first.getXAstrom(), sm.first.getYAstrom(), sm.first.getPsfFlux(),
                 sm.second.getXAstrom(), sm.second.getYAstrom(), sm.second.getPsfFlux())
 
@@ -135,7 +146,22 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
         im = afwImage.ImageF()
         im.writeFits('out.wcs', fitshdr)
 
+    # Do photocal too.
+    print 'Doing photocal...'
+    magObj = photocal.calcPhotoCal(matchList, log=log, goodFlagValue=0)
+    print 'got:', magObj
 
+    wcsPlots.plotPhotometry(sourceset, refstars, matchList, prefix='photocal')
+    from pylab import axis,plot,savefig,title
+    ax = axis()
+    zp = magObj.getMag(1.)
+    print 'Zero-point:', zp
+    plot([ax[0], ax[1]], [ax[0]+zp, ax[1]+zp], 'b-')
+    axis(ax)
+    if fieldname is not None:
+        title(fieldname)
+    savefig('photocal-zp.png')
+    
 
 if __name__ == '__main__':
     parser = OptionParser(usage='%prog [options] <*.boost or *.fits SourceSets>')
@@ -193,5 +219,5 @@ if __name__ == '__main__':
         #    for i in range(100):
         #        print '  (%.1f, %.1f) psf flux %.1f' % (ss[i].getXAstrom(), ss[i].getYAstrom(), ss[i].getPsfFlux())
                                 
-        rerun(ss, W=opt.width, H=opt.height, filtername=opt.filter, log=log)
+        rerun(ss, W=opt.width, H=opt.height, filtername=opt.filter, log=log, fieldname=fn)
 
