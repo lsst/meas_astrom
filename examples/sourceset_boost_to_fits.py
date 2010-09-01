@@ -39,7 +39,7 @@ if __name__ == '__main__':
     out = tabledata()
     for getterName,name in fields:
         out.set(name, array([getattr(s, getterName)() for s in ss]))
-    print 'Writing %i columns to %s' % (len(out.get_columns()), outfn)
+    print 'Writing %i columns to %s' % (len(out.columns()), outfn)
     out.writeto(outfn)
 
         
