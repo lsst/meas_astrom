@@ -34,8 +34,6 @@ import sip.cleanBadPoints as cleanBadPoints
 
 import lsst.afw.display.ds9 as ds9
 
-#import wcsPlots
-
 try:
     import lsstDebug
 
@@ -179,7 +177,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
 
     matchList=[]
     if True:
-        #Now generate a list of matching objects
+        # Generate a list of matching objects
         distInArcsec = policy.get('distanceForCatalogueMatchinArcsec')
         cleanParam = policy.get('cleaningParameter')
 
@@ -198,7 +196,6 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         log.log(Log.DEBUG, "Getting matched sources: Fluxes in band %s " %(filterName))
         matchList = solver.getMatchedSources(filterName)
 
-
     if policy.get('calculateSip'):
         sipOrder = policy.get('sipOrder')
         wcs, matchList = calculateSipTerms(wcs, cat, srcSet, distInArcsec, cleanParam, sipOrder, log)
@@ -211,7 +208,6 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
 
     if True:
         import wcsPlots
-
         wcsPlots.wcsPlots(tanwcs, sourceSet, cat, tanMatches, W, H, 'tan', '')
         if sipwcs and sipMatches:
             wcsPlots.wcsPlots(sipwcs, sourceSet, cat, sipMatches, W, H, 'sip', '')

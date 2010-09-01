@@ -952,7 +952,7 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
         // Ensure the index is loaded...
         index_reload(index);
 
-        //Find nearby stars
+        // Find nearby stars
         double *radec = NULL;
         int *starinds = NULL;
         int nstars = 0;
@@ -977,7 +977,7 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
 #else
             vector<double> mag = getTagAlongFromIndex(index, filterName, starinds, nstars);
 #endif            
-            //Create a source for every position stored
+            // Create a source for every position stored
             for (int j = 0; j<nstars; ++j) {
                 Det::Source::Ptr ptr(new lsst::afw::detection::Source());
 
