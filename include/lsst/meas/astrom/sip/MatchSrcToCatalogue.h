@@ -90,7 +90,6 @@ private:
     CONST_PTR(lsst::afw::image::Wcs) _wcs;
     double _distInArcsec;               ///< How close must two objects be to match 
 
-    det::SourceSet _deepCopySourceSet(const det::SourceSet &in);
     void _removeOneToMany();
     void _removeManyToOne();
 };
