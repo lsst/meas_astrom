@@ -10,7 +10,22 @@ import lsst.afw.coord.coordLib as afwCoord
 
 from astrometry.libkd import spherematch
 
-def plotMatches(imgsources, refsources, matches, wcs, W, H, prefix):
+def _getplotdata(format='png'):
+    import cStringIO
+    io = cStringIO.StringIO()
+    savefig(io, format=format)
+    val = io.getvalue()
+    io.close()
+    return val
+
+def _output(fn, format, write):
+    if write:
+        savefig(fn)
+    else:
+        return {fn: _getplotdata(format)}
+
+def plotMatches(imgsources, refsources, matches, wcs, W, H, prefix,
+                saveplot=True, format='png'):
     clf()
 
     # Image sources
@@ -62,13 +77,12 @@ def plotMatches(imgsources, refsources, matches, wcs, W, H, prefix):
               'center right',
               numpoints=1,
               prop=FontProperties(size='small'))
-      
-    fn = prefix + '-matches.png'
-    print 'Saving', fn
-    savefig(fn)
 
+    fn = prefix + '-matches.' + format
+    return _output(fn, format, saveplot)
 
-def plotPhotometry(imgsources, refsources, matches, prefix):
+def plotPhotometry(imgsources, refsources, matches, prefix,
+                   saveplot=True, format='png'):
     print '%i ref sources' % len(refsources)
     print '%i image sources' % len(imgsources)
     print '%i matches' % len(matches)
@@ -147,9 +161,54 @@ def plotPhotometry(imgsources, refsources, matches, prefix):
     xlabel('Image instrumental mag')
     ylabel('Reference catalog mag')
 
-    fn = prefix + '-photom.png'
-    print 'Saving', fn
-    savefig(fn)
+    fn = prefix + '-photom.' + format
+    return _output(fn, format, saveplot)
+
+def plotCorrespondences2(imgsources, refsources, matches, wcs, W, H, prefix,
+                         saveplot=True, format='png'):
+    from astrometry.util.plotshift import plotshift
+
+    ix = array([s.getXAstrom() for s in imgsources])
+    iy = array([s.getYAstrom() for s in imgsources])
+
+    rx,ry = [],[]
+    for r in refsources:
+        xy = wcs.skyToPixel(r.getRa(), r.getDec())
+        rx.append(xy[0])
+        ry.append(xy[1])
+    rx = array(rx)
+    ry = array(ry)
+
+    ixy = vstack((ix, iy)).T
+    rxy = vstack((rx, ry)).T
+
+    cell = 10
+    plotshift(ixy, rxy, dcell=cell, ncells=9, W=W, H=H)
+    fn = prefix + '-shift1.' + format
+    P1 = _output(fn, format, saveplot)
+
+    clf()
+    hot()
+    plotshift(ixy, rxy, dcell=cell, ncells=9, W=W, H=H, hist=True, nhistbins=2*cell+1)
+    fn = prefix + '-shift2.' + format
+    P2 = _output(fn, format, saveplot)
+
+    cell = 2
+    plotshift(ixy, rxy, dcell=cell, ncells=9, W=W, H=H)
+    fn = prefix + '-shift3.' + format
+    P3 = _output(fn, format, saveplot)
+
+    clf()
+    hot()
+    plotshift(ixy, rxy, dcell=cell, ncells=9, W=W, H=H, hist=True, nhistbins=10*cell+1)
+    fn = prefix + '-shift4.' + format
+    P4 = _output(fn, format, saveplot)
+
+    if not saveplot:
+        P1.update(P2)
+        P1.update(P3)
+        P1.update(P4)
+        return P1
 
 
 def plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix):
@@ -251,7 +310,8 @@ def plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix):
     savefig(fn)
 
 
-def wcsPlots(wcs, imgsources, refsources, matches, W, H, prefix, titleprefix):
+def wcsPlots(wcs, imgsources, refsources, matches, W, H, prefix, titleprefix,
+             plotdata=None, plotformat='png'):
     '''Create diagnostic plots for WCS determination.
 
     wcs -- an lsst.afw.image.Wcs
@@ -282,12 +342,23 @@ Source.getRa(), getDec()
 
 '''
     print 'WCS plots'
-    plotMatches(imgsources, refsources, matches, wcs, W, H, prefix)
-    plotPhotometry(imgsources, refsources, matches, prefix)
-    plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix)
+    D = plotMatches(imgsources, refsources, matches, wcs, W, H, prefix,
+                    saveplot=(plotdata is None), format=plotformat)
+    if plotdata is not None:
+        plotdata.update(D)
+    D = plotPhotometry(imgsources, refsources, matches, prefix,
+                       saveplot=(plotdata is None), format=plotformat)
+    if plotdata is not None:
+        plotdata.update(D)
+    #plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix)
+    D = plotCorrespondences2(imgsources, refsources, matches, wcs, W, H, prefix,
+                             saveplot=(plotdata is None), format=plotformat)
+    if plotdata is not None:
+        plotdata.update(D)
 
     
-def plotDistortion(sip, W, H, ncells, prefix, title, exaggerate=1.):
+def plotDistortion(sip, W, H, ncells, prefix, title, exaggerate=1.,
+                   saveplot=True, format='png'):
     '''
     Produces a plot showing the SIP distortion that was found, by drawing
     a grid and distorting it.  Allows exaggeration of the distortion for ease
@@ -321,6 +392,10 @@ def plotDistortion(sip, W, H, ncells, prefix, title, exaggerate=1.):
         dx,dy = [],[]
         for x in xx:
             pix = afwGeom.makePointD(x, y)
+            print 'Sip is', sip
+            print 'has dir:'
+            for k in dir(sip):
+                print '  ', k
             distpix = sip.distortPixel(pix)
             dx.append(distpix[0])
             dy.append(distpix[1])
@@ -351,7 +426,6 @@ def plotDistortion(sip, W, H, ncells, prefix, title, exaggerate=1.):
     axis('scaled')
     axis([0, W, 0, H])
 
-    fn = prefix + '-distort.png'
-    print 'Saving', fn
-    savefig(fn)
+    fn = prefix + '-distort.' + format
+    return _output(fn, format, saveplot)
 

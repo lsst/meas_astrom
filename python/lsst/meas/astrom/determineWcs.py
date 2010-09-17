@@ -45,7 +45,7 @@ except ImportError, e:
         display = False
 
 def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=False, forceImageSize=None,
-                 returnRefStars=False):
+                 returnRefStars=False, plotFormat=None, returnPlotData=False):
     """Top level function for calculating a WCS. 
     
     Given an initial guess at a WCS (hidden inside an exposure) and a set of
@@ -202,12 +202,19 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         
     exposure.setWcs(wcs)
 
+    plotdata = {} if returnPlotData else None
+
     if True:
         import wcsPlots
-        wcsPlots.wcsPlots(tanwcs, sourceSet, cat, tanMatches, W, H, 'tan', '')
+        wcsPlots.wcsPlots(tanwcs, sourceSet, cat, tanMatches, W, H, 'tan', '', plotdata, plotFormat)
         if sipwcs and sipMatches:
-            wcsPlots.wcsPlots(sipwcs, sourceSet, cat, sipMatches, W, H, 'sip', '')
-            wcsPlots.plotDistortion(sipwcs, W, H, 200, 'sip', '', exaggerate=10.)
+            wcsPlots.wcsPlots(sipwcs, sourceSet, cat, sipMatches, W, H, 'sip', '', plotdata, plotFormat)
+            if hasattr(sipwcs, 'distortPixel'):
+                D = wcsPlots.plotDistortion(sipwcs, W, H, 200, 'sip', '', exaggerate=10., saveplot=returnPlotData, format=plotformat)
+                if plotdata is not None:
+                    plotdata.update(D)
+            else:
+                log.log(Log.DEBUG, 'SIP WCS object has no distortPixel() function -- no plotting distortion map.')
 
     if display:
         for s1, s2, d in matchList:
@@ -217,6 +224,10 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     rtn = [matchList, wcs]
     if returnRefStars:
         rtn.append(cat)
+
+    if returnPlotData:
+        rtn.append(plotdata)
+
     return rtn
 
 class StdoutLog():

@@ -64,7 +64,8 @@ class fakeExposure(ducky):
 
 
 def rerun(sourceset, policy=None, exposure=None, wcs=None,
-          W=None, H=None, xy0=None, filtername=None, log=None, fieldname=None):
+          W=None, H=None, xy0=None, filtername=None, log=None, fieldname=None,
+          plotprefix='', outwcsfn='out.wcs'):
 
     if exposure is None:
         # Create a duck of the appropriate quackiness.
@@ -108,8 +109,10 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
     matchThreshold = policy.get('matchThreshold')
     solver.setMatchThreshold(matchThreshold)
 
-    (matchList,wcs,refstars) = measAstrom.determineWcs(policy, exposure, sourceset, log=log,
-                                                       doTrim=doTrim, solver=solver, returnRefStars=True)
+    (matchList,wcs,refstars,plots) = measAstrom.determineWcs(policy, exposure, sourceset, log=log,
+                                                              doTrim=doTrim, solver=solver,
+                                                              returnRefStars=True,
+                                                              returnPlotData=True, plotFormat='png')
 
     print
     print 'determineWcs() finished.  Got:'
@@ -130,7 +133,6 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
 
         # No dice: daf_persistence can't write PropertySets to FITS.
         if False:
-            outfn = 'out.wcs'
             loc = dafPersist.LogicalLocation(outfn)
             storageList = dafPersist.StorageList()
             additionalData = dafBase.PropertySet()
@@ -144,14 +146,15 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
 
         # Create a fake Image in order to abuse its writeFits() method.
         im = afwImage.ImageF()
-        im.writeFits('out.wcs', fitshdr)
+        im.writeFits(outwcsfn, fitshdr)
 
     # Do photocal too.
     print 'Doing photocal...'
     magObj = photocal.calcPhotoCal(matchList, log=log, goodFlagValue=0)
     print 'got:', magObj
 
-    wcsPlots.plotPhotometry(sourceset, refstars, matchList, prefix='photocal')
+    wcsPlots.plotPhotometry(sourceset, refstars, matchList, prefix='photocal',
+                            saveplot=True)
     from pylab import axis,plot,savefig,title
     ax = axis()
     zp = magObj.getMag(1.)
@@ -160,22 +163,29 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
     axis(ax)
     if fieldname is not None:
         title(fieldname)
-    savefig('photocal-zp.png')
-    
+    savefig(plotprefix + 'photocal-zp.png')
 
-if __name__ == '__main__':
+    print 'plots:'
+    for k,v in plots.items():
+        print '  ',k,'len', len(v)
+        f = open(plotprefix + k, 'wb')
+        f.write(v)
+        f.close()
+
+
+def rerun_main(sysargs):
     parser = OptionParser(usage='%prog [options] <*.boost or *.fits SourceSets>')
-
     parser.add_option('-W', '--width', dest='width', type='int', help='Image width (pixels)')
     parser.add_option('-H', '--height', dest='height', type='int', help='Image height (pixels)')
     parser.add_option('-f', '--filter', dest='filter', help='Filter name')
+    parser.add_option('-p', '--prefix', dest='plotprefix', help='Plot filename prefix')
     parser.add_option('-v', '--verbose', dest='verb', help='+verbose', action='store_true')
     #parser.add_option('-x', '--x-column', dest='xcol', help='X column name (for FITS inputs)')
-    parser.set_defaults(width=None, height=None, filter=None, verb=False)
-    opt,args = parser.parse_args()
+    parser.set_defaults(width=None, height=None, filter=None, verb=False, plotprefix='')
+    opt,args = parser.parse_args(sysargs)
     if len(args) == 0:
         parser.print_help()
-        sys.exit(0)
+        return -1
 
     level = pexLog.Log.DEBUG if opt.verb else pexLog.Log.INFO
     log = pexLog.Log(pexLog.Log.getDefaultLog(), "rerun-wcs", level);
@@ -219,5 +229,10 @@ if __name__ == '__main__':
         #    for i in range(100):
         #        print '  (%.1f, %.1f) psf flux %.1f' % (ss[i].getXAstrom(), ss[i].getYAstrom(), ss[i].getPsfFlux())
                                 
-        rerun(ss, W=opt.width, H=opt.height, filtername=opt.filter, log=log, fieldname=fn)
+        rerun(ss, W=opt.width, H=opt.height, filtername=opt.filter, log=log, fieldname=fn,
+              plotprefix=opt.plotprefix)
+        return 0
+    
+if __name__ == '__main__':
+    sys.exit(rerun_main(sys.argv))
 
