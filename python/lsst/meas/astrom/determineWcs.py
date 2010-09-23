@@ -204,7 +204,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
 
     plotdata = {} if returnPlotData else None
 
-    if True:
+    if False:
         import wcsPlots
         wcsPlots.wcsPlots(tanwcs, sourceSet, cat, tanMatches, W, H, 'tan', '', plotdata, plotFormat)
         if sipwcs and sipMatches:

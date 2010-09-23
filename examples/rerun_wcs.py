@@ -12,11 +12,10 @@ import lsst.afw.image                    as afwImage
 import lsst.afw.detection                as afwDet
 
 import lsst.meas.astrom.net as astromNet
-import lsst.meas.astrom.wcsPlots as wcsPlots
 import lsst.meas.photocal as photocal
 
 from astrometry.util.pyfits_utils import *
-from numpy import array
+from numpy import array,unique
 
 from sourceset_boost_to_fits import *
 
@@ -65,7 +64,7 @@ class fakeExposure(ducky):
 
 def rerun(sourceset, policy=None, exposure=None, wcs=None,
           W=None, H=None, xy0=None, filtername=None, log=None, fieldname=None,
-          plotprefix='', outwcsfn='out.wcs'):
+          plotprefix='', outwcsfn='out.wcs', doPlots=False):
 
     if exposure is None:
         # Create a duck of the appropriate quackiness.
@@ -123,9 +122,13 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
         print '%i matches' % len(matchList)
 
         for sm in matchList:
-            print '  (%.1f, %.1f) flux %.3g   ---   (%.1f, %.1f) flux %.3g' % (
-                sm.first.getXAstrom(), sm.first.getYAstrom(), sm.first.getPsfFlux(),
-                sm.second.getXAstrom(), sm.second.getYAstrom(), sm.second.getPsfFlux())
+            print '  id %i (%.1f, %.1f) flux %.3g   ---   id %i (%.1f, %.1f) flux %.3g' % (
+                sm.first.getId(),  sm.first.getXAstrom(), sm.first.getYAstrom(), sm.first.getPsfFlux(),
+                sm.second.getId(), sm.second.getXAstrom(), sm.second.getYAstrom(), sm.second.getPsfFlux())
+
+        srcids = array([sm.second.getId() for sm in matchList])
+        print '%i matches; %i unique image sources' % (len(matchList), len(unique(srcids)))
+        assert(len(srcids) == len(unique(srcids)))
 
         fitshdr = wcs.getFitsMetadata()
         print 'Found WCS:'
@@ -148,29 +151,33 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
         im = afwImage.ImageF()
         im.writeFits(outwcsfn, fitshdr)
 
+    # Write matchList.
+
     # Do photocal too.
     print 'Doing photocal...'
     magObj = photocal.calcPhotoCal(matchList, log=log, goodFlagValue=0)
     print 'got:', magObj
 
-    wcsPlots.plotPhotometry(sourceset, refstars, matchList, prefix='photocal',
-                            saveplot=True)
-    from pylab import axis,plot,savefig,title
-    ax = axis()
-    zp = magObj.getMag(1.)
-    print 'Zero-point:', zp
-    plot([ax[0], ax[1]], [ax[0]+zp, ax[1]+zp], 'b-')
-    axis(ax)
-    if fieldname is not None:
-        title(fieldname)
-    savefig(plotprefix + 'photocal-zp.png')
-
-    print 'plots:'
-    for k,v in plots.items():
-        print '  ',k,'len', len(v)
-        f = open(plotprefix + k, 'wb')
-        f.write(v)
-        f.close()
+    if doPlots:
+        import lsst.meas.astrom.wcsPlots as wcsPlots
+        wcsPlots.plotPhotometry(sourceset, refstars, matchList, prefix='photocal',
+                                saveplot=True)
+        from pylab import axis,plot,savefig,title
+        ax = axis()
+        zp = magObj.getMag(1.)
+        print 'Zero-point:', zp
+        plot([ax[0], ax[1]], [ax[0]+zp, ax[1]+zp], 'b-')
+        axis(ax)
+        if fieldname is not None:
+            title(fieldname)
+        savefig(plotprefix + 'photocal-zp.png')
+        
+        print 'plots:'
+        for k,v in plots.items():
+            print '  ',k,'len', len(v)
+            f = open(plotprefix + k, 'wb')
+            f.write(v)
+            f.close()
 
 
 def rerun_main(sysargs):
@@ -179,9 +186,9 @@ def rerun_main(sysargs):
     parser.add_option('-H', '--height', dest='height', type='int', help='Image height (pixels)')
     parser.add_option('-f', '--filter', dest='filter', help='Filter name')
     parser.add_option('-p', '--prefix', dest='plotprefix', help='Plot filename prefix')
+    parser.add_option('-P', '--plots', dest='doplots', help='Make plots?', action='store_true')
     parser.add_option('-v', '--verbose', dest='verb', help='+verbose', action='store_true')
-    #parser.add_option('-x', '--x-column', dest='xcol', help='X column name (for FITS inputs)')
-    parser.set_defaults(width=None, height=None, filter=None, verb=False, plotprefix='')
+    parser.set_defaults(width=None, height=None, filter=None, verb=False, plotprefix='', doplots=False)
     opt,args = parser.parse_args(sysargs)
     if len(args) == 0:
         parser.print_help()
@@ -201,17 +208,20 @@ def rerun_main(sysargs):
             C = T.columns()
             # FITS -> Source.setXXX()
             columnmap = { #'SourceId':'id',
-                          'XAstrom':'x',
-                          'YAstrom':'y',
-                          'XAstromErr': 'xerr',
-                          'YAstromErr': 'yerr',
-                          'Ra': 'ra',
-                          'Dec': 'dec',
-                          'Ixx': 'ixx',
-                          'Iyy': 'iyy',
-                          'PsfFlux': 'f_psf',
-                          'ApFlux': 'f_ap',
-                          }
+                'XAstrom':'x',
+                'YAstrom':'y',
+                'XAstromErr': 'xerr',
+                'YAstromErr': 'yerr',
+                'Ra': 'ra',
+                'Dec': 'dec',
+                'Ixx': 'ixx',
+                'Iyy': 'iyy',
+                'PsfFlux': 'f_psf',
+                'ApFlux': 'f_ap',
+                'Id':'id',
+                }
+            conversions = {'id':int}
+
             for k,v in columnmap.items():
                 if not v in C:
                     print 'Warning, column', v, 'is not in the FITS table -- won\'t set Source\'s', k
@@ -221,18 +231,24 @@ def rerun_main(sysargs):
             for k,v in columnmap.items():
                 if not v in C:
                     continue
+                totype = conversions.get(v, float)
+                print 'Setting source attribute',k,'from FITS column', v
                 for src,val in zip(ss, T.getcolumn(v)):
-                    getattr(src, 'set'+k)(val)
+                    #print 'val is', type(val), val
+                    getattr(src, 'set'+k)(totype(val))
 
         print 'Read %i sources' % (len(ss))
+        srcids = array([s.getId() for s in ss])
+        print '%i sources; %i unique IDs' % (len(ss), len(unique(srcids)))
+
         #if opt.verb:
         #    for i in range(100):
         #        print '  (%.1f, %.1f) psf flux %.1f' % (ss[i].getXAstrom(), ss[i].getYAstrom(), ss[i].getPsfFlux())
                                 
         rerun(ss, W=opt.width, H=opt.height, filtername=opt.filter, log=log, fieldname=fn,
-              plotprefix=opt.plotprefix)
+              plotprefix=opt.plotprefix, doPlots=opt.doplots)
         return 0
     
 if __name__ == '__main__':
-    sys.exit(rerun_main(sys.argv))
+    sys.exit(rerun_main(sys.argv[1:]))
 
