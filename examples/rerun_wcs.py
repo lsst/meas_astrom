@@ -83,7 +83,7 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
         policy = pexPolicy.Policy.createPolicy(pexPolicy.PolicyString(
             '''#<?cfg paf policy?>
             matchThreshold: 30
-            numBrightStars: 1000
+            numBrightStars: 100
             blindSolve: true
             distanceForCatalogueMatchinArcsec: 5
             cleaningParameter: 3
@@ -108,11 +108,17 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
     matchThreshold = policy.get('matchThreshold')
     solver.setMatchThreshold(matchThreshold)
 
-    (matchList,wcs,refstars,plots) = measAstrom.determineWcs(policy, exposure, sourceset, log=log,
-                                                              doTrim=doTrim, solver=solver,
-                                                              returnRefStars=True,
-                                                              returnPlotData=True, plotFormat='png')
+    kwargs = dict(log=log, doTrim=doTrim, solver=solver)
+    if True:
+        kwargs.update(dict(returnRefStars=True, returnPlotData=True, plotFormat='png'))
+        (matchList,wcs,refstars,plots) = measAstrom.determineWcs(policy, exposure, sourceset, **kwargs)
+    else:
+        # backwards-compat
+        (matchList,wcs) = measAstrom.determineWcs(policy, exposure, sourceset, **kwargs)
+        refstars = None
+        plots = None
 
+                                                             
     print
     print 'determineWcs() finished.  Got:'
     print
