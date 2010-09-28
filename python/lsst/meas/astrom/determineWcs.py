@@ -169,10 +169,10 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         matchList = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=wcs, 
             distInArcsec=distInArcsec, cleanParam=cleanParam)
 
-        print 'Number of matches:', len(matchList)
-        ids = set([sm.second.getId() for sm in matchList])
-        print 'Number of unique ids:', len(ids)
-                        
+        uniq = set([sm.second.getId() for sm in matchList])
+        if len(matchList) != len(uniq):
+            log.log(Log.WARN, "The list of matches stars contains duplicated reference sources (%i sources, %i unique ids)"
+                    % (len(matchList), len(uniq)))
 
         if len(matchList) == 0:
             log.log(Log.WARN, "No matches found between input source and catalogue.")
