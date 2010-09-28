@@ -106,6 +106,14 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
     print '%i matches' % len(matchList)
     #print 'WCS: ', wcs
 
+    ids = set([sm.second.getId() for sm in matchList])
+    print 'Number of unique ids:', len(ids)
+
+    for sm in matchList:
+        print '  id %i (%.1f, %.1f) flux %.3g   ---   id %i (%.1f, %.1f) flux %.3g' % (
+            sm.first.getId(),  sm.first.getXAstrom(), sm.first.getYAstrom(), sm.first.getPsfFlux(),
+            sm.second.getId(), sm.second.getXAstrom(), sm.second.getYAstrom(), sm.second.getPsfFlux())
+                    
     fitshdr = wcs.getFitsMetadata()
     #print 'FITS:', fitshdr
     print 'Found WCS:'

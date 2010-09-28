@@ -124,8 +124,32 @@ void sip::MatchSrcToCatalogue::findMatches() {
     
     _match = det::matchRaDec(_catSet, _imgSet, _distInArcsec);
 
+    printf("%i matches\n", _match.size());
+    std::set<int> ids;
+
+    ids.clear();
+    for (unsigned int i=0; i<_match.size(); i++)
+        ids.insert(_match[i].second->getSourceId());
+    printf("%i unique IDs\n", ids.size());
+
     _removeOneToMany();  
+
+    printf("\n\nafter removeOneToMany()\n\n");
+    printf("%i matches\n", _match.size());
+    ids.clear();
+    for (unsigned int i=0; i<_match.size(); i++)
+        ids.insert(_match[i].second->getSourceId());
+    printf("%i unique IDs\n", ids.size());
+
+
     _removeManyToOne();  
+
+    printf("\n\nafter removeManyToOne()\n\n");
+    printf("%i matches\n", _match.size());
+    ids.clear();
+    for (unsigned int i=0; i<_match.size(); i++)
+        ids.insert(_match[i].second->getSourceId());
+    printf("%i unique IDs\n", ids.size());
    
     if (_match.size() == 0) {
         std::cout << _imgSet.size() << " " << _catSet.size() << std::endl;
@@ -138,23 +162,21 @@ void sip::MatchSrcToCatalogue::findMatches() {
 ///the catalogue or the image. However, our implementation of findMatches uses det::matchRaDec()
 ///which does not garauntee that. This function does the (slow) search and removal.
 void sip::MatchSrcToCatalogue::_removeOneToMany() {
-
-    
     unsigned int size = _match.size();
-    for (unsigned int i = 0; i< size; ++i) {
-        for (unsigned int j = i + 1; j< size; ++j) {
+    for (unsigned int i=0; i<size; ++i) {
+        for (unsigned int j=i+1; j<size; ++j) {
             //If the same Source appears twice keep the one with the smaller separation from its match
             if ( _match[i].first == _match[j].first ) {
                 //Keep the one with the shorter match distance, and disgard the other
-                if ( _match[i].distance < _match[j].distance){
+                if (_match[i].distance < _match[j].distance) {
                     _match.erase(_match.begin() + j);
                     size--;
-                }
-                else {  
+                    j--;
+                } else {
                     _match.erase(_match.begin() + i);
                     size--;
-                    i--;    //Otherwise the for loop will skip an element
-                    j = size + 1; //Nothing else to do for the deleted element
+                    i--;
+                    break;
                 }
             }
         }
@@ -165,23 +187,21 @@ void sip::MatchSrcToCatalogue::_removeOneToMany() {
 /// This function is identical to
 ///_removeOneToMany() except first is replaced with second for the match structures
 void sip::MatchSrcToCatalogue::_removeManyToOne()  {
-
-    
     unsigned int size = _match.size();
-    for (unsigned int i = 0; i< size; ++i) {
-        for (unsigned int j = i + 1; j< size; ++j) {
+    for (unsigned int i=0; i<size; ++i) {
+        for (unsigned int j=i+1; j<size; ++j) {
             //If the same Source appears twice
-            if ( _match[i].second == _match[j].second ) {
+            if (_match[i].second == _match[j].second) {
                 //Keep the one with the shorter match distance, and disgard the other
-                if ( _match[i].distance < _match[j].distance ){
+                if (_match[i].distance < _match[j].distance) {
                     _match.erase(_match.begin() + j);
                     size--;
-                }
-                else {  
+                    j--;
+                } else {
                     _match.erase(_match.begin() + i);
                     size--;
-                    i--;    //Otherwise the for loop will skip an element
-                    j = size + 1; //Nothing else to do for the deleted element
+                    i--;
+                    break;
                 }
             }
         }
