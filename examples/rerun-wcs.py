@@ -79,7 +79,7 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
             '''#<?cfg paf policy?>
             matchThreshold: 30
             numBrightStars: 50
-            blindSolve: true
+            blindSolve: false
             distanceForCatalogueMatchinArcsec: 5
             cleaningParameter: 3
             calculateSip: True
@@ -147,7 +147,8 @@ if __name__ == '__main__':
     parser.add_option('-f', '--filter', dest='filter', help='Filter name')
     parser.add_option('-v', '--verbose', dest='verb', help='+verbose', action='store_true')
     #parser.add_option('-x', '--x-column', dest='xcol', help='X column name (for FITS inputs)')
-    parser.set_defaults(width=None, height=None, filter=None, verb=False)
+    parser.add_option('-w', '--wcs', dest='wcsfn', type=str, help='Input WCS file')
+    parser.set_defaults(width=None, height=None, filter=None, verb=False, wcsfn=None)
     opt,args = parser.parse_args()
     if len(args) == 0:
         parser.print_help()
@@ -155,6 +156,10 @@ if __name__ == '__main__':
 
     level = pexLog.Log.DEBUG if opt.verb else pexLog.Log.INFO
     log = pexLog.Log(pexLog.Log.getDefaultLog(), "rerun-wcs", level);
+
+    wcs = None
+    if opt.wcsfn is not None:
+        wcs = afwImage.makeWcs(afwImage.readMetadata(opt.wcsfn))
 
     for fn in args:
         if fn.endswith('.boost'):
@@ -178,6 +183,7 @@ if __name__ == '__main__':
                           'PsfFlux': 'f_psf',
                           'ApFlux': 'f_ap',
                           }
+            conversions = {'id':int}
             for k,v in columnmap.items():
                 if not v in C:
                     print 'Warning, column', v, 'is not in the FITS table -- won\'t set Source\'s', k
@@ -187,11 +193,12 @@ if __name__ == '__main__':
             for k,v in columnmap.items():
                 if not v in C:
                     continue
+                totype = conversions.get(v, float)
                 for src,val in zip(ss, T.getcolumn(v)):
-                    getattr(src, 'set'+k)(val)
+                    getattr(src, 'set'+k)(totype(val))
 
         print 'Read %i sources' % (len(ss))
 
 
-        rerun(ss, W=opt.width, H=opt.height, filtername=opt.filter, log=log)
+        rerun(ss, W=opt.width, H=opt.height, filtername=opt.filter, log=log, wcs=wcs)
 

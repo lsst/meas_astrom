@@ -169,9 +169,10 @@ private:
     index_t *_loadIndexMeta(std::string filename);
 
     void _solverSetField();
-    bool _callSolver(double ra=NO_POSITION_SET, double dec=NO_POSITION_SET);
     int _addSuitableIndicesToSolver(double minImageSizeArcsec, double maxImageSizeArcsec, \
         double ra=NO_POSITION_SET, double dec=NO_POSITION_SET);    
+    bool _callSolver(double ra=NO_POSITION_SET, double dec=NO_POSITION_SET);
+    void _postSolve();
         
 };
 

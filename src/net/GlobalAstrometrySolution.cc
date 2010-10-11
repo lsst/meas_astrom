@@ -340,7 +340,7 @@ void GlobalAstrometrySolution::setParity(int parity){
 //
 
 ///Solve using a wcs object as an initial guess
-bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr, 
+bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcs,
                                      double imageScaleUncertaintyPercent) {
 
     //Rename the variable to something shorter to make the code easier to read
@@ -355,22 +355,65 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
     solver_get_field_center(_solver, &xc, &yc);
 
     //Get the central ra/dec and plate scale
-    afwCoord::Coord::ConstPtr raDec = wcsPtr->pixelToSky(xc, yc);
+    afwCoord::Coord::ConstPtr raDec = wcs->pixelToSky(xc, yc);
     double const ra = raDec->getLongitude(afwCoord::DEGREES);
     double const dec = raDec->getLatitude(afwCoord::DEGREES);
-    double const plateScaleArcsecPerPixel = sqrt(wcsPtr->pixArea(afwGeom::makePointD(ra, dec)))*3600;
-    setMinimumImageScale(plateScaleArcsecPerPixel*(1 - unc));
-    setMaximumImageScale(plateScaleArcsecPerPixel*(1 + unc));
+    // FIXME -- LSST's WCS class should have a getPixelScale()...
+    // in arcsec/pix
+    double const pixscale = sqrt(wcs->pixArea(afwGeom::makePointD(ra, dec)))*3600;
+    setMinimumImageScale(pixscale*(1 - unc));
+    setMaximumImageScale(pixscale*(1 + unc));
+
+
+    // Check if the existing WCS is already correct.
+    // FIXME -- We *should* deal with general WCS (anything that wcslib can
+    // understand), but the lsst.afw.image.Wcs class doesn't have the right
+    // handles.
+    // Build a SIP WCS struct for Astrometry.net.
+    sip_t sip;
+    memset(&sip, 0, sizeof(sip_t));
+    afwCoord::IcrsCoord icrs = wcs->getSkyOrigin()->toIcrs();
+    sip.wcstan.crval[0] = icrs.getRa(afwCoord::DEGREES);
+    sip.wcstan.crval[1] = icrs.getDec(afwCoord::DEGREES);
+    sip.wcstan.crpix[0] = wcs->getPixelOrigin()[0];
+    sip.wcstan.crpix[1] = wcs->getPixelOrigin()[1];
+    Eigen::Matrix2d cd = wcs->getCDMatrix();
+    sip.wcstan.cd[0][0] = cd(0,0);
+    sip.wcstan.cd[0][1] = cd(0,1);
+    sip.wcstan.cd[1][0] = cd(1,0);
+    sip.wcstan.cd[1][1] = cd(1,1);
+    // solver_field_{width,height} should have already been set by
+    // determineWcs calling setImageSize().
+    sip.wcstan.imagew = solver_field_width(_solver);
+    sip.wcstan.imageh = solver_field_height(_solver);
+
+    _mylog.log(pexLog::Log::DEBUG, "Checking existing WCS...");
+    // MAGIC 0.1: fraction of the image size; we will try to verify the existing
+    // WCS using index files that have quads that overlap the [qlo,qhi] size
+    // range.
+    double qlo = 0.1 * min(sip.wcstan.imagew, sip.wcstan.imageh) * pixscale;
+    double qhi = hypot(sip.wcstan.imagew, sip.wcstan.imageh) * pixscale;
+    _addSuitableIndicesToSolver(qlo, qhi, ra, dec);
+    solver_verify_sip_wcs(_solver, &sip);
+    if (solver_did_solve(_solver)) {
+        _mylog.log(pexLog::Log::DEBUG, "Existing WCS was accepted by Astrometry.net.");
+        _postSolve();
+        return true;
+
+    } else {
+        _mylog.log(pexLog::Log::DEBUG, "Existing WCS was rejected by Astrometry.net.");
+    }
+
     
     _mylog.log(pexLog::Log::DEBUG,
                boost::format("Solving using initial guess at position of\n %.7f %.7f\n") % ra % dec);
 
-    double lwr = plateScaleArcsecPerPixel*(1 - unc);
-    double upr = plateScaleArcsecPerPixel*(1 + unc);
+    double lwr = pixscale*(1 - unc);
+    double upr = pixscale*(1 + unc);
                      
-    _mylog.log(pexLog::Log::DEBUG, boost::format("Exposure's WCS scale: %g arcsec/pix; setting scale range %.3f - %.3f arcsec/pixel\n") % plateScaleArcsecPerPixel % lwr % upr);
+    _mylog.log(pexLog::Log::DEBUG, boost::format("Exposure's WCS scale: %g arcsec/pix; setting scale range %.3f - %.3f arcsec/pixel\n") % pixscale % lwr % upr);
 
-    if ( wcsPtr->isFlipped()) {
+    if ( wcs->isFlipped()) {
         setParity(FLIPPED_PARITY);
         _mylog.log(pexLog::Log::DEBUG, "Setting Flipped parity");        
     } else {
@@ -504,20 +547,22 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
 
     solver_run(_solver);
 
-    
+    _postSolve();
+    return _isSolved;
+}
+
+void GlobalAstrometrySolution::_postSolve() {
     if (solver_did_solve(_solver)) {
         _isSolved = true;
 
         MatchObj* match = solver_get_best_match(_solver);
         _mylog.format(pexLog::Log::DEBUG, "Solved: %i matches, %i conflicts, %i unmatched",
                       (int)match->nmatch, (int)match->nconflict, (int)match->ndistractor);
-
         _mylog.log(pexLog::Log::DEBUG, "Calling tweak2() to tune up match...");
         _mylog.format(pexLog::Log::DEBUG, "Starting log-odds: %g", match->logodds);
         // Use "tweak2" to tune up this match, resulting in a better WCS and more catalog matches.
         // magic 1: only go to linear order (no SIP distortions).
         solver_tweak2(_solver, match, 1);
-
         _mylog.format(pexLog::Log::DEBUG, "After tweak2: %i matches, %i conflicts, %i unmatched",
                       (int)match->nmatch, (int)match->nconflict, (int)match->ndistractor);
         _mylog.format(pexLog::Log::DEBUG, "After tweak2: log-odds: %g", match->logodds);
@@ -525,10 +570,7 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
     } else {
         _isSolved = false;
     }
-    
-    return _isSolved;
 }
-
 
 
 /// \brief Find indices that may contain a the correct solution, and add them to the solver.
