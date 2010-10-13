@@ -111,9 +111,10 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     log.log(log.DEBUG, "Setting numBrightObj")
     solver.setNumBrightObjects( min(policy.get('numBrightStars'), len(srcSet)))
     if forceImageSize is not None:
-        solver.setImageSize(*forceImageSize)
+        (W,H) = forceImageSize
     else:
-        solver.setImageSize(exp.getWidth(), exp.getHeight())
+        (W,H) = (exp.getWidth(), exp.getHeight())
+    solver.setImageSize(W, H)
     solver.setLogLevel(2)
     #solver.printSolverSettings(stdout)
 
@@ -144,8 +145,8 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     
     #First obtain the catalogue-listed positions of stars
     log.log(log.DEBUG, "Determining match objects")
-    imgSizeInArcsec = getImageSizeInArcsec(srcSet, wcs)
-    
+    imgSizeInArcsec = wcs.pixelScale() * hypot(W,H)
+
     #Do we want magnitude information
     filterName = chooseFilterName(exposure, policy, solver, log)
     try:
@@ -276,38 +277,6 @@ def chooseFilterName(exposure, policy, solver, log):
                     %(defaultFilter, availableFiltersStr))
             
     raise RuntimeError("This function should have returned before getting to this point")
-
-
-
-    
-def getImageSizeInArcsec(srcSet, wcs):
-    """ Get the approximate size of the image in arcseconds
-    
-    Input: 
-    srcSet List of detected objects in the image (with pixel positions)
-    wcs    Wcs converts pixel positions to ra/dec
-    
-    """
-    xfunc = lambda x: x.getXAstrom()
-    yfunc = lambda x: x.getYAstrom()
-    
-    x = map(xfunc, srcSet)
-    y = map(yfunc, srcSet)
-    
-    minx = min(x)
-    maxx = max(x)
-    miny = min(y)
-    maxy = max(y)
-    
-    llc = wcs.pixelToSky(minx, miny)
-    urc = wcs.pixelToSky(maxx, maxy)
-    
-    deltaRa = urc[0] - llc[0]
-    deltaDec = urc[1] - llc[1]
-    
-    #Approximately right
-    dist = math.sqrt(deltaRa**2 + deltaDec**2)
-    return 3600*math.degrees(dist)  #arcsec
 
 
 def calculateSipTerms(inputWcs, cat, srcSet, distInArcsec, cleanParam, sipOrder, log=None):
