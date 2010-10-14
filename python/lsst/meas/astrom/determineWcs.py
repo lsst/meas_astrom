@@ -33,6 +33,7 @@ import sip as astromSip
 import sip.cleanBadPoints as cleanBadPoints
 
 import lsst.afw.display.ds9 as ds9
+import numpy
 
 try:
 	import lsstDebug
@@ -278,8 +279,6 @@ def chooseFilterName(exposure, policy, solver, log):
 	raise RuntimeError("This function should have returned before getting to this point")
 
 
-
-	
 def getImageSizeInArcsec(srcSet, wcs):
 	""" Get the approximate size of the image in arcseconds
 	
@@ -296,7 +295,7 @@ def getImageSizeInArcsec(srcSet, wcs):
 	for src in srcSet:
 		x = src.getXAstrom()
 		y = src.getYAstrom()
-		if math.isnan(x) or math.isnan(y):
+		if numpy.isnan(x) or numpy.isnan(y):
 			continue
 		if x < xMin: xMin = x
 		if x > xMax: xMax = x
