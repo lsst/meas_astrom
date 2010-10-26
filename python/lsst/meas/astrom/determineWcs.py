@@ -21,7 +21,7 @@
 #
 
 import os
-import math
+from math import hypot
 
 import lsst.pex.policy as pexPolicy
 from lsst.pex.logging import Log, Debug, LogRec, Prop
