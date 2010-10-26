@@ -33,6 +33,7 @@ import sip as astromSip
 import sip.cleanBadPoints as cleanBadPoints
 
 import lsst.afw.display.ds9 as ds9
+import numpy
 
 try:
     import lsstDebug
@@ -160,7 +161,6 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         log.log(Log.WARN, "Available filters: " + str(solver.getCatalogueMetadataFields()))
         raise
             
-
     matchList=[]    #Make sure this stays in scope
     if True:
         #Now generate a list of matching objects
@@ -277,7 +277,6 @@ def chooseFilterName(exposure, policy, solver, log):
                     %(defaultFilter, availableFiltersStr))
             
     raise RuntimeError("This function should have returned before getting to this point")
-
 
 def calculateSipTerms(inputWcs, cat, srcSet, distInArcsec, cleanParam, sipOrder, log=None):
     """Iteratively calculate sip distortions and regenerate matchList based on improved wcs"""
