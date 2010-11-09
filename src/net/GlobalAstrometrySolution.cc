@@ -40,6 +40,7 @@ namespace afwCoord = lsst::afw::coord;
 namespace Except = lsst::pex::exceptions;
 namespace Det = lsst::afw::detection;
 namespace pexLog = lsst::pex::logging;
+namespace dafBase = lsst::daf::base;
 
 
 int const USE_ALL_STARS_FOR_SOLUTION = -1;
@@ -103,6 +104,35 @@ static vector<double> getTagAlongFromIndex(index_t* index, string fieldName, int
         _indexList.push_back(meta);
     }
     _mylog.log(pexLog::Log::DEBUG, "Meta information loaded...");    
+}
+    
+dafBase::PropertySet::Ptr GlobalAstrometrySolution::getMatchedIndexMetadata() {
+    MatchObj* mo = solver_get_best_match(_solver);
+    assert(mo);
+    index_t* index = mo->index;
+    assert(index);
+    startree_t* starkd = index->starkd;
+    assert(starkd);
+    qfits_header* hdr = startree_header(starkd);
+    char* val;
+    int ival;
+
+    props = dafBase::PropertySet::Ptr(new dafBase::PropertySet());
+
+    // reference catalog name
+    val = qfits_header_getstr(hdr, "REFCAT");
+    props.add("REFCAT", val ? val : "none");
+
+    // reference catalog md5sum
+    val = qfits_header_getstr(hdr, "REFCAMD5");
+    props.add("REFCAMD5", val ? val : "none");
+
+    // astrometry.net index
+    props.add("ANINDID", index->indexid);
+    props.add("ANINDHP", index->healpix);
+    props.add("ANINDNM", index->indexname);
+
+    return props;
 }
 
 void GlobalAstrometrySolution::loadIndices() {

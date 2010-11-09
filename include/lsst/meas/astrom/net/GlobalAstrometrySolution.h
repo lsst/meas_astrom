@@ -44,6 +44,7 @@
 #include "lsst/afw/image/Wcs.h"
 #include "lsst/afw/image/Utils.h"
 #include "lsst/pex/policy/Policy.h"
+#include "lsst/daf/base/PropertySet.h"
 #include "lsst/utils/Utils.h"
 
 #include "wcslib/wcs.h"
@@ -143,6 +144,9 @@ public:
     // returns the star kd-tree of the astrometry.net index that solved the field.
     //startree_t* getSolvedStartree();
     MatchObj* getMatchObject();
+
+    //std::string getIndexHeader(std::string key);
+    lsst::daf::base::PropertySet::Ptr getMatchedIndexMetadata();
 
     //Call this before performing a new match
     void reset();

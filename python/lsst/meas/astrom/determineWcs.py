@@ -27,6 +27,8 @@ import lsst.pex.policy as pexPolicy
 from lsst.pex.logging import Log, Debug, LogRec, Prop
 from lsst.pex.exceptions import LsstCppException
 import lsst.afw.image as afwImg
+import lsst.daf.base as dafBase
+import lsst.afw.coord as afwCoord
 
 import net as astromNet
 import sip as astromSip
@@ -161,7 +163,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         log.log(Log.WARN, "Available filters: " + str(solver.getCatalogueMetadataFields()))
         raise
 
-    matchList=[]    #Make sure this stays in scope
+    matchList=[]
     if True:
         #Now generate a list of matching objects
         distInArcsec = policy.get('distanceForCatalogueMatchinArcsec')
@@ -196,12 +198,31 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     exposure.setWcs(wcs)
     #solver.reset()
 
+    matchListMeta = solver.getMatchedIndexMetadata()
+
+    # add current EUPS astrometry_net_data setup.
+    andata = os.environ.get('ASTROMETRY_NET_DATA_DIR')
+    if andata is None:
+        matchListMeta.add('ANEUPS', 'none') # comment='basename($ASTROMETRY_NET_DATA_DIR)'
+    else:
+        andata = os.path.basename(andata)
+        matchListMeta.add('ANEUPS', andata) # comment='basename($ASTROMETRY_NET_DATA_DIR)'
+
+    # cache: field center and size.  These may be off by 1/2 or 1 or 3/2 pixels.
+    # dstn does not care.
+    cx,cy = W/2.,H/2.
+    radec = wcs.pixelToSky(cx, cy)
+    ra,dec = radec.getLongitude(afwCoord.DEGREES), radec.getLatitude(afwCoord.DEGREES)
+    matchListMeta.add('RA', ra) # comment='field center in degrees'
+    matchListMeta.add('DEC', dec) # comment='field center in degrees'
+    matchListMeta.add('RADIUS', imgSizeInArcsec/2./3600.) # comment='field radius in degrees, approximate'
+
     if display:
         for s1, s2, d in matchList:
             # plot the catalogue positions
             ds9.dot("+", s1.getXAstrom(), s1.getYAstrom(), size=3, ctype=ds9.BLUE, frame=frame)
 
-    return [matchList, wcs]
+    return (matchList, wcs, matchListMeta)
 
 class StdoutLog():
     """If no log is passed, this class just writes the output to stdout, regardless of
