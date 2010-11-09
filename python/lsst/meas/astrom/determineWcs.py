@@ -152,13 +152,20 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
 
     #Do we want magnitude information
     filterName = chooseFilterName(exposure, policy, solver, log)
+
+    idName = ''
+    colname = 'defaultIdColumnName'
+    if policy.exists(colname):
+        idName = policy.get(colname)
+
     try:
-        cat = solver.getCatalogue(2*imgSizeInArcsec, filterName)
+        cat = solver.getCatalogue(2*imgSizeInArcsec, filterName, idName)
     except LsstCppException, e:
         log.log(Log.WARN, str(e))
         log.log(Log.WARN, "Attempting to access catalogue positions and fluxes")
         version = os.environ['ASTROMETRY_NET_DATA_DIR']
         log.log(Log.WARN, "Catalogue version: %s" %(version))
+        log.log(Log.WARN, "ID column: %s" %(idName))
         log.log(Log.WARN, "Requested filter: %s" %(filterName))
         log.log(Log.WARN, "Available filters: " + str(solver.getCatalogueMetadataFields()))
         raise
@@ -185,8 +192,8 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         log.log(Log.DEBUG, "%i catalogue objects match input source list using linear Wcs" %(len(matchList)))
     else:
         #Use list of matches returned by astrometry.net
-        log.log(Log.DEBUG, "Getting matched sources: Fluxes in band %s " %(filterName))
-        matchList = solver.getMatchedSources(filterName)
+        log.log(Log.DEBUG, "Getting matched sources: Fluxes in column %s; Ids in column" % (filterName, idName))
+        matchList = solver.getMatchedSources(filterName, idName)
 
 
     if policy.get('calculateSip'):
