@@ -13,6 +13,7 @@ env = scons.makeEnv(
         ["boost", "boost/version.hpp", "boost_filesystem:C++"],
         ["boost", "boost/regex.hpp", "boost_regex:C++"],
         ["boost", "boost/test/unit_test.hpp", "boost_unit_test_framework:C++"],
+        ["boost", "boost/archive/text_iarchive.hpp", "boost_serialization:C++"],
         ["python", "Python.h"],
         ["base", "lsst/base.h"],
         #["numpy", "Python.h numpy/arrayobject.h"], # see numpy workaround below

@@ -44,12 +44,12 @@ except ImportError, e:
     except NameError:
         display = False
 
-def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=False, forceImageSize=None,
-                 returnRefStars=False, plotFormat=None, returnPlotData=False):
+def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=False,
+                 forceImageSize=None, returnRefStars=False, plotFormat=None, returnPlotData=False):
     """Top level function for calculating a WCS. 
     
     Given an initial guess at a WCS (hidden inside an exposure) and a set of
-    sources (sourceSet), use astrometry.net to confirm the WCS, then calculate
+    sources (sourceSet), use Astrometry.net to confirm the WCS, then calculate
     distortion terms.
     
     Input:
@@ -60,9 +60,16 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
                 stars in the field
     log         A lsst.pex.logging.Log object (optional), used for printing progress
     doTrim        Check that all sources lie within the image, and remove those that don't.
-    solver      Optionally provide a previously created astrometry.net solver. If not provided
+    solver      Optionally provide a previously created Astrometry.net solver. If not provided
                 one will be created.
     forceImageSize  tuple of (W,H): force this image size, rather than getting it from the Exposure.
+
+    Duck-type of 'exposure':
+    -getWcs(), setWcs(wcs), hasWcs()
+    -getWidth(), getHeight()
+    -getMaskedImage().getXY0()  (if 'doTrim')
+    -getFilter().getName()
+
     """
     sipwcs = None
     tanMatches = None
@@ -188,7 +195,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
             
         log.log(Log.DEBUG, "%i catalogue objects match input source list using linear WCS" %(len(matchList)))
     else:
-        #Use list of matches returned by astrometry.net
+        #Use list of matches returned by Astrometry.net
         log.log(Log.DEBUG, "Getting matched sources: Fluxes in band %s " %(filterName))
         matchList = solver.getMatchedSources(filterName)
 
