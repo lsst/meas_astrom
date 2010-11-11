@@ -25,8 +25,13 @@
 
 #include "lsst/afw/image/TanWcs.h"
 #include "lsst/meas/astrom/net/GlobalAstrometrySolution.h"
+
 #include <cstdio>
 #include <iostream>
+
+extern "C" {
+#include "fitsioutils.h"
+}
 
 namespace lsst { 
 namespace meas { 
@@ -40,6 +45,7 @@ namespace afwCoord = lsst::afw::coord;
 namespace Except = lsst::pex::exceptions;
 namespace Det = lsst::afw::detection;
 namespace pexLog = lsst::pex::logging;
+namespace dafBase = lsst::daf::base;
 
 
 int const USE_ALL_STARS_FOR_SOLUTION = -1;
@@ -103,6 +109,45 @@ static vector<double> getTagAlongFromIndex(index_t* index, string fieldName, int
         _indexList.push_back(meta);
     }
     _mylog.log(pexLog::Log::DEBUG, "Meta information loaded...");    
+}
+    
+dafBase::PropertySet::Ptr GlobalAstrometrySolution::getMatchedIndexMetadata() {
+    MatchObj* mo = solver_get_best_match(_solver);
+    assert(mo);
+    index_t* index = mo->index;
+    assert(index);
+    startree_t* starkd = index->starkd;
+    assert(starkd);
+    qfits_header* hdr = startree_header(starkd);
+    char* val;
+
+    dafBase::PropertySet::Ptr props(new dafBase::PropertySet());
+
+    // reference catalog name
+    val = fits_get_dupstring(hdr, "REFCAT");
+    props->add("REFCAT", std::string(val ? val : "none"));
+    free(val);
+
+    // reference catalog md5sum
+    val = fits_get_dupstring(hdr, "REFCAMD5");
+    props->add("REFCAMD5", std::string(val ? val : "none"));
+    free(val);
+
+    // astrometry.net index
+    props->add("ANINDID", index->indexid);
+    props->add("ANINDHP", index->healpix);
+
+    /*
+    // basename_safe()
+    char* copy = strdup(index->indexname);
+    char* iname = strdup(basename(copy));
+    free(copy);
+    props->add("ANINDNM", std::string(iname));
+    */
+
+    props->add("ANINDNM", std::string(index->indexname));
+
+    return props;
 }
 
 void GlobalAstrometrySolution::loadIndices() {
@@ -726,6 +771,64 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     return wcsPtr;
 }    
 
+  static vector<boost::int64_t> getInt64TagAlongFromIndex(const index_t* index, string fieldName, const int *ids, int numIds) {
+    int64_t *tagAlong=NULL;
+    string msg;
+    vector<boost::int64_t> out(0);
+    
+    if (fieldName != "") {
+        // Grab tag-along data here. If it's not there, throw an exception
+        if (!startree_has_tagalong(index->starkd) ) {
+            msg = boost::str(boost::format("Index file \"%s\" has no metadata") % index->indexname);
+            throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
+        }
+        
+	// in later Astrometry.net versions:
+#if 0
+        tagAlong = startree_get_data_column_int64(index->starkd, fieldName.c_str(), ids, numIds);
+#else
+	fitstable_t* table = startree_get_tagalong(index->starkd);
+	if (!table) {
+	  throw LSST_EXCEPT(pexExcept::RuntimeErrorException, 
+			    boost::str(boost::format("Index file \"%s\": failed to startree_get_tagalong") % index->indexname));
+	}
+	tagAlong = (int64_t*)fitstable_read_column_inds(table, fieldName.c_str(), fitscolumn_i64_type(), ids, numIds);
+#endif
+
+        if (!tagAlong) {
+	  /*
+            msg = boost::str(boost::format("No meta data (tag-along) column called \"%s\" found in index %s") %
+	    fieldName % index->indexname);
+            throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
+	  */
+	  return out;
+        }
+
+        out = vector<boost::int64_t>(&tagAlong[0], &tagAlong[numIds]);
+        // the vector constructor makes a copy of the data.
+        free(tagAlong);
+        return out;
+    }
+    return out;
+}
+
+
+
+  static vector<boost::int64_t> getIds(const string idName, const index_t* index, const int* starinds, int nstars) {
+    vector<boost::int64_t> ids;
+    if (idName != "") {
+      ids = getInt64TagAlongFromIndex(index, idName, starinds, nstars);
+    }
+    /*
+      if (!ids.size()) {
+      // Define the ID to be the index -- better than nothing!
+      for (int j=0; j<nstars; j++) {
+      ids.push_back(starinds[j]);
+      }
+      }
+    */
+    return ids;
+  }
 
 
 ///\brief Return a list of the sources that match and the catalogue objects they matched to.
@@ -733,7 +836,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
 ///For each object in the catalogue that matches an input source return a SourceMatch object
 ///containing a) the catalogue object, b) the source object, c) the distance between them in pixels
 ///For the two objects, X,YAstrom and Ra/Dec are set.
-vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filterName){
+vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filterName, string idName){
     if (! _isSolved) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
@@ -745,8 +848,10 @@ vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filt
     vector<Det::SourceMatch> sourceMatchSet;
     afwImg::Wcs::Ptr wcsPtr = this->getWcs();
 
-    //Load magnitude information from catalogue
-    vector<double> tagAlong = getTagAlongFromIndex(match->index, filterName, match->theta, match->nfield);
+    // FIXME -- wait, doesn't match->theta possibly have non-matched (negative) entries?!
+    // Load magnitude information from catalogue
+    vector<double> refMag = getTagAlongFromIndex(match->index, filterName, match->theta, match->nfield);
+    vector<boost::int64_t> refId = getIds(idName, match->index, match->theta, match->nfield);
 
     const starxy_t* fieldxy = solver_get_field(_solver);
         
@@ -784,9 +889,12 @@ vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filt
         cPtr->setRa(ra);
         cPtr->setDec(dec);
 
-        if( filterName != "") {
-            double mag = tagAlong[i];
+        if (refMag.size()) {
+            double mag = refMag[i];
             cPtr->setPsfFlux( pow(10.0, -mag/2.5) );
+        }
+        if (refId.size()) {
+	  cPtr->setSourceId(refId[i]);
         }
         
         
@@ -845,7 +953,7 @@ vector<string> GlobalAstrometrySolution::getCatalogueMetadataFields() {
 
 ///Returns a sourceSet of objects that are nearby in an raDec sense to the best match solution
 lsst::afw::detection::SourceSet 
-GlobalAstrometrySolution::getCatalogue(double radiusInArcsec, string filterName) {
+GlobalAstrometrySolution::getCatalogue(double radiusInArcsec, string filterName, string idName) {
 
     if (! _isSolved) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
@@ -858,9 +966,8 @@ GlobalAstrometrySolution::getCatalogue(double radiusInArcsec, string filterName)
     double ra, dec;
     xyzarr2radecdeg(center, &ra, &dec);
     
-    return getCatalogue(ra, dec, radiusInArcsec, filterName);
+    return getCatalogue(ra, dec, radiusInArcsec, filterName, idName);
 }
-
 
 ///Returns a sourceSet of objects that are nearby in an raDec sense to the requested position. If
 ///filterName is not blank, we also extract out the magnitude information for that filter and 
@@ -868,9 +975,10 @@ GlobalAstrometrySolution::getCatalogue(double radiusInArcsec, string filterName)
 ///strings returned by getCatalogueMetadataFields(). If you're not interested in fluxes, set
 ///filterName to ""
 lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra,
-    double dec,
-    double radiusInArcsec,
-    string filterName) {
+								       double dec,
+								       double radiusInArcsec,
+								       string filterName,
+								       string idName) {
 
     double center[3];
     radecdeg2xyzarr(ra, dec, center);
@@ -895,24 +1003,10 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
         startree_search_for(index->starkd, center, radius2, NULL, &radec, &starinds, &nstars);
 
         if (nstars > 0) {
-#if 0        
-            double *mag = NULL;
-            if (filterName != "") {
-                // Grab tag-along data here. If it's not there, throw an exception
-                if (! startree_has_tagalong(index->starkd) ) {
-                    msg = boost::str(boost::format("Index file \"%s\" has no metadata") % index->indexname);
-                    throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
-                }
-                mag = startree_get_data_column(index->starkd, filterName.c_str(), starinds, nstars);
 
-                if (mag == NULL) {
-                    msg = boost::str(boost::format("No meta data called %s found in index %s") %
-                        filterName % index->indexname);
-                    throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));            }
-            }
-#else
             vector<double> mag = getTagAlongFromIndex(index, filterName, starinds, nstars);
-#endif            
+	    vector<boost::int64_t> ids = getIds(idName, index, starinds, nstars);
+
             //Create a source for every position stored
             for (int j = 0; j<nstars; ++j) {
                 Det::Source::Ptr ptr(new lsst::afw::detection::Source());
@@ -920,9 +1014,13 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
                 ptr->setRa(radec[2*j]);
                 ptr->setDec(radec[2*j + 1]);
 
-                if(mag.size() > 0) {   //convert mag to flux
-                    ptr->setPsfFlux( pow(10.0, -mag[j]/2.5) );
+                if (mag.size()) {
+		  // convert mag to flux
+		  ptr->setPsfFlux( pow(10.0, -mag[j]/2.5) );
                 }
+		if (ids.size()) {
+		  ptr->setSourceId(ids[j]);
+		}
 
                 out.push_back(ptr);
             }
@@ -977,7 +1075,6 @@ static vector<double> getTagAlongFromIndex(index_t* index, string fieldName, int
     return out;
     
 }
-
 
 ///Plate scale of solution in arcsec/pixel. Note this is different than getMin(Max)ImageScale()
 ///which return the intial guesses of platescale.

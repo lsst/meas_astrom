@@ -44,6 +44,7 @@
 #include "lsst/afw/image/Wcs.h"
 #include "lsst/afw/image/Utils.h"
 #include "lsst/pex/policy/Policy.h"
+#include "lsst/daf/base/PropertySet.h"
 #include "lsst/utils/Utils.h"
 
 #include "wcslib/wcs.h"
@@ -130,19 +131,23 @@ public:
     //Return the solution
     lsst::afw::image::Wcs::Ptr getWcs();
     lsst::afw::image::Wcs::Ptr getDistortedWcs(int order = 3);
-    std::vector<lsst::afw::detection::SourceMatch> getMatchedSources(std::string filterName="");
+    std::vector<lsst::afw::detection::SourceMatch> getMatchedSources(std::string filterName="",
+								     std::string idName="");
     double getSolvedImageScale();
 
     std::vector<std::string> getCatalogueMetadataFields();
     lsst::afw::detection::SourceSet getCatalogue(double ra, double dec, double radiusInArcsec, 
-                                                 std::string filterName);
-    lsst::afw::detection::SourceSet getCatalogue(double radiusInArcsec, std::string filterName);
+                                                 std::string filterName, std::string idName);
+    lsst::afw::detection::SourceSet getCatalogue(double radiusInArcsec, std::string filterName,
+						 std::string idName);
 
     void loadIndices();
     std::vector<const index_t*> getIndexList();
     // returns the star kd-tree of the astrometry.net index that solved the field.
     //startree_t* getSolvedStartree();
     MatchObj* getMatchObject();
+
+    lsst::daf::base::PropertySet::Ptr getMatchedIndexMetadata();
 
     //Call this before performing a new match
     void reset();

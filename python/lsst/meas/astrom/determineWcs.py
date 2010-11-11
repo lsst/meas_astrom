@@ -27,6 +27,8 @@ import lsst.pex.policy as pexPolicy
 from lsst.pex.logging import Log, Debug, LogRec, Prop
 from lsst.pex.exceptions import LsstCppException
 import lsst.afw.image as afwImg
+import lsst.daf.base as dafBase
+import lsst.afw.coord as afwCoord
 
 import net as astromNet
 import sip as astromSip
@@ -150,18 +152,25 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
 
     #Do we want magnitude information
     filterName = chooseFilterName(exposure, policy, solver, log)
+
+    idName = ''
+    colname = 'defaultIdColumnName'
+    if policy.exists(colname):
+        idName = policy.get(colname)
+
     try:
-        cat = solver.getCatalogue(2*imgSizeInArcsec, filterName)
+        cat = solver.getCatalogue(2*imgSizeInArcsec, filterName, idName)
     except LsstCppException, e:
         log.log(Log.WARN, str(e))
         log.log(Log.WARN, "Attempting to access catalogue positions and fluxes")
         version = os.environ['ASTROMETRY_NET_DATA_DIR']
         log.log(Log.WARN, "Catalogue version: %s" %(version))
+        log.log(Log.WARN, "ID column: %s" %(idName))
         log.log(Log.WARN, "Requested filter: %s" %(filterName))
         log.log(Log.WARN, "Available filters: " + str(solver.getCatalogueMetadataFields()))
         raise
 
-    matchList=[]    #Make sure this stays in scope
+    matchList=[]
     if True:
         #Now generate a list of matching objects
         distInArcsec = policy.get('distanceForCatalogueMatchinArcsec')
@@ -183,8 +192,8 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         log.log(Log.DEBUG, "%i catalogue objects match input source list using linear Wcs" %(len(matchList)))
     else:
         #Use list of matches returned by astrometry.net
-        log.log(Log.DEBUG, "Getting matched sources: Fluxes in band %s " %(filterName))
-        matchList = solver.getMatchedSources(filterName)
+        log.log(Log.DEBUG, "Getting matched sources: Fluxes in column %s; Ids in column" % (filterName, idName))
+        matchList = solver.getMatchedSources(filterName, idName)
 
 
     if policy.get('calculateSip'):
@@ -196,12 +205,34 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     exposure.setWcs(wcs)
     #solver.reset()
 
+    matchListMeta = solver.getMatchedIndexMetadata()
+
+    # add current EUPS astrometry_net_data setup.
+    moreMeta = dafBase.PropertyList()
+    andata = os.environ.get('ASTROMETRY_NET_DATA_DIR')
+    if andata is None:
+        moreMeta.add('ANEUPS', 'none', 'ASTROMETRY_NET_DATA_DIR')
+    else:
+        andata = os.path.basename(andata)
+        moreMeta.add('ANEUPS', andata, 'ASTROMETRY_NET_DATA_DIR')
+
+    # cache: field center and size.  These may be off by 1/2 or 1 or 3/2 pixels.
+    # dstn does not care.
+    cx,cy = W/2.,H/2.
+    radec = wcs.pixelToSky(cx, cy)
+    ra,dec = radec.getLongitude(afwCoord.DEGREES), radec.getLatitude(afwCoord.DEGREES)
+    moreMeta.add('RA', ra, 'field center in degrees')
+    moreMeta.add('DEC', dec, 'field center in degrees')
+    moreMeta.add('RADIUS', imgSizeInArcsec/2./3600.,
+            'field radius in degrees, approximate')
+
     if display:
         for s1, s2, d in matchList:
             # plot the catalogue positions
             ds9.dot("+", s1.getXAstrom(), s1.getYAstrom(), size=3, ctype=ds9.BLUE, frame=frame)
 
-    return [matchList, wcs]
+    matchListMeta.combine(moreMeta)
+    return (matchList, wcs, matchListMeta)
 
 class StdoutLog():
     """If no log is passed, this class just writes the output to stdout, regardless of

@@ -118,8 +118,8 @@ class TagAlongTest2(unittest.TestCase):
         matchThreshold = self.defaultPolicy.get('matchThreshold')
         gas.setMatchThreshold(matchThreshold)
 
-        matches, wcs = measAstrom.determineWcs(self.defaultPolicy, self.exposure,
-                                               self.srcSet, solver=gas)
+        (matches, wcs, matchListMeta) = measAstrom.determineWcs(self.defaultPolicy, self.exposure,
+                                                                self.srcSet, solver=gas)
 
         print 'Grabbing index stars inside the solved field...'
         (xyz,radec,inds,tag) = gas.getIndexStarsInSolvedField(10.)
