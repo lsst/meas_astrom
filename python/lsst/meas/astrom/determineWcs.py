@@ -135,11 +135,13 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     else:
         isSolved = solver.solve(wcsIn)
 
+    moreMeta = dafBase.PropertyList()
+
     #Did we solve?
     log.log(log.DEBUG, "Finished Solve step.")
     if not isSolved:
         log.log(log.WARN, "No solution found, using input Wcs")
-        return [], wcsIn
+        return [], wcsIn, moreMeta
     wcs = solver.getWcs()
 
     #
@@ -187,7 +189,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         if len(matchList) == 0:
             log.log(Log.WARN, "No matches found between input source and catalogue.")
             log.log(Log.WARN, "Something in wrong. Defaulting to input wcs")
-            return [], wcsIn
+            return [], wcsIn, moreMeta
 
         log.log(Log.DEBUG, "%i catalogue objects match input source list using linear Wcs" %(len(matchList)))
     else:
@@ -205,10 +207,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     exposure.setWcs(wcs)
     #solver.reset()
 
-    matchListMeta = solver.getMatchedIndexMetadata()
-
     # add current EUPS astrometry_net_data setup.
-    moreMeta = dafBase.PropertyList()
     andata = os.environ.get('ASTROMETRY_NET_DATA_DIR')
     if andata is None:
         moreMeta.add('ANEUPS', 'none', 'ASTROMETRY_NET_DATA_DIR')
@@ -231,6 +230,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
             # plot the catalogue positions
             ds9.dot("+", s1.getXAstrom(), s1.getYAstrom(), size=3, ctype=ds9.BLUE, frame=frame)
 
+    matchListMeta = solver.getMatchedIndexMetadata()
     moreMeta.combine(matchListMeta)
     return (matchList, wcs, moreMeta)
 
