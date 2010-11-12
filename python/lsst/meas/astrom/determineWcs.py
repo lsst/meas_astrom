@@ -231,8 +231,8 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
             # plot the catalogue positions
             ds9.dot("+", s1.getXAstrom(), s1.getYAstrom(), size=3, ctype=ds9.BLUE, frame=frame)
 
-    matchListMeta.combine(moreMeta)
-    return (matchList, wcs, matchListMeta)
+    moreMeta.combine(matchListMeta)
+    return (matchList, wcs, moreMeta)
 
 class StdoutLog():
     """If no log is passed, this class just writes the output to stdout, regardless of

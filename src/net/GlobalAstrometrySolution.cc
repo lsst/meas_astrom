@@ -25,6 +25,7 @@
 
 #include "lsst/afw/image/TanWcs.h"
 #include "lsst/meas/astrom/net/GlobalAstrometrySolution.h"
+#include "lsst/daf/base/PropertyList.h"
 
 #include <cstdio>
 #include <iostream>
@@ -121,21 +122,23 @@ dafBase::PropertySet::Ptr GlobalAstrometrySolution::getMatchedIndexMetadata() {
     qfits_header* hdr = startree_header(starkd);
     char* val;
 
-    dafBase::PropertySet::Ptr props(new dafBase::PropertySet());
+    dafBase::PropertyList::Ptr props(new dafBase::PropertyList());
 
     // reference catalog name
     val = fits_get_dupstring(hdr, "REFCAT");
-    props->add("REFCAT", std::string(val ? val : "none"));
+    props->add("REFCAT", std::string(val ? val : "none"),
+               "Reference catalog name");
     free(val);
 
     // reference catalog md5sum
     val = fits_get_dupstring(hdr, "REFCAMD5");
-    props->add("REFCAMD5", std::string(val ? val : "none"));
+    props->add("REFCAMD5", std::string(val ? val : "none"),
+               "Reference catalog MD5 checksum");
     free(val);
 
     // astrometry.net index
-    props->add("ANINDID", index->indexid);
-    props->add("ANINDHP", index->healpix);
+    props->add("ANINDID", index->indexid, "Astrometry.net index id");
+    props->add("ANINDHP", index->healpix, "Astrometry.net index HEALPix");
 
     /*
     // basename_safe()
@@ -145,7 +148,8 @@ dafBase::PropertySet::Ptr GlobalAstrometrySolution::getMatchedIndexMetadata() {
     props->add("ANINDNM", std::string(iname));
     */
 
-    props->add("ANINDNM", std::string(index->indexname));
+    props->add("ANINDNM", std::string(index->indexname),
+               "Astrometry.net index name");
 
     return props;
 }
