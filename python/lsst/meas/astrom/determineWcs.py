@@ -224,6 +224,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     moreMeta.add('DEC', dec, 'field center in degrees')
     moreMeta.add('RADIUS', imgSizeInArcsec/2./3600.,
             'field radius in degrees, approximate')
+    moreMeta.add('SMATCHV', 1, 'SourceMatchVector version number')
 
     if display:
         for s1, s2, d in matchList:
