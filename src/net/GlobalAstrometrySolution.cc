@@ -139,15 +139,6 @@ dafBase::PropertySet::Ptr GlobalAstrometrySolution::getMatchedIndexMetadata() {
     // astrometry.net index
     props->add("ANINDID", index->indexid, "Astrometry.net index id");
     props->add("ANINDHP", index->healpix, "Astrometry.net index HEALPix");
-
-    /*
-    // basename_safe()
-    char* copy = strdup(index->indexname);
-    char* iname = strdup(basename(copy));
-    free(copy);
-    props->add("ANINDNM", std::string(iname));
-    */
-
     props->add("ANINDNM", std::string(index->indexname),
                "Astrometry.net index name");
 
@@ -982,7 +973,8 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
 								       double dec,
 								       double radiusInArcsec,
 								       string filterName,
-								       string idName) {
+								       string idName,
+    int indexId) {
 
     double center[3];
     radecdeg2xyzarr(ra, dec, center);
@@ -994,6 +986,8 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
 
     for (unsigned int i=0; i<_indexList.size(); i++) {
         index_t* index = _indexList[i];
+        if (indexId != -1 && index->indexid != indexId)
+            continue;
         if (!index_is_within_range(index, ra, dec, arcsec2deg(radiusInArcsec)))
             continue;
 

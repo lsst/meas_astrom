@@ -47,7 +47,82 @@ except ImportError, e:
     except NameError:
         display = False
 
-def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=False, forceImageSize=None):
+def createSolver(policy, log):
+    path=os.path.join(os.environ['ASTROMETRY_NET_DATA_DIR'], "metadata.paf")
+    solver = astromNet.GlobalAstrometrySolution(path, log)
+    matchThreshold = policy.get('matchThreshold')
+    solver.setMatchThreshold(matchThreshold)
+    # FIXME -- this could go in policy... or we could use new Astrometry.net logging
+    # callbacks to put those messages to their own pexLogging channel.
+    solver.setLogLevel(2)
+    return solver
+
+def getIdColumn(policy):
+    '''Returns the column name of the ID field in the reference catalog'''
+    idName = ''
+    colname = 'defaultIdColumnName'
+    if policy.exists(colname):
+        idName = policy.get(colname)
+
+def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None,
+                             filterName=None, idName=None):
+    if log is None:
+        log = Log.getDefaultLog()
+
+    if solver is None:
+        solver = createSolver(policy, log)
+
+    filterName = chooseFilterName(None, policy, solver, log, filterName)
+    if idName is None:
+        idName = getIdColumn(policy)
+
+    version = matchmeta.getInt('SMATCHV')
+    if version != 1:
+        raise ValueError('SourceMatchVector version number is %i, not 1.' % version)
+
+    # EUPS
+    myandata = os.environ.get('ASTROMETRY_NET_DATA_DIR')
+    andata = matchmeta.getString('ANEUPS')
+    #if os.path.basename(myandata) != os.path.basename(andata):
+    #    raise ValueError('Need ASTROMETRY_NET_DATA_DIR = "%s"' % 
+    log.log(Log.DEBUG, 'Astrometry.net dir was "%s", now "%s"' %
+            (os.path.basename(myandata), os.path.basename(andata)))
+
+    anid = matchmeta.getInt('ANINDID')
+    anhp = matchmeta.getInt('ANINDHP')
+    anindexname = os.path.basename(matchmeta.getString('ANINDNM'))
+    log.log(Log.DEBUG, 'Astrometry.net index was "%s" (id %i, healpix %i)' %
+            (anindexname, anid, anhp))
+    
+    # all in deg.
+    ra = matchmeta.getDouble('RA')
+    dec = matchmeta.getDouble('DEC')
+    rad = matchmeta.getDouble('RADIUS')
+    log.log(Log.DEBUG, 'RA,Dec,radius %g,%g %g' % (ra, dec, rad))
+
+    #myinds = solver.getIndexList()
+    #print 'My Astrometry.net indices:', myinds
+    #for i in myinds:
+    #    print '  ', i.indexname
+
+    print 'RA,Dec,rad, filter,id,indexid', (ra, dec, rad * 3600., filterName, idName, anid)
+
+    cat = solver.getCatalogue(ra, dec, rad * 3600., filterName, idName, anid)
+    print 'Got', len(cat), 'in range'
+
+    idtoref = dict([[s.getSourceId(), s] for s in cat])
+
+    for i in xrange(len(matchlist)):
+        mid = matchlist[i].first.getSourceId()
+        print '  matching id', mid
+        if mid in idtoref:
+            ref = idtoref[mid]
+            matchlist[i].first = ref
+            print '  -> got', ref
+
+
+def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=False,
+                 forceImageSize=None, filterName=None):
     """Top level function for calculating a Wcs.
 
     Given an initial guess at a Wcs (hidden inside an exposure) and a set of
@@ -65,12 +140,11 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     solver      Optionally provide a previously created astrometry.net solver. If not provided
                 one will be created.
     forceImageSize  tuple of (W,H): force this image size, rather than getting it from the Exposure.
+    filterName  Use this filter name, rather than getting it from the exposure.
     """
 
     if log is None:
-        #log = StdoutLog()   #Write log messages to stdout
         log = Log.getDefaultLog()
-    log.log(Log.DEBUG, "In determineWcs")
 
 
     #Short names
@@ -101,10 +175,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
 
     #Setup solver
     if solver is None:
-        path=os.path.join(os.environ['ASTROMETRY_NET_DATA_DIR'], "metadata.paf")
-        solver = astromNet.GlobalAstrometrySolution(path, log)
-        matchThreshold = policy.get('matchThreshold')
-        solver.setMatchThreshold(matchThreshold)
+        solver = createSolver(policy, log)
     else:
         solver.reset()
 
@@ -118,12 +189,13 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     else:
         (W,H) = (exp.getWidth(), exp.getHeight())
     solver.setImageSize(W, H)
-    solver.setLogLevel(2)
     #solver.printSolverSettings(stdout)
 
-    # FIXME -- add policy entry for this...
-    #dscale = policy.get('pixelScaleUncertainty')
-    dscale = None
+    key = 'pixelScaleUncertainty'
+    if policy.exists(key):
+        dscale = float(policy.get(key))
+    else:
+        dscale = None
 
     #Do a blind solve if we're told to, or if we don't have an input wcs
     doBlindSolve = policy.get('blindSolve') or (not haswcs)
@@ -148,17 +220,9 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     # Generate a list of catalogue objects in the field.
     #
 
-    #First obtain the catalogue-listed positions of stars
-    log.log(log.DEBUG, "Determining match objects")
     imgSizeInArcsec = wcs.pixelScale() * hypot(W,H)
-
-    #Do we want magnitude information
-    filterName = chooseFilterName(exposure, policy, solver, log)
-
-    idName = ''
-    colname = 'defaultIdColumnName'
-    if policy.exists(colname):
-        idName = policy.get(colname)
+    filterName = chooseFilterName(exposure, policy, solver, log, filterName)
+    idName = getIdColumn(policy)
 
     try:
         cat = solver.getCatalogue(2*imgSizeInArcsec, filterName, idName)
@@ -235,19 +299,6 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     moreMeta.combine(matchListMeta)
     return (matchList, wcs, moreMeta)
 
-class StdoutLog():
-    """If no log is passed, this class just writes the output to stdout, regardless of
-    log verbosity"""
-
-    def __init__(self):
-        self.DEBUG="DEBUG"
-        self.INFO="INFO"
-        self.WARN="WARN"
-
-    def log(self, arg1, arg2):
-        print "%s" %(arg2)
-
-
 def trimBadPoints(exp, srcSet):
     """Remove elements from srcSet whose xy positions aren't within the boundaries of exp
 
@@ -268,53 +319,46 @@ def trimBadPoints(exp, srcSet):
     return goodSet
 
 
-def chooseFilterName(exposure, policy, solver, log):
+def chooseFilterName(exposure, policy, solver, log, filterName=None):
     """When extracting catalogue magnitudes, which colour filter should we request
     e.g U,B,V etc."""
 
     if log is None:
-        log = StdoutLog()
+        log = Log.getDefaultLog()
 
-    filterName = exposure.getFilter().getName()
-    if filterName == "_unknown_":   #No symbol for this in afw
-        log.log(log.DEBUG, "Exposure has no filter info. Using default")
-        if not policy.exists("defaultFilterName"):
-            log.log(log.DEBUG, "No default filter is set")
-            return ""
-        filterName = policy.get("defaultFilterName")
+    if filterName is None:
+        filterName = exposure.getFilter().getName()
 
-    log.log(Log.DEBUG, "Exposure was taken in %s band" %(filterName))
+    if filterName == "_unknown_":
+        log.log(log.DEBUG, "Exposure has no filter name set. Using default.")
+    else:
+        log.log(Log.DEBUG, 'Exposure was taken with filter "%s"' % (filterName))
 
     availableFilters = solver.getCatalogueMetadataFields()
-    availableFiltersStr = ", ".join(availableFilters) #Expressed as a string
-
-
     if filterName in availableFilters:
-        log.log(Log.DEBUG, "Have catalogue magnitudes for %s" %(filterName))
+        log.log(Log.DEBUG, 'Have catalogue magnitudes for filter: "%s"' %(filterName))
         return filterName
-    else:
-        log.log(Log.DEBUG, "Catalogue doesn't contain %s, only [%s]" %(filterName, availableFiltersStr))
-        log.log(Log.DEBUG, "Searching for default filter")
 
-        if not policy.exists("defaultFilterName"):
-            log.log(log.DEBUG, "No default filter is set")
-            return ""
-        defaultFilter = policy.get("defaultFilterName")
+    log.log(Log.DEBUG, 'Catalogue doesn\'t contain filter "%s"; using default (available filters: "%s")' %
+            (filterName, '", "'.join(availableFilters)))
 
-        if defaultFilter in availableFilters:
-            log.log(log.DEBUG, "Using default filter name (%s)" %(defaultFilter))
-            return defaultFilter
-        else:
-            raise ValueError("Default filter %s not included in catalogue [%s]" \
-                    %(defaultFilter, availableFiltersStr))
+    if not policy.exists("defaultFilterName"):
+        log.log(log.DEBUG, "No default filter name is set")
+        return ""
+    defaultFilter = policy.get("defaultFilterName")
+    if defaultFilter in availableFilters:
+        log.log(log.DEBUG, 'Using default filter name "%s"' % (defaultFilter))
+        return defaultFilter
 
-    raise RuntimeError("This function should have returned before getting to this point")
+    raise ValueError('Default filter "%s" not included in catalogue (available filters: "%s")' \
+                     % (defaultFilter, '", "'.join(availableFilters)))
+
 
 def calculateSipTerms(inputWcs, cat, srcSet, distInArcsec, cleanParam, sipOrder, log=None):
     """Iteratively calculate sip distortions and regenerate matchList based on improved wcs"""
 
     if log is None:
-        log = StdoutLog()
+        log = Log.getDefaultLog()
 
     wcs = inputWcs
 

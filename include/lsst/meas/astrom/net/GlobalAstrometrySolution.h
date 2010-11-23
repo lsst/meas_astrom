@@ -137,7 +137,8 @@ public:
 
     std::vector<std::string> getCatalogueMetadataFields();
     lsst::afw::detection::SourceSet getCatalogue(double ra, double dec, double radiusInArcsec, 
-                                                 std::string filterName, std::string idName);
+                                                 std::string filterName, std::string idName,
+        int indexId = -1);
     lsst::afw::detection::SourceSet getCatalogue(double radiusInArcsec, std::string filterName,
 						 std::string idName);
 

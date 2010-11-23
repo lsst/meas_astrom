@@ -16,6 +16,7 @@ def sourceset_read_boost(fn):
     persistence = dafPersist.Persistence.getPersistence(pexPolicy.Policy())
     storageList.append(persistence.getRetrieveStorage("BoostStorage", loc))
     psvptr = persistence.unsafeRetrieve("PersistableSourceVector", storageList, additionalData)
+    print psvptr
     psv = afwDet.PersistableSourceVector.swigConvert(psvptr)
     return psv.getSources()
 
@@ -39,7 +40,7 @@ if __name__ == '__main__':
     out = tabledata()
     for getterName,name in fields:
         out.set(name, array([getattr(s, getterName)() for s in ss]))
-    print 'Writing %i columns to %s' % (len(out.get_columns()), outfn)
+    #print 'Writing %i columns to %s' % (len(out.get_columns()), outfn)
     out.writeto(outfn)
 
         
