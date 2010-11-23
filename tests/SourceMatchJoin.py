@@ -58,11 +58,11 @@ class matchlistTestCase(unittest.TestCase):
         log = Log.getDefaultLog()
 
         ra,dec,rad = 2.389, 3.287, 0.158
-        filter,idname = 'r','id'
+        filtername,idname = 'r','id'
         anindid = 101109003
 
         solver = measAstrom.createSolver(pol, log)
-        ss = solver.getCatalogue(ra, dec, rad*3600., filter, idname, anindid)
+        ss = solver.getCatalogue(ra, dec, rad*3600., filtername, idname, anindid)
         print 'got', len(ss), 'catalog sources'
 
         smv = afwDet.SourceMatchVector()
@@ -104,7 +104,7 @@ class matchlistTestCase(unittest.TestCase):
         print 'Got metadata:', extra2
         print extra2.toString()
 
-        measAstrom.joinMatchListWithCatalog(smv2, extra2, pol, filterName=filter, idName=idname)
+        measAstrom.joinMatchListWithCatalog(smv2, extra2, pol, filterName=filtername, idName=idname)
 
         self.assertEqual(len(smv2), len(smv))
         for i in xrange(len(smv)):

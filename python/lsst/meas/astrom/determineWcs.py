@@ -63,6 +63,7 @@ def getIdColumn(policy):
     colname = 'defaultIdColumnName'
     if policy.exists(colname):
         idName = policy.get(colname)
+    return idName
 
 def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None,
                              filterName=None, idName=None):
@@ -225,6 +226,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     idName = getIdColumn(policy)
 
     try:
+        #print 'size, fiter, id', imgSizeInArcsec, filterName, idName
         cat = solver.getCatalogue(2*imgSizeInArcsec, filterName, idName)
     except LsstCppException, e:
         log.log(Log.WARN, str(e))
@@ -260,6 +262,16 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         #Use list of matches returned by astrometry.net
         log.log(Log.DEBUG, "Getting matched sources: Fluxes in column %s; Ids in column" % (filterName, idName))
         matchList = solver.getMatchedSources(filterName, idName)
+
+
+    srcids = [s.getSourceId() for s in srcSet]
+    print 'srcids:', srcids
+    for m in matchList:
+        print 'Matchlist entry ids:', m.first.getSourceId(), m.second.getSourceId()
+        #print '  second.sourceId:', m.second.getSourceId()
+        assert(m.second.getSourceId() in srcids)
+        assert(m.second in srcSet)
+        
 
 
     if policy.get('calculateSip'):
@@ -386,7 +398,6 @@ def calculateSipTerms(inputWcs, cat, srcSet, distInArcsec, cleanParam, sipOrder,
         proposedMatchlist = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=proposedWcs,
             distInArcsec=distInArcsec, cleanParam=cleanParam)
 
-
         if len(proposedMatchlist) <= matchSize:
             #We're regressing, so stop
             break
@@ -405,8 +416,6 @@ def calculateSipTerms(inputWcs, cat, srcSet, distInArcsec, cleanParam, sipOrder,
 def matchSrcAndCatalogue(cat=None, img=None, wcs=None, distInArcsec=1.0, cleanParam=3):
     """Given an input catalogue, match a list of objects in an image, given
     their x,y position and a wcs solution.
-
-    Return: A list of x, y, dx and dy. Each element of the list is itself a list
     """
 
     if cat is None:
@@ -419,7 +428,6 @@ def matchSrcAndCatalogue(cat=None, img=None, wcs=None, distInArcsec=1.0, cleanPa
 
     matcher = astromSip.MatchSrcToCatalogue(cat, img, wcs, distInArcsec)
     matchList = matcher.getMatches()
-
 
     if matchList is None:
         raise RuntimeError("No matches found between image and catalogue")
