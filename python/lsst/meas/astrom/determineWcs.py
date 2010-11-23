@@ -98,28 +98,28 @@ def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None
     ra = matchmeta.getDouble('RA')
     dec = matchmeta.getDouble('DEC')
     rad = matchmeta.getDouble('RADIUS')
-    log.log(Log.DEBUG, 'RA,Dec,radius %g,%g %g' % (ra, dec, rad))
-
+    log.log(Log.DEBUG, 'Searching RA,Dec %.3f,%.3f, radius %.1f arcsec, filter "%s", id column "%s", indexid %i' %
+            (ra, dec, rad * 3600., filterName, idName, anid))
     #myinds = solver.getIndexList()
-    #print 'My Astrometry.net indices:', myinds
-    #for i in myinds:
-    #    print '  ', i.indexname
 
-    print 'RA,Dec,rad, filter,id,indexid', (ra, dec, rad * 3600., filterName, idName, anid)
-
+    # FIXME -- need anid?  Not necessarily... ref ids are supposed to be unique!
     cat = solver.getCatalogue(ra, dec, rad * 3600., filterName, idName, anid)
-    print 'Got', len(cat), 'in range'
+    log.log(Log.DEBUG, 'Found %i reference catalog sources in range' % len(cat))
 
+    # build map of reference id to reference object.
     idtoref = dict([[s.getSourceId(), s] for s in cat])
 
+    # Join.
+    nmatched = 0
     for i in xrange(len(matchlist)):
         mid = matchlist[i].first.getSourceId()
-        print '  matching id', mid
         if mid in idtoref:
             ref = idtoref[mid]
             matchlist[i].first = ref
-            print '  -> got', ref
-
+            nmatched += 1
+    log.log(Log.DEBUG, 'Joined %i of %i matchlist reference IDs to reference objects' %
+            (nmatched, len(matchlist)))
+    
 
 def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=False,
                  forceImageSize=None, filterName=None):
