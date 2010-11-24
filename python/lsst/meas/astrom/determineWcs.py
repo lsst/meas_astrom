@@ -94,7 +94,7 @@ def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None
     anindexname = os.path.basename(matchmeta.getString('ANINDNM'))
     log.log(Log.DEBUG, 'Astrometry.net index was "%s" (id %i, healpix %i)' %
             (anindexname, anid, anhp))
-    
+
     # all in deg.
     ra = matchmeta.getDouble('RA')
     dec = matchmeta.getDouble('DEC')
@@ -124,15 +124,15 @@ def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None
 
 def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=False,
                  forceImageSize=None, filterName=None):
-    """Top level function for calculating a Wcs.
+    '''Top level function for calculating an initial (per-chip) astrometric solution.
 
-    Given an initial guess at a Wcs (hidden inside an exposure) and a set of
-    sources (sourceSet), use astrometry.net to confirm the Wcs, then calculate
-    distortion terms.
+    Get an initial World Coordinate System (WCS) from Astrometry.net,
+    then calculate SIP distortion terms.
+
 
     Input:
     policy:     An lsst.pex.policy.Policy object containing the parameters for the solver
-    exposure    lsst.afw.image.Exposure representation of an image and a wcs
+    exposure    lsst.afw.image.Exposure representation of an image and a WCS 
                 this provides the initial guess at position and plate scale
     sourceSet   A list of lsst.afw.detection.Source objects, indicating the pixel positions of
                 stars in the field
@@ -142,7 +142,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
                 one will be created.
     forceImageSize  tuple of (W,H): force this image size, rather than getting it from the Exposure.
     filterName  Use this filter name, rather than getting it from the exposure.
-    """
+    '''
 
     if log is None:
         log = Log.getDefaultLog()
@@ -167,12 +167,12 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         for s in srcSet:
             ds9.dot("o", s.getXAstrom(), s.getYAstrom(), size=3, ctype=ds9.RED, frame=frame)
 
-    #Extract an initial guess wcs if available
+    #Extract an initial guess WCS if available    
     wcsIn = exp.getWcs() #May be None
     # Exposure uses the special object "NoWcs" instead of NULL.  Because they're special.
     haswcs = exp.hasWcs()
     if not haswcs:
-        log.log(log.WARN, "No wcs found on exposure. Doing blind solve")
+        log.log(log.WARN, "No WCS found in exposure. Doing blind solve")
 
     #Setup solver
     if solver is None:
@@ -198,7 +198,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     else:
         dscale = None
 
-    #Do a blind solve if we're told to, or if we don't have an input wcs
+    #Do a blind solve if we're told to, or if we don't have an input WCS
     doBlindSolve = policy.get('blindSolve') or (not haswcs)
     if doBlindSolve:
         log.log(log.DEBUG, "Solving with no initial guess at position")
@@ -213,7 +213,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     #Did we solve?
     log.log(log.DEBUG, "Finished Solve step.")
     if not isSolved:
-        log.log(log.WARN, "No solution found, using input Wcs")
+        log.log(log.WARN, "No solution found, using input WCS")
         return [], wcsIn, moreMeta
     wcs = solver.getWcs()
 
@@ -254,10 +254,10 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
 
         if len(matchList) == 0:
             log.log(Log.WARN, "No matches found between input source and catalogue.")
-            log.log(Log.WARN, "Something in wrong. Defaulting to input wcs")
+            log.log(Log.WARN, "Something is wrong. Defaulting to input WCS")
             return [], wcsIn, moreMeta
 
-        log.log(Log.DEBUG, "%i catalogue objects match input source list using linear Wcs" %(len(matchList)))
+        log.log(Log.DEBUG, "%i catalogue objects match input source list using linear WCS" %(len(matchList)))
     else:
         #Use list of matches returned by astrometry.net
         log.log(Log.DEBUG, "Getting matched sources: Fluxes in column %s; Ids in column" % (filterName, idName))
@@ -278,7 +278,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         sipOrder = policy.get('sipOrder')
         wcs, matchList = calculateSipTerms(wcs, cat, srcSet, distInArcsec, cleanParam, sipOrder, log)
     else:
-        log.log(Log.DEBUG, "Updating wcs in input exposure with linear wcs")
+        log.log(Log.DEBUG, "Updating WCS in input exposure with linear WCS")
 
     exposure.setWcs(wcs)
     #solver.reset()

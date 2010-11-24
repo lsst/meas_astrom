@@ -18,8 +18,16 @@ import lsst
 import lsst.meas.astrom as measAstrom
 from lsst.pex.logging import Log
 from lsst.afw.detection import Source, PersistableSourceVector
-
 import lsst.meas.algorithms
+
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import rc
+#rc('text', usetex=False)
+#rc('font', family='monospace')
+
+from pylab import *
+from numpy import array
 
 if __name__ == '__main__':
     matchfilename = 'examples/imsim-v85501867-fi-R11-S11-matches.fits'
@@ -70,13 +78,34 @@ if __name__ == '__main__':
         if sid in idtosrc:
             smv2[i].second = idtosrc[sid]
             nmatched += 1
-    print 'Joined', nmatched, 'sources'
-
     print 'Got', len(sources), 'sources'
-    print 'ids:', [s.getSourceId() for s in sources]
+    print 'Joined', nmatched, 'of', len(smv2), 'sources'
 
-    print 'Matchlist source ids:', [m.second.getSourceId() for m in smv2]
+    #print 'ids:', [s.getSourceId() for s in sources]
+    #print 'Matchlist source ids:', [m.second.getSourceId() for m in smv2]
 
+    tt = 'ImSim v85501867-R11-S11'
+
+    clf()
+    f1 = array([m.first.getPsfFlux() for m in smv2])
+    f2 = array([m.second.getPsfFlux() for m in smv2])
+    pos = (f1 > 0) * (f2 > 0)
+    loglog(f1[pos], f2[pos], 'r.')
+    xlabel('Reference catalog flux')
+    ylabel('Source flux')
+    title(tt + ': photometry')
+    savefig('phot1.png')
+
+    m1 = -2.5 * log10(f1)
+    clf()
+    semilogy(m1[pos], f2[pos], 'r.', alpha=0.5)
+    xlabel('Reference catalog: %s band (mag)' % filtername)
+    ylabel('Measured source PSF flux')
+    a=axis()
+    xlim(a[1],a[0])
+    ylim(ymax=max(f2[pos])*2.)
+    title(tt + ': photometry')
+    savefig('phot2.png')
     
     if False:
         for i in xrange(len(smv2)):
