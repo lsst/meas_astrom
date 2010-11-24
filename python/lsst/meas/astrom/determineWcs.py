@@ -137,7 +137,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     sourceSet   A list of lsst.afw.detection.Source objects, indicating the pixel positions of
                 stars in the field
     log         A lsst.pex.logging.Log object (optional), used for printing progress
-    doTrim        Check that all sources lie within the image, and remove those that don't.
+    doTrim      Remove sources that are not inside the image.
     solver      Optionally provide a previously created astrometry.net solver. If not provided
                 one will be created.
     forceImageSize  tuple of (W,H): force this image size, rather than getting it from the Exposure.
@@ -147,48 +147,43 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     if log is None:
         log = Log.getDefaultLog()
 
-
-    #Short names
-    exp = exposure
-    srcSet = sourceSet
-
     if display:
         frame = 1
         ds9.mtv(exposure, frame=frame, title="wcsDet")
 
     if doTrim:
-        nStart = len(srcSet)
-        srcSet = trimBadPoints(exp, srcSet)
+        nStart = len(sourceSet)
+        sourceSet = trimBadPoints(exposure, sourceSet)
         if log:
-            nEnd = len(srcSet)
+            nEnd = len(sourceSet)
             log.log(log.DEBUG, "Kept %i of %i sources after trimming" %(nEnd, nStart))
 
     if display:
-        for s in srcSet:
+        for s in sourceSet:
             ds9.dot("o", s.getXAstrom(), s.getYAstrom(), size=3, ctype=ds9.RED, frame=frame)
 
     #Extract an initial guess WCS if available    
-    wcsIn = exp.getWcs() #May be None
+    wcsIn = exposure.getWcs() #May be None
     # Exposure uses the special object "NoWcs" instead of NULL.  Because they're special.
-    haswcs = exp.hasWcs()
+    haswcs = exposure.hasWcs()
     if not haswcs:
         log.log(log.WARN, "No WCS found in exposure. Doing blind solve")
 
-    #Setup solver
+    # Setup solver
     if solver is None:
         solver = createSolver(policy, log)
     else:
         solver.reset()
 
-    #Set solving params
+    # Set solving params
     log.log(log.DEBUG, "Setting starlist")
-    solver.setStarlist(srcSet)
+    solver.setStarlist(sourceSet)
     log.log(log.DEBUG, "Setting numBrightObj")
-    solver.setNumBrightObjects( min(policy.get('numBrightStars'), len(srcSet)))
+    solver.setNumBrightObjects( min(policy.get('numBrightStars'), len(sourceSet)))
     if forceImageSize is not None:
         (W,H) = forceImageSize
     else:
-        (W,H) = (exp.getWidth(), exp.getHeight())
+        (W,H) = (exposure.getWidth(), exposure.getHeight())
     solver.setImageSize(W, H)
     #solver.printSolverSettings(stdout)
 
@@ -198,7 +193,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     else:
         dscale = None
 
-    #Do a blind solve if we're told to, or if we don't have an input WCS
+    # Do a blind solve if we're told to, or if we don't have an input WCS
     doBlindSolve = policy.get('blindSolve') or (not haswcs)
     if doBlindSolve:
         log.log(log.DEBUG, "Solving with no initial guess at position")
@@ -210,12 +205,13 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
 
     moreMeta = dafBase.PropertyList()
 
-    #Did we solve?
+    # Did we solve?
     log.log(log.DEBUG, "Finished Solve step.")
     if not isSolved:
         log.log(log.WARN, "No solution found, using input WCS")
         return [], wcsIn, moreMeta
     wcs = solver.getWcs()
+    tanwcs = wcs
 
     #
     # Generate a list of catalogue objects in the field.
@@ -246,7 +242,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         distInArcsec = policy.get('distanceForCatalogueMatchinArcsec')
         cleanParam = policy.get('cleaningParameter')
 
-        matchList = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=wcs,
+        matchList = matchSrcAndCatalogue(cat=cat, img=sourceSet, wcs=wcs,
             distInArcsec=distInArcsec, cleanParam=cleanParam)
 
         uniq = set([sm.second.getId() for sm in matchList])
@@ -266,24 +262,22 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         matchList = solver.getMatchedSources(filterName, idName)
 
 
-    srcids = [s.getSourceId() for s in srcSet]
-    print 'srcids:', srcids
+    srcids = [s.getSourceId() for s in sourceSet]
+    #print 'srcids:', srcids
     for m in matchList:
-        print 'Matchlist entry ids:', m.first.getSourceId(), m.second.getSourceId()
-        #print '  second.sourceId:', m.second.getSourceId()
+        #print 'Matchlist entry ids:', m.first.getSourceId(), m.second.getSourceId()
         assert(m.second.getSourceId() in srcids)
-        assert(m.second in srcSet)
+        assert(m.second in sourceSet)
         
 
 
     if policy.get('calculateSip'):
         sipOrder = policy.get('sipOrder')
-        wcs, matchList = calculateSipTerms(wcs, cat, srcSet, distInArcsec, cleanParam, sipOrder, log)
+        wcs, matchList = calculateSipTerms(wcs, cat, sourceSet, distInArcsec, cleanParam, sipOrder, log)
     else:
         log.log(Log.DEBUG, "Updating WCS in input exposure with linear WCS")
 
     exposure.setWcs(wcs)
-    #solver.reset()
 
     # add current EUPS astrometry_net_data setup.
     andata = os.environ.get('ASTROMETRY_NET_DATA_DIR')
@@ -313,19 +307,19 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     moreMeta.combine(matchListMeta)
     return (matchList, wcs, moreMeta)
 
-def trimBadPoints(exp, srcSet):
-    """Remove elements from srcSet whose xy positions aren't within the boundaries of exp
+def trimBadPoints(exposure, sourceSet):
+    """Remove elements from sourceSet whose xy positions aren't within the boundaries of exposure
 
     Input:
-    exp:    an Exposure object
-    srcSet  A list of Source objects
+    exposure:    an Exposure object
+    sourceSet  A list of Source objects
     """
 
-    x0, y0 = exp.getMaskedImage().getXY0()
-    h, w = float(exp.getHeight()), float(exp.getWidth())
+    x0, y0 = exposure.getMaskedImage().getXY0()
+    h, w = float(exposure.getHeight()), float(exposure.getWidth())
 
     goodSet = []
-    for s in srcSet:
+    for s in sourceSet:
         if x0 < s.getXAstrom() < x0+w:
             if y0 < s.getYAstrom() < y0+h:
                 goodSet.append(s)
@@ -368,7 +362,7 @@ def chooseFilterName(exposure, policy, solver, log, filterName=None):
                      % (defaultFilter, '", "'.join(availableFilters)))
 
 
-def calculateSipTerms(inputWcs, cat, srcSet, distInArcsec, cleanParam, sipOrder, log=None):
+def calculateSipTerms(inputWcs, cat, sourceSet, distInArcsec, cleanParam, sipOrder, log=None):
     """Iteratively calculate sip distortions and regenerate matchList based on improved wcs"""
 
     if log is None:
@@ -377,7 +371,7 @@ def calculateSipTerms(inputWcs, cat, srcSet, distInArcsec, cleanParam, sipOrder,
     wcs = inputWcs
 
     #Create a first pass at a set of matching objects
-    matchList = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=wcs,
+    matchList = matchSrcAndCatalogue(cat=cat, img=sourceSet, wcs=wcs,
         distInArcsec=distInArcsec, cleanParam=cleanParam)
 
     i=0
@@ -397,7 +391,7 @@ def calculateSipTerms(inputWcs, cat, srcSet, distInArcsec, cleanParam, sipOrder,
         log.log(Log.DEBUG, msg)
 
         #Use the new wcs to update the match list
-        proposedMatchlist = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=proposedWcs,
+        proposedMatchlist = matchSrcAndCatalogue(cat=cat, img=sourceSet, wcs=proposedWcs,
             distInArcsec=distInArcsec, cleanParam=cleanParam)
 
         if len(proposedMatchlist) <= matchSize:
