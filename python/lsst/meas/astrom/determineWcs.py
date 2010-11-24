@@ -120,7 +120,18 @@ def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None
             nmatched += 1
     log.log(Log.DEBUG, 'Joined %i of %i matchlist reference IDs to reference objects' %
             (nmatched, len(matchlist)))
-    
+
+# Object returned by determineWcs.
+class InitialAstrometry(object):
+    self __init__(self):
+        self.matches = None
+        self.wcs = None
+    def getMatches(self):
+        return self.matches
+    def getWcs(self):
+        return self.wcs
+    def getMatchMetadata(self):
+        return getattr(self, 'matchMetadata', None)
 
 def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=False,
                  forceImageSize=None, filterName=None):
@@ -143,6 +154,8 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     forceImageSize  tuple of (W,H): force this image size, rather than getting it from the Exposure.
     filterName  Use this filter name, rather than getting it from the exposure.
     '''
+
+    result = InitialAstrometry()
 
     if log is None:
         log = Log.getDefaultLog()
@@ -209,18 +222,13 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     log.log(log.DEBUG, "Finished Solve step.")
     if not isSolved:
         log.log(log.WARN, "No solution found, using input WCS")
-        return [], wcsIn, moreMeta
+        return result
     wcs = solver.getWcs()
-    tanwcs = wcs
 
-    #
     # Generate a list of catalogue objects in the field.
-    #
-
     imgSizeInArcsec = wcs.pixelScale() * hypot(W,H)
     filterName = chooseFilterName(exposure, policy, solver, log, filterName)
     idName = getIdColumn(policy)
-
     try:
         #print 'size, fiter, id', imgSizeInArcsec, filterName, idName
         #cat = solver.getCatalogue(2*imgSizeInArcsec, filterName, idName)
@@ -236,9 +244,8 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         log.log(Log.WARN, "Available filters: " + str(solver.getCatalogueMetadataFields()))
         raise
 
-    matchList=[]
     if True:
-        #Now generate a list of matching objects
+        # Now generate a list of matching objects
         distInArcsec = policy.get('distanceForCatalogueMatchinArcsec')
         cleanParam = policy.get('cleaningParameter')
 
@@ -253,14 +260,16 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         if len(matchList) == 0:
             log.log(Log.WARN, "No matches found between input source and catalogue.")
             log.log(Log.WARN, "Something is wrong. Defaulting to input WCS")
-            return [], wcsIn, moreMeta
+            return result
 
         log.log(Log.DEBUG, "%i catalogue objects match input source list using linear WCS" %(len(matchList)))
     else:
-        #Use list of matches returned by astrometry.net
+        # Use list of matches returned by Astrometry.net
         log.log(Log.DEBUG, "Getting matched sources: Fluxes in column %s; Ids in column" % (filterName, idName))
         matchList = solver.getMatchedSources(filterName, idName)
 
+    result.tanWcs = wcs
+    result.tanMatches = matchList
 
     srcids = [s.getSourceId() for s in sourceSet]
     #print 'srcids:', srcids
@@ -268,12 +277,13 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         #print 'Matchlist entry ids:', m.first.getSourceId(), m.second.getSourceId()
         assert(m.second.getSourceId() in srcids)
         assert(m.second in sourceSet)
-        
-
 
     if policy.get('calculateSip'):
         sipOrder = policy.get('sipOrder')
         wcs, matchList = calculateSipTerms(wcs, cat, sourceSet, distInArcsec, cleanParam, sipOrder, log)
+
+        result.sipWcs = wcs
+        result.sipMatches = matchList
     else:
         log.log(Log.DEBUG, "Updating WCS in input exposure with linear WCS")
 
@@ -305,7 +315,12 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
 
     matchListMeta = solver.getMatchedIndexMetadata()
     moreMeta.combine(matchListMeta)
-    return (matchList, wcs, moreMeta)
+
+    result.matchMetadata = moreMeta
+    result.wcs = wcs
+    result.matches = matchList
+
+    return result
 
 def trimBadPoints(exposure, sourceSet):
     """Remove elements from sourceSet whose xy positions aren't within the boundaries of exposure
