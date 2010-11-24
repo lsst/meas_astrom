@@ -136,6 +136,9 @@ public:
     double getSolvedImageScale();
 
     std::vector<std::string> getCatalogueMetadataFields();
+
+    lsst::afw::detection::SourceSet getCatalogueForSolvedField(std::string filter, std::string idname, double margin);
+
     lsst::afw::detection::SourceSet getCatalogue(double ra, double dec, double radiusInArcsec, 
                                                  std::string filterName, std::string idName,
         int indexId = -1);

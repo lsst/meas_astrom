@@ -945,6 +945,70 @@ vector<string> GlobalAstrometrySolution::getCatalogueMetadataFields() {
     return output;
 }    
 
+///Returns a sourceSet of objects that are nearby in an raDec sense to the best match solution
+lsst::afw::detection::SourceSet 
+GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string idName, double margin) {
+    if (! _isSolved) {
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
+    }
+    MatchObj* match = solver_get_best_match(_solver);
+    double* radec;
+    int* starinds;
+    int nstars;
+    double scale;
+    double r2;
+    int i, W, H;
+    int outi;
+
+    Det::SourceSet out;
+
+    // arcsec/pix
+    scale = tan_pixel_scale(&(match->wcstan));
+    // add margin
+    r2 = deg2distsq(match->radius_deg + arcsec2deg(scale * margin));
+    
+    startree_search_for(match->index->starkd, match->center, r2, NULL, &radec, &starinds, &nstars);
+    if (nstars == 0)
+        return out;
+
+    W = match->wcstan.imagew;
+    H = match->wcstan.imageh;
+    outi = 0;
+    for (i=0; i<nstars; i++) {
+        double px, py;
+        if (!tan_radec2pixelxy(&(match->wcstan), radec[2*i+0], radec[2*i+1], &px, &py))
+            continue;
+        // in bounds (+ margin) ?
+        if (px < -margin || px > W+margin || py < -margin || py > H+margin)
+            continue;
+
+        // keep it
+        Det::Source::Ptr src(new lsst::afw::detection::Source());
+        src->setRa (radec[2*i+0]);
+        src->setDec(radec[2*i+1]);
+        out.push_back(src);
+        starinds[outi] = starinds[i];
+        outi++;
+    }
+
+    vector<double> mag = getTagAlongFromIndex(match->index, filterName, starinds, outi);
+    if (mag.size()) {
+        for (unsigned int i=0; i<out.size(); i++) {
+            // seems crazy to convert back to flux...
+            out[i]->setPsfFlux(pow(10.0, -mag[i]/2.5));
+        }
+    }
+
+    vector<boost::int64_t> ids = getIds(idName, match->index, starinds, outi);
+    if (ids.size()) {
+        for (unsigned int i=0; i<out.size(); i++) {
+            out[i]->setSourceId(ids[i]);
+        }
+    }
+
+    return out;
+}
+    
 
 ///Returns a sourceSet of objects that are nearby in an raDec sense to the best match solution
 lsst::afw::detection::SourceSet 
