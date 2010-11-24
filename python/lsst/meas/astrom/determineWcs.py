@@ -65,6 +65,30 @@ def getIdColumn(policy):
         idName = policy.get(colname)
     return idName
 
+def joinMatchList(matchlist, sources, first=True, log=None):
+    # build map of reference id to reference object.
+    idtoref = dict([[s.getSourceId(), s] for s in sources])
+    # Join.
+    nmatched = 0
+    for i in xrange(len(matchlist)):
+        if first:
+            mid = matchlist[i].first.getSourceId()
+        else:
+            mid = matchlist[i].second.getSourceId()
+        if not mid in idtoref:
+            # throw? warn?
+            continue
+        ref = idtoref[mid]
+        if first:
+            matchlist[i].first = ref
+        else:
+            matchlist[i].second = ref
+        nmatched += 1
+    if log:
+        log.log(Log.DEBUG, 'Joined %i of %i matchlist reference IDs to %s' %
+                (nmatched, len(matchlist), ('reference objects' if first else 'sources')))
+
+
 def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None,
                              filterName=None, idName=None):
     if log is None:
@@ -107,19 +131,8 @@ def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None
     cat = solver.getCatalogue(ra, dec, rad * 3600., filterName, idName, anid)
     log.log(Log.DEBUG, 'Found %i reference catalog sources in range' % len(cat))
 
-    # build map of reference id to reference object.
-    idtoref = dict([[s.getSourceId(), s] for s in cat])
+    joinMatchList(matchlist, cat, first=True, log=log)
 
-    # Join.
-    nmatched = 0
-    for i in xrange(len(matchlist)):
-        mid = matchlist[i].first.getSourceId()
-        if mid in idtoref:
-            ref = idtoref[mid]
-            matchlist[i].first = ref
-            nmatched += 1
-    log.log(Log.DEBUG, 'Joined %i of %i matchlist reference IDs to reference objects' %
-            (nmatched, len(matchlist)))
 
 # Object returned by determineWcs.
 class InitialAstrometry(object):
@@ -287,6 +300,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     else:
         log.log(Log.DEBUG, "Updating WCS in input exposure with linear WCS")
 
+    log.log(Log.DEBUG, "Setting exposure's WCS: to\n" + wcs.getFitsMetadata().toString())
     exposure.setWcs(wcs)
 
     # add current EUPS astrometry_net_data setup.

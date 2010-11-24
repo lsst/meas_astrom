@@ -556,7 +556,8 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
         _mylog.format(pexLog::Log::DEBUG, "Starting log-odds: %g", match->logodds);
         // Use "tweak2" to tune up this match, resulting in a better WCS and more catalog matches.
         // magic 1: only go to linear order (no SIP distortions).
-        solver_tweak2(_solver, match, 1);
+        //solver_tweak2(_solver, match, 1);
+        solver_tweak2(_solver, match, 1, NULL);
 
         _mylog.format(pexLog::Log::DEBUG, "After tweak2: %i matches, %i conflicts, %i unmatched",
                       (int)match->nmatch, (int)match->nconflict, (int)match->ndistractor);
