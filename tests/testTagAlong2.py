@@ -43,8 +43,7 @@ import lsst.afw.coord as afwCoord
 import lsst.utils.tests as utilsTests
 import lsst.pex.policy as pexPolicy
 from astrometry.util.pyfits_utils import fits_table
-
-from lsst.pex.exceptions import LsstCppException
+from lsst.pex.logging import Log
 
 import sourceSetIO as ssi
 
@@ -112,14 +111,11 @@ class TagAlongTest2(unittest.TestCase):
 
                         
     def test1(self):
-		# this is how determineWcs.py initializes it...
-        path = os.path.join(os.environ['ASTROMETRY_NET_DATA_DIR'], "metadata.paf")
-        gas = measAstrom.net.GlobalAstrometrySolution(path)
-        matchThreshold = self.defaultPolicy.get('matchThreshold')
-        gas.setMatchThreshold(matchThreshold)
+        log = Log.getDefaultLog()
+        gas = measAstrom.createSolver(self.defaultPolicy, log)
 
-        (matches, wcs, matchListMeta) = measAstrom.determineWcs(self.defaultPolicy, self.exposure,
-                                                                self.srcSet, solver=gas)
+        astrom = measAstrom.determineWcs(self.defaultPolicy, self.exposure,
+                                         self.srcSet, solver=gas)
 
         print 'Grabbing index stars inside the solved field...'
         (xyz,radec,inds,tag) = gas.getIndexStarsInSolvedField(10.)

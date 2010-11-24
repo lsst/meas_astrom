@@ -42,8 +42,7 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.coord as afwCoord
 import lsst.utils.tests as utilsTests
 import lsst.pex.policy as pexPolicy
-
-from lsst.pex.exceptions import LsstCppException
+from lsst.pex.logging import Log
 
 from astrometry.util.pyfits_utils import fits_table
 import sourceSetIO as ssi
@@ -113,15 +112,12 @@ class MatchListMetaTest(unittest.TestCase):
 
                         
     def test1(self):
-        # this is how determineWcs.py initializes it...
-        path = os.path.join(os.environ['ASTROMETRY_NET_DATA_DIR'], "metadata.paf")
-        gas = measAstrom.net.GlobalAstrometrySolution(path)
-        matchThreshold = self.defaultPolicy.get('matchThreshold')
-        gas.setMatchThreshold(matchThreshold)
+        log = Log.getDefaultLog()
+        gas = measAstrom.createSolver(self.defaultPolicy, log)
 
-        matches, wcs, matchMeta = measAstrom.determineWcs(self.defaultPolicy, self.exposure,
-                                                          self.srcSet, solver=gas)
-
+        astrom = measAstrom.determineWcs(self.defaultPolicy, self.exposure,
+                                         self.srcSet, solver=gas)
+        matchMeta = astrom.getMatchMetadata()
         print 'matchMeta:', matchMeta.toString()
 
         self.assertEqual(matchMeta.getAsString('REFCAT'), 'sdss-tsobj-0745-3-40-0564')

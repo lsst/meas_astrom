@@ -123,7 +123,7 @@ def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None
 
 # Object returned by determineWcs.
 class InitialAstrometry(object):
-    self __init__(self):
+    def __init__(self):
         self.matches = None
         self.wcs = None
     def getMatches(self):
