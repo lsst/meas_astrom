@@ -155,7 +155,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     filterName  Use this filter name, rather than getting it from the exposure.
     '''
 
-    result = InitialAstrometry()
+    astrom = InitialAstrometry()
 
     if log is None:
         log = Log.getDefaultLog()
@@ -222,7 +222,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     log.log(log.DEBUG, "Finished Solve step.")
     if not isSolved:
         log.log(log.WARN, "No solution found, using input WCS")
-        return result
+        return astrom
     wcs = solver.getWcs()
 
     # Generate a list of catalogue objects in the field.
@@ -260,7 +260,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         if len(matchList) == 0:
             log.log(Log.WARN, "No matches found between input source and catalogue.")
             log.log(Log.WARN, "Something is wrong. Defaulting to input WCS")
-            return result
+            return astrom
 
         log.log(Log.DEBUG, "%i catalogue objects match input source list using linear WCS" %(len(matchList)))
     else:
@@ -268,8 +268,8 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         log.log(Log.DEBUG, "Getting matched sources: Fluxes in column %s; Ids in column" % (filterName, idName))
         matchList = solver.getMatchedSources(filterName, idName)
 
-    result.tanWcs = wcs
-    result.tanMatches = matchList
+    astrom.tanWcs = wcs
+    astrom.tanMatches = matchList
 
     srcids = [s.getSourceId() for s in sourceSet]
     #print 'srcids:', srcids
@@ -282,8 +282,8 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         sipOrder = policy.get('sipOrder')
         wcs, matchList = calculateSipTerms(wcs, cat, sourceSet, distInArcsec, cleanParam, sipOrder, log)
 
-        result.sipWcs = wcs
-        result.sipMatches = matchList
+        astrom.sipWcs = wcs
+        astrom.sipMatches = matchList
     else:
         log.log(Log.DEBUG, "Updating WCS in input exposure with linear WCS")
 
@@ -316,11 +316,11 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     matchListMeta = solver.getMatchedIndexMetadata()
     moreMeta.combine(matchListMeta)
 
-    result.matchMetadata = moreMeta
-    result.wcs = wcs
-    result.matches = matchList
+    astrom.matchMetadata = moreMeta
+    astrom.wcs = wcs
+    astrom.matches = matchList
 
-    return result
+    return astrom
 
 def trimBadPoints(exposure, sourceSet):
     """Remove elements from sourceSet whose xy positions aren't within the boundaries of exposure
