@@ -4,9 +4,9 @@ from math import hypot
 import lsst.daf.persistence as dafPersist
 import lsst.pex.policy as policy
 import lsst.meas.astrom as measAstrom
+import lsst.afw.image as afwImage
 from lsst.pex.logging import Log
 from lsst.afw.coord import DEGREES
-
 from lsst.obs.lsstSim import LsstSimMapper
 
 import wcsPlots
@@ -53,6 +53,8 @@ if __name__ == '__main__':
     print 'Got calexp', calexp
     wcs = calexp.getWcs()
     print 'Got wcs', wcs
+    wcs = afwImage.cast_TanWcs(wcs)
+    print 'After cast:', wcs
     
     # ref sources
     W,H = calexp.getWidth(), calexp.getHeight()
@@ -90,9 +92,18 @@ if __name__ == '__main__':
     measAstrom.joinMatchList(matches, ref, first=True, log=log)
     measAstrom.joinMatchList(matches, sources, first=False, log=log)
 
-    for m in matches:
-        x0,x1 = m.first.getXAstrom(), m.second.getXAstrom()
-        y0,y1 = m.first.getYAstrom(), m.second.getYAstrom()
-        print 'x,y, dx,dy', x0, y0, x1-x0, y1-y0
+    #for m in matches:
+    #    x0,x1 = m.first.getXAstrom(), m.second.getXAstrom()
+    #    y0,y1 = m.first.getYAstrom(), m.second.getYAstrom()
+    #    print 'x,y, dx,dy', x0, y0, x1-x0, y1-y0
 
-    wcsPlots.plotMatches(sources, ref, matches, wcs, W, H, 'imsim-v%i-r%s-s%s' % (opt.visit, opt.raft.replace(',',''), opt.sensor.replace(',','')))
+    prefix = 'imsim-v%i-r%s-s%s' % (opt.visit, opt.raft.replace(',',''), opt.sensor.replace(',',''))
+
+    wcsPlots.plotMatches(sources, ref, matches, wcs, W, H, prefix)
+    wcsPlots.plotPhotometry(sources, ref, matches, prefix, band=filterName)
+    
+    wcsPlots.plotCorrespondences2(sources, ref, matches, wcs, W, H, prefix)
+    wcsPlots.plotCorrespondences(sources, ref, matches, wcs, W, H, prefix)
+
+    wcsPlots.plotDistortion(wcs, W, H, 400, prefix,
+                            'SIP Distortion (exaggerated x 10)', exaggerate=10.)

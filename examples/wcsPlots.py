@@ -81,7 +81,7 @@ def plotMatches(imgsources, refsources, matches, wcs, W, H, prefix,
     fn = prefix + '-matches.' + format
     return _output(fn, format, saveplot)
 
-def plotPhotometry(imgsources, refsources, matches, prefix,
+def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
                    saveplot=True, format='png'):
     print '%i ref sources' % len(refsources)
     print '%i image sources' % len(imgsources)
@@ -129,37 +129,49 @@ def plotPhotometry(imgsources, refsources, matches, prefix,
     urefmag = refmag[uref]
 
     clf()
-    p1 = plot(mimgmag, mrefmag, 'b.')
+    p1 = plot(mimgmag, mrefmag, 'b.', alpha=0.5)
     imag = append(mimgmag, uimgmag)
     axis([floor(min(imag))-0.5, ceil(max(imag)), floor(min(refmag))-0.5, ceil(max(refmag))])
     ax = axis()
 
     # Red tick marks show unmatched img sources
     dy = (ax[3]-ax[2]) * 0.05
-    y0 = ones_like(uimgmag) * ax[2]
-    p2 = plot(vstack((uimgmag, uimgmag)), vstack((y0, y0+dy)), 'r-', alpha=0.5)
+    #y0 = ones_like(uimgmag) * ax[2]
+    #p2 = plot(vstack((uimgmag, uimgmag)), vstack((y0, y0+dy)), 'r-', alpha=0.5)
+    y1 = ones_like(uimgmag) * ax[3]
+    p2 = plot(vstack((uimgmag, uimgmag)), vstack((y1, y1-dy)), 'r-', alpha=0.5)
     p2 = p2[0]
     # Blue tick marks show matched img sources
-    y0 = ones_like(mimgmag) * ax[2]
-    p3 = plot(vstack((mimgmag, mimgmag)), vstack((y0+(0.25*dy), y0+(1.25*dy))), 'b-', alpha=0.5)
+    #y0 = ones_like(mimgmag) * ax[2]
+    #p3 = plot(vstack((mimgmag, mimgmag)), vstack((y0+(0.25*dy), y0+(1.25*dy))), 'b-', alpha=0.5)
+    y1 = ones_like(mimgmag) * ax[3]
+    p3 = plot(vstack((mimgmag, mimgmag)), vstack((y1-(0.25*dy), y1-(1.25*dy))), 'b-', alpha=0.5)
     p3 = p3[0]
 
     # Red ticks for unmatched ref sources
     dx = (ax[1]-ax[0]) * 0.05
-    x0 = ones_like(urefmag) * ax[0]
-    p4 = plot(vstack((x0, x0+dx)), vstack((urefmag, urefmag)), 'r-', alpha=0.5)
+    #x0 = ones_like(urefmag) * ax[0]
+    #p4 = plot(vstack((x0, x0+dx)), vstack((urefmag, urefmag)), 'r-', alpha=0.5)
+    x1 = ones_like(urefmag) * ax[1]
+    p4 = plot(vstack((x1, x1-dx)), vstack((urefmag, urefmag)), 'r-', alpha=0.5)
     p4 = p4[0]
     # Blue ticks for matched ref sources
-    x0 = ones_like(mrefmag) * ax[0]
-    p5 = plot(vstack((x0+(0.25*dx), x0+(1.25*dx))), vstack((mrefmag, mrefmag)), 'b-', alpha=0.5)
+    #x0 = ones_like(mrefmag) * ax[0]
+    #p5 = plot(vstack((x0+(0.25*dx), x0+(1.25*dx))), vstack((mrefmag, mrefmag)), 'b-', alpha=0.5)
+    x1 = ones_like(mrefmag) * ax[1]
+    p5 = plot(vstack((x1-(0.25*dx), x1-(1.25*dx))), vstack((mrefmag, mrefmag)), 'b-', alpha=0.5)
     p5 = p5[0]
 
     figlegend((p1, p3, p2), ('Matched sources', 'Matched sources', 'Unmatched sources',),
               'center right', numpoints=1, prop=FontProperties(size='small'))
 
-    axis(ax)
+    # reverse axis directions.
+    axis([ax[1],ax[0], ax[3], ax[2]])
     xlabel('Image instrumental mag')
-    ylabel('Reference catalog mag')
+    if band is not None:
+        ylabel('Reference catalog: %s band (mag)' % band)
+    else:
+        ylabel('Reference catalog mag')
 
     fn = prefix + '-photom.' + format
     return _output(fn, format, saveplot)
@@ -357,7 +369,7 @@ Source.getRa(), getDec()
         plotdata.update(D)
 
     
-def plotDistortion(sip, W, H, ncells, prefix, title, exaggerate=1.,
+def plotDistortion(sip, W, H, ncells, prefix, titletxt, exaggerate=1.,
                    saveplot=True, format='png'):
     '''
     Produces a plot showing the SIP distortion that was found, by drawing
@@ -386,16 +398,17 @@ def plotDistortion(sip, W, H, ncells, prefix, title, exaggerate=1.,
     xx = arange(-step, W+2*step, step)
     yy = arange(-step, H+2*step, step)
 
-    clf()
+    if False:
+        print 'Sip is', sip
+        print 'has dir:'
+        for k in dir(sip):
+            print '  ', k
 
+    clf()
     for y in cy:
         dx,dy = [],[]
         for x in xx:
             pix = afwGeom.makePointD(x, y)
-            print 'Sip is', sip
-            print 'has dir:'
-            for k in dir(sip):
-                print '  ', k
             distpix = sip.distortPixel(pix)
             dx.append(distpix[0])
             dy.append(distpix[1])
@@ -425,6 +438,8 @@ def plotDistortion(sip, W, H, ncells, prefix, title, exaggerate=1.,
     
     axis('scaled')
     axis([0, W, 0, H])
+
+    title(titletxt)
 
     fn = prefix + '-distort.' + format
     return _output(fn, format, saveplot)
