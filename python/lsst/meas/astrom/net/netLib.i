@@ -32,6 +32,7 @@ Python interface to lsst::afw::meas::astrom::net classes
 %module(package="lsst.meas.astrom.net",docstring=netLib_DOCSTRING) netLib
 
 %{
+#include "lsst/pex/logging/BlockTimingLog.h"    
 #include "lsst/pex/logging/ScreenLog.h"    
 #include "lsst/pex/logging/DualLog.h"    
 #include "lsst/meas/astrom/net/GlobalAstrometrySolution.h"
