@@ -129,6 +129,23 @@ def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
     uimgmag = flux2mag(uimgflux[okflux])
     urefmag = refmag[uref]
 
+    if True:
+        unmatched = [imgsources[i] for i in flatnonzero(uimg)]
+        uflux = array([s.getPsfFlux() for s in unmatched])
+        I = argsort(-uflux)
+        print 'Unmatched image sources, by psf flux:'
+        print '# FLUX, X, Y, RA, DEC'
+        for i in I:
+            u = unmatched[i]
+            print u.getPsfFlux(), u.getXAstrom(), u.getYAstrom(), u.getRa(), u.getDec()
+
+        print 'Matched image sources, by psf flux:'
+        print '# FLUX, X, Y, RA, DEC'
+        for i in mimgi:
+            m = imgsources[i]
+            print m.getPsfFlux(), m.getXAstrom(), m.getYAstrom(), m.getRa(), m.getDec()
+            
+
     clf()
     p1 = plot(mimgmag, mrefmag, 'b.', alpha=0.5)
     imag = append(mimgmag, uimgmag)

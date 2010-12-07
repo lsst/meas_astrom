@@ -99,7 +99,7 @@ if __name__ == '__main__':
     print 'Kept', len(keepref), 'reference sources'
     ref = keepref
 
-    if True:
+    if False:
         m0 = matches[0]
         f,s = m0.first, m0.second
         print 'match 0: ref %i, source %i' % (f.getSourceId(), s.getSourceId())
@@ -107,10 +107,11 @@ if __name__ == '__main__':
         print '  src x,y,flux = (%.1f, %.1f, %.1f)' % (s.getXAstrom(), s.getYAstrom(), s.getPsfFlux())
 
     measAstrom.joinMatchList(matches, ref, first=True, log=log)
-    # ugh, mask req'd due to dumb bug
-    # (see svn+ssh://svn.lsstcorp.org/DMS/meas/astrom/tickets/1491-b r18027)
     args = {}
     if opt.fixup:
+        # ugh, mask and offset req'd because source ids are assigned at write-time
+        # and match list code made a deep copy before that.
+        # (see svn+ssh://svn.lsstcorp.org/DMS/meas/astrom/tickets/1491-b r18027)
         args['mask'] = 0xffff
         args['offset'] = -1
     measAstrom.joinMatchList(matches, sources, first=False, log=log, **args)
@@ -121,13 +122,12 @@ if __name__ == '__main__':
             y0,y1 = m.first.getYAstrom(), m.second.getYAstrom()
             print 'x,y, dx,dy', x0, y0, x1-x0, y1-y0
 
-    if True:
+    if False:
         m0 = matches[0]
         f,s = m0.first, m0.second
         print 'match 0: ref %i, source %i' % (f.getSourceId(), s.getSourceId())
         print '  ref x,y,flux = (%.1f, %.1f, %.1f)' % (f.getXAstrom(), f.getYAstrom(), f.getPsfFlux())
         print '  src x,y,flux = (%.1f, %.1f, %.1f)' % (s.getXAstrom(), s.getYAstrom(), s.getPsfFlux())
-
         r,d = 2.31262000000000, 3.16386000000000
         x,y = wcs.skyToPixel(r,d)
         print 'x,y', x,y
