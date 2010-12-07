@@ -19,6 +19,7 @@ if __name__ == '__main__':
     parser.add_option('-v', '--visit', type='int', dest='visit')
     parser.add_option('-r', '--raft', dest='raft')
     parser.add_option('-s', '--sensor', dest='sensor')
+    parser.add_option('--fixup', dest='fixup', action='store_true', default=False, help='Fix up problems with PT1.1-current outputs')
     (opt, args) = parser.parse_args()
 
     mapper = LsstSimMapper(root=opt.inRoot, registry=opt.registry)
@@ -104,7 +105,11 @@ if __name__ == '__main__':
     measAstrom.joinMatchList(matches, ref, first=True, log=log)
     # ugh, mask req'd due to dumb bug
     # (see svn+ssh://svn.lsstcorp.org/DMS/meas/astrom/tickets/1491-b r18027)
-    measAstrom.joinMatchList(matches, sources, first=False, log=log, mask=0xffff)
+    args = {}
+    if opt.fixup:
+        args['mask'] = 0xffff
+        args['offset'] = -1
+    measAstrom.joinMatchList(matches, sources, first=False, log=log, **args)
 
     if False:
         for m in matches:

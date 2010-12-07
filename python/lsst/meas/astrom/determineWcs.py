@@ -65,19 +65,16 @@ def getIdColumn(policy):
         idName = policy.get(colname)
     return idName
 
-def joinMatchList(matchlist, sources, first=True, log=None, mask=0):
+def joinMatchList(matchlist, sources, first=True, log=None, mask=0, offset=0):
     # build map of reference id to reference object.
-
-    #if mask:
-    #    idtoref = dict([[s.getSourceId() & mask, s] for s in sources])
-    #else:
-    #    idtoref = dict([[s.getSourceId(), s] for s in sources])
 
     srcstr = ('reference objects' if first else 'sources')
 
     idtoref = {}
     for s in sources:
         sid = s.getSourceId()
+        if offset:
+            sid += offset
         if mask:
             sid = sid & mask
         if sid in idtoref:
