@@ -2,10 +2,10 @@ from lsst.obs.lsstSim import LsstSimMapper
 import lsst.daf.persistence as dafPersist
 
 
-def addOptions(parser, input=True, out=False):
+def addOptions(parser, input=True, output=False):
     if input:
         parser.add_option('-i', '--input', dest='inRoot', default='.', help='input root')
-    if out:
+    if output:
         parser.add_option('-o', '--output', dest='outRoot', default='.', help='output root')
     parser.add_option('-R', '--registry', help='registry', dest='registry')
     parser.add_option('-v', '--visit', type='int', dest='visit', action='append', type='int', default=[])

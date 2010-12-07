@@ -14,7 +14,7 @@ import imsimUtils
 
 if __name__ == '__main__':
     parser = OptionParser()
-    imsimUtils.addOptions(parser, in=True, out=True)
+    imsimUtils.addOptions(parser, input=True, output=True)
     (opt, args) = parser.parse_args()
 
     inButler  = imsimUtils.getInputButler(opt)
