@@ -12,9 +12,42 @@ import lsst.daf.persistence as dafPersist
 
 import imsimUtils
 
-if __name__ == '__main__':
+def process(keys, inButler, outButler):
+    # HACK!!!
+    # visitim = inButler.get('visitim', **keys)
+    print 'Processing', keys
+    visitim = inButler.get('calexp', **keys)
+    sourceset_p = inButler.get('icSrc', **keys)
+    sourceset = sourceset_p.getSources()
+    
+    clip = {
+        'visitExposure': visitim,
+        'sourceSet': sourceset,
+        }
+
+    clip = runStage(measPipe.WcsDeterminationStage,
+                    """#<?cfg paf policy?>
+                    inputExposureKey: visitExposure
+                    inputSourceSetKey: sourceSet
+                    outputWcsKey: measuredWcs
+                    outputMatchListKey: matchList
+                    numBrightStars: 150
+                    defaultFilterName: mag
+                    """, clip)
+
+    clip = runStage(measPipe.PhotoCalStage,
+                    """#<?cfg paf policy?>
+                    sourceMatchSetKey: matchList
+                    outputValueKey: photometricMagnitudeObject
+                    """, clip)
+
+    outButler.put(clip['matchList_persistable'], 'icMatch', **keys)
+    outButler.put(clip['visitExposure'], 'calexp', **keys)
+
+def main():
     parser = OptionParser()
     imsimUtils.addOptions(parser, input=True, output=True)
+    parser.add_option('-T', '--threads', dest='threads', default=None, help='run N processes at once', type='int')
     (opt, args) = parser.parse_args()
 
     inButler  = imsimUtils.getInputButler(opt)
@@ -22,36 +55,14 @@ if __name__ == '__main__':
 
     allkeys = imsimUtils.getAllKeys(opt, inButler)
 
-    for keys in allkeys:
-        print 'Processing', keys
+    if opt.threads is None:
+        for keys in allkeys:
+            process(keys, inButler, outButler)
+    else:
+        import multiprocessing
+        p = multiprocessing.Pool(opt.threads)
+        p.map(process, [(k, inButler, outButler) for k in allkeys])
 
-        #visitim = inButler.get('visitim', **keys)
-        # HACK!!!
-        visitim = inButler.get('calexp', **keys)
-        sourceset_p = inButler.get('icSrc', **keys)
-        sourceset = sourceset_p.getSources()
-
-        clip = {
-            'visitExposure': visitim,
-            'sourceSet': sourceset,
-            }
-
-        clip = runStage(measPipe.WcsDeterminationStage,
-                        """#<?cfg paf policy?>
-                        inputExposureKey: visitExposure
-                        inputSourceSetKey: sourceSet
-                        outputWcsKey: measuredWcs
-                        outputMatchListKey: matchList
-                        numBrightStars: 150
-                        defaultFilterName: mag
-                        """, clip)
-
-        clip = runStage(measPipe.PhotoCalStage,
-                        """#<?cfg paf policy?>
-                        sourceMatchSetKey: matchList
-                        outputValueKey: photometricMagnitudeObject
-                        """, clip)
-
-        outButler.put(clip['matchList_persistable'], 'icMatch', **keys)
-        outButler.put(clip['visitExposure'], 'calexp', **keys)
+if __name__ == '__main__':
+    main()
 
