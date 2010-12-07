@@ -46,6 +46,7 @@ if __name__ == '__main__':
     #print matches.__subject__
     matchmeta = pmatches.getSourceMatchMetadata()
     matches = pmatches.getSourceMatches()
+    print 'Match metadata:', matchmeta
 
     sources = psources.getSources()
     
@@ -53,6 +54,7 @@ if __name__ == '__main__':
     print 'Got calexp', calexp
     wcs = calexp.getWcs()
     print 'Got wcs', wcs
+    print wcs.getFitsMetadata().toString()
     wcs = afwImage.cast_TanWcs(wcs)
     print 'After cast:', wcs
     
@@ -74,6 +76,9 @@ if __name__ == '__main__':
     idName = 'id'
     # could get this from matchlist meta...
     anid = matchmeta.getInt('ANINDID')
+    print 'Searching index with ID', anid
+    print 'Using ID column name', idName
+    print 'Using filter column name', filterName
     ref = solver.getCatalogue(ra, dec, radius, filterName, idName, anid)
     print 'Got', len(ref), 'reference catalog sources'
 
@@ -89,13 +94,39 @@ if __name__ == '__main__':
     print 'Kept', len(keepref), 'reference sources'
     ref = keepref
 
-    measAstrom.joinMatchList(matches, ref, first=True, log=log)
-    measAstrom.joinMatchList(matches, sources, first=False, log=log)
+    if True:
+        m0 = matches[0]
+        f,s = m0.first, m0.second
+        print 'match 0: ref %i, source %i' % (f.getSourceId(), s.getSourceId())
+        print '  ref x,y,flux = (%.1f, %.1f, %.1f)' % (f.getXAstrom(), f.getYAstrom(), f.getPsfFlux())
+        print '  src x,y,flux = (%.1f, %.1f, %.1f)' % (s.getXAstrom(), s.getYAstrom(), s.getPsfFlux())
 
-    #for m in matches:
-    #    x0,x1 = m.first.getXAstrom(), m.second.getXAstrom()
-    #    y0,y1 = m.first.getYAstrom(), m.second.getYAstrom()
-    #    print 'x,y, dx,dy', x0, y0, x1-x0, y1-y0
+    measAstrom.joinMatchList(matches, ref, first=True, log=log)
+    # ugh, mask req'd due to dumb bug
+    # (see svn+ssh://svn.lsstcorp.org/DMS/meas/astrom/tickets/1491-b r18027)
+    measAstrom.joinMatchList(matches, sources, first=False, log=log, mask=0xffff)
+
+    if False:
+        for m in matches:
+            x0,x1 = m.first.getXAstrom(), m.second.getXAstrom()
+            y0,y1 = m.first.getYAstrom(), m.second.getYAstrom()
+            print 'x,y, dx,dy', x0, y0, x1-x0, y1-y0
+
+    if True:
+        m0 = matches[0]
+        f,s = m0.first, m0.second
+        print 'match 0: ref %i, source %i' % (f.getSourceId(), s.getSourceId())
+        print '  ref x,y,flux = (%.1f, %.1f, %.1f)' % (f.getXAstrom(), f.getYAstrom(), f.getPsfFlux())
+        print '  src x,y,flux = (%.1f, %.1f, %.1f)' % (s.getXAstrom(), s.getYAstrom(), s.getPsfFlux())
+
+        r,d = 2.31262000000000, 3.16386000000000
+        x,y = wcs.skyToPixel(r,d)
+        print 'x,y', x,y
+        r2d2 = wcs.pixelToSky(x,y)
+        r2 = r2d2.getLongitude(DEGREES)
+        d2 = r2d2.getLatitude(DEGREES)
+        print r,d
+        print r2,d2
 
     prefix = 'imsim-v%i-r%s-s%s' % (opt.visit, opt.raft.replace(',',''), opt.sensor.replace(',',''))
 
@@ -107,3 +138,7 @@ if __name__ == '__main__':
 
     wcsPlots.plotDistortion(wcs, W, H, 400, prefix,
                             'SIP Distortion (exaggerated x 10)', exaggerate=10.)
+
+    wcsPlots.plotDistortion(wcs, W, H, 400, prefix,
+                            'SIP Distortion (exaggerated x 100)', exaggerate=100.,
+                            suffix='-distort2.')

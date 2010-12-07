@@ -240,8 +240,8 @@ def plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix):
     rxy = vstack((rx, ry)).T
     dcell = 50.
     radius = dcell * sqrt(2.)
-    print 'ixy', ixy.shape
-    print 'rxy', rxy.shape
+    #print 'ixy', ixy.shape
+    #print 'rxy', rxy.shape
 
     if False:
         (inds,dists) = spherematch.match(rxy, ixy, radius)
@@ -264,8 +264,8 @@ def plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix):
     cellsize = sqrt(W * H / ncells)
     nw = int(round(W / cellsize))
     nh = int(round(H / cellsize))
-    print 'Grid cell size', cellsize
-    print 'N cells', nw, 'x', nh
+    #print 'Grid cell size', cellsize
+    #print 'N cells', nw, 'x', nh
     edgesx = linspace(0, W, nw+1)
     edgesy = linspace(0, H, nh+1)
 
@@ -282,12 +282,12 @@ def plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix):
         for j in range(nw):
             thisbin = i * nw + j
             R = (bin == thisbin)
-            print 'cell %i, %i' % (j, i)
-            print '%i ref sources' % sum(R)
+            #print 'cell %i, %i' % (j, i)
+            #print '%i ref sources' % sum(R)
             if sum(R) == 0:
                 continue
             (inds,dists) = spherematch.match(rxy[R,:], ixy, radius)
-            print 'Found %i matches within %g pixels' % (len(dists), radius)
+            #print 'Found %i matches within %g pixels' % (len(dists), radius)
             ri = inds[:,0]
             # un-cut ref inds...
             ri = (flatnonzero(R))[ri]
@@ -302,7 +302,7 @@ def plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix):
             #matchy = matchy[ok]
             matchdx = matchdx[ok]
             matchdy = matchdy[ok]
-            print 'Cut to %i within %g x %g square' % (sum(ok), dcell*2, dcell*2)
+            #print 'Cut to %i within %g x %g square' % (sum(ok), dcell*2, dcell*2)
 
             # Subplot places plots left-to-right, TOP-to-BOTTOM.
             subplot(nh, nw, 1 + ((nh - i - 1)*nw + j))
@@ -370,7 +370,7 @@ Source.getRa(), getDec()
 
     
 def plotDistortion(sip, W, H, ncells, prefix, titletxt, exaggerate=1.,
-                   saveplot=True, format='png'):
+                   saveplot=True, format='png', suffix='-distort.'):
     '''
     Produces a plot showing the SIP distortion that was found, by drawing
     a grid and distorting it.  Allows exaggeration of the distortion for ease
@@ -387,8 +387,8 @@ def plotDistortion(sip, W, H, ncells, prefix, titletxt, exaggerate=1.,
     cellsize = sqrt(W * H / ncells)
     nw = int(floor(W / cellsize))
     nh = int(floor(H / cellsize))
-    print 'Grid cell size', cellsize
-    print 'N cells', nw, 'x', nh
+    #print 'Grid cell size', cellsize
+    #print 'N cells', nw, 'x', nh
     cx = arange(nw+1) * cellsize + ((W - (nw*cellsize))/2.)
     cy = arange(nh+1) * cellsize + ((H - (nh*cellsize))/2.)
 
@@ -397,12 +397,6 @@ def plotDistortion(sip, W, H, ncells, prefix, titletxt, exaggerate=1.,
 
     xx = arange(-step, W+2*step, step)
     yy = arange(-step, H+2*step, step)
-
-    if False:
-        print 'Sip is', sip
-        print 'has dir:'
-        for k in dir(sip):
-            print '  ', k
 
     clf()
     for y in cy:
@@ -434,13 +428,12 @@ def plotDistortion(sip, W, H, ncells, prefix, titletxt, exaggerate=1.,
             dx += (exaggerate * (dx - x))
             dy += (exaggerate * (dy - yy))
         plot(dx, dy, 'r-', zorder=20)
-
     
     axis('scaled')
     axis([0, W, 0, H])
 
     title(titletxt)
 
-    fn = prefix + '-distort.' + format
+    fn = prefix + suffix + format
     return _output(fn, format, saveplot)
 

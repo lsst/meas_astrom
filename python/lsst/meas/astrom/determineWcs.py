@@ -65,28 +65,57 @@ def getIdColumn(policy):
         idName = policy.get(colname)
     return idName
 
-def joinMatchList(matchlist, sources, first=True, log=None):
+def joinMatchList(matchlist, sources, first=True, log=None, mask=0):
     # build map of reference id to reference object.
-    idtoref = dict([[s.getSourceId(), s] for s in sources])
+
+    #if mask:
+    #    idtoref = dict([[s.getSourceId() & mask, s] for s in sources])
+    #else:
+    #    idtoref = dict([[s.getSourceId(), s] for s in sources])
+
+    srcstr = ('reference objects' if first else 'sources')
+
+    idtoref = {}
+    for s in sources:
+        sid = s.getSourceId()
+        if mask:
+            sid = sid & mask
+        if sid in idtoref:
+            log.log(Log.DEBUG, 'Duplicate ID %i in %s' % (sid, srcstr))
+            continue
+        idtoref[sid] = s
+    
     # Join.
     nmatched = 0
+    firstfail = True
     for i in xrange(len(matchlist)):
         if first:
             mid = matchlist[i].first.getSourceId()
         else:
             mid = matchlist[i].second.getSourceId()
-        if not mid in idtoref:
+
+        if mask:
+            mmid = mid & mask
+        else:
+            mmid = mid
+
+        if not mmid in idtoref:
             # throw? warn?
+            log.log(Log.DEBUG, 'Failed to join ID %i (0x%x) (masked to %i, 0x%x) from match list element %i of %i' % (mid, mid, mmid, mmid, i, len(matchlist)))
+            if firstfail:
+                log.log(Log.DEBUG, 'IDs available: ' + ' '.join('%i' % k for k in idtoref.keys()))
+                log.log(Log.DEBUG, 'IDs available: ' + ' '.join('0x%x' % k for k in idtoref.keys()))
+                firstfail = False
             continue
-        ref = idtoref[mid]
+        ref = idtoref[mmid]
         if first:
             matchlist[i].first = ref
         else:
             matchlist[i].second = ref
         nmatched += 1
     if log:
-        log.log(Log.DEBUG, 'Joined %i of %i matchlist reference IDs to %s' %
-                (nmatched, len(matchlist), ('reference objects' if first else 'sources')))
+        log.log(Log.DEBUG, 'Joined %i of %i matchlist IDs to %s' %
+                (nmatched, len(matchlist), srcstr))
 
 
 def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None,
