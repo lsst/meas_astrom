@@ -1,40 +1,30 @@
 from optparse import OptionParser
 from math import hypot
 
-import lsst.daf.persistence as dafPersist
 import lsst.pex.policy as policy
 import lsst.meas.astrom as measAstrom
 import lsst.afw.image as afwImage
 from lsst.pex.logging import Log
 from lsst.afw.coord import DEGREES
-from lsst.obs.lsstSim import LsstSimMapper
 
 import wcsPlots
+import imsimUtils
 
-
-if __name__ == '__main__':
+def main():
     parser = OptionParser()
-    parser.add_option('-i', '--input', dest='inRoot', default='.', help='input root')
-    parser.add_option('-R', '--registry', help='registry', dest='registry')
-    parser.add_option('-v', '--visit', type='int', dest='visit')
-    parser.add_option('-r', '--raft', dest='raft')
-    parser.add_option('-s', '--sensor', dest='sensor')
+    imsimUtils.addOptions(parser)
     parser.add_option('--fixup', dest='fixup', action='store_true', default=False, help='Fix up problems with PT1.1-current outputs')
     (opt, args) = parser.parse_args()
 
-    mapper = LsstSimMapper(root=opt.inRoot, registry=opt.registry)
-    bf = dafPersist.ButlerFactory(mapper=mapper)
-    inButler = bf.create()
+    inButler = imsimUtils.getInputButler(opt)
 
-    #bf = dafPersist.ButlerFactory(mapper=LsstSimMapper(
-    #    root=opt.outRoot, registry=opt.registry))
-    #outButler = bf.create() 
+    allkeys = imsimUtils.getAllKeys(opt, inButler)
 
-    keys = { 'visit': opt.visit,
-             'raft': opt.raft,
-             'sensor': opt.sensor,
-             }
+    for keys in allkeys:
+        plotsForField(inButler, keys, opt.fixup)
 
+
+def plotsForField(inButler, keys, fixup):
     filters = inButler.queryMetadata('raw', 'filter', **keys)
     print 'Filters:', filters
     filterName = filters[0]
@@ -43,12 +33,9 @@ if __name__ == '__main__':
     pmatches = inButler.get('icMatch', **keys)
     print 'Got sources', psources
     print 'Got matches', pmatches
-    #print '  ', type(matches)
-    #print matches.__subject__
     matchmeta = pmatches.getSourceMatchMetadata()
     matches = pmatches.getSourceMatches()
     print 'Match metadata:', matchmeta
-
     sources = psources.getSources()
     
     calexp = inButler.get('calexp', **keys)
@@ -108,7 +95,7 @@ if __name__ == '__main__':
 
     measAstrom.joinMatchList(matches, ref, first=True, log=log)
     args = {}
-    if opt.fixup:
+    if fixup:
         # ugh, mask and offset req'd because source ids are assigned at write-time
         # and match list code made a deep copy before that.
         # (see svn+ssh://svn.lsstcorp.org/DMS/meas/astrom/tickets/1491-b r18027)
@@ -137,7 +124,10 @@ if __name__ == '__main__':
         print r,d
         print r2,d2
 
-    prefix = 'imsim-v%i-r%s-s%s' % (opt.visit, opt.raft.replace(',',''), opt.sensor.replace(',',''))
+    visit = keys['visit']
+    raft = keys['raft']
+    sensor = keys['sensor']
+    prefix = 'imsim-v%i-r%s-s%s' % (visit, raft.replace(',',''), sensor.replace(',',''))
 
     wcsPlots.plotMatches(sources, ref, matches, wcs, W, H, prefix)
     wcsPlots.plotPhotometry(sources, ref, matches, prefix, band=filterName, zp=zp)
@@ -151,3 +141,8 @@ if __name__ == '__main__':
     wcsPlots.plotDistortion(wcs, W, H, 400, prefix,
                             'SIP Distortion (exaggerated x 100)', exaggerate=100.,
                             suffix='-distort2.')
+
+
+if __name__ == '__main__':
+    main()
+
