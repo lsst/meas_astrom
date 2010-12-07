@@ -58,7 +58,11 @@ if __name__ == '__main__':
     print wcs.getFitsMetadata().toString()
     wcs = afwImage.cast_TanWcs(wcs)
     print 'After cast:', wcs
-    
+
+    photocal = calexp.getCalib()
+    zp = photocal.getMagnitude(1.)
+    print 'Zeropoint is', zp
+
     # ref sources
     W,H = calexp.getWidth(), calexp.getHeight()
     xc,yc = W/2., H/2.
@@ -136,7 +140,7 @@ if __name__ == '__main__':
     prefix = 'imsim-v%i-r%s-s%s' % (opt.visit, opt.raft.replace(',',''), opt.sensor.replace(',',''))
 
     wcsPlots.plotMatches(sources, ref, matches, wcs, W, H, prefix)
-    wcsPlots.plotPhotometry(sources, ref, matches, prefix, band=filterName)
+    wcsPlots.plotPhotometry(sources, ref, matches, prefix, band=filterName, zp=zp)
     
     wcsPlots.plotCorrespondences2(sources, ref, matches, wcs, W, H, prefix)
     wcsPlots.plotCorrespondences(sources, ref, matches, wcs, W, H, prefix)

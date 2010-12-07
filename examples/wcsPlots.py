@@ -82,6 +82,7 @@ def plotMatches(imgsources, refsources, matches, wcs, W, H, prefix,
     return _output(fn, format, saveplot)
 
 def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
+                   zp=None,
                    saveplot=True, format='png'):
     print '%i ref sources' % len(refsources)
     print '%i image sources' % len(imgsources)
@@ -136,34 +137,35 @@ def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
 
     # Red tick marks show unmatched img sources
     dy = (ax[3]-ax[2]) * 0.05
-    #y0 = ones_like(uimgmag) * ax[2]
-    #p2 = plot(vstack((uimgmag, uimgmag)), vstack((y0, y0+dy)), 'r-', alpha=0.5)
     y1 = ones_like(uimgmag) * ax[3]
     p2 = plot(vstack((uimgmag, uimgmag)), vstack((y1, y1-dy)), 'r-', alpha=0.5)
     p2 = p2[0]
     # Blue tick marks show matched img sources
-    #y0 = ones_like(mimgmag) * ax[2]
-    #p3 = plot(vstack((mimgmag, mimgmag)), vstack((y0+(0.25*dy), y0+(1.25*dy))), 'b-', alpha=0.5)
     y1 = ones_like(mimgmag) * ax[3]
     p3 = plot(vstack((mimgmag, mimgmag)), vstack((y1-(0.25*dy), y1-(1.25*dy))), 'b-', alpha=0.5)
     p3 = p3[0]
 
     # Red ticks for unmatched ref sources
     dx = (ax[1]-ax[0]) * 0.05
-    #x0 = ones_like(urefmag) * ax[0]
-    #p4 = plot(vstack((x0, x0+dx)), vstack((urefmag, urefmag)), 'r-', alpha=0.5)
     x1 = ones_like(urefmag) * ax[1]
     p4 = plot(vstack((x1, x1-dx)), vstack((urefmag, urefmag)), 'r-', alpha=0.5)
     p4 = p4[0]
     # Blue ticks for matched ref sources
-    #x0 = ones_like(mrefmag) * ax[0]
-    #p5 = plot(vstack((x0+(0.25*dx), x0+(1.25*dx))), vstack((mrefmag, mrefmag)), 'b-', alpha=0.5)
     x1 = ones_like(mrefmag) * ax[1]
     p5 = plot(vstack((x1-(0.25*dx), x1-(1.25*dx))), vstack((mrefmag, mrefmag)), 'b-', alpha=0.5)
     p5 = p5[0]
 
-    figlegend((p1, p3, p2), ('Matched sources', 'Matched sources', 'Unmatched sources',),
-              'center right', numpoints=1, prop=FontProperties(size='small'))
+    # Legend entries:
+    pp = [p1, p3, p2]
+    pl = ['Matched sources', 'Matched sources', 'Unmatched sources']
+
+    if zp is not None:
+        X = array([ax[0], ax[1]])
+        pzp = plot(X, X+zp, 'b--')
+        pp.append(pzp)
+        pl.append('Zeropoint')
+
+    figlegend(pp, pl, 'center right', numpoints=1, prop=FontProperties(size='small'))
 
     # reverse axis directions.
     axis([ax[1],ax[0], ax[3], ax[2]])
