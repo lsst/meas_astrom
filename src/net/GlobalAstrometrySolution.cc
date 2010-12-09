@@ -1029,6 +1029,58 @@ GlobalAstrometrySolution::getCatalogue(double radiusInArcsec, string filterName,
     return getCatalogue(ra, dec, radiusInArcsec, filterName, idName);
 }
 
+/*
+const startree_t* GlobalAstrometrySolution::getStarTree(int indexId) {
+    for (unsigned int i=0; i<_indexList.size(); i++) {
+        index_t* index = _indexList[i];
+        if (index->indexid != indexId)
+            continue;
+        return index->starkd;
+    }
+    return NULL;
+}
+ */
+
+std::vector<std::vector<double> > GlobalAstrometrySolution::getCatalogueExtra(double ra, double dec, double radiusInArcsec,
+                                                                             std::vector<std::string> columns, int indexId) {
+    index_t* index = NULL;
+    for (unsigned int i=0; i<_indexList.size(); i++) {
+        index_t* ind = _indexList[i];
+        if (ind->indexid != indexId)
+            continue;
+        index = ind;
+        break;
+    }
+    std::vector<std::vector<double> > x;
+    if (!index) {
+        return x;
+    }
+
+    int *starinds = NULL;
+    int nstars = 0;
+    double* radecs = NULL;
+    double center[3];
+    radecdeg2xyzarr(ra, dec, center);
+    double radius2 = arcsec2distsq(radiusInArcsec);
+    startree_search_for(index->starkd, center, radius2, NULL, &radecs, &starinds, &nstars);
+
+    std::vector<double> ras;
+    std::vector<double> decs;
+    for (int i=0; i<nstars; i++) {
+        ras.push_back(radecs[2*i+0]);
+        decs.push_back(radecs[2*i+1]);
+    }
+    x.push_back(ras);
+    x.push_back(decs);
+
+    for (std::vector<std::string>::iterator it = columns.begin(); it != columns.end(); it++) {
+        x.push_back(getTagAlongFromIndex(index, *it, starinds, nstars));
+    }
+    free(starinds);
+    return x;
+}
+
+
 ///Returns a sourceSet of objects that are nearby in an raDec sense to the requested position. If
 ///filterName is not blank, we also extract out the magnitude information for that filter and 
 ///store (as a flux) in the returned SourceSet object. The value of filterName must match one of the
@@ -1039,7 +1091,7 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
 								       double radiusInArcsec,
 								       string filterName,
 								       string idName,
-    int indexId) {
+                                                                       int indexId) {
 
     double center[3];
     radecdeg2xyzarr(ra, dec, center);

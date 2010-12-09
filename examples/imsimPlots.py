@@ -74,6 +74,18 @@ def plotsForField(inButler, keys, fixup):
     ref = solver.getCatalogue(ra, dec, radius, filterName, idName, anid)
     print 'Got', len(ref), 'reference catalog sources'
 
+    if False:
+        extras = solver.getCatalogueExtra(ra, dec, radius, ['id', 'starnotgal', filterName + '_err'], anid)
+        #print 'Got extras:', extras
+        #pass
+        #inds = solver.getIndexList()
+        #print 'Got inds:', inds
+        #for ind in inds:
+        #    print 'ind', ind
+        #    print dir(ind)
+        #X = starkd_search_stars_in_field(skdt, tanwcs, margin)
+        
+
     keepref = []
     for i in xrange(len(ref)):
         #print ref[i].getXAstrom(), ref[i].getYAstrom(), ref[i].getRa(), ref[i].getDec()
@@ -123,6 +135,7 @@ def plotsForField(inButler, keys, fixup):
         d2 = r2d2.getLatitude(DEGREES)
         print r,d
         print r2,d2
+
 
     visit = keys['visit']
     raft = keys['raft']

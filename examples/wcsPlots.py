@@ -102,8 +102,25 @@ def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
     imgsources = [s for s in imgsources]
     
     # These are the indices in the "ref/imgsources" arrays of the matched stars.
-    mrefi = array([refsources.index(m.first ) for m in matches])
-    mimgi = array([imgsources.index(m.second) for m in matches])
+    #mrefi = array([refsources.index(m.first ) for m in matches])
+    mrefi = []
+    mimgi = []
+    for m in matches:
+        try:
+            i = refsources.index(m.first)
+        except ValueError:
+            print 'Match list reference source ID', m.first.getSourceId(), 'was not in the list of reference stars'
+            continue
+        try:
+            j = imgsources.index(m.second)
+        except ValueError:
+            print 'Match list source ID', m.second.getSourceId(), 'was not in the list of image sources'
+            continue
+        mrefi.append(i)
+        mimgi.append(j)
+
+    mrefi = array(mrefi)
+    mimgi = array(mimgi)
 
     def flux2mag(f):
         return -2.5*log10(f)
@@ -129,7 +146,7 @@ def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
     uimgmag = flux2mag(uimgflux[okflux])
     urefmag = refmag[uref]
 
-    if True:
+    if False:
         unmatched = [imgsources[i] for i in flatnonzero(uimg)]
         uflux = array([s.getPsfFlux() for s in unmatched])
         I = argsort(-uflux)
