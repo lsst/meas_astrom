@@ -181,7 +181,6 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     Get an initial World Coordinate System (WCS) from Astrometry.net,
     then calculate SIP distortion terms.
 
-
     Input:
     policy:     An lsst.pex.policy.Policy object containing the parameters for the solver
     exposure    lsst.afw.image.Exposure representation of an image and a WCS 

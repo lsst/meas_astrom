@@ -98,10 +98,9 @@ class PhotoCalTest(unittest.TestCase):
 
                         
     def test1(self):
-        matches, wcs, matchListMeta = measAstrom.determineWcs(self.defaultPolicy,
-                                                              self.exposure,
-                                                              self.srcSet, forceImageSize=self.forceImageSize)
-        
+        astrom = measAstrom.determineWcs(self.defaultPolicy, self.exposure,
+                                         self.srcSet, forceImageSize=self.forceImageSize)
+        matches = astrom.getMatches()
            
         pCal = photocal.calcPhotoCal(matches)
         print pCal
@@ -125,9 +124,10 @@ class PhotoCalTest(unittest.TestCase):
     def test2(self):
         """Check that negative fluxes dealt with properly"""
         
-        matches, wcs, matchListMeta = measAstrom.determineWcs(self.defaultPolicy, self.exposure,
-                                                              self.srcSet, forceImageSize=self.forceImageSize)
-
+        astrom = measAstrom.determineWcs(self.defaultPolicy, self.exposure,
+                                         self.srcSet, forceImageSize=self.forceImageSize)
+        matches = astrom.getMatches()
+        
         matches[0].first.setPsfFlux(0)
         matches[1].first.setPsfFlux(-1)
         matches[2].second.setPsfFlux(0)

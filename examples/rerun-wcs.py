@@ -97,9 +97,10 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
     print 'determineWcs()...'
     print
 
-    (matchList,wcs) = measAstrom.determineWcs(policy, exposure, sourceset, log=log,
-                                              doTrim=doTrim)
-
+    astrom = measAstrom.determineWcs(policy, exposure, sourceset, log=log,
+                                     doTrim=doTrim)
+    matchList = astrom.getMatches()
+    wcs = astrom.getWcs()
     print
     print 'determineWcs() finished.  Got:'
     print

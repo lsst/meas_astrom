@@ -45,6 +45,7 @@ Python interface to lsst::afw::meas::astrom::net classes
 %include "lsst/p_lsstSwig.i"
 %include "std_string.i"
 %include "std_vector.i"
+%include "std_pair.i"
 //Did you declare the std::vector<std::string> using %template?
 
 
@@ -95,3 +96,4 @@ PyObject* starkd_search_stars(startree_t* s, double ra, double dec, double radiu
 
 %template(vectorSourceMatch) std::vector<boost::shared_ptr<lsst::afw::detection::SourceMatch> >;
 
+%template(pair_SourceSet_vector_ints) std::pair<lsst::afw::detection::SourceSet, std::vector<int> >;

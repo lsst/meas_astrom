@@ -139,15 +139,6 @@ dafBase::PropertySet::Ptr GlobalAstrometrySolution::getMatchedIndexMetadata() {
     // astrometry.net index
     props->add("ANINDID", index->indexid, "Astrometry.net index id");
     props->add("ANINDHP", index->healpix, "Astrometry.net index HEALPix");
-
-    /*
-    // basename_safe()
-    char* copy = strdup(index->indexname);
-    char* iname = strdup(basename(copy));
-    free(copy);
-    props->add("ANINDNM", std::string(iname));
-    */
-
     props->add("ANINDNM", std::string(index->indexname),
                "Astrometry.net index name");
 
@@ -565,7 +556,11 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
         _mylog.format(pexLog::Log::DEBUG, "Starting log-odds: %g", match->logodds);
         // Use "tweak2" to tune up this match, resulting in a better WCS and more catalog matches.
         // magic 1: only go to linear order (no SIP distortions).
+
+	// HACK -- astrometry_net 0.30
         solver_tweak2(_solver, match, 1);
+	// -- astrometry_net > 0.30:
+        //solver_tweak2(_solver, match, 1, NULL);
 
         _mylog.format(pexLog::Log::DEBUG, "After tweak2: %i matches, %i conflicts, %i unmatched",
                       (int)match->nmatch, (int)match->nconflict, (int)match->ndistractor);
@@ -954,6 +949,70 @@ vector<string> GlobalAstrometrySolution::getCatalogueMetadataFields() {
     return output;
 }    
 
+///Returns a sourceSet of objects that are nearby in an raDec sense to the best match solution
+lsst::afw::detection::SourceSet 
+GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string idName, double margin) {
+    if (! _isSolved) {
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
+    }
+    MatchObj* match = solver_get_best_match(_solver);
+    double* radec;
+    int* starinds;
+    int nstars;
+    double scale;
+    double r2;
+    int i, W, H;
+    int outi;
+
+    Det::SourceSet out;
+
+    // arcsec/pix
+    scale = tan_pixel_scale(&(match->wcstan));
+    // add margin
+    r2 = deg2distsq(match->radius_deg + arcsec2deg(scale * margin));
+    
+    startree_search_for(match->index->starkd, match->center, r2, NULL, &radec, &starinds, &nstars);
+    if (nstars == 0)
+        return out;
+
+    W = match->wcstan.imagew;
+    H = match->wcstan.imageh;
+    outi = 0;
+    for (i=0; i<nstars; i++) {
+        double px, py;
+        if (!tan_radec2pixelxy(&(match->wcstan), radec[2*i+0], radec[2*i+1], &px, &py))
+            continue;
+        // in bounds (+ margin) ?
+        if (px < -margin || px > W+margin || py < -margin || py > H+margin)
+            continue;
+
+        // keep it
+        Det::Source::Ptr src(new lsst::afw::detection::Source());
+        src->setRa (radec[2*i+0]);
+        src->setDec(radec[2*i+1]);
+        out.push_back(src);
+        starinds[outi] = starinds[i];
+        outi++;
+    }
+
+    vector<double> mag = getTagAlongFromIndex(match->index, filterName, starinds, outi);
+    if (mag.size()) {
+        for (unsigned int i=0; i<out.size(); i++) {
+            // seems crazy to convert back to flux...
+            out[i]->setPsfFlux(pow(10.0, -mag[i]/2.5));
+        }
+    }
+
+    vector<boost::int64_t> ids = getIds(idName, match->index, starinds, outi);
+    if (ids.size()) {
+        for (unsigned int i=0; i<out.size(); i++) {
+            out[i]->setSourceId(ids[i]);
+        }
+    }
+
+    return out;
+}
+    
 
 ///Returns a sourceSet of objects that are nearby in an raDec sense to the best match solution
 lsst::afw::detection::SourceSet 
@@ -970,30 +1029,87 @@ GlobalAstrometrySolution::getCatalogue(double radiusInArcsec, string filterName,
     double ra, dec;
     xyzarr2radecdeg(center, &ra, &dec);
     
-    return getCatalogue(ra, dec, radiusInArcsec, filterName, idName);
+    return getCatalogue(ra, dec, radiusInArcsec, filterName, idName).first;
 }
+
+/*
+const startree_t* GlobalAstrometrySolution::getStarTree(int indexId) {
+    for (unsigned int i=0; i<_indexList.size(); i++) {
+        index_t* index = _indexList[i];
+        if (index->indexid != indexId)
+            continue;
+        return index->starkd;
+    }
+    return NULL;
+}
+ */
+
+std::vector<std::vector<double> > GlobalAstrometrySolution::getCatalogueExtra(double ra, double dec, double radiusInArcsec,
+                                                                             std::vector<std::string> columns, int indexId) {
+    index_t* index = NULL;
+    for (unsigned int i=0; i<_indexList.size(); i++) {
+        index_t* ind = _indexList[i];
+        if (ind->indexid != indexId)
+            continue;
+        index = ind;
+        break;
+    }
+    std::vector<std::vector<double> > x;
+    if (!index) {
+        return x;
+    }
+
+    int *starinds = NULL;
+    int nstars = 0;
+    double* radecs = NULL;
+    double center[3];
+    radecdeg2xyzarr(ra, dec, center);
+    double radius2 = arcsec2distsq(radiusInArcsec);
+    startree_search_for(index->starkd, center, radius2, NULL, &radecs, &starinds, &nstars);
+
+    std::vector<double> ras;
+    std::vector<double> decs;
+    for (int i=0; i<nstars; i++) {
+        ras.push_back(radecs[2*i+0]);
+        decs.push_back(radecs[2*i+1]);
+    }
+    x.push_back(ras);
+    x.push_back(decs);
+
+    for (std::vector<std::string>::iterator it = columns.begin(); it != columns.end(); it++) {
+        x.push_back(getTagAlongFromIndex(index, *it, starinds, nstars));
+    }
+    free(starinds);
+    return x;
+}
+
 
 ///Returns a sourceSet of objects that are nearby in an raDec sense to the requested position. If
 ///filterName is not blank, we also extract out the magnitude information for that filter and 
 ///store (as a flux) in the returned SourceSet object. The value of filterName must match one of the
 ///strings returned by getCatalogueMetadataFields(). If you're not interested in fluxes, set
 ///filterName to ""
-lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra,
+std::pair<lsst::afw::detection::SourceSet,
+          std::vector<int> >
+GlobalAstrometrySolution::getCatalogue(double ra,
 								       double dec,
 								       double radiusInArcsec,
 								       string filterName,
-								       string idName) {
+								       string idName,
+                                       int indexId) {
 
     double center[3];
     radecdeg2xyzarr(ra, dec, center);
     double radius2 = arcsec2distsq(radiusInArcsec);
     string msg;
 
-    Det::SourceSet out;
-
+    Det::SourceSet sources;
+    std::vector<int> inds;
 
     for (unsigned int i=0; i<_indexList.size(); i++) {
         index_t* index = _indexList[i];
+        if (indexId != -1 && index->indexid != indexId)
+            continue;
         if (!index_is_within_range(index, ra, dec, arcsec2deg(radiusInArcsec)))
             continue;
 
@@ -1018,6 +1134,9 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
                 ptr->setRa(radec[2*j]);
                 ptr->setDec(radec[2*j + 1]);
 
+                if (indexId != -1)
+                    inds.push_back(starinds[j]);
+
                 if (mag.size()) {
 		  // convert mag to flux
 		  ptr->setPsfFlux( pow(10.0, -mag[j]/2.5) );
@@ -1026,15 +1145,18 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
 		  ptr->setSourceId(ids[j]);
 		}
 
-                out.push_back(ptr);
+                sources.push_back(ptr);
             }
         }
         free(radec);
         free(starinds);
     }
 
-    return out;
-
+    std::pair<lsst::afw::detection::SourceSet,
+              std::vector<int> > rtn;
+    rtn.first  = sources;
+    rtn.second = inds;
+    return rtn;
 }
 
 

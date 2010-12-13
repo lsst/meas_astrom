@@ -136,10 +136,20 @@ public:
     double getSolvedImageScale();
 
     std::vector<std::string> getCatalogueMetadataFields();
-    lsst::afw::detection::SourceSet getCatalogue(double ra, double dec, double radiusInArcsec, 
-                                                 std::string filterName, std::string idName);
+
+    lsst::afw::detection::SourceSet getCatalogueForSolvedField(std::string filter, std::string idname, double margin);
+
+    std::pair<lsst::afw::detection::SourceSet,
+              std::vector<int> > getCatalogue(double ra, double dec, double radiusInArcsec, 
+                                              std::string filterName, std::string idName,
+                                              int indexId = -1);
+
     lsst::afw::detection::SourceSet getCatalogue(double radiusInArcsec, std::string filterName,
 						 std::string idName);
+
+    std::vector<std::vector<double> > getCatalogueExtra(double ra, double dec, double radiusInArcsec,
+                                                       std::vector<std::string> columns, int indexId = -1);
+    //const startree_t* getStarTree(int indexId);
 
     void loadIndices();
     std::vector<const index_t*> getIndexList();

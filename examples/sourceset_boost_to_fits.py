@@ -6,6 +6,13 @@ import lsst.daf.persistence              as dafPersist
 import lsst.daf.base                     as dafBase
 import lsst.afw.detection                as afwDet
 
+from lsst.afw.detection import Source
+from lsst.afw.detection import SourceSet
+from lsst.afw.detection import PersistableSourceVector
+from lsst.afw.detection import *
+
+import lsst.meas.algorithms
+
 from astrometry.util.pyfits_utils import *
 from numpy import array
 
@@ -16,6 +23,7 @@ def sourceset_read_boost(fn):
     persistence = dafPersist.Persistence.getPersistence(pexPolicy.Policy())
     storageList.append(persistence.getRetrieveStorage("BoostStorage", loc))
     psvptr = persistence.unsafeRetrieve("PersistableSourceVector", storageList, additionalData)
+    print psvptr
     psv = afwDet.PersistableSourceVector.swigConvert(psvptr)
     return psv.getSources()
 
@@ -39,7 +47,7 @@ if __name__ == '__main__':
     out = tabledata()
     for getterName,name in fields:
         out.set(name, array([getattr(s, getterName)() for s in ss]))
-    print 'Writing %i columns to %s' % (len(out.get_columns()), outfn)
+    #print 'Writing %i columns to %s' % (len(out.get_columns()), outfn)
     out.writeto(outfn)
 
         
