@@ -62,8 +62,11 @@ class matchlistTestCase(unittest.TestCase):
         anindid = 101109003
 
         solver = measAstrom.createSolver(pol, log)
-        ss = solver.getCatalogue(ra, dec, rad*3600., filtername, idname, anindid)
+        X = solver.getCatalogue(ra, dec, rad*3600., filtername, idname, anindid)
+        ss = X.first
+        inds = X.second
         print 'got', len(ss), 'catalog sources'
+        print 'and', len(inds), 'catalog indices'
 
         smv = afwDet.SourceMatchVector()
         for i,s1 in enumerate(ss):

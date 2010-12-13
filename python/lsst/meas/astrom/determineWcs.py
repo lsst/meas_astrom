@@ -154,7 +154,8 @@ def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None
     #myinds = solver.getIndexList()
 
     # FIXME -- need anid?  Not necessarily... ref ids are supposed to be unique!
-    cat = solver.getCatalogue(ra, dec, rad * 3600., filterName, idName, anid)
+    X = solver.getCatalogue(ra, dec, rad * 3600., filterName, idName, anid)
+    cat = X.first
     log.log(Log.DEBUG, 'Found %i reference catalog sources in range' % len(cat))
 
     joinMatchList(matchlist, cat, first=True, log=log)

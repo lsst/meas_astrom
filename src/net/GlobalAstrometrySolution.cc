@@ -556,8 +556,11 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
         _mylog.format(pexLog::Log::DEBUG, "Starting log-odds: %g", match->logodds);
         // Use "tweak2" to tune up this match, resulting in a better WCS and more catalog matches.
         // magic 1: only go to linear order (no SIP distortions).
-        //solver_tweak2(_solver, match, 1);
-        solver_tweak2(_solver, match, 1, NULL);
+
+	// HACK -- astrometry_net 0.30
+        solver_tweak2(_solver, match, 1);
+	// -- astrometry_net > 0.30:
+        //solver_tweak2(_solver, match, 1, NULL);
 
         _mylog.format(pexLog::Log::DEBUG, "After tweak2: %i matches, %i conflicts, %i unmatched",
                       (int)match->nmatch, (int)match->nconflict, (int)match->ndistractor);
@@ -1026,7 +1029,7 @@ GlobalAstrometrySolution::getCatalogue(double radiusInArcsec, string filterName,
     double ra, dec;
     xyzarr2radecdeg(center, &ra, &dec);
     
-    return getCatalogue(ra, dec, radiusInArcsec, filterName, idName);
+    return getCatalogue(ra, dec, radiusInArcsec, filterName, idName).first;
 }
 
 /*
@@ -1086,20 +1089,22 @@ std::vector<std::vector<double> > GlobalAstrometrySolution::getCatalogueExtra(do
 ///store (as a flux) in the returned SourceSet object. The value of filterName must match one of the
 ///strings returned by getCatalogueMetadataFields(). If you're not interested in fluxes, set
 ///filterName to ""
-lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra,
+std::pair<lsst::afw::detection::SourceSet,
+          std::vector<int> >
+GlobalAstrometrySolution::getCatalogue(double ra,
 								       double dec,
 								       double radiusInArcsec,
 								       string filterName,
 								       string idName,
-                                                                       int indexId) {
+                                       int indexId) {
 
     double center[3];
     radecdeg2xyzarr(ra, dec, center);
     double radius2 = arcsec2distsq(radiusInArcsec);
     string msg;
 
-    Det::SourceSet out;
-
+    Det::SourceSet sources;
+    std::vector<int> inds;
 
     for (unsigned int i=0; i<_indexList.size(); i++) {
         index_t* index = _indexList[i];
@@ -1129,6 +1134,9 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
                 ptr->setRa(radec[2*j]);
                 ptr->setDec(radec[2*j + 1]);
 
+                if (indexId != -1)
+                    inds.push_back(starinds[j]);
+
                 if (mag.size()) {
 		  // convert mag to flux
 		  ptr->setPsfFlux( pow(10.0, -mag[j]/2.5) );
@@ -1137,15 +1145,18 @@ lsst::afw::detection::SourceSet GlobalAstrometrySolution::getCatalogue(double ra
 		  ptr->setSourceId(ids[j]);
 		}
 
-                out.push_back(ptr);
+                sources.push_back(ptr);
             }
         }
         free(radec);
         free(starinds);
     }
 
-    return out;
-
+    std::pair<lsst::afw::detection::SourceSet,
+              std::vector<int> > rtn;
+    rtn.first  = sources;
+    rtn.second = inds;
+    return rtn;
 }
 
 

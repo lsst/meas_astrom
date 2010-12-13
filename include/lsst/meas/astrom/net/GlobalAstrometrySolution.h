@@ -139,9 +139,10 @@ public:
 
     lsst::afw::detection::SourceSet getCatalogueForSolvedField(std::string filter, std::string idname, double margin);
 
-    lsst::afw::detection::SourceSet getCatalogue(double ra, double dec, double radiusInArcsec, 
-                                                 std::string filterName, std::string idName,
-                                                 int indexId = -1);
+    std::pair<lsst::afw::detection::SourceSet,
+              std::vector<int> > getCatalogue(double ra, double dec, double radiusInArcsec, 
+                                              std::string filterName, std::string idName,
+                                              int indexId = -1);
 
     lsst::afw::detection::SourceSet getCatalogue(double radiusInArcsec, std::string filterName,
 						 std::string idName);
