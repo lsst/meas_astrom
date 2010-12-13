@@ -48,7 +48,18 @@ def roundTripSourceMatch(storagetype, filename, matchlist):
 
 class matchlistTestCase(unittest.TestCase):
     def setUp(self):
-        pass
+        #Load sample input from disk
+        mypath = eups.productDir("meas_astrom")
+        # Set up local astrometry_net_data
+        datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
+        print 'Setting up astrometry_net_data:', datapath
+        # Work around lame scons bug (doesn't pass HOME)
+        os.environ['HOME'] = 'iswheretheheartis'
+        eupsObj = eups.Eups(root=datapath)
+        ok, version, reason = eupsObj.setup('astrometry_net_data')
+        if not ok:
+            raise ValueError("Couldn't set up local photocal version of astrometry_net_data (from path: %s): %s" % (datapath, reason))
+
     def tearDown(self):
         pass
 
@@ -57,9 +68,9 @@ class matchlistTestCase(unittest.TestCase):
         pol.set('matchThreshold', 30)
         log = Log.getDefaultLog()
 
-        ra,dec,rad = 2.389, 3.287, 0.158
-        filtername,idname = 'r','id'
-        anindid = 101109003
+        ra,dec,rad = (-145., 53., 0.15)
+        filtername,idname = 'mag','id'
+        anindid = 2033
 
         solver = measAstrom.createSolver(pol, log)
         X = solver.getCatalogue(ra, dec, rad*3600., filtername, idname, anindid)
@@ -85,10 +96,13 @@ class matchlistTestCase(unittest.TestCase):
         andata = os.environ.get('ASTROMETRY_NET_DATA_DIR')
         if andata is None:
             extra.add('ANEUPS', 'none', 'ASTROMETRY_NET_DATA_DIR')
+            anpath = ''
         else:
+            anpath = andata
             andata = os.path.basename(andata)
             extra.add('ANEUPS', andata, 'ASTROMETRY_NET_DATA_DIR')
-        anindfn = '/home/dalang/lsst/astrometry_net_data/imsim-2010-11-09-0/index-101109003.fits'
+        # This string is arbitrary
+        anindfn = os.path.join(anpath, 'photocal', 'index-2033.fits')
         extra.add('RA', ra)
         extra.add('DEC', dec)
         extra.add('RADIUS', rad)
