@@ -19,14 +19,9 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
-
-
-import os
-import pdb
-import math
+import math, os, sys
 import numpy as np
 
-import eups
 import lsst.meas.astrom as measAst
 import lsst.meas.astrom.sip as sip
 import lsst.meas.algorithms.utils as malgUtil
@@ -34,18 +29,32 @@ from lsst.pex.logging import Log, Debug, LogRec, Prop
 
 from lsst.meas.photocal.PhotometricMagnitude import PhotometricMagnitude
 
-class fakelog(object):
-    def log(self, x, msg):
-        print msg
+import lsstDebug
+try:
+    import matplotlib.pyplot as pyplot
+except ImportError:
+    pyplot = None
 
-def calcPhotoCal(sourceMatch, log=None,
+def calcPhotoCal(sourceMatch, log=None, magLimit=22,
                  goodFlagValue=(malgUtil.getDetectionFlags()['BINNED1'] |
                                 malgUtil.getDetectionFlags()['STAR'])):
     """Calculate photometric calibration, i.e the zero point magnitude"""
 
-    if log is None:
+    if log is None or True:
+        class fakelog(object):
+            def log(self, x, msg):
+                print msg
+
         log = fakelog()
 
+    global display, fig
+    display = lsstDebug.Info(__name__).display
+    if display:
+        try:
+            fig.clf()
+        except:
+            fig = pyplot.figure()
+            
     if len(sourceMatch) == 0:
         raise ValueError("sourceMatch contains no elements")
 
@@ -58,11 +67,8 @@ def calcPhotoCal(sourceMatch, log=None,
     log.log(Log.DEBUG, 'Good flag value: %i' % goodFlagValue)
     log.log(Log.DEBUG, "Number of sources: %d" % (len(sourceMatch)))
 
-    cleanList = []
-    for m in sourceMatch:
-        if m.second.getFlagForDetection() & goodFlagValue == goodFlagValue:
-            cleanList.append(m)
-    sourceMatch = cleanList
+    sourceMatch = [m for m in sourceMatch if
+                   (m.second.getFlagForDetection() & goodFlagValue) == goodFlagValue]
 
     if len(sourceMatch) == 0:
         raise ValueError("flags indicate all elements of sourceMatch have bad photometry")
@@ -70,50 +76,49 @@ def calcPhotoCal(sourceMatch, log=None,
     #Convert fluxes to magnitudes
     out = getMagnitudes(sourceMatch)
 
-    #Fit to get zeropoint
-    lsf = robustFit(out["src"], out["cat"], order=2, plot=True)
-    par = lsf.getParams()
-    err = lsf.getErrors()
+    if magLimit is not None:
+        bright = out["cat"] < magLimit
+        for k in out.keys():
+            out[k] = out[k][bright]
 
-    #Sanity check output
-    if not(par[1] - err[1] <= 1 and par[1] + err[1] >= 1):
-        msg = "Slope of fitting function is not 1 (%g +- %g) " %(par[1], err[1])
-        log.log(Log.WARN, msg)
+    # Fit for zeropoint.  We can run the code more than once, so as to give good stars that got clipped
+    # by a bad first guess a second chance.
+    sigma_max = [0.25]                  # maximum sigma to use when clipping
+    nsigma = [3.0]                      # clip at nsigma
+    useMedian = [True]
+    niter = [20]                        # number of iterations
 
-    #Initialise and return a magnitude object
-    medianInstMag = np.median(out["src"])
-    medianFlux = np.power(10, -medianInstMag/2.5)
-    mag = lsf.valueAt(medianInstMag)
-    zp = mag - medianInstMag
-
-    #return PhotometricMagnitude(zeroFlux=medianFlux, zeroMag=mag)
+    zp = None                           # initial guess
+    for i in range(len(nsigma)):
+        zp, sigma, ngood = getZeroPoint(out["src"], out["cat"], srcErr=out["srcErr"], zp0=zp,
+                                        useMedian=useMedian[i],
+                                        sigma_max=sigma_max[i], nsigma=nsigma[i], niter=niter[i])
+    
     return PhotometricMagnitude(zeroFlux=1.0, zeroMag=zp)
-
 
 def getMagnitudes(sourceMatch):
 
-    #Extract the fluxes as numpy arrays. Catalogues don't come with fluxes
-    #so do an estimate using sqrt(counts)
-    fluxCat = np.array(map(lambda x: x.first.getPsfFlux(), sourceMatch))
-    fluxSrc = np.array(map(lambda x: x.second.getPsfFlux(), sourceMatch))
-    fluxSrcErr = np.array(map(lambda x: x.second.getPsfFluxErr(), sourceMatch))
+    #Extract the fluxes as numpy arrays. Catalogues don't always come with errors
+    #so we may need to make an estimate using sqrt(counts)
+    fluxCat =    np.array([m.first.getPsfFlux() for m in sourceMatch])
+    fluxCatErr = np.array([m.first.getPsfFluxErr() for m in sourceMatch])
+    if True:
+        fluxSrc =    np.array([m.second.getPsfFlux()    for m in sourceMatch])
+        fluxSrcErr = np.array([m.second.getPsfFluxErr() for m in sourceMatch])
+    else:
+        fluxSrc =    np.array([m.second.getApFlux()     for m in sourceMatch])
+        fluxSrcErr = np.array([m.second.getApFluxErr()  for m in sourceMatch])
 
-
-    #Remove objects where the source flux is bad
-    idx = np.where(fluxSrc > 0)
+    #Remove objects where the source or catalogue flux is bad
+    idx = np.where(np.logical_and(fluxSrc > 0, fluxCat > 0))
 
     fluxSrc = fluxSrc[idx]
     fluxCat = fluxCat[idx]
     fluxSrcErr = fluxSrcErr[idx]
 
-    #Remove the (unlikely) objects with bad catalogue fluxes
-    idx = np.where(fluxCat > 0)
-    fluxSrc = fluxSrc[idx]
-    fluxCat = fluxCat[idx]
-    fluxSrcErr = fluxSrcErr[idx]
-
-    #Catalogue won't have flux uncertainties in general
-    fluxCatErr = np.sqrt(fluxCat)
+    #Catalogue may not have flux uncertainties
+    if sum(fluxCatErr) == 0.0:
+        fluxCatErr = np.sqrt(fluxCat)
 
     #Convert to mags
     magSrc = -2.5*np.log10(fluxSrc)
@@ -133,136 +138,152 @@ def getMagnitudes(sourceMatch):
 
     return out
 
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
+def getZeroPoint(src, ref, srcErr=None, zp0=None, useMedian=True, sigma_max=None, nsigma=2, niter=3):
+    """Flux calibration code, returning (ZeroPoint, Distribution Width, Number of stars)
 
-def robustFit(x, y, order=2, plot=False):
-    """\brief Fit a polynomial to a dataset in a manner that is highly insensitive to outliers
-
-    Proceedure is to bin the data into order+1 points. The x value of the bin is the mean x value
-    of the points in the bin, and the y value of the bin is the *median* of the y values of the
-    points in the bin. This approach is very resistant to outliers affecting the fit.
-
-    Input
-    \param x       Array of ordinate values to fit
-    \param y       Array of co-ordinate values
-    \param order=2 Order of fit. Default (2) means to fit a straight line
+We perform niter iterations of a simple sigma-clipping algorithm with a a couple of twists:
+  1.  We use the median/interquartile range to estimate the position to clip around, and the
+  "sigma" to use
+  2.  We never allow sigma to go _above_ a critical value sigma_max --- if we do, a sufficiently large estimate
+  will prevent the clipping from ever taking effect
+  3.  Rather than start with the median we start with a crude mode.  This means that a set of magnitude
+  residuals with a tight core and asymmetrical outliers will start in the core.  We use the width of
+  this core to set our maximum sigma (see 2.)  
     """
 
-    if len(x) == 0:
-        raise ValueError("Input x array has zero length")
+    dmag = ref - src
+    i = np.argsort(dmag)
+    dmag = dmag[i]
+    if srcErr is not None:
+        dmagErr = srcErr[i]
+    else:
+        dmagErr = np.ones(len(dmag))
 
-    if len(x) != len(y):
-        raise ValueError("Input x and y arrays are of different length")
+    IQ_TO_STDEV = 0.741301109252802;    # 1 sigma in units of interquartile (assume Gaussian)
 
-    if order <= 0:
-        raise ValueError("Order must be >=1")
+    npt = len(dmag)
+    ngood = npt
+    for i in range(niter):
+        if i > 0:
+            npt = sum(good)
 
-    if order > len(x)/3:
-        #Hard to discriminate against outliers with only two points per bin
-        raise ValueError("Order can be no greater than one third the number of data points")
+        center = None
+        if i == 0:
+            #
+            # Start by finding the mode
+            #
+            nhist = 20
+            hist, edges = np.histogram(dmag, nhist, new=True)
+            imode = np.arange(nhist)[np.where(hist == hist.max())]
 
-    nBins = order+1
-    idx = x.argsort()   #indices of the sorted array of x
+            if imode[-1] - imode[0] + 1 == len(imode): # Multiple modes, but all contiguous
+                if zp0:
+                    center = zp0
+                else:
+                    center = 0.5*(edges[imode[0]] + edges[imode[-1] + 1])
 
-    rx = chooseRobustCoord(x, idx, nBins)
-    ry = chooseRobustCoord(y, idx, nBins)
-    rs = np.ones(nBins)
+                peak = sum(hist[imode])/len(imode) # peak height
 
+                # Estimate FWHM of mode
+                j = imode[0]
+                while j >= 0 and hist[j] > 0.5*peak:
+                    j -= 1
+                j = max(j, 0)
+                q1 = dmag[sum(hist[range(j)])]
 
-    #if plot:
-        #mpl.plot(x, y, 'ro')
-        #mpl.plot(rx, ry, 'ks-')
-        #lsf = sip.LeastSqFitter1dPoly(list(rx), list(ry), list(rs), order)
-        #print lsf.getParams()
-        #
-        #fitx = range(-16, -9)
-        #fity = map(lambda x: lsf.valueAt(x), fitx)
-        #mpl.plot(fitx, fity, 'g-')
-        #
-        #mpl.show()
+                j = imode[-1]
+                while j < nhist and hist[j] > 0.5*peak:
+                    j += 1
+                j = min(j, nhist - 1)
+                q3 = dmag[sum(hist[range(j)])]
 
-    return sip.LeastSqFitter1dPoly(list(rx), list(ry), list(rs), order)
+                sig = (q3 - q1)/2.3 # estimate of standard deviation (based on FWHM; 2.358 for Gaussian)
 
+                if sigma_max is None:
+                    sigma_max = 2*sig   # upper bound on st. dev. for clipping. multiplier is a heuristic
 
+                print center, sig
 
-def chooseRobustCoord(x, idx, nBins):
-    """\brief Create nBins values of the ordinate based on the mean of groups of elements of x
+            else:
+                if sigma_max is None:
+                    sigma_max = dmag[-1] - dmag[0]
+                center = np.median(dmag)
 
-    Inputs:
-    \param x Ordinate to be binned
-    \param idx Indices of x in sorted order, i.e x[idx[i]] <= x[idx[i+1]]
-    \param nBins Number of desired bins
-    """
+        if center is None:              # usually equivalent to (i > 0)
+            gdmag = dmag[good]
+            if useMedian:
+                center = np.median(gdmag)
+            else:
+                gdmagErr = dmagErr[good]
+                center = np.average(gdmag, weights=gdmagErr)
+            
+            q3 = gdmag[min(int(0.75*npt + 0.5), npt - 1)]
+            q1 = gdmag[min(int(0.25*npt + 0.5), npt - 1)]
+        
+            sig = IQ_TO_STDEV*(q3 - q1)     # estimate of standard deviation
 
-    if len(x) == 0:
-        raise ValueError("x array has no data")
+        good = abs(dmag - center) < nsigma*min(sig, sigma_max) # don't clip too softly
 
-    if len(x) != len(idx):
-        raise ValueError("Length of x and idx don't agree")
-
-    if nBins < 1:
-        raise ValueError("nBins < 1")
-
-    rSize = len(idx)/float(nBins)  #Note, a floating point number
-    rx = np.zeros(nBins)
-
-    for i in range(nBins):
-        rng = range(int(rSize*i), int(rSize*(i+1)))
-        rx[i] = np.median(x[idx[rng]])
-    return rx
-
-
-def clean(x, y, order=2, sigmaClip=3, maxIter=5):
-    """\brief Remove outliers from the set of {(x,y)}
-
-    Robust-fits a polynomial to y(x) and remove points that like more than sigmaClip times
-    the scatter away from the line. Repeat until no more points are removed, or maxIter is reached
-    The arrays x and y are modified.
-
-    \param x ordinate array (numpy array)
-    \param y coordinate array (numpy array)
-    \param order  Order of polynomial to fit
-    \param sigmaClip. Remove points more this number times the variance from the fit
-    \param maxIter  Maximum number of iterations
-    """
-
-    if len(x) == 0:
-        raise ValueError("Input x array has zero length")
-
-    if len(x) != len(y):
-        raise ValueError("Input x and y arrays are of different length")
-
-    if order <= 0:
-        raise ValueError("Order must be >=1")
-
-    if order > len(x)/3:
-        #Hard to discriminate against outliers with only two points per bin
-        raise ValueError("Order can be no greater than one third the number of data points")
-
-    if sigmaClip<0:
-        raise ValueError("sigmaClip must be >=1")
-
-    if maxIter<0:
-        raise ValueError("maxIter must be >=1")
-
-    i=0
-    newSize = len(x)
-    oldSize = newSize+1
-    while newSize < oldSize and i<maxIter:
-        lsf = robustFit(x,y,order)
-        f = map(lambda x: lsf.valueAt(float(x)), x)
-
-
-        sigma = (y-f).std()
-        if sigma == 0:  #A perfect fit. Something odd with the data, but not our concern
+        old_ngood = ngood
+        ngood = sum(good)
+        if ngood == 0:
+            return center, sig, len(dmag)
+        elif ngood == old_ngood:
             break
 
-        deviance = np.fabs( (y - f) /sigma)
-        idx = np.where(deviance < sigmaClip)
+        #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-        x=x[idx]
-        y=y[idx]
+        if display:
+            if not pyplot:
+                print >> sys.stderr, "I am unable to plot as I failed to import matplotlib"
+            else:
+                fig.clf()
 
-        oldSize=newSize
-        newSize = len(x)
+                axes = fig.add_axes((0.1, 0.1, 0.85, 0.80));
 
+                axes.plot(ref[good], dmag[good] - center, "b+")
+                axes.errorbar(ref[good], dmag[good] - center, yerr=dmagErr[good], linestyle='', color='b')
+
+                bad = np.logical_not(good)
+                axes.plot(ref[bad], dmag[bad] - center, "r+")
+                axes.errorbar(ref[bad], dmag[bad] - center, yerr=dmagErr[bad], linestyle='', color='r')
+
+                axes.plot((-100, 100), (0, 0), "g-")
+                for x in (-1, 1):
+                    axes.plot((-100, 100), x*0.05*np.ones(2), "g--")
+
+                axes.set_ylim(-1.1, 1.1)
+                axes.set_xlim(24, 13)
+                axes.set_xlabel("Reference")
+                axes.set_ylabel("Reference - Instrumental")
+
+                fig.show()
+                if display > 1:
+                    while i == 0 or reply != "c":
+                        try:
+                            reply = raw_input("Next iteration? [ynpc] ")
+                        except EOFError:
+                            reply = "n"
+
+                        if reply in ("", "c", "n", "p", "y"):
+                            break
+                        else:
+                            print >> sys.stderr, "Unrecognised response: %s" % reply
+
+                    if reply == "n":
+                        break
+                    elif reply == "p":
+                        import pdb; pdb.set_trace() 
+
+        #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+        if False:
+            ref = ref[good]
+            dmag = dmag[good]
+            dmagErr = dmagErr[good]
+
+    dmag = dmag[good]
+    dmagErr = dmagErr[good]
+    return np.average(dmag, weights=dmagErr), np.std(dmag, ddof=1), len(dmag)
