@@ -161,6 +161,7 @@ def plotsForField(inButler, keys, fixup, plots=None):
 
     if 'photom' in plots:
         wcsPlots.plotPhotometry(sources, ref, matches, prefix, band=filterName, zp=zp)
+        wcsPlots.plotPhotometry(sources, ref, matches, prefix, band=filterName, zp=zp, delta=True)
 
     if 'matches' in plots:
         wcsPlots.plotMatches(sources, ref, matches, wcs, W, H, prefix)
