@@ -49,7 +49,7 @@ def calcPhotoCal(sourceMatch, log=None, magLimit=22,
 
     global display, fig
     display = lsstDebug.Info(__name__).display
-    if display:
+    if display and pyplot:
         try:
             fig.clf()
         except:
@@ -197,19 +197,28 @@ We perform niter iterations of a simple sigma-clipping algorithm with a a couple
                 while j < nhist and hist[j] > 0.5*peak:
                     j += 1
                 j = min(j, nhist - 1)
-                q3 = dmag[sum(hist[range(j)])]
+                j = min(sum(hist[range(j)]), nhist - 1)
+                q3 = dmag[j]
+
+                if q1 == q3:
+                    q1 = dmag[int(0.25*npt)]
+                    q3 = dmag[int(0.75*npt)]
 
                 sig = (q3 - q1)/2.3 # estimate of standard deviation (based on FWHM; 2.358 for Gaussian)
 
                 if sigma_max is None:
                     sigma_max = 2*sig   # upper bound on st. dev. for clipping. multiplier is a heuristic
 
-                print center, sig
+                print "center = %.2f, sig = %.2f" % (center, sig)
 
             else:
                 if sigma_max is None:
                     sigma_max = dmag[-1] - dmag[0]
+
                 center = np.median(dmag)
+                q1 = dmag[int(0.25*npt)]
+                q3 = dmag[int(0.75*npt)]
+                sig = (q3 - q1)/2.3 # estimate of standard deviation (based on FWHM; 2.358 for Gaussian)
 
         if center is None:              # usually equivalent to (i > 0)
             gdmag = dmag[good]
@@ -229,6 +238,8 @@ We perform niter iterations of a simple sigma-clipping algorithm with a a couple
         old_ngood = ngood
         ngood = sum(good)
         if ngood == 0:
+            if i == 0:                  # failed the first time round -- probably all fell in one bin
+                center = np.average(dmag, weights=dmagErr)
             return center, sig, len(dmag)
         elif ngood == old_ngood:
             break
