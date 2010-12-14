@@ -47,207 +47,85 @@ except ImportError, e:
     except NameError:
         display = False
 
-def createSolver(policy, log):
-    path=os.path.join(os.environ['ASTROMETRY_NET_DATA_DIR'], "metadata.paf")
-    solver = astromNet.GlobalAstrometrySolution(path, log)
-    matchThreshold = policy.get('matchThreshold')
-    solver.setMatchThreshold(matchThreshold)
-    # FIXME -- this could go in policy... or we could use new Astrometry.net logging
-    # callbacks to put those messages to their own pexLogging channel.
-    solver.setLogLevel(2)
-    return solver
+def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=False, forceImageSize=None):
+    """Top level function for calculating a Wcs.
 
-def getIdColumn(policy):
-    '''Returns the column name of the ID field in the reference catalog'''
-    idName = ''
-    colname = 'defaultIdColumnName'
-    if policy.exists(colname):
-        idName = policy.get(colname)
-    return idName
-
-def joinMatchList(matchlist, sources, first=True, log=None, mask=0, offset=0):
-    # build map of reference id to reference object.
-
-    srcstr = ('reference objects' if first else 'sources')
-
-    idtoref = {}
-    for s in sources:
-        sid = s.getSourceId()
-        if offset:
-            sid += offset
-        if mask:
-            sid = sid & mask
-        if sid in idtoref:
-            log.log(Log.DEBUG, 'Duplicate ID %i in %s' % (sid, srcstr))
-            continue
-        idtoref[sid] = s
-    
-    # Join.
-    nmatched = 0
-    firstfail = True
-    for i in xrange(len(matchlist)):
-        if first:
-            mid = matchlist[i].first.getSourceId()
-        else:
-            mid = matchlist[i].second.getSourceId()
-
-        if mask:
-            mmid = mid & mask
-        else:
-            mmid = mid
-
-        try:
-            ref = idtoref[mmid]
-        except KeyError:
-            # throw? warn?
-            log.log(Log.DEBUG, 'Failed to join ID %i (0x%x) (masked to %i, 0x%x) from match list element %i of %i' % (mid, mid, mmid, mmid, i, len(matchlist)))
-            if firstfail:
-                log.log(Log.DEBUG, 'IDs available: ' + ' '.join('%i' % k for k in idtoref.keys()))
-                log.log(Log.DEBUG, 'IDs available: ' + ' '.join('0x%x' % k for k in idtoref.keys()))
-                firstfail = False
-            ref = None
-
-        if first:
-            matchlist[i].first = ref
-        else:
-            matchlist[i].second = ref
-        nmatched += 1
-    if log:
-        log.log(Log.DEBUG, 'Joined %i of %i matchlist IDs to %s' %
-                (nmatched, len(matchlist), srcstr))
-
-
-def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None,
-                             filterName=None, idName=None):
-    if log is None:
-        log = Log.getDefaultLog()
-
-    if solver is None:
-        solver = createSolver(policy, log)
-
-    filterName = chooseFilterName(None, policy, solver, log, filterName)
-    if idName is None:
-        idName = getIdColumn(policy)
-
-    version = matchmeta.getInt('SMATCHV')
-    if version != 1:
-        raise ValueError('SourceMatchVector version number is %i, not 1.' % version)
-
-    # EUPS
-    myandata = os.environ.get('ASTROMETRY_NET_DATA_DIR')
-    andata = matchmeta.getString('ANEUPS')
-    #if os.path.basename(myandata) != os.path.basename(andata):
-    #    raise ValueError('Need ASTROMETRY_NET_DATA_DIR = "%s"' % 
-    log.log(Log.DEBUG, 'Astrometry.net dir was "%s", now "%s"' %
-            (os.path.basename(myandata), os.path.basename(andata)))
-
-    anid = matchmeta.getInt('ANINDID')
-    anhp = matchmeta.getInt('ANINDHP')
-    anindexname = os.path.basename(matchmeta.getString('ANINDNM'))
-    log.log(Log.DEBUG, 'Astrometry.net index was "%s" (id %i, healpix %i)' %
-            (anindexname, anid, anhp))
-
-    # all in deg.
-    ra = matchmeta.getDouble('RA')
-    dec = matchmeta.getDouble('DEC')
-    rad = matchmeta.getDouble('RADIUS')
-    log.log(Log.DEBUG, 'Searching RA,Dec %.3f,%.3f, radius %.1f arcsec, filter "%s", id column "%s", indexid %i' %
-            (ra, dec, rad * 3600., filterName, idName, anid))
-    #myinds = solver.getIndexList()
-
-    # FIXME -- need anid?  Not necessarily... ref ids are supposed to be unique!
-    cat = solver.getCatalogue(ra, dec, rad * 3600., filterName, idName, anid)
-    log.log(Log.DEBUG, 'Found %i reference catalog sources in range' % len(cat))
-
-    joinMatchList(matchlist, cat, first=True, log=log)
-
-
-# Object returned by determineWcs.
-class InitialAstrometry(object):
-    def __init__(self):
-        self.matches = None
-        self.wcs = None
-    def getMatches(self):
-        return self.matches
-    def getWcs(self):
-        return self.wcs
-    def getMatchMetadata(self):
-        return getattr(self, 'matchMetadata', None)
-
-def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=False,
-                 forceImageSize=None, filterName=None):
-    '''Top level function for calculating an initial (per-chip) astrometric solution.
-
-    Get an initial World Coordinate System (WCS) from Astrometry.net,
-    then calculate SIP distortion terms.
-
+    Given an initial guess at a Wcs (hidden inside an exposure) and a set of
+    sources (sourceSet), use astrometry.net to confirm the Wcs, then calculate
+    distortion terms.
 
     Input:
     policy:     An lsst.pex.policy.Policy object containing the parameters for the solver
-    exposure    lsst.afw.image.Exposure representation of an image and a WCS 
+    exposure    lsst.afw.image.Exposure representation of an image and a wcs
                 this provides the initial guess at position and plate scale
     sourceSet   A list of lsst.afw.detection.Source objects, indicating the pixel positions of
                 stars in the field
     log         A lsst.pex.logging.Log object (optional), used for printing progress
-    doTrim      Remove sources that are not inside the image.
+    doTrim        Check that all sources lie within the image, and remove those that don't.
     solver      Optionally provide a previously created astrometry.net solver. If not provided
                 one will be created.
     forceImageSize  tuple of (W,H): force this image size, rather than getting it from the Exposure.
-    filterName  Use this filter name, rather than getting it from the exposure.
-    '''
-
-    astrom = InitialAstrometry()
+    """
 
     if log is None:
+        #log = StdoutLog()   #Write log messages to stdout
         log = Log.getDefaultLog()
+    log.log(Log.DEBUG, "In determineWcs")
+
+
+    #Short names
+    exp = exposure
+    srcSet = sourceSet
 
     if display:
         frame = 1
         ds9.mtv(exposure, frame=frame, title="wcsDet")
 
     if doTrim:
-        nStart = len(sourceSet)
-        sourceSet = trimBadPoints(exposure, sourceSet)
+        nStart = len(srcSet)
+        srcSet = trimBadPoints(exp, srcSet)
         if log:
-            nEnd = len(sourceSet)
+            nEnd = len(srcSet)
             log.log(log.DEBUG, "Kept %i of %i sources after trimming" %(nEnd, nStart))
 
     if display:
-        for s in sourceSet:
+        for s in srcSet:
             ds9.dot("o", s.getXAstrom(), s.getYAstrom(), size=3, ctype=ds9.RED, frame=frame)
 
-    #Extract an initial guess WCS if available    
-    wcsIn = exposure.getWcs() #May be None
+    #Extract an initial guess wcs if available
+    wcsIn = exp.getWcs() #May be None
     # Exposure uses the special object "NoWcs" instead of NULL.  Because they're special.
-    haswcs = exposure.hasWcs()
+    haswcs = exp.hasWcs()
     if not haswcs:
-        log.log(log.WARN, "No WCS found in exposure. Doing blind solve")
+        log.log(log.WARN, "No wcs found on exposure. Doing blind solve")
 
-    # Setup solver
+    #Setup solver
     if solver is None:
-        solver = createSolver(policy, log)
+        path=os.path.join(os.environ['ASTROMETRY_NET_DATA_DIR'], "metadata.paf")
+        solver = astromNet.GlobalAstrometrySolution(path, log)
+        matchThreshold = policy.get('matchThreshold')
+        solver.setMatchThreshold(matchThreshold)
     else:
         solver.reset()
 
-    # Set solving params
+    #Set solving params
     log.log(log.DEBUG, "Setting starlist")
-    solver.setStarlist(sourceSet)
+    solver.setStarlist(srcSet)
     log.log(log.DEBUG, "Setting numBrightObj")
-    solver.setNumBrightObjects( min(policy.get('numBrightStars'), len(sourceSet)))
+    solver.setNumBrightObjects( min(policy.get('numBrightStars'), len(srcSet)))
     if forceImageSize is not None:
         (W,H) = forceImageSize
     else:
-        (W,H) = (exposure.getWidth(), exposure.getHeight())
+        (W,H) = (exp.getWidth(), exp.getHeight())
     solver.setImageSize(W, H)
+    solver.setLogLevel(2)
     #solver.printSolverSettings(stdout)
 
-    key = 'pixelScaleUncertainty'
-    if policy.exists(key):
-        dscale = float(policy.get(key))
-    else:
-        dscale = None
+    # FIXME -- add policy entry for this...
+    #dscale = policy.get('pixelScaleUncertainty')
+    dscale = None
 
-    # Do a blind solve if we're told to, or if we don't have an input WCS
+    #Do a blind solve if we're told to, or if we don't have an input wcs
     doBlindSolve = policy.get('blindSolve') or (not haswcs)
     if doBlindSolve:
         log.log(log.DEBUG, "Solving with no initial guess at position")
@@ -259,22 +137,31 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
 
     moreMeta = dafBase.PropertyList()
 
-    # Did we solve?
+    #Did we solve?
     log.log(log.DEBUG, "Finished Solve step.")
     if not isSolved:
-        log.log(log.WARN, "No solution found, using input WCS")
-        return astrom
+        log.log(log.WARN, "No solution found, using input Wcs")
+        return [], wcsIn, moreMeta
     wcs = solver.getWcs()
 
+    #
     # Generate a list of catalogue objects in the field.
+    #
+
+    #First obtain the catalogue-listed positions of stars
+    log.log(log.DEBUG, "Determining match objects")
     imgSizeInArcsec = wcs.pixelScale() * hypot(W,H)
-    filterName = chooseFilterName(exposure, policy, solver, log, filterName)
-    idName = getIdColumn(policy)
+
+    #Do we want magnitude information
+    filterName = chooseFilterName(exposure, policy, solver, log)
+
+    idName = ''
+    colname = 'defaultIdColumnName'
+    if policy.exists(colname):
+        idName = policy.get(colname)
+
     try:
-        #print 'size, fiter, id', imgSizeInArcsec, filterName, idName
-        #cat = solver.getCatalogue(2*imgSizeInArcsec, filterName, idName)
-        margin = 50 # pixels
-        cat = solver.getCatalogueForSolvedField(filterName, idName, margin)
+        cat = solver.getCatalogue(2*imgSizeInArcsec, filterName, idName)
     except LsstCppException, e:
         log.log(Log.WARN, str(e))
         log.log(Log.WARN, "Attempting to access catalogue positions and fluxes")
@@ -285,12 +172,13 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         log.log(Log.WARN, "Available filters: " + str(solver.getCatalogueMetadataFields()))
         raise
 
+    matchList=[]
     if True:
-        # Now generate a list of matching objects
+        #Now generate a list of matching objects
         distInArcsec = policy.get('distanceForCatalogueMatchinArcsec')
         cleanParam = policy.get('cleaningParameter')
 
-        matchList = matchSrcAndCatalogue(cat=cat, img=sourceSet, wcs=wcs,
+        matchList = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=wcs,
             distInArcsec=distInArcsec, cleanParam=cleanParam)
 
         uniq = set([sm.second.getId() for sm in matchList])
@@ -300,36 +188,24 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
 
         if len(matchList) == 0:
             log.log(Log.WARN, "No matches found between input source and catalogue.")
-            log.log(Log.WARN, "Something is wrong. Defaulting to input WCS")
-            return astrom
+            log.log(Log.WARN, "Something in wrong. Defaulting to input wcs")
+            return [], wcsIn, moreMeta
 
-        log.log(Log.DEBUG, "%i catalogue objects match input source list using linear WCS" %(len(matchList)))
+        log.log(Log.DEBUG, "%i catalogue objects match input source list using linear Wcs" %(len(matchList)))
     else:
-        # Use list of matches returned by Astrometry.net
+        #Use list of matches returned by astrometry.net
         log.log(Log.DEBUG, "Getting matched sources: Fluxes in column %s; Ids in column" % (filterName, idName))
         matchList = solver.getMatchedSources(filterName, idName)
 
-    astrom.tanWcs = wcs
-    astrom.tanMatches = matchList
-
-    srcids = [s.getSourceId() for s in sourceSet]
-    #print 'srcids:', srcids
-    for m in matchList:
-        #print 'Matchlist entry ids:', m.first.getSourceId(), m.second.getSourceId()
-        assert(m.second.getSourceId() in srcids)
-        assert(m.second in sourceSet)
 
     if policy.get('calculateSip'):
         sipOrder = policy.get('sipOrder')
-        wcs, matchList = calculateSipTerms(wcs, cat, sourceSet, distInArcsec, cleanParam, sipOrder, log)
-
-        astrom.sipWcs = wcs
-        astrom.sipMatches = matchList
+        wcs, matchList = calculateSipTerms(wcs, cat, srcSet, distInArcsec, cleanParam, sipOrder, log)
     else:
-        log.log(Log.DEBUG, "Updating WCS in input exposure with linear WCS")
+        log.log(Log.DEBUG, "Updating wcs in input exposure with linear wcs")
 
-    log.log(Log.DEBUG, "Setting exposure's WCS: to\n" + wcs.getFitsMetadata().toString())
     exposure.setWcs(wcs)
+    #solver.reset()
 
     # add current EUPS astrometry_net_data setup.
     andata = os.environ.get('ASTROMETRY_NET_DATA_DIR')
@@ -357,26 +233,34 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
 
     matchListMeta = solver.getMatchedIndexMetadata()
     moreMeta.combine(matchListMeta)
+    return (matchList, wcs, moreMeta)
 
-    astrom.matchMetadata = moreMeta
-    astrom.wcs = wcs
-    astrom.matches = matchList
+class StdoutLog():
+    """If no log is passed, this class just writes the output to stdout, regardless of
+    log verbosity"""
 
-    return astrom
+    def __init__(self):
+        self.DEBUG="DEBUG"
+        self.INFO="INFO"
+        self.WARN="WARN"
 
-def trimBadPoints(exposure, sourceSet):
-    """Remove elements from sourceSet whose xy positions aren't within the boundaries of exposure
+    def log(self, arg1, arg2):
+        print "%s" %(arg2)
+
+
+def trimBadPoints(exp, srcSet):
+    """Remove elements from srcSet whose xy positions aren't within the boundaries of exp
 
     Input:
-    exposure:    an Exposure object
-    sourceSet  A list of Source objects
+    exp:    an Exposure object
+    srcSet  A list of Source objects
     """
 
-    x0, y0 = exposure.getMaskedImage().getXY0()
-    h, w = float(exposure.getHeight()), float(exposure.getWidth())
+    x0, y0 = exp.getMaskedImage().getXY0()
+    h, w = float(exp.getHeight()), float(exp.getWidth())
 
     goodSet = []
-    for s in sourceSet:
+    for s in srcSet:
         if x0 < s.getXAstrom() < x0+w:
             if y0 < s.getYAstrom() < y0+h:
                 goodSet.append(s)
@@ -384,51 +268,58 @@ def trimBadPoints(exposure, sourceSet):
     return goodSet
 
 
-def chooseFilterName(exposure, policy, solver, log, filterName=None):
+def chooseFilterName(exposure, policy, solver, log):
     """When extracting catalogue magnitudes, which colour filter should we request
     e.g U,B,V etc."""
 
     if log is None:
-        log = Log.getDefaultLog()
+        log = StdoutLog()
 
-    if filterName is None:
-        filterName = exposure.getFilter().getName()
+    filterName = exposure.getFilter().getName()
+    if filterName == "_unknown_":   #No symbol for this in afw
+        log.log(log.DEBUG, "Exposure has no filter info. Using default")
+        if not policy.exists("defaultFilterName"):
+            log.log(log.DEBUG, "No default filter is set")
+            return ""
+        filterName = policy.get("defaultFilterName")
 
-    if filterName == "_unknown_":
-        log.log(log.DEBUG, "Exposure has no filter name set. Using default.")
-    else:
-        log.log(Log.DEBUG, 'Exposure was taken with filter "%s"' % (filterName))
+    log.log(Log.DEBUG, "Exposure was taken in %s band" %(filterName))
 
     availableFilters = solver.getCatalogueMetadataFields()
+    availableFiltersStr = ", ".join(availableFilters) #Expressed as a string
+
+
     if filterName in availableFilters:
-        log.log(Log.DEBUG, 'Have catalogue magnitudes for filter: "%s"' %(filterName))
+        log.log(Log.DEBUG, "Have catalogue magnitudes for %s" %(filterName))
         return filterName
+    else:
+        log.log(Log.DEBUG, "Catalogue doesn't contain %s, only [%s]" %(filterName, availableFiltersStr))
+        log.log(Log.DEBUG, "Searching for default filter")
 
-    log.log(Log.DEBUG, 'Catalogue doesn\'t contain filter "%s"; using default (available filters: "%s")' %
-            (filterName, '", "'.join(availableFilters)))
+        if not policy.exists("defaultFilterName"):
+            log.log(log.DEBUG, "No default filter is set")
+            return ""
+        defaultFilter = policy.get("defaultFilterName")
 
-    if not policy.exists("defaultFilterName"):
-        log.log(log.DEBUG, "No default filter name is set")
-        return ""
-    defaultFilter = policy.get("defaultFilterName")
-    if defaultFilter in availableFilters:
-        log.log(log.DEBUG, 'Using default filter name "%s"' % (defaultFilter))
-        return defaultFilter
+        if defaultFilter in availableFilters:
+            log.log(log.DEBUG, "Using default filter name (%s)" %(defaultFilter))
+            return defaultFilter
+        else:
+            raise ValueError("Default filter %s not included in catalogue [%s]" \
+                    %(defaultFilter, availableFiltersStr))
 
-    raise ValueError('Default filter "%s" not included in catalogue (available filters: "%s")' \
-                     % (defaultFilter, '", "'.join(availableFilters)))
+    raise RuntimeError("This function should have returned before getting to this point")
 
-
-def calculateSipTerms(inputWcs, cat, sourceSet, distInArcsec, cleanParam, sipOrder, log=None):
+def calculateSipTerms(inputWcs, cat, srcSet, distInArcsec, cleanParam, sipOrder, log=None):
     """Iteratively calculate sip distortions and regenerate matchList based on improved wcs"""
 
     if log is None:
-        log = Log.getDefaultLog()
+        log = StdoutLog()
 
     wcs = inputWcs
 
     #Create a first pass at a set of matching objects
-    matchList = matchSrcAndCatalogue(cat=cat, img=sourceSet, wcs=wcs,
+    matchList = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=wcs,
         distInArcsec=distInArcsec, cleanParam=cleanParam)
 
     i=0
@@ -448,8 +339,9 @@ def calculateSipTerms(inputWcs, cat, sourceSet, distInArcsec, cleanParam, sipOrd
         log.log(Log.DEBUG, msg)
 
         #Use the new wcs to update the match list
-        proposedMatchlist = matchSrcAndCatalogue(cat=cat, img=sourceSet, wcs=proposedWcs,
+        proposedMatchlist = matchSrcAndCatalogue(cat=cat, img=srcSet, wcs=proposedWcs,
             distInArcsec=distInArcsec, cleanParam=cleanParam)
+
 
         if len(proposedMatchlist) <= matchSize:
             #We're regressing, so stop
@@ -469,6 +361,8 @@ def calculateSipTerms(inputWcs, cat, sourceSet, distInArcsec, cleanParam, sipOrd
 def matchSrcAndCatalogue(cat=None, img=None, wcs=None, distInArcsec=1.0, cleanParam=3):
     """Given an input catalogue, match a list of objects in an image, given
     their x,y position and a wcs solution.
+
+    Return: A list of x, y, dx and dy. Each element of the list is itself a list
     """
 
     if cat is None:
@@ -481,6 +375,7 @@ def matchSrcAndCatalogue(cat=None, img=None, wcs=None, distInArcsec=1.0, cleanPa
 
     matcher = astromSip.MatchSrcToCatalogue(cat, img, wcs, distInArcsec)
     matchList = matcher.getMatches()
+
 
     if matchList is None:
         raise RuntimeError("No matches found between image and catalogue")
