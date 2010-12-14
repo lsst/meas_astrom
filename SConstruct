@@ -5,6 +5,26 @@
 import glob, os.path, sys
 import lsst.SConsUtils as scons
 
+
+# Stolen from ap/SConstruct.
+boostInt64IsLongCheckSrc = """
+    #include "boost/cstdint.hpp"
+    #include "boost/static_assert.hpp"
+    #include "boost/type_traits/is_same.hpp"
+
+    int main() {
+        BOOST_STATIC_ASSERT((boost::is_same<long, boost::int64_t>::value));
+        return 0;
+    }
+    """
+def CustomCompileCheck(context, message, source, extension = '.c'):
+    context.Message(message)
+    result = context.TryCompile(source, extension)
+    context.Result(result)
+    return result
+
+
+
 env = scons.makeEnv(
     "meas_astrom",
     r"$HeadURL$",
@@ -43,6 +63,19 @@ if True:
     #
     import numpy
     env.Append(CCFLAGS = ["-I", numpy.get_include()])
+
+if not env.CleanFlagIsSet():
+    conf = Configure(env, custom_tests = {'CustomCompileCheck' : CustomCompileCheck, })
+                                          
+    # Without some help, SWIG disagrees with boost on the actual type of int64_t
+    if conf.CustomCompileCheck('Checking whether boost::int64_t is long ... ',
+                               boostInt64IsLongCheckSrc, extension='.cc'):
+        conf.env.Append(SWIGFLAGS = '-DSWIGWORDSIZE64')
+        env = conf.Finish()
+
+
+
+
 #
 # Build/install things
 #

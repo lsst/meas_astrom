@@ -96,16 +96,12 @@ def plotsForField(inButler, keys, fixup, plots=None):
     print 'Got', len(ref), 'reference catalog sources'
 
     if True:
-        extras = solver.getCatalogueExtra(ra, dec, radius, ['id', 'starnotgal', filterName + '_err'], anid)
-        #print 'Got extras:', extras
-        #pass
-        #inds = solver.getIndexList()
-        #print 'Got inds:', inds
-        #for ind in inds:
-        #    print 'ind', ind
-        #    print dir(ind)
-        #X = starkd_search_stars_in_field(skdt, tanwcs, margin)
-        
+        errs = solver.getTagAlongDouble(anid, filterName+'_err', inds)
+        print 'got errors', errs
+        ids = solver.getTagAlongInt64(anid, 'id', inds)
+        print 'got ids', ids
+        stargal = solver.getTagAlongBool(anid, 'starnotgal', inds)
+        print 'got stargal:', stargal
 
     keepref = []
     for i in xrange(len(ref)):

@@ -144,6 +144,26 @@ public:
                                               std::string filterName, std::string idName,
                                               int indexId = -1);
 
+    /*
+     template <typename T>
+     std::vector<T> getTagAlongData(int indexId, std::string columnName,
+     std::vector<int> inds);
+     */
+
+    /*
+     std::vector<float> getTagAlongFloat(int indexId, std::string columnName,
+     std::vector<int> inds);
+     */
+    std::vector<double> getTagAlongDouble(int indexId, std::string columnName,
+                                          std::vector<int> inds);
+    std::vector<int> getTagAlongInt(int indexId, std::string columnName,
+                                    std::vector<int> inds);
+    std::vector<boost::int64_t> getTagAlongInt64(int indexId, std::string columnName,
+                                                 std::vector<int> inds);
+    std::vector<bool> getTagAlongBool(int indexId, std::string columnName,
+                                      std::vector<int> inds);
+
+
     lsst::afw::detection::SourceSet getCatalogue(double radiusInArcsec, std::string filterName,
 						 std::string idName);
 
@@ -187,7 +207,10 @@ private:
     bool _callSolver(double ra=NO_POSITION_SET, double dec=NO_POSITION_SET);
     int _addSuitableIndicesToSolver(double minImageSizeArcsec, double maxImageSizeArcsec, \
         double ra=NO_POSITION_SET, double dec=NO_POSITION_SET);    
-        
+
+    template <typename T>
+    std::vector<T> _getTagAlongData(int indexId, std::string columnName,
+                                    tfits_type ctype, std::vector<int> inds);
 };
 
 }}}}

@@ -1044,6 +1044,63 @@ const startree_t* GlobalAstrometrySolution::getStarTree(int indexId) {
 }
  */
 
+template <typename T>
+std::vector<T> GlobalAstrometrySolution::_getTagAlongData(int indexId, std::string columnName,
+                                                         tfits_type ctype, std::vector<int> inds) {
+    index_t* index = NULL;
+    for (unsigned int i=0; i<_indexList.size(); i++) {
+        index_t* ind = _indexList[i];
+        if (ind->indexid != indexId)
+            continue;
+        index = ind;
+        break;
+    }
+
+    if (!index)
+        // or raise an exception?
+        return std::vector<T>();
+
+    fitstable_t* tag = startree_get_tagalong(index->starkd);
+    if (!tag)
+        //throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, boost::str(boost::format("No tag-along table in index \"%s\"") % index->indexname)));
+        return std::vector<T>();
+
+    int* cinds = new int[inds.size()];
+    for (size_t i=0; i<inds.size(); i++)
+        cinds[i] = inds[i];
+    T* x = static_cast<T*>(fitstable_read_column_inds(tag, columnName.c_str(), ctype, cinds, inds.size()));
+    delete[] cinds;
+    std::vector<T> vals(x + 0, x + inds.size());
+    free(x);
+    return vals;
+}
+
+std::vector<double> GlobalAstrometrySolution::getTagAlongDouble(int indexId, std::string columnName,
+                                                                std::vector<int> inds) {
+    std::vector<double> vals = _getTagAlongData<double>(indexId, columnName, fitscolumn_double_type(), inds);
+    return vals;
+}
+
+std::vector<int> GlobalAstrometrySolution::getTagAlongInt(int indexId, std::string columnName,
+                                                          std::vector<int> inds) {
+    std::vector<int> vals = _getTagAlongData<int>(indexId, columnName, fitscolumn_int_type(), inds);
+    return vals;
+}
+
+std::vector<boost::int64_t> GlobalAstrometrySolution::getTagAlongInt64(int indexId, std::string columnName,
+                                                                       std::vector<int> inds) {
+    std::vector<boost::int64_t> vals = _getTagAlongData<boost::int64_t>(indexId, columnName, fitscolumn_i64_type(), inds);
+    return vals;
+}
+
+std::vector<bool> GlobalAstrometrySolution::getTagAlongBool(int indexId, std::string columnName,
+                                  std::vector<int> inds) {
+    std::vector<bool> vals = _getTagAlongData<bool>(indexId, columnName, fitscolumn_boolean_type(), inds);
+    return vals;
+}
+
+
+
 std::vector<std::vector<double> > GlobalAstrometrySolution::getCatalogueExtra(double ra, double dec, double radiusInArcsec,
                                                                              std::vector<std::string> columns, int indexId) {
     index_t* index = NULL;

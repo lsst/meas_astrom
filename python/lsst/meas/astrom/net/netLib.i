@@ -31,6 +31,7 @@ Python interface to lsst::afw::meas::astrom::net classes
 %feature("autodoc", "1");
 %module(package="lsst.meas.astrom.net",docstring=netLib_DOCSTRING) netLib
 
+
 %{
 #include "lsst/pex/logging/BlockTimingLog.h"    
 #include "lsst/pex/logging/ScreenLog.h"    
@@ -41,6 +42,15 @@ Python interface to lsst::afw::meas::astrom::net classes
 #include "starkd_search_stars.c"
 
 %}
+
+// As in ap/.../apLib.i -- handle swig problems with boost::int64_t
+namespace boost {
+#if defined(SWIGWORDSIZE64)
+    typedef long int64_t;
+#else
+    typedef long long int64_t;
+#endif
+}
 
 %include "lsst/p_lsstSwig.i"
 %include "std_string.i"
