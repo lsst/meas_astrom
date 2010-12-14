@@ -154,7 +154,11 @@ class PhotoCalTest(unittest.TestCase):
 
 
     def testKnownZP(self):
-        """Verify we recover a known zeropoint"""
+        """Verify we recover a known zeropoint
+
+        N.b. This is a very bad test as there's no scatter in the zeropoint measurements, but it does
+        test this edge case of the photo calibration code
+        """
         
         nS = 20
         magLo = 10.0
@@ -190,13 +194,14 @@ class PhotoCalTest(unittest.TestCase):
             s1.setPsfFlux(f1)
             s2.setPsfFlux(f2)
 
-            print f1, f2
+            if False:
+                print "flux1 =", f1, "flux2 =", f2
             matchList.append(afwDet.SourceMatch(s1, s2, 0.0))
 
         # do the cal
         pCal = photocal.calcPhotoCal(matchList, goodFlagValue=flags["BINNED1"])
 
-        print "ZP_known = ", zpSrc, "ZP = ", pCal.zeroMag, "Zflux = ", pCal.zeroFlux
+        print "ZP_known = ", zpSrc, "ZP_cat", zpCat, "ZP = ", pCal.zeroMag, "Zflux = ", pCal.zeroFlux
         self.assertAlmostEqual(zpSrc, pCal.zeroMag)
 
         for m in matchList:
