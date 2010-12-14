@@ -29,7 +29,7 @@ def main():
             plots.append('photom')
         if opt.docorr:
             plots.append('corr')
-        if opt.doistortion:
+        if opt.dodistortion:
             plots.append('distortion')
         
     inButler = imsimUtils.getInputButler(opt)
