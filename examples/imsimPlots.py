@@ -95,7 +95,7 @@ def plotsForField(inButler, keys, fixup, plots=None):
     inds = X.second
     print 'Got', len(ref), 'reference catalog sources'
 
-    if False:
+    if True:
         extras = solver.getCatalogueExtra(ra, dec, radius, ['id', 'starnotgal', filterName + '_err'], anid)
         #print 'Got extras:', extras
         #pass
