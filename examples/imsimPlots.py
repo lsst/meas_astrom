@@ -90,7 +90,9 @@ def plotsForField(inButler, keys, fixup, plots=None):
     print 'Searching index with ID', anid
     print 'Using ID column name', idName
     print 'Using filter column name', filterName
-    ref = solver.getCatalogue(ra, dec, radius, filterName, idName, anid)
+    X = solver.getCatalogue(ra, dec, radius, filterName, idName, anid)
+    ref = X.first
+    inds = X.second
     print 'Got', len(ref), 'reference catalog sources'
 
     if False:
