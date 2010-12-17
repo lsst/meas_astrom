@@ -97,17 +97,23 @@ def plotsForField(inButler, keys, fixup, plots=None):
     inds = X.second
     print 'Got', len(ref), 'reference catalog sources'
 
+    print 'Tag-along columns:'
+    cols = solver.getTagAlongColumns(anid)
+    print cols
+    for c in cols:
+        print 'column: ', c.name, c.fitstype, c.ctype, c.units, c.arraysize
+
     referrs = solver.getTagAlongDouble(anid, filterName+'_err', inds)
-    print 'got errors', referrs
+    #print 'got errors', referrs
     #ids = solver.getTagAlongInt64(anid, 'id', inds)
     #print 'got ids', ids
     stargal1 = solver.getTagAlongBool(anid, 'starnotgal', inds)
-    print 'got stargal:', stargal1
+    #print 'got stargal:', stargal1
     stargal = []
+    # For weird (swig-related?) reasons we have to copy this array before we
+    # mess with it below.
     for i in range(len(stargal1)):
         stargal.append(stargal1[i])
-    #stargal = [True if sg else False for sg in stargal]
-    # #np.array([sg for sg in stargal]).copy()
 
     keepref = []
     keepi = []
@@ -122,17 +128,14 @@ def plotsForField(inButler, keys, fixup, plots=None):
         keepi.append(i)
     print 'Kept', len(keepref), 'reference sources'
     ref = keepref
-    #keepi = np.array(keepi)
 
     if referrs is not None:
-        #referrs = np.array(referrs)[keepi]
         referrs = [referrs[i] for i in keepi]
     if stargal is not None:
-        #stargal = np.array(stargal)[keepi]
         stargal = [stargal[i] for i in keepi]
 
-    print 'reference errs:', referrs
-    print 'star/gals:', stargal
+    #print 'reference errs:', referrs
+    #print 'star/gals:', stargal
 
     if False:
         m0 = matches[0]

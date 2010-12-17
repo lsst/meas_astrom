@@ -182,23 +182,33 @@ def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
         if refstargal:
             assert(len(refstargal) == len(refsources))
             refstargal = array(refstargal).astype(bool)
+            print 'ref star/gal:', refstargal
+            print 'ref star/gal:', refstargal.shape
+            print 'MR', MR
+            print 'mrefmag:', mrefmag
+
             ptsets = [ (refstargal[MR], 'b', 'Matched stars'),
                        (logical_not(refstargal[MR]), 'g', 'Matched galaxies') ]
         else:
             ptsets = [ (ones_like(mrefmag).astype(bool), 'b', 'Matched sources') ]
 
         for I,c,leg in ptsets:
-            p1 = plot(mimgmag[I], mrefmag[I], '.', color=c, alpha=0.5)
+            print 'color', c
+            print 'I', I
+            print 'I shape', I.shape
+            print 'mrefmag shape', mrefmag.shape
+            p1 = plot(mimgmag[I], mrefmag[I], '.', color=c, mfc=c, mec=c, alpha=0.5)
             if referrs is not None:
                 referrs = array(referrs)
                 mrefmagerr = referrs[MR]
-                for i in range(len(MR)):
+                #for i in range(len(MR)):
+                for i in flatnonzero(I):
                     a = Ellipse(xy=array([mimgmag[i], mrefmag[i]]),
                                 width=mimgmagerr[i]/2.,
                                 height=mrefmagerr[i]/2.,
                                 alpha=0.5, fill=True, ec=c, fc=c)
                     gca().add_artist(a)
-                    print 'adding error ellipse:', mimgmag[i], mrefmag[i], mimgmagerr[i], mrefmagerr[i]
+                    #print 'adding error ellipse:', mimgmag[i], mrefmag[i], mimgmagerr[i], mrefmagerr[i]
             pp.append(p1)
             pl.append(leg)
 
