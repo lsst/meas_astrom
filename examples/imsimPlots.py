@@ -10,6 +10,8 @@ from lsst.afw.coord import DEGREES
 import wcsPlots
 import imsimUtils
 
+import numpy as np
+
 def main():
     parser = OptionParser()
     imsimUtils.addOptions(parser)
@@ -95,15 +97,20 @@ def plotsForField(inButler, keys, fixup, plots=None):
     inds = X.second
     print 'Got', len(ref), 'reference catalog sources'
 
-    if True:
-        errs = solver.getTagAlongDouble(anid, filterName+'_err', inds)
-        print 'got errors', errs
-        ids = solver.getTagAlongInt64(anid, 'id', inds)
-        print 'got ids', ids
-        stargal = solver.getTagAlongBool(anid, 'starnotgal', inds)
-        print 'got stargal:', stargal
+    referrs = solver.getTagAlongDouble(anid, filterName+'_err', inds)
+    print 'got errors', referrs
+    #ids = solver.getTagAlongInt64(anid, 'id', inds)
+    #print 'got ids', ids
+    stargal1 = solver.getTagAlongBool(anid, 'starnotgal', inds)
+    print 'got stargal:', stargal1
+    stargal = []
+    for i in range(len(stargal1)):
+        stargal.append(stargal1[i])
+    #stargal = [True if sg else False for sg in stargal]
+    # #np.array([sg for sg in stargal]).copy()
 
     keepref = []
+    keepi = []
     for i in xrange(len(ref)):
         #print ref[i].getXAstrom(), ref[i].getYAstrom(), ref[i].getRa(), ref[i].getDec()
         x,y = wcs.skyToPixel(ref[i].getRa(), ref[i].getDec())
@@ -112,8 +119,20 @@ def plotsForField(inButler, keys, fixup, plots=None):
         ref[i].setXAstrom(x)
         ref[i].setYAstrom(y)
         keepref.append(ref[i])
+        keepi.append(i)
     print 'Kept', len(keepref), 'reference sources'
     ref = keepref
+    #keepi = np.array(keepi)
+
+    if referrs is not None:
+        #referrs = np.array(referrs)[keepi]
+        referrs = [referrs[i] for i in keepi]
+    if stargal is not None:
+        #stargal = np.array(stargal)[keepi]
+        stargal = [stargal[i] for i in keepi]
+
+    print 'reference errs:', referrs
+    print 'star/gals:', stargal
 
     if False:
         m0 = matches[0]
@@ -160,7 +179,8 @@ def plotsForField(inButler, keys, fixup, plots=None):
     prefix = 'imsim-v%i-r%s-s%s' % (visit, raft.replace(',',''), sensor.replace(',',''))
 
     if 'photom' in plots:
-        wcsPlots.plotPhotometry(sources, ref, matches, prefix, band=filterName, zp=zp)
+        print 'photometry plots...'
+        wcsPlots.plotPhotometry(sources, ref, matches, prefix, band=filterName, zp=zp, referrs=referrs, refstargal=stargal)
         wcsPlots.plotPhotometry(sources, ref, matches, prefix, band=filterName, zp=zp, delta=True)
 
     if 'matches' in plots:

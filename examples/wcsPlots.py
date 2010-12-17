@@ -1,6 +1,7 @@
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib.font_manager import FontProperties
+from matplotlib.patches import Ellipse
 
 from pylab import *
 from numpy import array
@@ -82,7 +83,7 @@ def plotMatches(imgsources, refsources, matches, wcs, W, H, prefix,
     return _output(fn, format, saveplot)
 
 def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
-                   zp=None, delta=False,
+                   zp=None, delta=False, referrs=None, refstargal=None,
                    saveplot=True, format='png'):
     print '%i ref sources' % len(refsources)
     print '%i image sources' % len(imgsources)
@@ -94,16 +95,15 @@ def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
 
     # In this function, the "m" prefix stands for "matched",
     # "u" stands for "unmatched".
-    # "i" indicates indices into an array, so "mrefi" are matched
-    # reference star indices.
 
     # *sigh*, turn these into Python lists, so we have the "index" function.
     refsources = [s for s in refsources]
     imgsources = [s for s in imgsources]
     
-    # These are the indices in the "ref/imgsources" arrays of the matched stars.
-    mrefi = []
-    mimgi = []
+    # Now we build numpy int arrays for indexing into the "refsources" and
+    # "imgsources" arrays.
+    MR = []
+    MI = []
     for m in matches:
         try:
             i = refsources.index(m.first)
@@ -115,35 +115,39 @@ def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
         except ValueError:
             print 'Match list source ID', m.second.getSourceId(), 'was not in the list of image sources'
             continue
-        mrefi.append(i)
-        mimgi.append(j)
+        MR.append(i)
+        MI.append(j)
+    MR = array(MR)
+    MI = array(MI)
 
-    mrefi = array(mrefi)
-    mimgi = array(mimgi)
+    # Build numpy boolean arrays for indexing the unmatched stars.
+    UR = ones(len(refsources), bool)
+    UR[MR] = False
+    UI = ones(len(imgsources), bool)
+    UI[MI] = False
 
     def flux2mag(f):
         return -2.5*log10(f)
 
     refmag = array([flux2mag(s.getPsfFlux()) for s in refsources])
     imgflux = array([s.getPsfFlux() for s in imgsources])
+    imgfluxerr = array([s.getPsfFluxErr() for s in imgsources])
 
     # Cut to fluxes that aren't silly and get mags of matched sources.
-    mimgflux = imgflux[mimgi]
-    okflux = (mimgflux > 1)
-    mimgmag = flux2mag(mimgflux[okflux])
-    mrefmag  = (refmag[mrefi])[okflux]
+    okflux = (imgflux[MI] > 1)
+    MI = MI[okflux]
+    MR = MR[okflux]
 
-    # The indices of unmatched stars...
-    uimg = ones(len(imgflux), bool)
-    uimg[mimgi] = False
-    uref = ones(len(refmag), bool)
-    uref[mrefi] = False
+    mimgflux = imgflux[MI]
+    mimgmag  = flux2mag(mimgflux)
+    mimgmagerr = abs(2.5 / log(10.) * imgfluxerr[MI] / mimgflux)
+    mrefmag  = refmag[MR]
 
     # Get mags of unmatched sources.
-    uimgflux = imgflux[uimg]
+    uimgflux = imgflux[UI]
     okflux = (uimgflux > 1)
     uimgmag = flux2mag(uimgflux[okflux])
-    urefmag = refmag[uref]
+    urefmag = refmag[UR]
 
     if False:
         unmatched = [imgsources[i] for i in flatnonzero(uimg)]
@@ -160,43 +164,50 @@ def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
         for i in mimgi:
             m = imgsources[i]
             print m.getPsfFlux(), m.getXAstrom(), m.getYAstrom(), m.getRa(), m.getDec()
-            
+
+    # Legend entries:
+    pp = []
+    pl = []
+    #'Matched sources']
+
     clf()
+    imag = append(mimgmag, uimgmag)
     if delta:
-        dm = mimgmag - mrefmag
+        dm = mimgmag - mrefmag + zp
         p1 = plot(mrefmag, dm, 'b.', alpha=0.5)
         m = max(abs(dm))
         axis([floor(min(refmag))-0.5, ceil(max(refmag)),
               -m, m])
     else:
-        p1 = plot(mimgmag, mrefmag, 'b.', alpha=0.5)
+        if refstargal:
+            assert(len(refstargal) == len(refsources))
+            refstargal = array(refstargal).astype(bool)
+            ptsets = [ (refstargal[MR], 'b', 'Matched stars'),
+                       (logical_not(refstargal[MR]), 'g', 'Matched galaxies') ]
+        else:
+            ptsets = [ (ones_like(mrefmag).astype(bool), 'b', 'Matched sources') ]
+
+        for I,c,leg in ptsets:
+            p1 = plot(mimgmag[I], mrefmag[I], '.', color=c, alpha=0.5)
+            if referrs is not None:
+                referrs = array(referrs)
+                mrefmagerr = referrs[MR]
+                for i in range(len(MR)):
+                    a = Ellipse(xy=array([mimgmag[i], mrefmag[i]]),
+                                width=mimgmagerr[i]/2.,
+                                height=mrefmagerr[i]/2.,
+                                alpha=0.5, fill=True, ec=c, fc=c)
+                    gca().add_artist(a)
+                    print 'adding error ellipse:', mimgmag[i], mrefmag[i], mimgmagerr[i], mrefmagerr[i]
+            pp.append(p1)
+            pl.append(leg)
+
         axis([floor(min(imag))-0.5, ceil(max(imag)),
               floor(min(refmag))-0.5, ceil(max(refmag))])
 
-    imag = append(mimgmag, uimgmag)
     ax = axis()
 
-    if delta:
-        # Red tick marks show unmatched img sources
-        if zp is not None:
-            dy = (ax[3]-ax[2]) * 0.05
-            y1 = ones_like(uimgmag) * ax[3]
-            p2 = plot(vstack((uimgmag, uimgmag)) + zp, vstack((y1, y1-dy)), 'r-', alpha=0.5)
-            p2 = p2[0]
-            # Blue tick marks show matched img sources
-            y1 = ones_like(mimgmag) * ax[3]
-            p3 = plot(vstack((mimgmag, mimgmag)) + zp, vstack((y1-(0.25*dy), y1-(1.25*dy))), 'b-', alpha=0.5)
-            p3 = p3[0]
-        # Red ticks for unmatched ref sources
-        y1 = ones_like(urefmag) * ax[2]
-        p4 = plot(vstack((urefmag, urefmag)), vstack((y1, y1+dx)), 'r-', alpha=0.5)
-        p4 = p4[0]
-        # Blue ticks for matched ref sources
-        y1 = ones_like(mrefmag) * ax[2]
-        p5 = plot(vstack((mrefmag, mrefmag)), vstack((y1+(0.25*dx), y1+(1.25*dx))), 'b-', alpha=0.5)
-        p5 = p5[0]
-
-    else:
+    if not delta:
         # Red tick marks show unmatched img sources
         dy = (ax[3]-ax[2]) * 0.05
         y1 = ones_like(uimgmag) * ax[3]
@@ -216,11 +227,6 @@ def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
         p5 = plot(vstack((x1-(0.25*dx), x1-(1.25*dx))), vstack((mrefmag, mrefmag)), 'b-', alpha=0.5)
         p5 = p5[0]
 
-    # Legend entries:
-    pp = [p1, p3, p2]
-    pl = ['Matched sources', 'Matched sources', 'Unmatched sources']
-
-        
     if zp is not None:
         if delta:
             pzp = axhline(0, linestyle='--', color='b')
@@ -229,8 +235,6 @@ def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
             pzp = plot(X, X+zp, 'b--')
         pp.append(pzp)
         pl.append('Zeropoint')
-
-    figlegend(pp, pl, 'center right', numpoints=1, prop=FontProperties(size='small'))
 
     # reverse axis directions.
     if delta:
@@ -250,13 +254,37 @@ def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
 
         if zp is not None:
             ax2 = twiny()
-            xlim(ax[1]+zp, ax[0]+zp)
+
+            # Red tick marks show unmatched img sources
+            if zp is not None:
+                dy = (ax[3]-ax[2]) * 0.05
+                y1 = ones_like(uimgmag) * ax[3]
+                p2 = plot(vstack((uimgmag, uimgmag)) + zp, vstack((y1, y1-dy)), 'r-', alpha=0.5)
+                p2 = p2[0]
+                # Blue tick marks show matched img sources
+                y1 = ones_like(mimgmag) * ax[3]
+                p3 = plot(vstack((mimgmag, mimgmag)) + zp, vstack((y1-(0.25*dy), y1-(1.25*dy))), 'b-', alpha=0.5)
+                p3 = p3[0]
+            # Red ticks for unmatched ref sources
+            y1 = ones_like(urefmag) * ax[2]
+            p4 = plot(vstack((urefmag, urefmag)), vstack((y1, y1+dy)), 'r-', alpha=0.5)
+            p4 = p4[0]
+            # Blue ticks for matched ref sources
+            y1 = ones_like(mrefmag) * ax[2]
+            p5 = plot(vstack((mrefmag, mrefmag)), vstack((y1+(0.25*dy), y1+(1.25*dy))), 'b-', alpha=0.5)
+            p5 = p5[0]
+
+            xlim(ax[1]-zp, ax[0]-zp)
             xlabel('Instrumental mag')
 
     else:
         ylabel(reflabel)
         xlabel('Image instrumental mag')
         fn = prefix + '-photom.' + format
+
+    pp += [p3, p2]
+    pl += ['Matched sources', 'Unmatched sources']
+    figlegend(pp, pl, 'center right', numpoints=1, prop=FontProperties(size='small'))
 
     return _output(fn, format, saveplot)
 
