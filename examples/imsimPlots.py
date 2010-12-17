@@ -19,11 +19,13 @@ def main():
     parser.add_option('--photometry', '-P', dest='dophotometry', action='store_true', default=False, help='Make photometry plot?')
     parser.add_option('--corr', '-C', dest='docorr', action='store_true', default=False, help='Make correspondences plot?')
     parser.add_option('--distortion', '-D', dest='dodistortion', action='store_true', default=False, help='Make distortion plot?')
+    parser.add_option('--matches', '-M', dest='domatches', action='store_true', default=False, help='Make matches plot?')
     (opt, args) = parser.parse_args()
 
     if (opt.dophotometry is False and
         opt.docorr       is False and
-        opt.dodistortion is False):
+        opt.dodistortion is False and
+        opt.domatches    is False):
         plots = None
     else:
         plots = []
@@ -33,6 +35,8 @@ def main():
             plots.append('corr')
         if opt.dodistortion:
             plots.append('distortion')
+        if opt.domatches:
+            plots.append('matches')
         
     inButler = imsimUtils.getInputButler(opt)
 
@@ -44,7 +48,7 @@ def main():
 
 def plotsForField(inButler, keys, fixup, plots=None):
     if plots is None:
-        plots = ['photom','corr','distortion']
+        plots = ['photom','matches','corr','distortion']
         
     filters = inButler.queryMetadata('raw', 'filter', **keys)
     print 'Filters:', filters
@@ -183,20 +187,37 @@ def plotsForField(inButler, keys, fixup, plots=None):
 
     if 'photom' in plots:
         print 'photometry plots...'
-        wcsPlots.plotPhotometry(sources, ref, matches, prefix, band=filterName, zp=zp, referrs=referrs, refstargal=stargal)
-        wcsPlots.plotPhotometry(sources, ref, matches, prefix, band=filterName, zp=zp, delta=True)
+        tt = 'LSST ImSim v%i r%s s%s' % (visit, raft.replace(',',''), sensor.replace(',',''))
+
+        wcsPlots.plotPhotometry(sources, ref, matches, prefix, band=filterName, zp=zp, referrs=referrs, refstargal=stargal, title=tt)
+        wcsPlots.plotPhotometry(sources, ref, matches, prefix, band=filterName, zp=zp, delta=True, referrs=referrs, refstargal=stargal, title=tt)
+
+        # test w/ and w/o referrs and stargal.
+        wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'A', band=filterName, zp=zp, title=tt)
+        wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'B', band=filterName, zp=zp, referrs=referrs, title=tt)
+        wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'C', band=filterName, zp=zp, refstargal=stargal, title=tt)
+
+        wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'A', band=filterName, zp=zp, delta=True, title=tt)
+        wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'B', band=filterName, zp=zp, delta=True, referrs=referrs, title=tt)
+        wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'C', band=filterName, zp=zp, delta=True,refstargal=stargal, title=tt)
+
+
 
     if 'matches' in plots:
+        print 'matches...'
         wcsPlots.plotMatches(sources, ref, matches, wcs, W, H, prefix)
 
     if 'corr' in plots:
+        print 'corr...'
         wcsPlots.plotCorrespondences2(sources, ref, matches, wcs, W, H, prefix)
+        print 'corr...'
         wcsPlots.plotCorrespondences(sources, ref, matches, wcs, W, H, prefix)
 
     if 'distortion' in plots:
+        print 'distortion...'
         wcsPlots.plotDistortion(wcs, W, H, 400, prefix,
                                 'SIP Distortion (exaggerated x 10)', exaggerate=10.)
-
+        print 'distortion...'
         wcsPlots.plotDistortion(wcs, W, H, 400, prefix,
                                 'SIP Distortion (exaggerated x 100)', exaggerate=100.,
                                 suffix='-distort2.')
