@@ -330,13 +330,25 @@ def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
     pl += ['Matched sources', 'Unmatched sources']
     plt.figlegend(pp, pl, legloc, numpoints=1, prop=FontProperties(size='small'))
 
-    return _output(fn, format, saveplot)
+    P1 = _output(fn, format, saveplot)
+
+    if delta:
+        plt.ylim(-0.5, 0.5)
+        fn = prefix + '-dphotom2.' + format
+        P2 = _output(fn, format, saveplot)
+        if not saveplot:
+            P1.update(P2)
+
+    return P1
+    
 
 def plotCorrespondences2(imgsources, refsources, matches, wcs, W, H, prefix,
                          saveplot=True, format='png'):
+    print 'ix,iy'
     ix = np.array([s.getXAstrom() for s in imgsources])
     iy = np.array([s.getYAstrom() for s in imgsources])
 
+    print 'rx,ry'
     rx,ry = [],[]
     for r in refsources:
         xy = wcs.skyToPixel(r.getRa(), r.getDec())
@@ -348,24 +360,28 @@ def plotCorrespondences2(imgsources, refsources, matches, wcs, W, H, prefix,
     ixy = np.vstack((ix, iy)).T
     rxy = np.vstack((rx, ry)).T
 
+    print 'plotshift...'
     cell = 10
     plotshift(ixy, rxy, dcell=cell, ncells=9, W=W, H=H)
     fn = prefix + '-shift1.' + format
     P1 = _output(fn, format, saveplot)
 
+    print 'plotshift 2...'
     plt.clf()
-    hot()
+    plt.hot()
     plotshift(ixy, rxy, dcell=cell, ncells=9, W=W, H=H, hist=True, nhistbins=2*cell+1)
     fn = prefix + '-shift2.' + format
     P2 = _output(fn, format, saveplot)
 
+    print 'plotshift 3...'
     cell = 2
     plotshift(ixy, rxy, dcell=cell, ncells=9, W=W, H=H)
     fn = prefix + '-shift3.' + format
     P3 = _output(fn, format, saveplot)
 
+    print 'plotshift 4...'
     plt.clf()
-    hot()
+    plt.hot()
     plotshift(ixy, rxy, dcell=cell, ncells=9, W=W, H=H, hist=True, nhistbins=10*cell+1)
     fn = prefix + '-shift4.' + format
     P4 = _output(fn, format, saveplot)
@@ -393,7 +409,7 @@ def plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix):
     ixy = np.vstack((ix, iy)).T
     rxy = np.vstack((rx, ry)).T
     dcell = 50.
-    radius = dcell * sqrt(2.)
+    radius = dcell * np.sqrt(2.)
     #print 'ixy', ixy.shape
     #print 'rxy', rxy.shape
 
@@ -415,18 +431,18 @@ def plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix):
         print 'Found %i matches within %g pixels' % (len(dists), radius)
 
     ncells = 18.
-    cellsize = sqrt(W * H / ncells)
+    cellsize = np.sqrt(W * H / ncells)
     nw = int(round(W / cellsize))
     nh = int(round(H / cellsize))
     #print 'Grid cell size', cellsize
     #print 'N cells', nw, 'x', nh
-    edgesx = linspace(0, W, nw+1)
-    edgesy = linspace(0, H, nh+1)
+    edgesx = np.linspace(0, W, nw+1)
+    edgesy = np.linspace(0, H, nh+1)
 
-    binx = digitize(rx, edgesx)
-    biny = digitize(ry, edgesy)
-    binx = clip(binx - 1, 0, nw-1)
-    biny = clip(biny - 1, 0, nh-1)
+    binx = np.digitize(rx, edgesx)
+    biny = np.digitize(ry, edgesy)
+    binx = np.clip(binx - 1, 0, nw-1)
+    biny = np.clip(biny - 1, 0, nh-1)
 
     bin = biny * nw + binx
     
@@ -444,7 +460,7 @@ def plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix):
             #print 'Found %i matches within %g pixels' % (len(dists), radius)
             ri = inds[:,0]
             # un-cut ref inds...
-            ri = (flatnonzero(R))[ri]
+            ri = (np.flatnonzero(R))[ri]
             ii = inds[:,1]
 
             matchx  = rx[ri]
@@ -538,7 +554,7 @@ def plotDistortion(sip, W, H, ncells, prefix, titletxt, exaggerate=1.,
     
     '''
     ncells = float(ncells)
-    cellsize = sqrt(W * H / ncells)
+    cellsize = np.sqrt(W * H / ncells)
     nw = int(np.floor(W / cellsize))
     nh = int(np.floor(H / cellsize))
     #print 'Grid cell size', cellsize

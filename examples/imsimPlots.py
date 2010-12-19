@@ -55,8 +55,15 @@ def plotsForField(inButler, keys, fixup, plots=None):
     filterName = filters[0]
 
     psources = inButler.get('icSrc', **keys)
+    # since the butler does lazy evaluation, we don't know if it fails until...
+    try:
+        print 'Got sources', psources
+    except:
+        print '"icSrc" not found.  Trying "src" instead.'
+        psources = inButler.get('src', **keys)
+        print 'Got sources', psources
+        
     pmatches = inButler.get('icMatch', **keys)
-    print 'Got sources', psources
     print 'Got matches', pmatches
     matchmeta = pmatches.getSourceMatchMetadata()
     matches = pmatches.getSourceMatches()
@@ -106,18 +113,22 @@ def plotsForField(inButler, keys, fixup, plots=None):
     print cols
     for c in cols:
         print 'column: ', c.name, c.fitstype, c.ctype, c.units, c.arraysize
+    colnames = [c.name for c in cols]
 
-    referrs = solver.getTagAlongDouble(anid, filterName+'_err', inds)
-    #print 'got errors', referrs
-    #ids = solver.getTagAlongInt64(anid, 'id', inds)
-    #print 'got ids', ids
-    stargal1 = solver.getTagAlongBool(anid, 'starnotgal', inds)
-    #print 'got stargal:', stargal1
-    stargal = []
-    # For weird (swig-related?) reasons we have to copy this array before we
-    # mess with it below.
-    for i in range(len(stargal1)):
-        stargal.append(stargal1[i])
+    col = filterName + '_err'
+    if col in colnames:
+        referrs = solver.getTagAlongDouble(anid, col, inds)
+    else:
+        referrs = None
+
+    col = 'starnotgal'
+    if col in colnames:
+        stargal1 = solver.getTagAlongBool(anid, col, inds)
+        stargal = []
+        for i in range(len(stargal1)):
+            stargal.append(stargal1[i])
+    else:
+        stargal = None
 
     keepref = []
     keepi = []
@@ -193,13 +204,14 @@ def plotsForField(inButler, keys, fixup, plots=None):
         wcsPlots.plotPhotometry(sources, ref, matches, prefix, band=filterName, zp=zp, delta=True, referrs=referrs, refstargal=stargal, title=tt)
 
         # test w/ and w/o referrs and stargal.
-        wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'A', band=filterName, zp=zp, title=tt)
-        wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'B', band=filterName, zp=zp, referrs=referrs, title=tt)
-        wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'C', band=filterName, zp=zp, refstargal=stargal, title=tt)
+        if False:
+            wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'A', band=filterName, zp=zp, title=tt)
+            wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'B', band=filterName, zp=zp, referrs=referrs, title=tt)
+            wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'C', band=filterName, zp=zp, refstargal=stargal, title=tt)
 
-        wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'A', band=filterName, zp=zp, delta=True, title=tt)
-        wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'B', band=filterName, zp=zp, delta=True, referrs=referrs, title=tt)
-        wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'C', band=filterName, zp=zp, delta=True,refstargal=stargal, title=tt)
+            wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'A', band=filterName, zp=zp, delta=True, title=tt)
+            wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'B', band=filterName, zp=zp, delta=True, referrs=referrs, title=tt)
+            wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'C', band=filterName, zp=zp, delta=True,refstargal=stargal, title=tt)
 
 
 
@@ -208,10 +220,12 @@ def plotsForField(inButler, keys, fixup, plots=None):
         wcsPlots.plotMatches(sources, ref, matches, wcs, W, H, prefix)
 
     if 'corr' in plots:
-        print 'corr...'
-        wcsPlots.plotCorrespondences2(sources, ref, matches, wcs, W, H, prefix)
-        print 'corr...'
-        wcsPlots.plotCorrespondences(sources, ref, matches, wcs, W, H, prefix)
+        #print 'corr...'
+        # requires astrometry.libkd (not available in 0.30)
+        #wcsPlots.plotCorrespondences2(sources, ref, matches, wcs, W, H, prefix)
+        #print 'corr...'
+        #wcsPlots.plotCorrespondences(sources, ref, matches, wcs, W, H, prefix)
+        pass
 
     if 'distortion' in plots:
         print 'distortion...'
