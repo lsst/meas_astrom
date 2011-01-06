@@ -83,6 +83,16 @@ enum {
 //the function does not use position as a factor
 enum { NO_POSITION_SET=-360};
 
+
+struct TagAlongColumn_s {
+    std::string name;
+    tfits_type fitstype;
+    std::string ctype;
+    std::string units;
+    int arraysize;
+};
+typedef struct TagAlongColumn_s TagAlongColumn;
+
 //!\brief Solve for WCS based only on the positions of stars in an image 
 ///
 ///See the examples/ directory for an example of how to use
@@ -100,7 +110,6 @@ public:
                                                                                            )
                                      );
 
-    //Destructor
     ~GlobalAstrometrySolution();
 
     //Tune the solver
@@ -143,6 +152,18 @@ public:
               std::vector<int> > getCatalogue(double ra, double dec, double radiusInArcsec, 
                                               std::string filterName, std::string idName,
                                               int indexId = -1);
+
+    std::vector<double> getTagAlongDouble(int indexId, std::string columnName,
+                                          std::vector<int> inds);
+    std::vector<int> getTagAlongInt(int indexId, std::string columnName,
+                                    std::vector<int> inds);
+    std::vector<boost::int64_t> getTagAlongInt64(int indexId, std::string columnName,
+                                                 std::vector<int> inds);
+    std::vector<bool> getTagAlongBool(int indexId, std::string columnName,
+                                      std::vector<int> inds);
+
+    std::vector<TagAlongColumn> getTagAlongColumns(int indexId);
+
 
     lsst::afw::detection::SourceSet getCatalogue(double radiusInArcsec, std::string filterName,
 						 std::string idName);
@@ -187,7 +208,13 @@ private:
     bool _callSolver(double ra=NO_POSITION_SET, double dec=NO_POSITION_SET);
     int _addSuitableIndicesToSolver(double minImageSizeArcsec, double maxImageSizeArcsec, \
         double ra=NO_POSITION_SET, double dec=NO_POSITION_SET);    
-        
+
+    template <typename T>
+    std::vector<T> _getTagAlongData(int indexId, std::string columnName,
+                                    tfits_type ctype, std::vector<int> inds);
+
+    index_t* _getIndex(int indexId);
+
 };
 
 }}}}

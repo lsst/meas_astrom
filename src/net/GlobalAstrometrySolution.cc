@@ -1044,6 +1044,149 @@ const startree_t* GlobalAstrometrySolution::getStarTree(int indexId) {
 }
  */
 
+index_t* GlobalAstrometrySolution::_getIndex(int indexId) {
+    for (unsigned int i=0; i<_indexList.size(); i++) {
+        index_t* ind = _indexList[i];
+        if (ind->indexid != indexId)
+            continue;
+        return ind;
+    }
+    return NULL;
+}
+
+template <typename T>
+std::vector<T> GlobalAstrometrySolution::_getTagAlongData(int indexId, std::string columnName,
+                                                          tfits_type ctype, std::vector<int> inds) {
+
+    index_t* index = _getIndex(indexId);
+    if (!index)
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
+                          boost::str(boost::format("Astrometry.net index with ID %i was not found") % indexId)));
+
+    fitstable_t* tag = startree_get_tagalong(index->starkd);
+    if (!tag)
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
+                          boost::str(boost::format("Astrometry.net index with ID %i: no tag-along table was found") % indexId)));
+
+    int* cinds = new int[inds.size()];
+    for (size_t i=0; i<inds.size(); i++)
+        cinds[i] = inds[i];
+    
+    int arraysize = -1;
+    void* vdata = fitstable_read_column_array_inds(tag, columnName.c_str(), ctype, cinds, inds.size(), &arraysize);
+    delete[] cinds;
+    std::vector<T> vals;
+
+    if (ctype != fitscolumn_boolean_type()) {
+        T* x = static_cast<T*>(vdata);
+        vals = std::vector<T>(x + 0, x + inds.size() * arraysize);
+    } else {
+        // Workaround a bug in Astrometry.net 0.30: for boolean type, the "vdata"
+        // values are 'T' and 'F' -- can't just cast them to 'bool'!!
+        unsigned char* cdata = static_cast<unsigned char*>(vdata);
+        T* x = new T[inds.size()];
+        for (int i=0, N=inds.size(); i<N*arraysize; i++) {
+            if (cdata[i] == 'T')
+                x[i] = true;
+            else if (cdata[i] == 'F')
+                x[i] = false;
+            else
+                throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
+                                  boost::str(boost::format("Error retrieving boolean column \"%s\" from FITS file: entry %i has value 0x%x")
+                                             % columnName.c_str() % i % (int)cdata[i])));
+        }
+        vals = std::vector<T>(x + 0, x + inds.size() * arraysize);
+        delete[] x;
+    }
+    free(vdata);
+    return vals;
+}
+
+std::vector<double> GlobalAstrometrySolution::getTagAlongDouble(int indexId, std::string columnName,
+                                                                std::vector<int> inds) {
+    std::vector<double> vals = _getTagAlongData<double>(indexId, columnName, fitscolumn_double_type(), inds);
+    return vals;
+}
+
+std::vector<int> GlobalAstrometrySolution::getTagAlongInt(int indexId, std::string columnName,
+                                                          std::vector<int> inds) {
+    std::vector<int> vals = _getTagAlongData<int>(indexId, columnName, fitscolumn_int_type(), inds);
+    return vals;
+}
+
+std::vector<boost::int64_t> GlobalAstrometrySolution::getTagAlongInt64(int indexId, std::string columnName,
+                                                                       std::vector<int> inds) {
+    std::vector<boost::int64_t> vals = _getTagAlongData<boost::int64_t>(indexId, columnName, fitscolumn_i64_type(), inds);
+    return vals;
+}
+
+std::vector<bool> GlobalAstrometrySolution::getTagAlongBool(int indexId, std::string columnName,
+                                  std::vector<int> inds) {
+    std::vector<bool> vals = _getTagAlongData<bool>(indexId, columnName, fitscolumn_boolean_type(), inds);
+    return vals;
+}
+
+std::vector<TagAlongColumn> GlobalAstrometrySolution::getTagAlongColumns(int indexId) {
+    index_t* index = _getIndex(indexId);
+    if (!index)
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
+                          boost::str(boost::format("Astrometry.net index with ID %i was not found") % indexId)));
+
+    fitstable_t* tag = startree_get_tagalong(index->starkd);
+    if (!tag)
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
+                          boost::str(boost::format("Astrometry.net index \"%s\": no tag-along table was found") % index->indexname)));
+    
+    std::vector<TagAlongColumn> columns;
+
+    int N = fitstable_get_N_fits_columns(tag);
+    for (int i=0; i<N; i++) {
+        const char* colname = fitstable_get_fits_column_name(tag, i);
+        if (!colname) {
+            throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
+                              boost::str(boost::format("Astrometry.net index \"%s\": couldn't get name for tag-along table column %i") % index->indexname % i)));
+        }
+        char* units;
+        tfits_type fitstype;
+        int arraysize;
+        if (fitstable_find_fits_column(tag, colname, &units, &fitstype, &arraysize)) {
+            throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
+                              boost::str(boost::format("Astrometry.net index \"%s\": couldn't get tag-along table information for column \"%s\"") % index->indexname % colname)));
+        }
+        std::string ctype = "";
+        switch (fitstype) {
+        case TFITS_BIN_TYPE_D:
+        case TFITS_BIN_TYPE_E:
+            ctype = "Double";
+            break;
+        case TFITS_BIN_TYPE_I:
+        case TFITS_BIN_TYPE_J:
+        case TFITS_BIN_TYPE_A:
+        case TFITS_BIN_TYPE_B:
+            ctype = "Int";
+            break;
+        case TFITS_BIN_TYPE_K:
+            ctype = "Int64";
+            break;
+        case TFITS_BIN_TYPE_L:
+            ctype = "Bool";
+            break;
+        default:
+            break;
+        }
+
+        TagAlongColumn col;
+        col.name = std::string(colname);
+        col.fitstype = fitstype;
+        col.ctype = ctype;
+        col.units = std::string(units);
+        col.arraysize = arraysize;
+        columns.push_back(col);
+    }
+    return columns;
+}
+
+
 std::vector<std::vector<double> > GlobalAstrometrySolution::getCatalogueExtra(double ra, double dec, double radiusInArcsec,
                                                                              std::vector<std::string> columns, int indexId) {
     index_t* index = NULL;

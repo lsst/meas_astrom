@@ -10,6 +10,8 @@ from lsst.afw.coord import DEGREES
 import wcsPlots
 import imsimUtils
 
+import numpy as np
+
 def main():
     parser = OptionParser()
     imsimUtils.addOptions(parser)
@@ -17,11 +19,13 @@ def main():
     parser.add_option('--photometry', '-P', dest='dophotometry', action='store_true', default=False, help='Make photometry plot?')
     parser.add_option('--corr', '-C', dest='docorr', action='store_true', default=False, help='Make correspondences plot?')
     parser.add_option('--distortion', '-D', dest='dodistortion', action='store_true', default=False, help='Make distortion plot?')
+    parser.add_option('--matches', '-M', dest='domatches', action='store_true', default=False, help='Make matches plot?')
     (opt, args) = parser.parse_args()
 
     if (opt.dophotometry is False and
         opt.docorr       is False and
-        opt.dodistortion is False):
+        opt.dodistortion is False and
+        opt.domatches    is False):
         plots = None
     else:
         plots = []
@@ -31,6 +35,8 @@ def main():
             plots.append('corr')
         if opt.dodistortion:
             plots.append('distortion')
+        if opt.domatches:
+            plots.append('matches')
         
     inButler = imsimUtils.getInputButler(opt)
 
@@ -42,15 +48,22 @@ def main():
 
 def plotsForField(inButler, keys, fixup, plots=None):
     if plots is None:
-        plots = ['photom','corr','distortion']
+        plots = ['photom','matches','corr','distortion']
         
     filters = inButler.queryMetadata('raw', 'filter', **keys)
     print 'Filters:', filters
     filterName = filters[0]
 
     psources = inButler.get('icSrc', **keys)
+    # since the butler does lazy evaluation, we don't know if it fails until...
+    try:
+        print 'Got sources', psources
+    except:
+        print '"icSrc" not found.  Trying "src" instead.'
+        psources = inButler.get('src', **keys)
+        print 'Got sources', psources
+        
     pmatches = inButler.get('icMatch', **keys)
-    print 'Got sources', psources
     print 'Got matches', pmatches
     matchmeta = pmatches.getSourceMatchMetadata()
     matches = pmatches.getSourceMatches()
@@ -95,19 +108,33 @@ def plotsForField(inButler, keys, fixup, plots=None):
     inds = X.second
     print 'Got', len(ref), 'reference catalog sources'
 
-    if False:
-        extras = solver.getCatalogueExtra(ra, dec, radius, ['id', 'starnotgal', filterName + '_err'], anid)
-        #print 'Got extras:', extras
-        #pass
-        #inds = solver.getIndexList()
-        #print 'Got inds:', inds
-        #for ind in inds:
-        #    print 'ind', ind
-        #    print dir(ind)
-        #X = starkd_search_stars_in_field(skdt, tanwcs, margin)
-        
+    print 'Tag-along columns:'
+    cols = solver.getTagAlongColumns(anid)
+    print cols
+    for c in cols:
+        print 'column: ', c.name, c.fitstype, c.ctype, c.units, c.arraysize
+    colnames = [c.name for c in cols]
+
+    col = filterName + '_err'
+    if col in colnames:
+        referrs = solver.getTagAlongDouble(anid, col, inds)
+    else:
+        referrs = None
+
+    col = 'starnotgal'
+    if col in colnames:
+        stargal1 = solver.getTagAlongBool(anid, col, inds)
+        # This nutty-looking stanza converts stargal to a real Python list;
+        # for reasons I now don't remember, leaving it as a vector<bool> caused
+        # problems when we make cuts below...
+        stargal = []
+        for i in range(len(stargal1)):
+            stargal.append(stargal1[i])
+    else:
+        stargal = None
 
     keepref = []
+    keepi = []
     for i in xrange(len(ref)):
         #print ref[i].getXAstrom(), ref[i].getYAstrom(), ref[i].getRa(), ref[i].getDec()
         x,y = wcs.skyToPixel(ref[i].getRa(), ref[i].getDec())
@@ -116,8 +143,17 @@ def plotsForField(inButler, keys, fixup, plots=None):
         ref[i].setXAstrom(x)
         ref[i].setYAstrom(y)
         keepref.append(ref[i])
+        keepi.append(i)
     print 'Kept', len(keepref), 'reference sources'
     ref = keepref
+
+    if referrs is not None:
+        referrs = [referrs[i] for i in keepi]
+    if stargal is not None:
+        stargal = [stargal[i] for i in keepi]
+
+    #print 'reference errs:', referrs
+    #print 'star/gals:', stargal
 
     if False:
         m0 = matches[0]
@@ -136,47 +172,47 @@ def plotsForField(inButler, keys, fixup, plots=None):
         args['offset'] = -1
     measAstrom.joinMatchList(matches, sources, first=False, log=log, **args)
 
-    if False:
-        for m in matches:
-            x0,x1 = m.first.getXAstrom(), m.second.getXAstrom()
-            y0,y1 = m.first.getYAstrom(), m.second.getYAstrom()
-            print 'x,y, dx,dy', x0, y0, x1-x0, y1-y0
-
-    if False:
-        m0 = matches[0]
-        f,s = m0.first, m0.second
-        print 'match 0: ref %i, source %i' % (f.getSourceId(), s.getSourceId())
-        print '  ref x,y,flux = (%.1f, %.1f, %.1f)' % (f.getXAstrom(), f.getYAstrom(), f.getPsfFlux())
-        print '  src x,y,flux = (%.1f, %.1f, %.1f)' % (s.getXAstrom(), s.getYAstrom(), s.getPsfFlux())
-        r,d = 2.31262000000000, 3.16386000000000
-        x,y = wcs.skyToPixel(r,d)
-        print 'x,y', x,y
-        r2d2 = wcs.pixelToSky(x,y)
-        r2 = r2d2.getLongitude(DEGREES)
-        d2 = r2d2.getLatitude(DEGREES)
-        print r,d
-        print r2,d2
-
-
     visit = keys['visit']
     raft = keys['raft']
     sensor = keys['sensor']
     prefix = 'imsim-v%i-r%s-s%s' % (visit, raft.replace(',',''), sensor.replace(',',''))
 
     if 'photom' in plots:
-        wcsPlots.plotPhotometry(sources, ref, matches, prefix, band=filterName, zp=zp)
+        print 'photometry plots...'
+        tt = 'LSST ImSim v%i r%s s%s' % (visit, raft.replace(',',''), sensor.replace(',',''))
+
+        wcsPlots.plotPhotometry(sources, ref, matches, prefix, band=filterName, zp=zp, referrs=referrs, refstargal=stargal, title=tt)
+        wcsPlots.plotPhotometry(sources, ref, matches, prefix, band=filterName, zp=zp, delta=True, referrs=referrs, refstargal=stargal, title=tt)
+
+        # test w/ and w/o referrs and stargal.
+        if False:
+            wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'A', band=filterName, zp=zp, title=tt)
+            wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'B', band=filterName, zp=zp, referrs=referrs, title=tt)
+            wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'C', band=filterName, zp=zp, refstargal=stargal, title=tt)
+
+            wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'A', band=filterName, zp=zp, delta=True, title=tt)
+            wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'B', band=filterName, zp=zp, delta=True, referrs=referrs, title=tt)
+            wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'C', band=filterName, zp=zp, delta=True,refstargal=stargal, title=tt)
+
+
 
     if 'matches' in plots:
+        print 'matches...'
         wcsPlots.plotMatches(sources, ref, matches, wcs, W, H, prefix)
 
     if 'corr' in plots:
-        wcsPlots.plotCorrespondences2(sources, ref, matches, wcs, W, H, prefix)
-        wcsPlots.plotCorrespondences(sources, ref, matches, wcs, W, H, prefix)
+        #print 'corr...'
+        # requires astrometry.libkd (not available in 0.30)
+        #wcsPlots.plotCorrespondences2(sources, ref, matches, wcs, W, H, prefix)
+        #print 'corr...'
+        #wcsPlots.plotCorrespondences(sources, ref, matches, wcs, W, H, prefix)
+        pass
 
     if 'distortion' in plots:
+        print 'distortion...'
         wcsPlots.plotDistortion(wcs, W, H, 400, prefix,
                                 'SIP Distortion (exaggerated x 10)', exaggerate=10.)
-
+        print 'distortion...'
         wcsPlots.plotDistortion(wcs, W, H, 400, prefix,
                                 'SIP Distortion (exaggerated x 100)', exaggerate=100.,
                                 suffix='-distort2.')

@@ -13,9 +13,9 @@ import lsst.daf.persistence as dafPersist
 import imsimUtils
 
 def process(keys, inButler, outButler):
-    # HACK!!!
-    # visitim = inButler.get('visitim', **keys)
     print 'Processing', keys
+    # HACK -- Grab calexp rather than visitim (since visitims are often not available in NCSA runs.)
+    # visitim = inButler.get('visitim', **keys)
     visitim = inButler.get('calexp', **keys)
     sourceset_p = inButler.get('icSrc', **keys)
     sourceset = sourceset_p.getSources()
