@@ -124,6 +124,9 @@ def plotsForField(inButler, keys, fixup, plots=None):
     col = 'starnotgal'
     if col in colnames:
         stargal1 = solver.getTagAlongBool(anid, col, inds)
+        # This nutty-looking stanza converts stargal to a real Python list;
+        # for reasons I now don't remember, leaving it as a vector<bool> caused
+        # problems when we make cuts below...
         stargal = []
         for i in range(len(stargal1)):
             stargal.append(stargal1[i])
@@ -168,28 +171,6 @@ def plotsForField(inButler, keys, fixup, plots=None):
         args['mask'] = 0xffff
         args['offset'] = -1
     measAstrom.joinMatchList(matches, sources, first=False, log=log, **args)
-
-    if False:
-        for m in matches:
-            x0,x1 = m.first.getXAstrom(), m.second.getXAstrom()
-            y0,y1 = m.first.getYAstrom(), m.second.getYAstrom()
-            print 'x,y, dx,dy', x0, y0, x1-x0, y1-y0
-
-    if False:
-        m0 = matches[0]
-        f,s = m0.first, m0.second
-        print 'match 0: ref %i, source %i' % (f.getSourceId(), s.getSourceId())
-        print '  ref x,y,flux = (%.1f, %.1f, %.1f)' % (f.getXAstrom(), f.getYAstrom(), f.getPsfFlux())
-        print '  src x,y,flux = (%.1f, %.1f, %.1f)' % (s.getXAstrom(), s.getYAstrom(), s.getPsfFlux())
-        r,d = 2.31262000000000, 3.16386000000000
-        x,y = wcs.skyToPixel(r,d)
-        print 'x,y', x,y
-        r2d2 = wcs.pixelToSky(x,y)
-        r2 = r2d2.getLongitude(DEGREES)
-        d2 = r2d2.getLatitude(DEGREES)
-        print r,d
-        print r2,d2
-
 
     visit = keys['visit']
     raft = keys['raft']
