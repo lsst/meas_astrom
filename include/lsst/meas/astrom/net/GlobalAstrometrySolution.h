@@ -162,7 +162,7 @@ public:
     std::vector<bool> getTagAlongBool(int indexId, std::string columnName,
                                       std::vector<int> inds);
 
-    std::vector<TagAlongColumn> getTagAlongColumns(int indexId);
+    std::vector<TagAlongColumn> getTagAlongColumns(int indexId = -1);
 
 
     lsst::afw::detection::SourceSet getCatalogue(double radiusInArcsec, std::string filterName,
@@ -173,7 +173,11 @@ public:
     //const startree_t* getStarTree(int indexId);
 
     void loadIndices();
+
     std::vector<const index_t*> getIndexList();
+
+    std::vector<int> getIndexIdList();
+
     // returns the star kd-tree of the astrometry.net index that solved the field.
     //startree_t* getSolvedStartree();
     MatchObj* getMatchObject();

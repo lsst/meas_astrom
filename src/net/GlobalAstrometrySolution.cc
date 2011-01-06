@@ -157,6 +157,13 @@ std::vector<const index_t*> GlobalAstrometrySolution::getIndexList() {
     return rtn;
 }
 
+std::vector<int> GlobalAstrometrySolution::getIndexIdList() {
+    std::vector<int> rtn;
+    for (unsigned int i=0; i<_indexList.size(); i++)
+        rtn.push_back(_indexList[i]->indexid);
+    return rtn;
+}
+
 
 index_t *GlobalAstrometrySolution::_loadIndexMeta(std::string filename){
   //return index_load(filename.c_str(), INDEX_ONLY_LOAD_METADATA, NULL);
@@ -355,6 +362,7 @@ void GlobalAstrometrySolution::setLogLevel(int level) {
     }
     
     log_init((enum log_level) level);
+    fits_use_error_system();
 }
 
 
@@ -1127,10 +1135,15 @@ std::vector<bool> GlobalAstrometrySolution::getTagAlongBool(int indexId, std::st
 }
 
 std::vector<TagAlongColumn> GlobalAstrometrySolution::getTagAlongColumns(int indexId) {
-    index_t* index = _getIndex(indexId);
-    if (!index)
-        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
-                          boost::str(boost::format("Astrometry.net index with ID %i was not found") % indexId)));
+    index_t* index;
+    if (indexId == -1)
+        index = _indexList[0];
+    else {
+        index = _getIndex(indexId);
+        if (!index)
+            throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
+                              boost::str(boost::format("Astrometry.net index with ID %i was not found") % indexId)));
+    }
 
     fitstable_t* tag = startree_get_tagalong(index->starkd);
     if (!tag)
