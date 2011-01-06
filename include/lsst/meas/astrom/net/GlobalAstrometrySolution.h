@@ -87,7 +87,6 @@ enum { NO_POSITION_SET=-360};
 struct TagAlongColumn_s {
     std::string name;
     tfits_type fitstype;
-    //tfits_type ctype;
     std::string ctype;
     std::string units;
     int arraysize;
@@ -111,7 +110,6 @@ public:
                                                                                            )
                                      );
 
-    //Destructor
     ~GlobalAstrometrySolution();
 
     //Tune the solver
