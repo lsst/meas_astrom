@@ -958,7 +958,7 @@ vector<string> GlobalAstrometrySolution::getCatalogueMetadataFields() {
 }    
 
 ///Returns a sourceSet of objects that are nearby in an raDec sense to the best match solution
-lsst::afw::detection::SourceSet 
+ReferenceSources
 GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string idName, double margin) {
     if (! _isSolved) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
@@ -971,17 +971,20 @@ GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string i
     double r2;
     int i, W, H;
     int outi;
-
-    Det::SourceSet out;
+    
+    ReferenceSources refs;
+    Det::SourceSet ss;
 
     // arcsec/pix
     scale = tan_pixel_scale(&(match->wcstan));
     // add margin
     r2 = deg2distsq(match->radius_deg + arcsec2deg(scale * margin));
+
+    refs.indexid = match->index->indexid;
     
     startree_search_for(match->index->starkd, match->center, r2, NULL, &radec, &starinds, &nstars);
     if (nstars == 0)
-        return out;
+        return refs;
 
     W = match->wcstan.imagew;
     H = match->wcstan.imageh;
@@ -998,27 +1001,36 @@ GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string i
         Det::Source::Ptr src(new lsst::afw::detection::Source());
         src->setRa (radec[2*i+0]);
         src->setDec(radec[2*i+1]);
-        out.push_back(src);
+        ss.push_back(src);
         starinds[outi] = starinds[i];
         outi++;
     }
 
     vector<double> mag = getTagAlongFromIndex(match->index, filterName, starinds, outi);
     if (mag.size()) {
-        for (unsigned int i=0; i<out.size(); i++) {
-            // seems crazy to convert back to flux...
-            out[i]->setPsfFlux(pow(10.0, -mag[i]/2.5));
+        for (unsigned int i=0; i<ss.size(); i++) {
+            // It seems crazy to convert back to flux...
+            ss[i]->setPsfFlux(pow(10.0, -mag[i]/2.5));
         }
     }
 
     vector<boost::int64_t> ids = getIds(idName, match->index, starinds, outi);
     if (ids.size()) {
-        for (unsigned int i=0; i<out.size(); i++) {
-            out[i]->setSourceId(ids[i]);
+        for (unsigned int i=0; i<ss.size(); i++) {
+            ss[i]->setSourceId(ids[i]);
         }
     }
 
-    return out;
+
+    vector<int> inds(starinds, starinds + ss.size());
+
+    free(starinds);
+    free(radec);
+
+    refs.refsources = ss;
+    refs.inds = inds;
+
+    return refs;
 }
     
 
@@ -1037,7 +1049,8 @@ GlobalAstrometrySolution::getCatalogue(double radiusInArcsec, string filterName,
     double ra, dec;
     xyzarr2radecdeg(center, &ra, &dec);
     
-    return getCatalogue(ra, dec, radiusInArcsec, filterName, idName).first;
+    ReferenceSources refs = getCatalogue(ra, dec, radiusInArcsec, filterName, idName);
+    return refs.refsources;
 }
 
 /*
@@ -1245,8 +1258,7 @@ std::vector<std::vector<double> > GlobalAstrometrySolution::getCatalogueExtra(do
 ///store (as a flux) in the returned SourceSet object. The value of filterName must match one of the
 ///strings returned by getCatalogueMetadataFields(). If you're not interested in fluxes, set
 ///filterName to ""
-std::pair<lsst::afw::detection::SourceSet,
-          std::vector<int> >
+ReferenceSources
 GlobalAstrometrySolution::getCatalogue(double ra,
 								       double dec,
 								       double radiusInArcsec,
@@ -1259,8 +1271,8 @@ GlobalAstrometrySolution::getCatalogue(double ra,
     double radius2 = arcsec2distsq(radiusInArcsec);
     string msg;
 
-    Det::SourceSet sources;
-    std::vector<int> inds;
+    ReferenceSources refs;
+    refs.indexid = -1;
 
     for (unsigned int i=0; i<_indexList.size(); i++) {
         index_t* index = _indexList[i];
@@ -1278,41 +1290,44 @@ GlobalAstrometrySolution::getCatalogue(double ra,
         int nstars = 0;
         startree_search_for(index->starkd, center, radius2, NULL, &radec, &starinds, &nstars);
 
-        if (nstars > 0) {
+        if (nstars == 0)
+            continue;
 
-            vector<double> mag = getTagAlongFromIndex(index, filterName, starinds, nstars);
-	    vector<boost::int64_t> ids = getIds(idName, index, starinds, nstars);
+        vector<double> mag = getTagAlongFromIndex(index, filterName, starinds, nstars);
+        vector<boost::int64_t> ids = getIds(idName, index, starinds, nstars);
 
-            //Create a source for every position stored
-            for (int j = 0; j<nstars; ++j) {
-                Det::Source::Ptr ptr(new lsst::afw::detection::Source());
+        Det::SourceSet sources;
+        std::vector<int> inds;
 
-                ptr->setRa(radec[2*j]);
-                ptr->setDec(radec[2*j + 1]);
+        // Create a source for every position stored
+        for (int j = 0; j<nstars; ++j) {
+            Det::Source::Ptr ptr(new lsst::afw::detection::Source());
+            ptr->setRa(radec[2*j]);
+            ptr->setDec(radec[2*j + 1]);
 
-                if (indexId != -1)
-                    inds.push_back(starinds[j]);
+            inds.push_back(starinds[j]);
 
-                if (mag.size()) {
-		  // convert mag to flux
-		  ptr->setPsfFlux( pow(10.0, -mag[j]/2.5) );
-                }
-		if (ids.size()) {
-		  ptr->setSourceId(ids[j]);
-		}
-
-                sources.push_back(ptr);
+            if (mag.size()) {
+                // convert mag to flux
+                ptr->setPsfFlux( pow(10.0, -mag[j]/2.5) );
             }
+            if (ids.size()) {
+                ptr->setSourceId(ids[j]);
+            }
+
+            sources.push_back(ptr);
         }
         free(radec);
         free(starinds);
-    }
 
-    std::pair<lsst::afw::detection::SourceSet,
-              std::vector<int> > rtn;
-    rtn.first  = sources;
-    rtn.second = inds;
-    return rtn;
+        refs.indexid = index->indexid;
+        refs.refsources = sources;
+        refs.inds = inds;
+
+        // NOTE change in behavior -- return only sources from first catalog...
+        break;
+    }
+    return refs;
 }
 
 

@@ -6,6 +6,7 @@ import lsst.meas.astrom as measAstrom
 import lsst.afw.image as afwImage
 from lsst.pex.logging import Log
 from lsst.afw.coord import DEGREES
+import lsst.meas.algorithms.utils as maUtils
 
 import wcsPlots
 import imsimUtils
@@ -104,34 +105,50 @@ def plotsForField(inButler, keys, fixup, plots=None):
     print 'Using ID column name', idName
     print 'Using filter column name', filterName
     X = solver.getCatalogue(ra, dec, radius, filterName, idName, anid)
-    ref = X.first
-    inds = X.second
+    ref = X.refsources
+    inds = X.inds
+    indexid = X.indexid
+    assert(anid == indexid)
     print 'Got', len(ref), 'reference catalog sources'
 
-    print 'Tag-along columns:'
-    cols = solver.getTagAlongColumns(anid)
-    print cols
-    for c in cols:
-        print 'column: ', c.name, c.fitstype, c.ctype, c.units, c.arraysize
-    colnames = [c.name for c in cols]
+    measAstrom.addTagAlongValuesToReferenceSources(solver, pol, log, ref, indexid, inds, filterName)
 
-    col = filterName + '_err'
-    if col in colnames:
-        referrs = solver.getTagAlongDouble(anid, col, inds)
-    else:
-        referrs = None
+    if True:
+        fdict = maUtils.getDetectionFlags()
+        starflag = fdict["STAR"]
+        stargal = [(r.getFlagForDetection() & starflag) for r in ref]
+        referrs = [r.getPsfFluxErr() / r.getPsfFlux() * 2.5 / -np.log(10)
+                   for r in ref]
+        print 'reference errs:', referrs
+        print 'star/gals:', stargal
 
-    col = 'starnotgal'
-    if col in colnames:
-        stargal1 = solver.getTagAlongBool(anid, col, inds)
-        # This nutty-looking stanza converts stargal to a real Python list;
-        # for reasons I now don't remember, leaving it as a vector<bool> caused
-        # problems when we make cuts below...
-        stargal = []
-        for i in range(len(stargal1)):
-            stargal.append(stargal1[i])
     else:
-        stargal = None
+        print 'Tag-along columns:'
+        cols = solver.getTagAlongColumns(anid)
+        print cols
+        for c in cols:
+            print 'column: ', c.name, c.fitstype, c.ctype, c.units, c.arraysize
+        colnames = [c.name for c in cols]
+
+        col = filterName + '_err'
+        if col in colnames:
+            referrs = solver.getTagAlongDouble(anid, col, inds)
+        else:
+            referrs = None
+
+        col = 'starnotgal'
+        if col in colnames:
+            stargal1 = solver.getTagAlongBool(anid, col, inds)
+            # This nutty-looking stanza converts stargal to a real Python list;
+            # for reasons I now don't remember, leaving it as a vector<bool> caused
+            # problems when we make cuts below...
+            stargal = []
+            for i in range(len(stargal1)):
+                stargal.append(stargal1[i])
+        else:
+            stargal = None
+
+
 
     keepref = []
     keepi = []
@@ -152,8 +169,8 @@ def plotsForField(inButler, keys, fixup, plots=None):
     if stargal is not None:
         stargal = [stargal[i] for i in keepi]
 
-    #print 'reference errs:', referrs
-    #print 'star/gals:', stargal
+    print 'reference errs:', referrs
+    print 'star/gals:', stargal
 
     if False:
         m0 = matches[0]

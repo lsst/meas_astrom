@@ -29,6 +29,7 @@ from lsst.pex.exceptions import LsstCppException
 import lsst.afw.image as afwImg
 import lsst.daf.base as dafBase
 import lsst.afw.coord as afwCoord
+import lsst.meas.algorithms.utils as maUtils
 
 import net as astromNet
 import sip as astromSip
@@ -274,7 +275,12 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         #print 'size, fiter, id', imgSizeInArcsec, filterName, idName
         #cat = solver.getCatalogue(2*imgSizeInArcsec, filterName, idName)
         margin = 50 # pixels
-        cat = solver.getCatalogueForSolvedField(filterName, idName, margin)
+        #cat = solver.getCatalogueForSolvedField(filterName, idName, margin)
+        X = solver.getCatalogueForSolvedField(filterName, idName, margin)
+        #print 'Got:', X
+        cat = X.refsources
+        indexid = X.indexid
+        inds = X.inds
     except LsstCppException, e:
         log.log(Log.WARN, str(e))
         log.log(Log.WARN, "Attempting to access catalogue positions and fluxes")
@@ -285,6 +291,8 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         log.log(Log.WARN, "Available filters: " + str(solver.getCatalogueMetadataFields()))
         raise
 
+    addTagAlongValuesToReferenceSources(solver, policy, log, cat, indexid, inds, filterName)
+    
     if True:
         # Now generate a list of matching objects
         distInArcsec = policy.get('distanceForCatalogueMatchinArcsec')
@@ -363,6 +371,83 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     astrom.matches = matchList
 
     return astrom
+
+
+def addTagAlongValuesToReferenceSources(solver, policy, log, refcat, indexid, inds, filterName):
+    # Now add the photometric errors, star/galaxy, and variability flags.
+    # This requires the annoying step of retrieving the index ID number of the Astrometry.net
+    # index file that solved the field...
+    # (We could not do this and just take the default, but that seems risky)
+    #indexid = solver.getMatchObject().index.indexid
+    #print 'index id:', indexid
+    cols = solver.getTagAlongColumns(indexid)
+    colnames = [c.name for c in cols]
+
+    # sensible default column names (to avoid having to update meas_pipe's policy)
+    stargalName = 'starnotgal'
+    # "variable" as in a variable star
+    variableName = 'variable'
+    # magnitude error column name pattern
+    magerrorPattern = '%(filter)s_err'
+
+    stargalPolicyKey = 'starGalaxyColumnName'
+    stargal = None
+    if policy.exists(stargalPolicyKey):
+        stargalName = policy.get(stargalPolicyKey)
+    if not stargalName in colnames:
+        log.log(Log.WARN, ('Star/galaxy column was not found in Astrometry.net index file (index id=%i): expected \"%s\", but available columns are: [ %s ]' %
+                           (indexid, stargalName, ', '.join(['"%s"' % c for c in colnames]))))
+    else:
+        log.log(Log.INFO, 'Using reference star/galaxy column \"%s\"' % stargalName)
+        stargal = solver.getTagAlongBool(indexid, stargalName, inds)
+
+    varPolicyKey = 'variableColumnName'
+    variable = None
+    if policy.exists(varPolicyKey):
+        variableName = policy.get(varPolicyKey)
+    if not variableName in colnames:
+        log.log(Log.WARN, ('Variability flag column was not found in Astrometry.net index file (index id=%i): expected \"%s\", but available columns are: [ %s ]' %
+                           (indexid, variableName, ', '.join(['"%s"' % c for c in colnames]))))
+    else:
+        log.log(Log.INFO, 'Using reference variability column \"%s\"' % variableName)
+        variable = solver.getTagAlongBool(indexid, variableName, inds)
+
+    magerr = None
+    errPolicyKey = 'magErrorColumnPattern'
+    if policy.exists(errPolicyKey):
+        magerrorPattern = policy.get(errPolicyKey)
+    magerrName = magerrorPattern % dict(filter=filterName)
+    if not magerrName in colnames:
+        log.log(Log.WARN, ('Magnitude error column was not found in Astrometry.net index file (index id=%i): expected \"%s\", but available columns are: [ %s ]' %
+                           (indexid, magerrName, ', '.join(['"%s"' % c for c in colnames]))))
+    else:
+        log.log(Log.INFO, 'Using reference magnitude error column \"%s\"' % magerrName)
+        magerr = solver.getTagAlongDouble(indexid, magerrName, inds)
+
+    # set STAR flag
+    fdict = maUtils.getDetectionFlags()
+    starflag = fdict["STAR"]
+    if stargal is not None:
+        assert(len(stargal) == len(refcat))
+    if variable is not None:
+        assert(len(variable) == len(refcat))
+
+    for i in xrange(len(refcat)):
+        isstar = True
+        if stargal is not None:
+            isstar &= stargal[i]
+        if variable is not None:
+            isstar &= not(variable[i])
+
+        if isstar:
+            refcat[i].setFlagForDetection(refcat[i].getFlagForDetection() | starflag)
+
+    # set flux error based on magnitude error
+    if magerr is not None:
+        assert(len(magerr) == len(refcat))
+        for i in xrange(len(refcat)):
+            refcat[i].setPsfFluxErr(magerr[i] * refcat[i].getPsfFlux() * -numpy.log(10.)/2.5)
+
 
 def trimBadPoints(exposure, sourceSet):
     """Remove elements from sourceSet whose xy positions aren't within the boundaries of exposure

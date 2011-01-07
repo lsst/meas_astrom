@@ -61,14 +61,12 @@ def calcPhotoCal(sourceMatch, log=None, magLimit=22,
     # Only use stars for which the flags indicate the photometry is good.
     allFlags = malgUtil.getDetectionFlags()
 
-    for flag, val in allFlags.items():
-        if val & goodFlagValue:
-            log.log(Log.DEBUG, 'Flag value %s: 0x%x, %i' % (flag, val, val))
-    log.log(Log.DEBUG, 'Good flag value: %i' % goodFlagValue)
     log.log(Log.DEBUG, "Number of sources: %d" % (len(sourceMatch)))
 
     sourceMatch = [m for m in sourceMatch if
                    (m.second.getFlagForDetection() & goodFlagValue) == goodFlagValue]
+
+    log.log(Log.DEBUG, "Number of sources with good flag settings: %d" % (len(sourceMatch)))
 
     if len(sourceMatch) == 0:
         raise ValueError("flags indicate all elements of sourceMatch have bad photometry")

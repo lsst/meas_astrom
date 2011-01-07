@@ -55,9 +55,7 @@ namespace boost {
 %include "lsst/p_lsstSwig.i"
 %include "std_string.i"
 %include "std_vector.i"
-%include "std_pair.i"
-//Did you declare the std::vector<std::string> using %template?
-
+ //%include "std_pair.i"
 
 %pythoncode %{
 import lsst.utils
@@ -75,6 +73,14 @@ def version(HeadURL = r"$HeadURL: svn+ssh://svn.lsstcorp.org/DMS/afw/trunk/pytho
 
 %include "lsst/meas/astrom/net/GlobalAstrometrySolution.h"
 %include "qfits_table.h"
+
+ // Ignore astrometry.net declarations that aren't implemented in the library we use
+ // (which is a subset of the complete codebase)
+%ignore matchobj_compute_overlap;
+%ignore matchobj_compute_derived;
+%ignore matchobj_get_index_name;
+%include "matchobj.h"
+%include "index.h"
 
 PyObject* starkd_search_stars(startree_t* s, double ra, double dec, double radius);
 
@@ -109,4 +115,4 @@ PyObject* starkd_search_stars(startree_t* s, double ra, double dec, double radiu
 
 %template(vectorSourceMatch) std::vector<boost::shared_ptr<lsst::afw::detection::SourceMatch> >;
 
-%template(pair_SourceSet_vector_ints) std::pair<lsst::afw::detection::SourceSet, std::vector<int> >;
+//%template(pair_SourceSet_vector_ints) std::pair<lsst::afw::detection::SourceSet, std::vector<int> >;

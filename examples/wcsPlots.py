@@ -8,12 +8,11 @@ import pylab as plt
 import lsst.afw.geom.geomLib as afwGeom
 import lsst.afw.coord.coordLib as afwCoord
 
-from astrometry.libkd import spherematch
-
-# only exists in recent Astrometry.net versions...
+# These only exist in recent Astrometry.net versions...
+#from astrometry.libkd import spherematch
 #from astrometry.util.plotshift import plotshift
 # dstn copied a version into this dir until we uprev...
-from plotshift import plotshift
+#from plotshift import plotshift
 
 def _getplotdata(format='png'):
     import cStringIO

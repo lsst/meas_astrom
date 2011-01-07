@@ -1,6 +1,5 @@
 import sys
 
-
 import lsst.pex.policy as policy
 import lsst.meas.astrom as measAstrom
 from lsst.pex.logging import Log

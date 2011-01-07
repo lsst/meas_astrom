@@ -34,6 +34,7 @@ def process(keys, inButler, outButler):
                     numBrightStars: 150
                     defaultFilterName: mag
                     """, clip)
+    #starGalaxyColumnName: starnotgal
 
     clip = runStage(measPipe.PhotoCalStage,
                     """#<?cfg paf policy?>

@@ -93,6 +93,13 @@ struct TagAlongColumn_s {
 };
 typedef struct TagAlongColumn_s TagAlongColumn;
 
+struct ReferenceSources_s {
+    lsst::afw::detection::SourceSet refsources;
+    int indexid;
+    std::vector<int> inds;
+};
+typedef struct ReferenceSources_s ReferenceSources;
+
 //!\brief Solve for WCS based only on the positions of stars in an image 
 ///
 ///See the examples/ directory for an example of how to use
@@ -146,12 +153,13 @@ public:
 
     std::vector<std::string> getCatalogueMetadataFields();
 
-    lsst::afw::detection::SourceSet getCatalogueForSolvedField(std::string filter, std::string idname, double margin);
+    ReferenceSources
+    getCatalogueForSolvedField(std::string filter, std::string idname, double margin);
 
-    std::pair<lsst::afw::detection::SourceSet,
-              std::vector<int> > getCatalogue(double ra, double dec, double radiusInArcsec, 
-                                              std::string filterName, std::string idName,
-                                              int indexId = -1);
+    ReferenceSources
+    getCatalogue(double ra, double dec, double radiusInArcsec, 
+                 std::string filterName, std::string idName,
+                 int indexId = -1);
 
     std::vector<double> getTagAlongDouble(int indexId, std::string columnName,
                                           std::vector<int> inds);
@@ -178,8 +186,6 @@ public:
 
     std::vector<int> getIndexIdList();
 
-    // returns the star kd-tree of the astrometry.net index that solved the field.
-    //startree_t* getSolvedStartree();
     MatchObj* getMatchObject();
 
     lsst::daf::base::PropertySet::Ptr getMatchedIndexMetadata();
