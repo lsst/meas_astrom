@@ -111,11 +111,23 @@ def plotsForField(inButler, keys, fixup, plots=None):
     assert(anid == indexid)
     print 'Got', len(ref), 'reference catalog sources'
 
+    print 'False is', False
+
+    #print ref
+    #for r in ref:
+    #    print r
+    #for i in xrange(len(ref)):
+    #    print ref[i]
+
     import gc
-    gc.set_debug(gc.DEBUG_LEAK)
+    #gc.set_debug(gc.DEBUG_LEAK)
     gc.collect()
 
+    print 'before addTagAlongValues... False is', False
+
     measAstrom.addTagAlongValuesToReferenceSources(solver, pol, log, ref, indexid, inds, filterName)
+
+    print 'after addTagAlongValues... False is', False
 
     print 'gc...'
     gc.collect()
@@ -123,12 +135,16 @@ def plotsForField(inButler, keys, fixup, plots=None):
     
     if True:
         fdict = maUtils.getDetectionFlags()
-        starflag = fdict["STAR"]
+        starflag = int(fdict["STAR"])
 
         stargal = []
         referrs = []
         for i in xrange(len(ref)):
-            sg = bool((ref[i].getFlagForDetection() & starflag) > 0)
+            print 'False is', False
+            print 'flag:', ref[i].getFlagForDetection()
+            print 'starflag:', starflag
+            print 'and:', (int(ref[i].getFlagForDetection()) & starflag)
+            sg = bool((int(ref[i].getFlagForDetection()) & starflag) > 0)
             print 'sg', i, 'is', sg
             stargal.append(sg)
             #stargal.append(bool((ref[i].getFlagForDetection() & starflag) > 0))

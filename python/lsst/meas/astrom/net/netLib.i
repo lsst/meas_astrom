@@ -116,3 +116,8 @@ PyObject* starkd_search_stars(startree_t* s, double ra, double dec, double radiu
 %template(vectorSourceMatch) std::vector<boost::shared_ptr<lsst::afw::detection::SourceMatch> >;
 
 //%template(pair_SourceSet_vector_ints) std::pair<lsst::afw::detection::SourceSet, std::vector<int> >;
+
+%template(vectorBool) std::vector<bool>;
+//%template(vectorInt64) std::vector<boost::int64_t>;
+//%template(vectorDouble) std::vector<double>;
+

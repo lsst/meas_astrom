@@ -401,6 +401,8 @@ def addTagAlongValuesToReferenceSources(solver, policy, log, refcat, indexid, in
         log.log(Log.INFO, 'Using reference star/galaxy column \"%s\"' % stargalName)
         stargal = solver.getTagAlongBool(indexid, stargalName, inds)
 
+    print 'False is', False
+
     varPolicyKey = 'variableColumnName'
     variable = None
     if policy.exists(varPolicyKey):
@@ -411,6 +413,8 @@ def addTagAlongValuesToReferenceSources(solver, policy, log, refcat, indexid, in
     else:
         log.log(Log.INFO, 'Using reference variability column \"%s\"' % variableName)
         variable = solver.getTagAlongBool(indexid, variableName, inds)
+
+    print 'False is', False
 
     magerr = None
     errPolicyKey = 'magErrorColumnPattern'
@@ -441,6 +445,8 @@ def addTagAlongValuesToReferenceSources(solver, policy, log, refcat, indexid, in
 
         if isstar:
             refcat[i].setFlagForDetection(refcat[i].getFlagForDetection() | starflag)
+
+    print 'False is', False
 
     # set flux error based on magnitude error
     if magerr is not None:
