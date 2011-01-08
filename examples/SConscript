@@ -1,3 +1,9 @@
 # -*- python -*-
 import sys
+import glob
+
 Import('env')
+
+for fileName in glob.glob("*.cc"):
+    env.Program(fileName, LIBS=env.getlibs("meas_astrom"))
+
