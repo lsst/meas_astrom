@@ -111,55 +111,21 @@ def plotsForField(inButler, keys, fixup, plots=None):
     assert(anid == indexid)
     print 'Got', len(ref), 'reference catalog sources'
 
-    print 'False is', False
-
-    #print ref
-    #for r in ref:
-    #    print r
-    #for i in xrange(len(ref)):
-    #    print ref[i]
-
-    import gc
-    #gc.set_debug(gc.DEBUG_LEAK)
-    gc.collect()
-
-    print 'before addTagAlongValues... False is', False
-
     measAstrom.addTagAlongValuesToReferenceSources(solver, pol, log, ref, indexid, inds, filterName)
 
-    print 'after addTagAlongValues... False is', False
-
-    print 'gc...'
-    gc.collect()
-    print '(done)'
-    
     if True:
+        # pull 'stargal' and 'referrs' arrays out of the reference sources
         fdict = maUtils.getDetectionFlags()
         starflag = int(fdict["STAR"])
 
-        stargal = []
-        referrs = []
-        for i in xrange(len(ref)):
-            print 'False is', False
-            print 'flag:', ref[i].getFlagForDetection()
-            print 'starflag:', starflag
-            print 'and:', (int(ref[i].getFlagForDetection()) & starflag)
-            sg = bool((int(ref[i].getFlagForDetection()) & starflag) > 0)
-            print 'sg', i, 'is', sg
-            stargal.append(sg)
-            #stargal.append(bool((ref[i].getFlagForDetection() & starflag) > 0))
-            referrs.append(float(ref[i].getPsfFluxErr() / ref[i].getPsfFlux() * 2.5 / -np.log(10)))
-
-        print 'gc...'
-        gc.collect()
-        print '(done)'
-
-        #stargal = [bool(r.getFlagForDetection() & starflag > 0)
-        #           for r in ref]
-        #referrs = [float(r.getPsfFluxErr() / r.getPsfFlux() * 2.5 / -np.log(10))
-        #           for r in ref]
-        print 'reference errs:', referrs
-        print 'star/gals:', stargal
+        stargal = [bool((r.getFlagForDetection() & starflag) > 0)
+                   for r in ref]
+        referrs = [float(r.getPsfFluxErr() / r.getPsfFlux() * 2.5 / -np.log(10))
+                   for r in ref]
+        nstars = sum([1 for s in stargal if s])
+        print 'Number of sources with STAR set:', nstars
+        #print 'reference errs:', referrs
+        #print 'star/gals:', stargal
 
     else:
         print 'Tag-along columns:'
@@ -168,13 +134,11 @@ def plotsForField(inButler, keys, fixup, plots=None):
         for c in cols:
             print 'column: ', c.name, c.fitstype, c.ctype, c.units, c.arraysize
         colnames = [c.name for c in cols]
-
         col = filterName + '_err'
         if col in colnames:
             referrs = solver.getTagAlongDouble(anid, col, inds)
         else:
             referrs = None
-
         col = 'starnotgal'
         if col in colnames:
             stargal1 = solver.getTagAlongBool(anid, col, inds)
@@ -186,8 +150,6 @@ def plotsForField(inButler, keys, fixup, plots=None):
                 stargal.append(stargal1[i])
         else:
             stargal = None
-
-    gc.collect()
 
 
     keepref = []
@@ -209,12 +171,8 @@ def plotsForField(inButler, keys, fixup, plots=None):
     if stargal is not None:
         stargal = [stargal[i] for i in keepi]
 
-    gc.collect()
-
-    print 'reference errs:', referrs
-    print 'star/gals:', stargal
-
-    gc.collect()
+    #print 'reference errs:', referrs
+    #print 'star/gals:', stargal
 
     if False:
         m0 = matches[0]
@@ -223,9 +181,8 @@ def plotsForField(inButler, keys, fixup, plots=None):
         print '  ref x,y,flux = (%.1f, %.1f, %.1f)' % (f.getXAstrom(), f.getYAstrom(), f.getPsfFlux())
         print '  src x,y,flux = (%.1f, %.1f, %.1f)' % (s.getXAstrom(), s.getYAstrom(), s.getPsfFlux())
 
-    print 'join 1'
     measAstrom.joinMatchList(matches, ref, first=True, log=log)
-    print '(done)'
+
     args = {}
     if fixup:
         # ugh, mask and offset req'd because source ids are assigned at write-time
@@ -233,9 +190,8 @@ def plotsForField(inButler, keys, fixup, plots=None):
         # (see svn+ssh://svn.lsstcorp.org/DMS/meas/astrom/tickets/1491-b r18027)
         args['mask'] = 0xffff
         args['offset'] = -1
-    print 'join 2'
+
     measAstrom.joinMatchList(matches, sources, first=False, log=log, **args)
-    print '(done)'
 
     visit = keys['visit']
     raft = keys['raft']
@@ -258,8 +214,6 @@ def plotsForField(inButler, keys, fixup, plots=None):
             wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'A', band=filterName, zp=zp, delta=True, title=tt)
             wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'B', band=filterName, zp=zp, delta=True, referrs=referrs, title=tt)
             wcsPlots.plotPhotometry(sources, ref, matches, prefix + 'C', band=filterName, zp=zp, delta=True,refstargal=stargal, title=tt)
-
-
 
     if 'matches' in plots:
         print 'matches...'
