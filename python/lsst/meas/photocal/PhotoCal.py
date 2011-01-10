@@ -65,12 +65,23 @@ def calcPhotoCal(sourceMatch, log=None, magLimit=22,
 
     sourceMatch = [m for m in sourceMatch if
                    (m.second.getFlagForDetection() & goodFlagValue) == goodFlagValue]
-
     log.log(Log.DEBUG, "Number of sources with good flag settings: %d" % (len(sourceMatch)))
 
     if len(sourceMatch) == 0:
         raise ValueError("flags indicate all elements of sourceMatch have bad photometry")
 
+    # RHL -- FIXME -- be smart about detecting that the reference
+    # catalog has had the STAR flags set appropriately; decide whether
+    # to use those or the measured STAR/GAL separator.
+    goodFlag2 = malgUtil.getDetectionFlags()['STAR']
+    sm2 = [m for m in sourceMatch if
+           (m.first.getFlagForDetection() & goodFlag2) == goodFlag2]
+    log.log(Log.DEBUG, "Number of sources with good flag settings (in reference objects): %d" % (len(sm2)))
+    # Use it?
+    #if len(sm2):
+    #    sourceMatch = sm2
+
+ 
     #Convert fluxes to magnitudes
     out = getMagnitudes(sourceMatch)
 
