@@ -166,15 +166,11 @@ std::vector<int> GlobalAstrometrySolution::getIndexIdList() {
 
 
 index_t *GlobalAstrometrySolution::_loadIndexMeta(std::string filename){
-  //return index_load(filename.c_str(), INDEX_ONLY_LOAD_METADATA, NULL);
-  index_t* index = index_load(filename.c_str(), INDEX_ONLY_LOAD_METADATA, NULL);
-
-  return index;
+    return index_load(filename.c_str(), INDEX_ONLY_LOAD_METADATA, NULL);
 }
 
 
 GlobalAstrometrySolution::~GlobalAstrometrySolution() {
-
     for (unsigned int i=0; i<_indexList.size(); i++) {
         index_free(_indexList[i]);
     }
@@ -210,7 +206,6 @@ void GlobalAstrometrySolution::setDefaultValues() {
 
     // Reset counters and record of best match found so far.
     solver_cleanup_field(_solver);
-    
 
     setParity(UNKNOWN_PARITY);
 }
@@ -481,13 +476,7 @@ bool GlobalAstrometrySolution::solve()  {
         const char* indexname = solver_get_best_match_index_name(_solver);
         string msg = boost::str(boost::format("Solved index is %s") % indexname);
         _mylog.log(pexLog::Log::DEBUG, msg);            
-
-        // Grab everything we need from the index file while it is still open!
-        //index_t* index = _solver->best_match.index;
-        // FIXME -- grab reference RA,Dec, fieldxy, tagalong data, etc now, or later.
-
-    }
-    else {
+    } else {
         _mylog.log(pexLog::Log::DEBUG, "Failed");
     }
 
@@ -940,18 +929,14 @@ vector<string> GlobalAstrometrySolution::getCatalogueMetadataFields() {
         return output;
     }
     
-    //Don't free this pointer, it points to memory that may be used later
     fitstable_t *table = startree_get_tagalong(_indexList[0]->starkd);
     assert(table != NULL);
-    
     sl *nameList = fitstable_get_fits_column_names(table, NULL);
-    
     int numNames = sl_size(nameList);
     for(int i=0; i< numNames; ++i) {
         string name(sl_pop(nameList));
         output.push_back(name);
     }
-    
     sl_free2(nameList);
         
     return output;
@@ -1052,18 +1037,6 @@ GlobalAstrometrySolution::getCatalogue(double radiusInArcsec, string filterName,
     ReferenceSources refs = getCatalogue(ra, dec, radiusInArcsec, filterName, idName);
     return refs.refsources;
 }
-
-/*
-const startree_t* GlobalAstrometrySolution::getStarTree(int indexId) {
-    for (unsigned int i=0; i<_indexList.size(); i++) {
-        index_t* index = _indexList[i];
-        if (index->indexid != indexId)
-            continue;
-        return index->starkd;
-    }
-    return NULL;
-}
- */
 
 index_t* GlobalAstrometrySolution::_getIndex(int indexId) {
     for (unsigned int i=0; i<_indexList.size(); i++) {
@@ -1379,23 +1352,9 @@ double GlobalAstrometrySolution::getSolvedImageScale(){
     if (! _isSolved) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
-
     MatchObj* match = solver_get_best_match(_solver);
     return match->scale;
-    //return tan_pixel_scale(&match->wcstan)
 } 
-
-/*
-startree_t* GlobalAstrometrySolution::getSolvedStartree() {
-    MatchObj* match = solver_get_best_match(_solver);
-    if (!match)
-        return NULL;
-    if (!match->index)
-        return NULL;
-    index_reload(match->index);
-    return match->index->starkd;
-}
- */
 
 MatchObj* GlobalAstrometrySolution::getMatchObject() {
     return solver_get_best_match(_solver);

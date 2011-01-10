@@ -158,7 +158,7 @@ def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None
 
     # FIXME -- need anid?  Not necessarily... ref ids are supposed to be unique!
     X = solver.getCatalogue(ra, dec, rad * 3600., filterName, idName, anid)
-    cat = X.first
+    cat = X.refsources
     log.log(Log.DEBUG, 'Found %i reference catalog sources in range' % len(cat))
 
     joinMatchList(matchlist, cat, first=True, log=log)
@@ -275,9 +275,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         #print 'size, fiter, id', imgSizeInArcsec, filterName, idName
         #cat = solver.getCatalogue(2*imgSizeInArcsec, filterName, idName)
         margin = 50 # pixels
-        #cat = solver.getCatalogueForSolvedField(filterName, idName, margin)
         X = solver.getCatalogueForSolvedField(filterName, idName, margin)
-        #print 'Got:', X
         cat = X.refsources
         indexid = X.indexid
         inds = X.inds
@@ -375,11 +373,6 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
 
 def addTagAlongValuesToReferenceSources(solver, policy, log, refcat, indexid, inds, filterName):
     # Now add the photometric errors, star/galaxy, and variability flags.
-    # This requires the annoying step of retrieving the index ID number of the Astrometry.net
-    # index file that solved the field...
-    # (We could not do this and just take the default, but that seems risky)
-    #indexid = solver.getMatchObject().index.indexid
-    #print 'index id:', indexid
     cols = solver.getTagAlongColumns(indexid)
     colnames = [c.name for c in cols]
 
@@ -401,8 +394,6 @@ def addTagAlongValuesToReferenceSources(solver, policy, log, refcat, indexid, in
         log.log(Log.INFO, 'Using reference star/galaxy column \"%s\"' % stargalName)
         stargal = solver.getTagAlongBool(indexid, stargalName, inds)
 
-    print 'False is', False
-
     varPolicyKey = 'variableColumnName'
     variable = None
     if policy.exists(varPolicyKey):
@@ -413,8 +404,6 @@ def addTagAlongValuesToReferenceSources(solver, policy, log, refcat, indexid, in
     else:
         log.log(Log.INFO, 'Using reference variability column \"%s\"' % variableName)
         variable = solver.getTagAlongBool(indexid, variableName, inds)
-
-    print 'False is', False
 
     magerr = None
     errPolicyKey = 'magErrorColumnPattern'
@@ -442,18 +431,14 @@ def addTagAlongValuesToReferenceSources(solver, policy, log, refcat, indexid, in
             isstar &= stargal[i]
         if variable is not None:
             isstar &= not(variable[i])
-
         if isstar:
             refcat[i].setFlagForDetection(refcat[i].getFlagForDetection() | starflag)
-
-    print 'False is', False
 
     # set flux error based on magnitude error
     if magerr is not None:
         assert(len(magerr) == len(refcat))
         for i in xrange(len(refcat)):
             refcat[i].setPsfFluxErr(magerr[i] * refcat[i].getPsfFlux() * -numpy.log(10.)/2.5)
-
 
 def trimBadPoints(exposure, sourceSet):
     """Remove elements from sourceSet whose xy positions aren't within the boundaries of exposure

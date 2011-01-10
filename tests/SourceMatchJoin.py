@@ -74,8 +74,8 @@ class matchlistTestCase(unittest.TestCase):
 
         solver = measAstrom.createSolver(pol, log)
         X = solver.getCatalogue(ra, dec, rad*3600., filtername, idname, anindid)
-        ss = X.first
-        inds = X.second
+        ss = X.refsources
+        inds = X.inds
         print 'got', len(ss), 'catalog sources'
         print 'and', len(inds), 'catalog indices'
 

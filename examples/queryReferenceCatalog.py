@@ -34,8 +34,8 @@ def main():
 
     idName = 'id'
     X = solver.getCatalogue(ra, dec, radius, '', idName, indexid)
-    ref = X.first
-    inds = X.second
+    ref = X.refsources
+    inds = X.inds
     print 'Got', len(ref), 'reference catalog sources'
     print '  got indices:', len(inds)
 

@@ -178,7 +178,6 @@ public:
 
     std::vector<std::vector<double> > getCatalogueExtra(double ra, double dec, double radiusInArcsec,
                                                        std::vector<std::string> columns, int indexId = -1);
-    //const startree_t* getStarTree(int indexId);
 
     void loadIndices();
 
