@@ -36,8 +36,8 @@ except ImportError:
     pyplot = None
 
 def calcPhotoCal(sourceMatch, log=None, magLimit=22, useCatalogClassification=True,
-                 goodFlagValue=malgUtil.getDetectionFlags('BINNED1'),
-                 badFlagValue=malgUtil.getDetectionFlags('BAD'),
+                 goodFlagValue=malgUtil.getDetectionFlags()['BINNED1'],
+                 badFlagValue=malgUtil.getDetectionFlags()['BAD'],
                  ):
     """Calculate photometric calibration, i.e the zero point magnitude
 
@@ -66,7 +66,7 @@ use the value from the measured sources (specifically, the STAR bit in the detec
     # Only use stars for which the flags indicate the photometry is good.
     log.log(Log.DEBUG, "Number of sources: %d" % (len(sourceMatch)))
 
-    STAR = malgUtil.getDetectionFlags('STAR')
+    STAR = malgUtil.getDetectionFlags()['STAR']
     #
     # See if any catalogue objects are labelled as stars; if not use the measured object's classifier
     #
