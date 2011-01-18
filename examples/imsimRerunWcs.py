@@ -51,6 +51,12 @@ def main():
     parser.add_option('-T', '--threads', dest='threads', default=None, help='run N processes at once', type='int')
     (opt, args) = parser.parse_args()
 
+    if not os.path.isdir(opt.outRoot):
+        os.makedirs(opt.outRoot)
+
+    if not opt.registry and not os.path.exists(os.path.join(opt.outRoot, "registry.sqlite3")):
+        opt.registry =  os.path.join(opt.inRoot, "registry.sqlite3")
+
     inButler  = imsimUtils.getInputButler(opt)
     outButler = imsimUtils.getOutputButler(opt)
 
