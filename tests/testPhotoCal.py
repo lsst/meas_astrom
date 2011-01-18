@@ -182,8 +182,8 @@ class PhotoCalTest(unittest.TestCase):
         for i in range(nS + 1):
             s1 = afwDet.Source()
             s2 = afwDet.Source()
-            s1.setFlagForDetection(flags["BINNED1"])
-            s2.setFlagForDetection(flags["BINNED1"])
+            s1.setFlagForDetection(flags["BINNED1"] | flags["STAR"])
+            s2.setFlagForDetection(flags["BINNED1"] | flags["STAR"])
             
             m1 = magLo + i*dmag
             f1 = magToFlux(m1, zp=zpCat) # the catalog mag
