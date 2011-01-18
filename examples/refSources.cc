@@ -44,7 +44,7 @@ int main() {
     vector<bool> stargal = gas.getTagAlongBool(ref.indexid, "starnotgal", ref.inds);
     cout << "Got stargals: " << stargal.size() << endl;
 
-    for (int i=0; i<stargal.size(); i++) {
+    for (unsigned int i = 0; i < stargal.size(); i++) {
         cout << (stargal[i] ? "T" : "F") << " ";
     }
     cout << endl;
@@ -52,7 +52,7 @@ int main() {
     vector<bool> vars = gas.getTagAlongBool(ref.indexid, "variable", ref.inds);
     cout << "Got variability: " << vars.size() << endl;
 
-    for (int i=0; i<vars.size(); i++) {
+    for (unsigned int i = 0; i < vars.size(); i++) {
         cout << (vars[i] ? "T" : "F") << " ";
     }
     cout << endl;
@@ -60,12 +60,12 @@ int main() {
     vector<double> magerrs = gas.getTagAlongDouble(ref.indexid, "g_err", ref.inds);
     cout << "Got mag errs: " << magerrs.size() << endl;
 
-    for (int i=0; i<magerrs.size(); i++) {
+    for (unsigned int i = 0; i < magerrs.size(); i++) {
         cout << magerrs[i] << " ";
     }
     cout << endl;
 
-    for (int i=0; i<ref.refsources.size(); i++) {
+    for (unsigned int i = 0; i < ref.refsources.size(); i++) {
         ref.refsources[i]->setPsfFluxErr(magerrs[i] * ref.refsources[i]->getPsfFlux() * -log(10)/2.5);
         bool isstar = stargal[i];
         if (vars[i])
