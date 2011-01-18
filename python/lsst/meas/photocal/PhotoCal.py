@@ -35,10 +35,15 @@ try:
 except ImportError:
     pyplot = None
 
-def calcPhotoCal(sourceMatch, log=None, magLimit=22,
-                 goodFlagValue=(malgUtil.getDetectionFlags()['BINNED1'] |
-                                malgUtil.getDetectionFlags()['STAR'])):
-    """Calculate photometric calibration, i.e the zero point magnitude"""
+def calcPhotoCal(sourceMatch, log=None, magLimit=22, useCatalogClassification=True,
+                 goodFlagValue=malgUtil.getDetectionFlags('BINNED1'),
+                 badFlagValue=malgUtil.getDetectionFlags('BAD'),
+                 ):
+    """Calculate photometric calibration, i.e the zero point magnitude
+
+If useCatalogClassification is true, use the star/galaxy classification from the reference catalogue, otherwise
+use the value from the measured sources (specifically, the STAR bit in the detection flags)
+    """
 
     if log is None or True:
         class fakelog(object):
@@ -59,28 +64,30 @@ def calcPhotoCal(sourceMatch, log=None, magLimit=22,
         raise ValueError("sourceMatch contains no elements")
 
     # Only use stars for which the flags indicate the photometry is good.
-    allFlags = malgUtil.getDetectionFlags()
-
     log.log(Log.DEBUG, "Number of sources: %d" % (len(sourceMatch)))
 
+    STAR = malgUtil.getDetectionFlags('STAR')
+    #
+    # See if any catalogue objects are labelled as stars; if not use the measured object's classifier
+    #
+    if useCatalogClassification and len([m for m in sourceMatch if (m.first.getFlagForDetection() & STAR)]) == 0:
+        log.log(Log.WARN, "No catalogue objects are classified as stars;  using measured object S/G classifier")
+        useCatalogClassification = False
+
     sourceMatch = [m for m in sourceMatch if
-                   (m.second.getFlagForDetection() & goodFlagValue) == goodFlagValue]
+                   (m.second.getFlagForDetection() & goodFlagValue) == goodFlagValue and
+                   not (m.second.getFlagForDetection() & badFlagValue)]
     log.log(Log.DEBUG, "Number of sources with good flag settings: %d" % (len(sourceMatch)))
 
     if len(sourceMatch) == 0:
         raise ValueError("flags indicate all elements of sourceMatch have bad photometry")
 
-    # RHL -- FIXME -- be smart about detecting that the reference
-    # catalog has had the STAR flags set appropriately; decide whether
-    # to use those or the measured STAR/GAL separator.
-    goodFlag2 = malgUtil.getDetectionFlags()['STAR']
-    sm2 = [m for m in sourceMatch if
-           (m.first.getFlagForDetection() & goodFlag2) == goodFlag2]
-    log.log(Log.DEBUG, "Number of sources with good flag settings (in reference objects): %d" % (len(sm2)))
-    # Use it?
-    #if len(sm2):
-    #    sourceMatch = sm2
-
+    # Only use objects classified as stars for the photometric calibration
+    if useCatalogClassification:
+        sourceMatch = [m for m in sourceMatch if (m.first.getFlagForDetection()  & STAR)]
+    else:
+        sourceMatch = [m for m in sourceMatch if (m.second.getFlagForDetection() & STAR)]
+    log.log(Log.DEBUG, "Number of stellar sources with good flag settings: %d" % (len(sourceMatch)))
  
     #Convert fluxes to magnitudes
     out = getMagnitudes(sourceMatch)
