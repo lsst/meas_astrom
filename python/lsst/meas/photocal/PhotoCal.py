@@ -88,6 +88,9 @@ use the value from the measured sources (specifically, the STAR bit in the detec
     else:
         sourceMatch = [m for m in sourceMatch if (m.second.getFlagForDetection() & STAR)]
     log.log(Log.DEBUG, "Number of stellar sources with good flag settings: %d" % (len(sourceMatch)))
+
+    if len(sourceMatch) == 0:
+        raise RuntimeError("No sources remaining in match list after cuts")
  
     #Convert fluxes to magnitudes
     out = getMagnitudes(sourceMatch)
