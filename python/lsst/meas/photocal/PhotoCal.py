@@ -134,6 +134,7 @@ def getMagnitudes(sourceMatch):
     fluxSrc = fluxSrc[idx]
     fluxCat = fluxCat[idx]
     fluxSrcErr = fluxSrcErr[idx]
+    fluxCatErr = fluxCatErr[idx]
 
     #Catalogue may not have flux uncertainties
     if sum(fluxCatErr) == 0.0:
