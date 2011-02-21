@@ -21,6 +21,7 @@ def main():
     parser.add_option('--corr', '-C', dest='docorr', action='store_true', default=False, help='Make correspondences plot?')
     parser.add_option('--distortion', '-D', dest='dodistortion', action='store_true', default=False, help='Make distortion plot?')
     parser.add_option('--matches', '-M', dest='domatches', action='store_true', default=False, help='Make matches plot?')
+    parser.add_option('--prefix', '-p', dest='prefix', default='', help='Plot output filename prefix')
     (opt, args) = parser.parse_args()
 
     if (opt.dophotometry is False and
@@ -44,10 +45,10 @@ def main():
     allkeys = imsimUtils.getAllKeys(opt, inButler)
 
     for keys in allkeys:
-        plotsForField(inButler, keys, opt.fixup, plots)
+        plotsForField(inButler, keys, opt.fixup, plots, opt.prefix)
 
 
-def plotsForField(inButler, keys, fixup, plots=None):
+def plotsForField(inButler, keys, fixup, plots=None, prefix=''):
     if plots is None:
         plots = ['photom','matches','corr','distortion']
         
@@ -65,19 +66,19 @@ def plotsForField(inButler, keys, fixup, plots=None):
         print 'Got sources', psources
         
     pmatches = inButler.get('icMatch', **keys)
-    print 'Got matches', pmatches
+    #print 'Got matches', pmatches
     matchmeta = pmatches.getSourceMatchMetadata()
     matches = pmatches.getSourceMatches()
-    print 'Match metadata:', matchmeta
+    #print 'Match metadata:', matchmeta
     sources = psources.getSources()
     
     calexp = inButler.get('calexp', **keys)
-    print 'Got calexp', calexp
+    #print 'Got calexp', calexp
     wcs = calexp.getWcs()
-    print 'Got wcs', wcs
-    print wcs.getFitsMetadata().toString()
+    #print 'Got wcs', wcs
+    #print wcs.getFitsMetadata().toString()
     wcs = afwImage.cast_TanWcs(wcs)
-    print 'After cast:', wcs
+    #print 'After cast:', wcs
 
     photocal = calexp.getCalib()
     zp = photocal.getMagnitude(1.)
@@ -105,6 +106,7 @@ def plotsForField(inButler, keys, fixup, plots=None):
     print 'Using ID column name', idName
     print 'Using filter column name', filterName
     X = solver.getCatalogue(ra, dec, radius, filterName, idName, anid)
+    #print 'X:', X
     ref = X.refsources
     inds = X.inds
     indexid = X.indexid
@@ -196,7 +198,7 @@ def plotsForField(inButler, keys, fixup, plots=None):
     visit = keys['visit']
     raft = keys['raft']
     sensor = keys['sensor']
-    prefix = 'imsim-v%i-r%s-s%s' % (visit, raft.replace(',',''), sensor.replace(',',''))
+    prefix += 'imsim-v%i-r%s-s%s' % (visit, raft.replace(',',''), sensor.replace(',',''))
 
     if 'photom' in plots:
         print 'photometry plots...'
