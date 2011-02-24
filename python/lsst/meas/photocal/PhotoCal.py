@@ -195,7 +195,10 @@ We perform niter iterations of a simple sigma-clipping algorithm with a a couple
             # Start by finding the mode
             #
             nhist = 20
-            hist, edges = np.histogram(dmag, nhist, new=True)
+            try:
+                hist, edges = np.histogram(dmag, nhist, new=True)
+            except TypeError:
+                hist, edges = np.histogram(dmag, nhist) # they removed new=True around numpy 1.5
             imode = np.arange(nhist)[np.where(hist == hist.max())]
 
             if imode[-1] - imode[0] + 1 == len(imode): # Multiple modes, but all contiguous
