@@ -5,17 +5,12 @@ Import("env")
 # Stolen from ap/python/lsst/ap/SConscript
 pkg = env["eups_product"]
 # CheckSwig() overwrites SWIGFLAGS completely, so save it's value before proceding
-swigflags = ""
-try:
-    swigflags = env['SWIGFLAGS']
-except:
-    pass
-
 env.CheckSwig("python", ilang="c++", includedProducts="utils daf_base daf_persistence daf_data" + " " +
               "pex_exceptions pex_policy pex_logging security afw")
 
 # Append app specific SWIG flags to the environment
-env.Append(SWIGFLAGS = swigflags)
+if env.get("MYSWIGFLAGS"):
+    env.Append(SWIGFLAGS = " " + env["MYSWIGFLAGS"])
 
 env.LoadableModuleIncomplete("_netLib", Split("netLib.i"),
                              CCFLAGS=re.sub("-Wall", "", " ".join(env['CCFLAGS'])),

@@ -70,11 +70,8 @@ if not env.CleanFlagIsSet():
     # Without some help, SWIG disagrees with boost on the actual type of int64_t
     if conf.CustomCompileCheck('Checking whether boost::int64_t is long ... ',
                                boostInt64IsLongCheckSrc, extension='.cc'):
-        conf.env.Append(SWIGFLAGS = '-DSWIGWORDSIZE64')
+        conf.env["MYSWIGFLAGS"] = '-DSWIGWORDSIZE64'
         env = conf.Finish()
-
-
-
 
 #
 # Build/install things
