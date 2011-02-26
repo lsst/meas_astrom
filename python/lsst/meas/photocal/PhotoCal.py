@@ -121,7 +121,7 @@ def getMagnitudes(sourceMatch):
     #so we may need to make an estimate using sqrt(counts)
     fluxCat =    np.array([m.first.getPsfFlux() for m in sourceMatch])
     fluxCatErr = np.array([m.first.getPsfFluxErr() for m in sourceMatch])
-    if True:
+    if False:
         fluxSrc =    np.array([m.second.getPsfFlux()    for m in sourceMatch])
         fluxSrcErr = np.array([m.second.getPsfFluxErr() for m in sourceMatch])
     else:
