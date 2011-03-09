@@ -73,7 +73,9 @@ class PhotoCalTest(unittest.TestCase):
         path = os.path.join(mypath, "examples")
         self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci"))
         self.srcSet = ssi.read(os.path.join(path, "v695833-e0-c000.xy.txt"))
-
+        for s in self.srcSet:
+            s.setApFlux(s.getPsfFlux())
+        
         # The .xy.txt file has sources in the range ~ [0,2000],[0,4500], but
         # the exposure is only one amp -- 1024x1153.  Work around.
         print 'Exposure image size: %i x %i' % (self.exposure.getWidth(), self.exposure.getHeight())
@@ -140,7 +142,7 @@ class PhotoCalTest(unittest.TestCase):
         for m in matches:
             catFlux = m[0].getPsfFlux()     #Catalogue flux
             instFlux = m[1].getPsfFlux()    #Instrumental Flux
-            
+
             if catFlux > 0 and instFlux > 0:
                 catMag = -2.5*np.log10(catFlux) #Cat mag
                 mag = pCal.getMag(instFlux)     #Instrumental mag
@@ -193,6 +195,8 @@ class PhotoCalTest(unittest.TestCase):
             
             s1.setPsfFlux(f1)
             s2.setPsfFlux(f2)
+            s1.setApFlux(f1)
+            s2.setApFlux(f2)
 
             if False:
                 print "flux1 =", f1, "flux2 =", f2
