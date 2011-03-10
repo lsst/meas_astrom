@@ -82,7 +82,7 @@ class TagAlongTest(unittest.TestCase):
         print 'Forcing image size to %i x %i to match source list.' % (self.forceImageSize[0], self.forceImageSize[1])
 
         # Set up local astrometry_net_data
-        datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
+        datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'testTagAlong')
         # Work around lame scons bug (doesn't pass HOME)
         os.environ['HOME'] = 'iswheretheheartis'
         eupsObj = eups.Eups(root=datapath)
