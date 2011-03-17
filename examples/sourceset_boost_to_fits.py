@@ -14,7 +14,7 @@ from lsst.afw.detection import *
 import lsst.meas.algorithms
 
 from astrometry.util.pyfits_utils import *
-from numpy import array
+import numpy as np
 
 def sourceset_read_boost(fn):
     loc = dafPersist.LogicalLocation(fn)
@@ -44,10 +44,19 @@ if __name__ == '__main__':
     sfuncs = dir(ss[0])
     sfuncs.sort()
     fields = [(g, g[3:]) for g in sfuncs if g.startswith('get')]
+    print 'Grabbing fields', [f[1] for f in fields]
     out = tabledata()
+    cols = []
     for getterName,name in fields:
-        out.set(name, array([getattr(s, getterName)() for s in ss]))
+        val = np.array([getattr(s, getterName)() for s in ss])
+        print 'setting', name, 'to', val
+        print '  dtype', val.dtype
+        if val.dtype == object:
+            print 'skipping object column', name
+            continue
+        cols.append(name)
+        out.set(name, val)
     #print 'Writing %i columns to %s' % (len(out.get_columns()), outfn)
-    out.writeto(outfn)
+    out.writeto(outfn, columns=cols)
 
         
