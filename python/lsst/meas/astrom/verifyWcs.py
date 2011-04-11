@@ -24,6 +24,7 @@ import math, sys
 import numpy
 
 import lsst.afw.detection as afwDetection
+import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.afw.math as afwMath
 import lsst.meas.algorithms as measAlg
@@ -47,7 +48,8 @@ def checkMatches(srcMatchSet, exposure, log=None):
     while ny*h < height:
         h += 1
         
-    cellSet = afwMath.SpatialCellSet(afwImage.BBox(afwImage.PointI(0, 0), width, height), w, h)
+    cellSet = afwMath.SpatialCellSet(
+        afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(width, height)), w, h)
     #
     # Populate cellSet
     #

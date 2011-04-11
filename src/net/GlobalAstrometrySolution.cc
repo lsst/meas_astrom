@@ -401,7 +401,7 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
     afwCoord::Coord::ConstPtr raDec = wcsPtr->pixelToSky(xc, yc);
     double const ra = raDec->getLongitude(afwCoord::DEGREES);
     double const dec = raDec->getLatitude(afwCoord::DEGREES);
-    double const plateScaleArcsecPerPixel = sqrt(wcsPtr->pixArea(afwGeom::makePointD(ra, dec)))*3600;
+    double const plateScaleArcsecPerPixel = sqrt(wcsPtr->pixArea(afwGeom::Point2D(ra, dec)))*3600;
     setMinimumImageScale(plateScaleArcsecPerPixel*(1 - unc));
     setMaximumImageScale(plateScaleArcsecPerPixel*(1 + unc));
     
@@ -426,7 +426,7 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
 
 
 ///Find a solution with an initial guess at the position    
-bool GlobalAstrometrySolution::solve(const afw::image::PointD raDec   ///<Right ascension/declination
+bool GlobalAstrometrySolution::solve(const afw::geom::Point2D raDec   ///<Right ascension/declination
                                                ///in decimal degrees
                                           ) {
     return solve(raDec[0], raDec[1]);
@@ -652,10 +652,8 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs()  {
 
     MatchObj* match = solver_get_best_match(_solver);
 
-    lsst::afw::geom::PointD crpix = lsst::afw::geom::makePointD(match->wcstan.crpix[0],
-                                                                match->wcstan.crpix[1]);   
-    lsst::afw::geom::PointD crval = lsst::afw::geom::makePointD(match->wcstan.crval[0],
-                                                                match->wcstan.crval[1]);
+    lsst::afw::geom::Point2D crpix = lsst::afw::geom::Point2D(match->wcstan.crpix[0], match->wcstan.crpix[1]);   
+    lsst::afw::geom::Point2D crval = lsst::afw::geom::Point2D(match->wcstan.crval[0], match->wcstan.crval[1]);
     
     int naxis = 2;   //This is hardcoded into the sip_t structure
     Eigen::Matrix2d CD;
@@ -707,10 +705,8 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "Tweaking failed"));
     }
 
-    lsst::afw::geom::PointD crpix = lsst::afw::geom::makePointD(sip->wcstan.crpix[0],
-                                                                sip->wcstan.crpix[1]);
-    lsst::afw::geom::PointD crval = lsst::afw::geom::makePointD(sip->wcstan.crval[0],
-                                                                sip->wcstan.crval[1]);
+    lsst::afw::geom::Point2D crpix = lsst::afw::geom::Point2D(sip->wcstan.crpix[0], sip->wcstan.crpix[1]);
+    lsst::afw::geom::Point2D crval = lsst::afw::geom::Point2D(sip->wcstan.crval[0], sip->wcstan.crval[1]);
 
     //Linear conversion matrix
     int naxis = 2;
@@ -894,7 +890,7 @@ vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filt
         }
         
         
-        lsst::afw::geom::PointD p = wcsPtr->skyToPixel(ra, dec);
+        lsst::afw::geom::Point2D p = wcsPtr->skyToPixel(ra, dec);
         cPtr->setXAstrom(p[0]);
         cPtr->setYAstrom(p[1]);
 

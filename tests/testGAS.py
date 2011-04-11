@@ -33,6 +33,7 @@ import lsst.pex.policy as pexPolicy
 import lsst.afw.image as afwImage
 import lsst.meas.astrom.net as net
 import lsst.utils.tests as utilsTests
+import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImg
 import lsst.afw.coord as afwCoord
 import lsst.afw.detection.detectionLib as detect
@@ -226,7 +227,7 @@ class SmallSolveGASTestCFHT(unittest.TestCase):
         if not self.gas.exists():
             return
 
-        crval = afwImage.PointD(80.15978319,30.80524999)
+        crval = afwGeom.Point2D(80.15978319,30.80524999)
 
         #Set starlist    
         starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "gd66.xy.txt")
@@ -245,7 +246,7 @@ class SmallSolveGASTestCFHT(unittest.TestCase):
         if not self.gas.exists():
             return
 
-        crval = afwImage.PointD(334.303012, -17.233988)
+        crval = afwGeom.Point2D(334.303012, -17.233988)
         #Set starlist    
         starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
 
@@ -266,7 +267,7 @@ class SmallSolveGASTestCFHT(unittest.TestCase):
         if not self.gas.exists():
             return
 
-        crval = afwImage.PointD(334.303215, -17.329315)
+        crval = afwGeom.Point2D(334.303215, -17.329315)
         #Set starlist    
         starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
 
@@ -287,7 +288,7 @@ class SmallSolveGASTestCFHT(unittest.TestCase):
         if not self.gas.exists():
             return
 
-        crval = afwImage.PointD(334.303215, -17.329315)
+        crval = afwGeom.Point2D(334.303215, -17.329315)
         #Set starlist    
         starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
 
@@ -310,7 +311,7 @@ class SmallSolveGASTestCFHT(unittest.TestCase):
             return #self.assertAlmostEqual(sRaDec.getY(), wRaDec.getY(), 3, "y coord failed for getMatchedSources()")
 
 
-        crval = afwImage.PointD(334.303215, -17.329315)
+        crval = afwGeom.Point2D(334.303215, -17.329315)
         #Set starlist    
         starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
 
@@ -331,7 +332,7 @@ class SmallSolveGASTestCFHT(unittest.TestCase):
         if not self.gas.exists():
             return
 
-        crval = afwImage.PointD(334.303215, -17.329315)
+        crval = afwGeom.Point2D(334.303215, -17.329315)
         #Set starlist    
         starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
 
@@ -353,7 +354,7 @@ class SmallSolveGASTestCFHT(unittest.TestCase):
         if not self.gas.exists():
             return
 
-        crval = afwImage.PointD(334.303215, -17.329315)
+        crval = afwGeom.Point2D(334.303215, -17.329315)
         #Set starlist    
         starlist = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
 

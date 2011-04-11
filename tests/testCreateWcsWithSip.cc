@@ -51,7 +51,7 @@ namespace det = lsst::afw::detection;
 namespace math = lsst::afw::math;
 
 
-afwImg::TanWcs::Ptr createWcsPtr(afwGeom::PointD crval, afwGeom::PointD crpix, Eigen::Matrix2d CD)
+afwImg::TanWcs::Ptr createWcsPtr(afwGeom::Point2D crval, afwGeom::Point2D crpix, Eigen::Matrix2d CD)
 {
     afwImg::TanWcs::Ptr wcs = afwImg::TanWcs::Ptr(new  afwImg::TanWcs(crval, crpix, CD));
     return wcs;
@@ -61,8 +61,8 @@ afwImg::TanWcs::Ptr createWcsPtr(afwGeom::PointD crval, afwGeom::PointD crpix, E
 afwImg::TanWcs::Ptr createDefaultWcsPtr()
 {
 
-    afwGeom::PointD crval = afwGeom::makePointD(44., 45.);
-    afwGeom::PointD crpix = afwGeom::makePointD(0,0);   //(0,0) in lsst coords
+    afwGeom::Point2D crval = afwGeom::Point2D(44., 45.);
+    afwGeom::Point2D crpix = afwGeom::Point2D(0,0);   //(0,0) in lsst coords
     
     double arcsecPerPixel = 1/3600.;
     Eigen::Matrix2d CD;
@@ -136,7 +136,7 @@ void checkResults(afwImg::Wcs::Ptr wcsPtr, afwImg::TanWcs::Ptr sipWcsPtr, vector
         BOOST_CHECK_CLOSE(catD, srcD, 1e-4);         
         
         //Reverse tranform (units are pixels)
-        afwGeom::PointD sipxy = sipWcsPtr->skyToPixel(catA, catD);
+        afwGeom::Point2D sipxy = sipWcsPtr->skyToPixel(catA, catD);
         BOOST_CHECK_CLOSE(srcX+1, sipxy[0]+1, 1e-8);         
         BOOST_CHECK_CLOSE(srcY+1, sipxy[1]+1, 1e-8);         
 

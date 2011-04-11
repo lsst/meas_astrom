@@ -1,5 +1,5 @@
-setupRequired(afw >= 4.1.2.1)
-setupRequired(meas_algorithms >= 4.1.0.0)
+setupRequired(afw >= 4.3.2.0)
+setupRequired(meas_algorithms >= 4.3.1.0)
 setupRequired(pex_logging >= 4.1.1.0)
 
 setupRequired(wcslib >= 4.4.4)
