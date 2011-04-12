@@ -40,7 +40,6 @@ Python interface to lsst::afw::meas::astrom::sip classes
 #include "lsst/afw/geom.h" // should not be needed; ticket #1121
 #define PY_ARRAY_UNIQUE_SYMBOL LSST_MEAS_ASTROM_NUMPY_API
 #include "numpy/arrayobject.h"
-#include "lsst/afw/numpyTypemaps.h"
 %}
 
 %init %{ import_array(); %}
@@ -48,7 +47,7 @@ Python interface to lsst::afw::meas::astrom::sip classes
 %include "lsst/p_lsstSwig.i"
 %include "std_string.i"
 %include "std_vector.i"
-%include "lsst/afw/eigen.i"
+%include "lsst/ndarray/ndarray.i"
 
 %declareEigenMatrix(Eigen::Matrix2d);
 %declareEigenMatrix(Eigen::MatrixXd);

@@ -50,13 +50,14 @@ env = scons.makeEnv(
         ["daf_persistence", "lsst/daf/persistence/Persistence.h", "daf_persistence:C++"],
         ["daf_data", "lsst/daf/data/LsstBase.h", "daf_data:C++"],
         ["eigen", "Eigen/Core.h"],
+        ["ndarray", "lsst/ndarray/Array.h"],
         ["afw", "lsst/afw/image/MaskedImage.h", "afw"],
         ["astrometry_net", "solver.h", "pthread backend"], 
     ],
 )
 
 env.libs["meas_astrom"] +=  env.getlibs("daf_base daf_data daf_persistence pex_logging pex_exceptions " + \
-    "pex_policy security minuit2 afw boost utils wcslib astrometry_net")
+    "pex_policy security minuit2 ndarray afw boost utils wcslib astrometry_net")
 if True:
     #
     # Workaround SConsUtils failure to find numpy .h files. Fixed in sconsUtils >= 3.3.2

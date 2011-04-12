@@ -22,7 +22,7 @@
  * see <http://www.lsstcorp.org/LegalNotices/>.
  */
  
-
+#include "lsst/afw/geom.h"
 #include "lsst/afw/image/TanWcs.h"
 #include "lsst/meas/astrom/net/GlobalAstrometrySolution.h"
 #include "lsst/daf/base/PropertyList.h"
@@ -41,6 +41,7 @@ namespace net {
 
 
 using namespace std;
+namespace afwGeom = lsst::afw::geom;
 namespace afwImg = lsst::afw::image;
 namespace afwCoord = lsst::afw::coord;
 namespace Except = lsst::pex::exceptions;
