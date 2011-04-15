@@ -107,7 +107,7 @@ class TagAlongTest(unittest.TestCase):
         #                                       solver=gas)
         #c = wcs.pixelToSky(self.forceImageSize[0]/2, self.forceImageSize[1]/2)
         #ra,dec = c.getLongitude(afwCoord.DEGREES), c.getLatitude(afwCoord.DEGREES)
-        #radius = wcs.pixArea(afwGeom.makePointD(self.forceImageSize[0]/2, self.forceImageSize[1]/2))
+        #radius = wcs.pixArea(afwGeom.Point2D(self.forceImageSize[0]/2, self.forceImageSize[1]/2))
         #(xyz,radec,inds,tag) = gas.getIndexStars(ra, dec, radius)
 
         (ra,dec,radius) = (-145, 53, 0.02)

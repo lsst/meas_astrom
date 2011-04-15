@@ -76,7 +76,7 @@ class MatchListMetaTest(unittest.TestCase):
 
         # Create a fake blank image of the appropriate size
         (W,H) = (2048,1489)
-        self.exposure = afwImg.ExposureF(W, H)
+        self.exposure = afwImg.ExposureF(afwGeom.Extent2I(W, H))
 
         # Grab source list
         T = fits_table(os.path.join(tests, 'fpobjc-0745-3-0564-cut.fits'))

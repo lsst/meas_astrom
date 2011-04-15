@@ -71,8 +71,8 @@ CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::Sourc
     _calculateReverseMatrices();
 
     //Build a new wcs incorporating thee sip matrices
-    afwGeom::PointD crval = _getCrvalAsGeomPoint();
-    afwGeom::PointD crpix = _linearWcs->getPixelOrigin();
+    afwGeom::Point2D crval = _getCrvalAsGeomPoint();
+    afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
     Eigen::MatrixXd CD = _linearWcs->getCDMatrix();
     
     _newWcs = afwImg::TanWcs::Ptr(new afwImg::TanWcs(crval, crpix, CD, _sipA, _sipB, _sipAp, _sipBp));
@@ -114,7 +114,7 @@ void CreateWcsWithSip::_calculateForwardMatrices() {
     //If for some reason the code stops working, this line may be to blame. It assumes that
     //the function call returns crpix in fits coordinates. If wcs is ever changed to return crpix
     //in lsst coords, this will cause problems
-    afwGeom::PointD crpix = _linearWcs->getPixelOrigin();
+    afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
 
     //Setup
     //
@@ -128,7 +128,7 @@ void CreateWcsWithSip::_calculateForwardMatrices() {
         double ra = _matchList[i].first->getRa();
         double dec = _matchList[i].first->getDec();
         afwCoord::Coord::Ptr  c = afwCoord::Coord::Ptr( new afwCoord::Fk5Coord(ra, dec));
-        afwGeom::PointD p = _linearWcs->skyToIntermediateWorldCoord(c);
+        afwGeom::Point2D p = _linearWcs->skyToIntermediateWorldCoord(c);
         iwc1[i] = p[0];
         iwc2[i] = p[1];
         
@@ -169,7 +169,7 @@ void CreateWcsWithSip::_calculateForwardMatrices() {
     crpix[0] -= mu[0]*CDinv(0,0) + nu[0]*CDinv(0,1); 
     crpix[1] -= mu[0]*CDinv(1,0) + nu[0]*CDinv(1,1);
 
-    afwGeom::PointD crval = _getCrvalAsGeomPoint();
+    afwGeom::Point2D crval = _getCrvalAsGeomPoint();
     _linearWcs = afwImg::Wcs::Ptr( new afwImg::Wcs(crval, crpix, CD));
 
 
@@ -210,7 +210,7 @@ void CreateWcsWithSip::_calculateReverseMatrices() {
     //If for some reason the code stops working, this line may be to blame. It assumes that
     //the function call returns crpix in fits coordinates. If wcs is ever changed to return crpix
     //in lsst coords, this will cause problems
-    afwGeom::PointD crpix = _linearWcs->getPixelOrigin();
+    afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
 
 
     Eigen::VectorXd u(_size), v(_size);
@@ -228,7 +228,7 @@ void CreateWcsWithSip::_calculateReverseMatrices() {
         double ra = _matchList[i].first->getRa();
         double dec = _matchList[i].first->getDec();
         afwCoord::Fk5Coord::Ptr  c = afwCoord::Fk5Coord::Ptr( new afwCoord::Fk5Coord(ra, dec));
-        afwGeom::PointD p = _linearWcs->skyToPixel(c);
+        afwGeom::Point2D p = _linearWcs->skyToPixel(c);
         U[i] = p[0] - crpix[0];
         V[i] = p[1] - crpix[1];
         
@@ -271,7 +271,7 @@ double CreateWcsWithSip::getScatterInPixels() {
         double imgX = imgSrc->getXAstrom();
         double imgY = imgSrc->getYAstrom();
         
-        afwGeom::PointD xy = _newWcs->skyToPixel(catSrc->getRa(), catSrc->getDec());    
+        afwGeom::Point2D xy = _newWcs->skyToPixel(catSrc->getRa(), catSrc->getDec());    
         double catX = xy[0];
         double catY = xy[1];
         
@@ -387,12 +387,12 @@ Eigen::VectorXd CreateWcsWithSip::_leastSquaresSolve(Eigen::VectorXd b, Eigen::M
 }
 
 
-afwGeom::PointD CreateWcsWithSip::_getCrvalAsGeomPoint() {
+afwGeom::Point2D CreateWcsWithSip::_getCrvalAsGeomPoint() {
     afwCoord::Fk5Coord coo = _linearWcs->getSkyOrigin()->toFk5();
     
     double ra =coo.getRa(afwCoord::DEGREES);
     double dec=coo.getDec(afwCoord::DEGREES);
-    return afwGeom::makePointD(ra,dec );
+    return afwGeom::Point2D(ra,dec );
 
 }
 
