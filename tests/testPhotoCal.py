@@ -40,6 +40,7 @@ import lsst.afw.math               as afwMath
 import lsst.afw.image              as afwImg
 import lsst.utils.tests            as utilsTests
 import lsst.pex.policy             as pexPolicy
+from lsst.pex.logging import Log
 import lsst.meas.photocal          as photocal
 
 from lsst.pex.exceptions import LsstCppException
@@ -98,6 +99,22 @@ class PhotoCalTest(unittest.TestCase):
         del self.exposure
         del self.srcSet
 
+    def testGetSourceMatch(self):
+        log = Log.getDefaultLog()
+        solver = measAstrom.createSolver(self.defaultPolicy, log)
+        solver.setStarlist(self.srcSet)
+        solver.setImageSize(*self.forceImageSize)
+        key = 'pixelScaleUncertainty'
+        policy = self.defaultPolicy
+        if policy.exists(key):
+            dscale = float(policy.get(key))
+            solver.solve(self.exposure.getWcs(), dscale)
+        else:
+            solver.solve(self.exposure.getWcs())
+
+        m = solver.getMatchedSources()
+        print 'Got matched sources:', m
+        
                         
     def test1(self):
         astrom = measAstrom.determineWcs(self.defaultPolicy, self.exposure,

@@ -43,32 +43,30 @@ namespace net {
 using namespace std;
 namespace afwImg = lsst::afw::image;
 namespace afwCoord = lsst::afw::coord;
+namespace afwGeom = lsst::afw::geom;
 namespace Except = lsst::pex::exceptions;
-namespace Det = lsst::afw::detection;
+namespace afwDet = lsst::afw::detection;
 namespace pexLog = lsst::pex::logging;
 namespace dafBase = lsst::daf::base;
 
-
 int const USE_ALL_STARS_FOR_SOLUTION = -1;
 
-//Refuse to try to solve star lists with fewer than this many objects. Doing so
-//increases the chances of returning a false match. The number twenty is
-//recommended by astrometry.net as a minimum value.
-static int defaultMinimumNumberOfObjectsToAccept = 20;
-
-
 static vector<double> getTagAlongFromIndex(index_t* index, string fieldName, int *ids, int numIds);
+
+static afwCoord::Coord::Ptr xyztocoord(afwCoord::CoordSystem coordsys, const double* xyz) {
+    afwCoord::Coord::Ptr radec = afwCoord::makeCoord(coordsys, afwGeom::makePointD(xyz[0], xyz[1], xyz[2]));
+    return radec;
+}
 
 //
 //Constructors, Destructors
 //
     GlobalAstrometrySolution::GlobalAstrometrySolution(const std::string policyPath, pexLog::Log mylog):
     _mylog(mylog),
-    _indexList(NULL), 
+    _indexList(), 
     _solver(NULL), 
     _starxy(NULL), 
     _numBrightObjects(USE_ALL_STARS_FOR_SOLUTION),
-    _minimumNumberOfObjectsToAccept(defaultMinimumNumberOfObjectsToAccept),
     _isSolved(false) {
     
     _solver = solver_new();
@@ -82,7 +80,6 @@ static vector<double> getTagAlongFromIndex(index_t* index, string fieldName, int
 
     //Add meta information about every index listed in the policy file
     std::vector<std::string> indexArray = pol.getStringArray("indexFile");
-
 
     _mylog.log(pexLog::Log::DEBUG, "Loading meta information on indices...");    
     for (unsigned int i = 0; i < indexArray.size(); ++i) {
@@ -136,7 +133,7 @@ dafBase::PropertySet::Ptr GlobalAstrometrySolution::getMatchedIndexMetadata() {
                "Reference catalog MD5 checksum");
     free(val);
 
-    // astrometry.net index
+    // Astrometry.net index
     props->add("ANINDID", index->indexid, "Astrometry.net index id");
     props->add("ANINDHP", index->healpix, "Astrometry.net index HEALPix");
     props->add("ANINDNM", std::string(index->indexname),
@@ -164,72 +161,54 @@ std::vector<int> GlobalAstrometrySolution::getIndexIdList() {
     return rtn;
 }
 
-
 index_t *GlobalAstrometrySolution::_loadIndexMeta(std::string filename){
     return index_load(filename.c_str(), INDEX_ONLY_LOAD_METADATA, NULL);
 }
-
 
 GlobalAstrometrySolution::~GlobalAstrometrySolution() {
     for (unsigned int i=0; i<_indexList.size(); i++) {
         index_free(_indexList[i]);
     }
     _indexList.clear();
-
     if ( _starxy != NULL) {
         starxy_free(_starxy);
         _starxy = NULL;
     }
-    
     if (_solver != NULL){
         solver_free(_solver);
         _solver = NULL;
     }
 }
 
-
-///astrometry.net intialises the solver with some default values that guarantee failure in any
-///attempted match. These values are more reasonable. 
 void GlobalAstrometrySolution::setDefaultValues() {
-
-    //Among other things, this sets the parity, positional uncertainty (_solver->verify_pix)                 <
-    //matching accuracy (_solver->codetol                    
+    // Among other things, this sets the parity, positional uncertainty
+    // (_solver->verify_pix) and matching accuracy (_solver->codetol)
     solver_set_default_values(_solver);
-    
-    //Set image scale boundaries (in arcseconds per pixel) to non-zero and non-infinity.
-    //These values still exceed anything you'll find in a real image
+    // Set image scale limits (in arcseconds per pixel) to non-zero and
+    // non-infinity.
     setMinimumImageScale(1e-6);
-    setMaximumImageScale(3600*360);  //2pi radians per pixel
-
-    //How good must a match be to be considered good enough?  Log-odds.
+    setMaximumImageScale(3600*360);
+    // How good must a match be to be considered good enough?  Log-odds.
     setMatchThreshold(log(1e12));
-
+    // Handedness of the CCD coordinate system
+    setParity(UNKNOWN_PARITY);
     // Reset counters and record of best match found so far.
     solver_cleanup_field(_solver);
-
-    setParity(UNKNOWN_PARITY);
 }
 
     
 //
 // Setup functions
 //
-
 void GlobalAstrometrySolution::setImageSize(int W, int H) {
 	 solver_set_field_bounds(_solver, 0, W, 0, H);
 }
 
 ///Set the image to be solved. The image is abstracted as a list of positions in pixel space
-void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec ///<List of Sources
+void GlobalAstrometrySolution::setStarlist(afwDet::SourceSet vec ///<List of Sources
                                           ) {
     if (vec.empty()) {
-        throw(LSST_EXCEPT(pexExcept::LengthErrorException, "Src list contains no objects"));
-    }
-
-    if (vec.size() < (unsigned int) _minimumNumberOfObjectsToAccept) {
-        string msg = boost::str(boost::format("Source list should contain at least %i objects\n") % \
-                 _minimumNumberOfObjectsToAccept);
-        throw(LSST_EXCEPT(Except::LengthErrorException, msg));
+        throw(LSST_EXCEPT(pexExcept::LengthErrorException, "Source list contains no objects"));
     }
 
     // Step 1. Copy every valid element of the input vector into a tempory starlist structure
@@ -238,12 +217,12 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
     starxy_t *tmpStarxy = starxy_new(size, true, false);   
 
     int i = 0;
-    for (lsst::afw::detection::SourceSet::iterator ptr = vec.begin(); ptr != vec.end(); ++ptr) {
+    for (afwDet::SourceSet::iterator ptr = vec.begin(); ptr != vec.end(); ++ptr) {
         double const x    = (*ptr)->getXAstrom();
         double const y    = (*ptr)->getYAstrom();
         double const flux = (*ptr)->getPsfFlux();
 
-        //Only include objects where positions and fluxes are positive finite values
+        // Only include objects where positions and fluxes are positive finite values
         if( isfinite(x)    && (x>=0) &&
             isfinite(y)    && (y>=0) &&
             isfinite(flux) && (flux>0)
@@ -254,36 +233,33 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
         }
     }
 
-    if (i < (int) _minimumNumberOfObjectsToAccept) {
-        string msg = boost::str(boost::format( \
-            "Source list only has %i valid objects, needs %i\n") % i % _minimumNumberOfObjectsToAccept);
+    int nwarn = 15;
+    if (i < nwarn) {
+        string msg = boost::str(boost::format("Source list only has %i valid objects; probably need %i or more\n") % i % nwarn);
         msg += "Valid objects have positive, finite values for x, y and psfFlux";
-        throw(LSST_EXCEPT(pexExcept::LengthErrorException, msg));
+        _mylog.log(pexLog::Log::WARN, msg);
     }
 
-
-    //Step 2. Copy these elements into a new starxy structure of the correct size. If we don't 
-    //do this, starxy will report its size incorrectly, and we'll get confused later on.
-    if (_starxy != NULL) {
+    // Step 2. Copy these elements into a new starxy structure of the correct
+    // size. If we don't do this, starxy will report its size incorrectly, and
+    // we'll get confused later on.
+    if (_starxy)
         starxy_free(_starxy);
-    }
     
-    if(i == size) {
-        //Every part of tmpStarxy is valid
+    if (i == size) {
+        // Every part of tmpStarxy is valid
         _starxy = tmpStarxy;
     } else {
         _starxy = starxy_new(i, true, false);
-        
         for(int j=0; j<i; ++j) {
             starxy_set_x( _starxy, j, starxy_get_x( tmpStarxy, j));
             starxy_set_y( _starxy, j, starxy_get_y( tmpStarxy, j));
             starxy_set_flux( _starxy, j, starxy_get_flux( tmpStarxy, j));
         }
-        
         starxy_free(tmpStarxy);
     }
 
-    //Sort the array
+    // Sort the array
     starxy_sort_by_flux(_starxy);
     _solverSetField();
 }
@@ -294,31 +270,26 @@ void GlobalAstrometrySolution::setStarlist(lsst::afw::detection::SourceSet vec /
 ///The truncated list is used by solve() to get the linear wcs, but all input sources are used when
 ///calculating the distortion terms of the SIP matrix.    
 void GlobalAstrometrySolution::setNumBrightObjects(int N) {
-
-    if (N <= 0) {
-        throw(LSST_EXCEPT(pexExcept::RangeErrorException, "Illegal request. N must be greater than zero"));
-    }
+    if (N <= 0)
+        throw(LSST_EXCEPT(pexExcept::RangeErrorException, "setNumBrightObjects: must be positive"));
 
     _numBrightObjects = N;
-    
-    if (_starxy != NULL){
-       _solverSetField();
-    }
+    if (_starxy)
+        _solverSetField();
 }
 
 
 void GlobalAstrometrySolution::_solverSetField() {
-
     if ( ! _starxy) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "Starlist hasn't been set yet"));
     }
 
     int starxySize = starxy_n(_starxy);
-    if ( starxySize == 0){
+    if (starxySize == 0) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "Starlist has zero elements"));
     }
 
-    int N = _numBrightObjects;  //Because I'm a lazy typist
+    int N = _numBrightObjects;
     //The default value, -1, indicates that all objects should be used
     if (N == USE_ALL_STARS_FOR_SOLUTION) {
         N = starxySize;
@@ -327,20 +298,17 @@ void GlobalAstrometrySolution::_solverSetField() {
     starxy_t *shortlist = starxy_subset(_starxy, N);
     assert(shortlist);
 
-    //Set the pointer in the solver to the new, smaller field
+    // Set the pointer in the solver to the new, smaller field
     starxy_free(solver_get_field(_solver));
     solver_free_field(_solver);
     solver_set_field(_solver, shortlist);
     solver_reset_field_size(_solver);
 
-    //Find field boundaries and precompute kdtree
+    // Find field boundaries and precompute kdtree
     solver_preprocess_field(_solver);
 }   
 
-
-
-
-///Set the plate scale of the image in arcsec per pixel
+// Set the plate scale of the image in arcsec per pixel
 void GlobalAstrometrySolution::setImageScaleArcsecPerPixel(double imgScale ///< Plate scale of image
                                                           ) {
     //Note that the solver will fail if min==max, so we make them different by a small amount.    
@@ -355,18 +323,14 @@ void GlobalAstrometrySolution::setLogLevel(int level) {
     if (level < 0 || level > 4) {
         throw(LSST_EXCEPT(pexExcept::DomainErrorException, "Logging level must be between 0 and 4"));
     }
-    
     log_init((enum log_level) level);
     fits_use_error_system();
 }
 
-
-///    
 ///How good does a match need to be to be accepted. Typical value is log(1e12) approximately 27
 void GlobalAstrometrySolution::setMatchThreshold(double threshold) {
     solver_set_record_logodds(_solver, threshold);
 }
-
 
 ///You can double the speed of a match if you know the parity, i.e whether the image is flipped or not.
 ///North up and East right (or some rotation thereof) is parity==NORMAL_PARITY, the opposite is
@@ -382,36 +346,26 @@ void GlobalAstrometrySolution::setParity(int parity){
 // Solve functions
 //
 
-///Solve using a wcs object as an initial guess
+// Solve using a wcs object as an initial guess
 bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr, 
                                      double imageScaleUncertaintyPercent) {
-
-    //Rename the variable to something shorter to make the code easier to read
     double unc = imageScaleUncertaintyPercent/100.0;
-
-    //This test is strictly unecessary as solverSetField throws the same exception
-    if (! _starxy) {
-        throw LSST_EXCEPT(pexExcept::RuntimeErrorException, "Starlist hasn't been set yet");
-    }
-
     double xc, yc;
     solver_get_field_center(_solver, &xc, &yc);
 
-    //Get the central ra/dec and plate scale
+    // Get the central ra/dec and pixel scale [in arcsec/pixel]
     afwCoord::Coord::ConstPtr raDec = wcsPtr->pixelToSky(xc, yc);
-    double const ra = raDec->getLongitude(afwCoord::DEGREES);
-    double const dec = raDec->getLatitude(afwCoord::DEGREES);
-    double const plateScaleArcsecPerPixel = sqrt(wcsPtr->pixArea(afwGeom::makePointD(ra, dec)))*3600;
-    setMinimumImageScale(plateScaleArcsecPerPixel*(1 - unc));
-    setMaximumImageScale(plateScaleArcsecPerPixel*(1 + unc));
-    
+    double ra  = raDec->getLongitude(afwCoord::DEGREES);
+    double dec = raDec->getLatitude(afwCoord::DEGREES);
     _mylog.log(pexLog::Log::DEBUG,
                boost::format("Solving using initial guess at position of\n %.7f %.7f\n") % ra % dec);
 
-    double lwr = plateScaleArcsecPerPixel*(1 - unc);
-    double upr = plateScaleArcsecPerPixel*(1 + unc);
-                     
-    _mylog.log(pexLog::Log::DEBUG, boost::format("Exposure's WCS scale: %g arcsec/pix; setting scale range %.3f - %.3f arcsec/pixel\n") % plateScaleArcsecPerPixel % lwr % upr);
+    double pixelScale = wcsPtr->pixelScale();
+    double lwr = pixelScale*(1 - unc);
+    double upr = pixelScale*(1 + unc);
+    setMinimumImageScale(lwr);
+    setMaximumImageScale(upr);
+    _mylog.log(pexLog::Log::DEBUG, boost::format("Exposure's WCS scale: %g arcsec/pix; setting scale range %.3f - %.3f arcsec/pixel\n") % pixelScale % lwr % upr);
 
     if ( wcsPtr->isFlipped()) {
         setParity(FLIPPED_PARITY);
@@ -424,7 +378,7 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
     return solve(ra, dec);
 }
 
-
+    // FIXME -- use Coord
 ///Find a solution with an initial guess at the position    
 bool GlobalAstrometrySolution::solve(const afw::image::PointD raDec   ///<Right ascension/declination
                                                ///in decimal degrees
@@ -432,11 +386,9 @@ bool GlobalAstrometrySolution::solve(const afw::image::PointD raDec   ///<Right 
     return solve(raDec[0], raDec[1]);
 }
 
-
-    
 ///Find a solution with an initial guess at the position.
-bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal degrees
-                                     double dec   ///< Declination in decimal degrees
+bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in degrees
+                                     double dec   ///< Declination in degrees
                                           )  {    
     string msg;
 
@@ -461,9 +413,7 @@ bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in decimal
     return _isSolved;
 }
 
-
-///Find a solution blindly, with no initial guess. Go get a cup of tea, this function
-///will take a while
+// Find a solution blindly (with no initial guess)
 bool GlobalAstrometrySolution::solve()  {    
 
     // Don't use any hints about the RA,Dec position.
@@ -472,23 +422,22 @@ bool GlobalAstrometrySolution::solve()  {
     _callSolver(NO_POSITION_SET, NO_POSITION_SET);
 
     if (_isSolved){
-        _mylog.log(pexLog::Log::DEBUG, "Position Found");
         const char* indexname = solver_get_best_match_index_name(_solver);
-        string msg = boost::str(boost::format("Solved index is %s") % indexname);
-        _mylog.log(pexLog::Log::DEBUG, msg);            
+        string msg = boost::str(boost::format("Astrometric solution found with index %s") % indexname);
+        _mylog.log(pexLog::Log::DEBUG, msg);
     } else {
-        _mylog.log(pexLog::Log::DEBUG, "Failed");
+        _mylog.log(pexLog::Log::DEBUG, "Failed to find astrometric solution");
     }
 
     return _isSolved;
 }
 
-///Check that all the setup was done correctly, then set the solver to work
-///By default, _callSolver does a blind solve, unless the optional ra and dec
-///are given values. Sets _isSolved to true if a solution is found
+// Check that all the setup was done correctly, then set the solver to work By
+// default, _callSolver does a blind solve, unless the optional ra and dec are
+// given values. Sets _isSolved to true if a solution is found
 bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
     //Throw exceptions if setup is incorrect
-    if ( ! _starxy) {
+    if ( !_starxy) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "Starlist hasn't been set yet"));
     }
 
@@ -496,7 +445,7 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No index files loaded yet"));
     }
     
-    if (_isSolved){
+    if (_isSolved) {
         string msg = "Solver indicated that a match has already been found. Do you need to reset?";
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
     }
@@ -534,21 +483,14 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
 
     _mylog.log(pexLog::Log::DEBUG, "Setting indices");
     _addSuitableIndicesToSolver(qlo, qhi, ra, dec);
-
     _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
-
-    //solver_print_to(_solver, stdout);
-
     solver_run(_solver);
-
     
     if (solver_did_solve(_solver)) {
         _isSolved = true;
-
         MatchObj* match = solver_get_best_match(_solver);
         _mylog.format(pexLog::Log::DEBUG, "Solved: %i matches, %i conflicts, %i unmatched",
                       (int)match->nmatch, (int)match->nconflict, (int)match->ndistractor);
-
         _mylog.log(pexLog::Log::DEBUG, "Calling tweak2() to tune up match...");
         _mylog.format(pexLog::Log::DEBUG, "Starting log-odds: %g", match->logodds);
         // Use "tweak2" to tune up this match, resulting in a better WCS and more catalog matches.
@@ -558,11 +500,9 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
         solver_tweak2(_solver, match, 1);
 	// -- astrometry_net > 0.30:
         //solver_tweak2(_solver, match, 1, NULL);
-
         _mylog.format(pexLog::Log::DEBUG, "After tweak2: %i matches, %i conflicts, %i unmatched",
                       (int)match->nmatch, (int)match->nconflict, (int)match->ndistractor);
         _mylog.format(pexLog::Log::DEBUG, "After tweak2: log-odds: %g", match->logodds);
-
     } else {
         _isSolved = false;
     }
@@ -652,34 +592,30 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs()  {
 
     MatchObj* match = solver_get_best_match(_solver);
 
-    lsst::afw::geom::PointD crpix = lsst::afw::geom::makePointD(match->wcstan.crpix[0],
+    afwGeom::PointD crpix = afwGeom::makePointD(match->wcstan.crpix[0],
                                                                 match->wcstan.crpix[1]);   
-    lsst::afw::geom::PointD crval = lsst::afw::geom::makePointD(match->wcstan.crval[0],
+    afwGeom::PointD crval = afwGeom::makePointD(match->wcstan.crval[0],
                                                                 match->wcstan.crval[1]);
     
-    int naxis = 2;   //This is hardcoded into the sip_t structure
+    int naxis = 2;
     Eigen::Matrix2d CD;
     for (int i = 0; i<naxis; ++i) {
         for (int j = 0; j<naxis; ++j) {
             CD(i, j) = match->wcstan.cd[i][j];
         }
     }
-
-    std::string const ctype1="RA---TAN";
-    std::string const ctype2="DEC--TAN";
+    std::string const ctype1 = "RA---TAN";
+    std::string const ctype2 = "DEC--TAN";
     return lsst::afw::image::Wcs::Ptr(new lsst::afw::image::Wcs(crval, crpix, CD,
                                                                 ctype1, ctype2, _equinox, _raDecSys)); 
 }
 
-
-///
 ///After solving, return a full Wcs including SIP distortion matrics
 lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order)  {
     if (! _isSolved) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
-
-    if (! _starxy){
+    if (!_starxy) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "Starlist isn't set"));
     }
 
@@ -707,9 +643,9 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "Tweaking failed"));
     }
 
-    lsst::afw::geom::PointD crpix = lsst::afw::geom::makePointD(sip->wcstan.crpix[0],
+    afwGeom::PointD crpix = afwGeom::makePointD(sip->wcstan.crpix[0],
                                                                 sip->wcstan.crpix[1]);
-    lsst::afw::geom::PointD crval = lsst::afw::geom::makePointD(sip->wcstan.crval[0],
+    afwGeom::PointD crval = afwGeom::makePointD(sip->wcstan.crval[0],
                                                                 sip->wcstan.crval[1]);
 
     //Linear conversion matrix
@@ -720,7 +656,6 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
             CD(i, j) = sip->wcstan.cd[i][j];
         }
     }
-
 
     //Forward distortion terms. In the SIP notation, these matrices are referred to
     //as A and B. I can find no documentation that insists that these matrices be
@@ -767,7 +702,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     return wcsPtr;
 }    
 
-  static vector<boost::int64_t> getInt64TagAlongFromIndex(const index_t* index, string fieldName, const int *ids, int numIds) {
+static vector<boost::int64_t> getInt64TagAlongFromIndex(const index_t* index, string fieldName, const int *ids, int numIds) {
     int64_t *tagAlong=NULL;
     string msg;
     vector<boost::int64_t> out(0);
@@ -808,9 +743,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     return out;
 }
 
-
-
-  static vector<boost::int64_t> getIds(const string idName, const index_t* index, const int* starinds, int nstars) {
+static vector<boost::int64_t> getIds(const string idName, const index_t* index, const int* starinds, int nstars) {
     vector<boost::int64_t> ids;
     if (idName != "") {
       ids = getInt64TagAlongFromIndex(index, idName, starinds, nstars);
@@ -824,7 +757,11 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
       }
     */
     return ids;
-  }
+}
+
+lsst::afw::coord::CoordSystem GlobalAstrometrySolution::_getCoordSys() {
+    return afwCoord::makeCoordEnum(_raDecSys);
+}
 
 
 ///\brief Return a list of the sources that match and the catalogue objects they matched to.
@@ -832,16 +769,16 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
 ///For each object in the catalogue that matches an input source return a SourceMatch object
 ///containing a) the catalogue object, b) the source object, c) the distance between them in pixels
 ///For the two objects, X,YAstrom and Ra/Dec are set.
-vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filterName, string idName){
-    if (! _isSolved) {
+vector<afwDet::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filterName, string idName){
+    if (!_isSolved) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
     
-    string msg="";  //Used for exception messages
+    string msg = "";
     MatchObj* match = solver_get_best_match(_solver);
     assert(match->nfield > 0);
     
-    vector<Det::SourceMatch> sourceMatchSet;
+    vector<afwDet::SourceMatch> sourceMatchSet;
     afwImg::Wcs::Ptr wcsPtr = this->getWcs();
 
     // FIXME -- wait, doesn't match->theta possibly have non-matched (negative) entries?!
@@ -850,6 +787,9 @@ vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filt
     vector<boost::int64_t> refId = getIds(idName, match->index, match->theta, match->nfield);
 
     const starxy_t* fieldxy = solver_get_field(_solver);
+
+    // from metadata.paf via _raDecSys
+    afwCoord::CoordSystem coordsys = _getCoordSys();
         
     for (int i=0; i<match->nfield; i++) {
         // "theta" is the mapping from image (aka field) stars to index (aka reference) stars.
@@ -858,56 +798,48 @@ vector<Det::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string filt
             continue;
         
         //Matching input sources    
-        lsst::afw::detection::Source::Ptr sPtr(new lsst::afw::detection::Source());
+        afwDet::Source::Ptr src(new afwDet::Source());
         double x = starxy_getx(fieldxy, i);
         double y = starxy_gety(fieldxy, i);
         double flux = starxy_get_flux(fieldxy, i);
         
-        sPtr->setXAstrom(x);
-        sPtr->setYAstrom(y);
-        sPtr->setPsfFlux(flux);
+        src->setXAstrom(x);
+        src->setYAstrom(y);
+        src->setPsfFlux(flux);
         
         //Weight positions by confidence in the fact that they match
         double confidence = verify_logodds_to_weight(match->matchodds[i]); //Can be == 0
-        sPtr->setXAstromErr( 1/(confidence + DBL_EPSILON));
-        sPtr->setYAstromErr( 1/(confidence + DBL_EPSILON));
+        src->setXAstromErr( 1/(confidence + DBL_EPSILON));
+        src->setYAstromErr( 1/(confidence + DBL_EPSILON));
         
-        afwCoord::Coord::Ptr cooPtr = wcsPtr->pixelToSky(x, y);
-        sPtr->setRa(cooPtr->toFk5().getRa(afwCoord::DEGREES));
-        sPtr->setDec(cooPtr->toFk5().getDec(afwCoord::DEGREES));
+        src->setRaDec(wcsPtr->pixelToSky(x, y));
         
-        //Matching catalogue objects
-        lsst::afw::detection::Source::Ptr cPtr(new lsst::afw::detection::Source());
-        //xyzarr2radecdeg() is defined in astrometry.net. It converts the position of the star
-        //as a three dimensional unit vector to ra,dec.
-        double ra, dec;
-        xyzarr2radecdeg(match->refxyz + match->theta[i]*3, &ra, &dec);
-        cPtr->setRa(ra);
-        cPtr->setDec(dec);
+        // Matching catalogue objects
+        afwDet::Source::Ptr ref(new afwDet::Source());
+        double* xyz = match->refxyz + match->theta[i] * 3;
+        afwCoord::Coord::Ptr radec = xyztocoord(coordsys, xyz);
+        ref->setRaDec(radec);
+
+        afwGeom::PointD p = wcsPtr->skyToPixel(radec);
+        ref->setXAstrom(p[0]);
+        ref->setYAstrom(p[1]);
+
+        ref->setXAstromErr( 1/(confidence + DBL_EPSILON));
+        ref->setYAstromErr( 1/(confidence + DBL_EPSILON));
 
         if (refMag.size()) {
             double mag = refMag[i];
-            cPtr->setPsfFlux( pow(10.0, -mag/2.5) );
+            ref->setPsfFlux( pow(10.0, -mag/2.5) );
         }
         if (refId.size()) {
-	  cPtr->setSourceId(refId[i]);
+	  ref->setSourceId(refId[i]);
         }
-        
-        
-        lsst::afw::geom::PointD p = wcsPtr->skyToPixel(ra, dec);
-        cPtr->setXAstrom(p[0]);
-        cPtr->setYAstrom(p[1]);
 
-        cPtr->setXAstromErr( 1/(confidence + DBL_EPSILON));
-        cPtr->setYAstromErr( 1/(confidence + DBL_EPSILON));
-
-
-        double dx = cPtr->getXAstrom() - sPtr->getXAstrom();
-        double dy = cPtr->getYAstrom() - sPtr->getYAstrom();
+        double dx = ref->getXAstrom() - src->getXAstrom();
+        double dy = ref->getYAstrom() - src->getYAstrom();
         double dist = hypot(dx, dy);
-        sourceMatchSet.push_back(Det::SourceMatch(cPtr, sPtr, dist));
+        sourceMatchSet.push_back(afwDet::SourceMatch(ref, src, dist));
     }
-
 
     return sourceMatchSet;
 }
@@ -940,7 +872,7 @@ vector<string> GlobalAstrometrySolution::getCatalogueMetadataFields() {
     sl_free2(nameList);
         
     return output;
-}    
+}
 
 ///Returns a sourceSet of objects that are nearby in an raDec sense to the best match solution
 ReferenceSources
@@ -949,7 +881,7 @@ GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string i
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
     MatchObj* match = solver_get_best_match(_solver);
-    double* radec;
+    double* xyz;
     int* starinds;
     int nstars;
     double scale;
@@ -958,7 +890,7 @@ GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string i
     int outi;
     
     ReferenceSources refs;
-    Det::SourceSet ss;
+    afwDet::SourceSet ss;
 
     // arcsec/pix
     scale = tan_pixel_scale(&(match->wcstan));
@@ -967,25 +899,27 @@ GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string i
 
     refs.indexid = match->index->indexid;
     
-    startree_search_for(match->index->starkd, match->center, r2, NULL, &radec, &starinds, &nstars);
+    startree_search_for(match->index->starkd, match->center, r2, &xyz, NULL, &starinds, &nstars);
     if (nstars == 0)
         return refs;
 
-    W = match->wcstan.imagew;
-    H = match->wcstan.imageh;
+    afwCoord::CoordSystem coordsys = _getCoordSys();
+
+    W = (int)(match->wcstan.imagew);
+    H = (int)(match->wcstan.imageh);
     outi = 0;
     for (i=0; i<nstars; i++) {
+        double* xyzi;
         double px, py;
-        if (!tan_radec2pixelxy(&(match->wcstan), radec[2*i+0], radec[2*i+1], &px, &py))
+        xyzi = xyz + 3*i;
+        if (!tan_xyzarr2pixelxy(&(match->wcstan), xyzi, &px, &py))
             continue;
         // in bounds (+ margin) ?
         if (px < -margin || px > W+margin || py < -margin || py > H+margin)
             continue;
 
-        // keep it
-        Det::Source::Ptr src(new lsst::afw::detection::Source());
-        src->setRa (radec[2*i+0]);
-        src->setDec(radec[2*i+1]);
+        afwDet::Source::Ptr src(new afwDet::Source());
+        src->setRaDec(xyztocoord(coordsys, xyzi));
         ss.push_back(src);
         starinds[outi] = starinds[i];
         outi++;
@@ -1006,11 +940,10 @@ GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string i
         }
     }
 
-
     vector<int> inds(starinds, starinds + ss.size());
 
     free(starinds);
-    free(radec);
+    free(xyz);
 
     refs.refsources = ss;
     refs.inds = inds;
@@ -1020,20 +953,18 @@ GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string i
     
 
 ///Returns a sourceSet of objects that are nearby in an raDec sense to the best match solution
-lsst::afw::detection::SourceSet 
+afwDet::SourceSet 
 GlobalAstrometrySolution::getCatalogue(double radiusInArcsec, string filterName, string idName) {
-
-    if (! _isSolved) {
+    if (!_isSolved) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
 
-    //Don't free this pointer. It points to memory that will still exist
-    //when this function goes out of scope.
+    // Don't free this!
     MatchObj* match = solver_get_best_match(_solver);
     double *center = match->center;
     double ra, dec;
     xyzarr2radecdeg(center, &ra, &dec);
-    
+    // DEGREES
     ReferenceSources refs = getCatalogue(ra, dec, radiusInArcsec, filterName, idName);
     return refs.refsources;
 }
@@ -1205,12 +1136,14 @@ std::vector<std::vector<double> > GlobalAstrometrySolution::getCatalogueExtra(do
     int nstars = 0;
     double* radecs = NULL;
     double center[3];
+    // DEGREES
     radecdeg2xyzarr(ra, dec, center);
     double radius2 = arcsec2distsq(radiusInArcsec);
     startree_search_for(index->starkd, center, radius2, NULL, &radecs, &starinds, &nstars);
 
     std::vector<double> ras;
     std::vector<double> decs;
+    // DEGREES
     for (int i=0; i<nstars; i++) {
         ras.push_back(radecs[2*i+0]);
         decs.push_back(radecs[2*i+1]);
@@ -1247,6 +1180,8 @@ GlobalAstrometrySolution::getCatalogue(double ra,
     ReferenceSources refs;
     refs.indexid = -1;
 
+    afwCoord::CoordSystem coordsys = _getCoordSys();
+
     for (unsigned int i=0; i<_indexList.size(); i++) {
         index_t* index = _indexList[i];
         if (indexId != -1 && index->indexid != indexId)
@@ -1258,10 +1193,10 @@ GlobalAstrometrySolution::getCatalogue(double ra,
         index_reload(index);
 
         //Find nearby stars
-        double *radec = NULL;
+        double *xyz = NULL;
         int *starinds = NULL;
         int nstars = 0;
-        startree_search_for(index->starkd, center, radius2, NULL, &radec, &starinds, &nstars);
+        startree_search_for(index->starkd, center, radius2, &xyz, NULL, &starinds, &nstars);
 
         if (nstars == 0)
             continue;
@@ -1269,28 +1204,24 @@ GlobalAstrometrySolution::getCatalogue(double ra,
         vector<double> mag = getTagAlongFromIndex(index, filterName, starinds, nstars);
         vector<boost::int64_t> ids = getIds(idName, index, starinds, nstars);
 
-        Det::SourceSet sources;
+        afwDet::SourceSet sources;
         std::vector<int> inds;
 
         // Create a source for every position stored
         for (int j = 0; j<nstars; ++j) {
-            Det::Source::Ptr ptr(new lsst::afw::detection::Source());
-            ptr->setRa(radec[2*j]);
-            ptr->setDec(radec[2*j + 1]);
-
+            afwDet::Source::Ptr src(new afwDet::Source());
+            src->setRaDec(xyztocoord(coordsys, xyz + j*3));
             inds.push_back(starinds[j]);
-
             if (mag.size()) {
                 // convert mag to flux
-                ptr->setPsfFlux( pow(10.0, -mag[j]/2.5) );
+                src->setPsfFlux( pow(10.0, -mag[j]/2.5) );
             }
             if (ids.size()) {
-                ptr->setSourceId(ids[j]);
+                src->setSourceId(ids[j]);
             }
-
-            sources.push_back(ptr);
+            sources.push_back(src);
         }
-        free(radec);
+        free(xyz);
         free(starinds);
 
         refs.indexid = index->indexid;
@@ -1325,6 +1256,10 @@ static vector<double> getTagAlongFromIndex(index_t* index, string fieldName, int
             msg = boost::str(boost::format("Index file \"%s\" has no metadata") % index->indexname);
             throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
         }
+
+        for (int i=0; i<numIds; i++) {
+            assert(ids[i] >= 0);
+        }
         
         tagAlong = startree_get_data_column(index->starkd, fieldName.c_str(), ids, numIds);
 
@@ -1335,7 +1270,7 @@ static vector<double> getTagAlongFromIndex(index_t* index, string fieldName, int
         }
 
         vector<double> out(&tagAlong[0], &tagAlong[numIds]);
-        // the vector constructor makes a copy of the data. (right?)
+        // the vector constructor makes a copy of the data.
         // http://www.sgi.com/tech/stl/Vector.html#1
         free(tagAlong);
         return out;
@@ -1349,17 +1284,16 @@ static vector<double> getTagAlongFromIndex(index_t* index, string fieldName, int
 ///Plate scale of solution in arcsec/pixel. Note this is different than getMin(Max)ImageScale()
 ///which return the intial guesses of platescale.
 double GlobalAstrometrySolution::getSolvedImageScale(){
-    if (! _isSolved) {
+    if (!_isSolved) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
-    MatchObj* match = solver_get_best_match(_solver);
+    MatchObj* match = getMatchObject();
     return match->scale;
 } 
 
 MatchObj* GlobalAstrometrySolution::getMatchObject() {
     return solver_get_best_match(_solver);
 }
-
 
 ///Reset the object so it's ready to match another field.
 void GlobalAstrometrySolution::reset() {

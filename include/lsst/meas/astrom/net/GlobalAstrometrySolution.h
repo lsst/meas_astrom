@@ -43,6 +43,7 @@
 #include "lsst/afw/detection/SourceMatch.h"
 #include "lsst/afw/image/Wcs.h"
 #include "lsst/afw/image/Utils.h"
+#include "lsst/afw/coord/Coord.h"
 #include "lsst/pex/policy/Policy.h"
 #include "lsst/daf/base/PropertySet.h"
 #include "lsst/utils/Utils.h"
@@ -131,16 +132,11 @@ public:
     void setMatchThreshold(double threshold);
     void setParity(int parity);
 
-    ///Finding a match requires a minimum number of objects in the field. astrometry.net
-    ///recommends at least 20, which is the default value for the class. Setting
-    ///the value any lower is probably not a good idea, and may lead to false matches.
-    void setMinimumNumberOfObjectsToAccept(double num){
-        _minimumNumberOfObjectsToAccept = num;
-    }
-
     //Solve for a wcs solution
     bool solve();
+    // RA,Dec in degrees
     bool solve(const afw::image::PointD raDec);
+    // RA,Dec in degrees
     bool solve(double ra, double dec);
     bool solve(const lsst::afw::image::Wcs::Ptr wcsPtr, double imageScaleUncertaintyPercent = 5);
 
@@ -156,6 +152,7 @@ public:
     ReferenceSources
     getCatalogueForSolvedField(std::string filter, std::string idname, double margin);
 
+    // RA,Dec in degrees!
     ReferenceSources
     getCatalogue(double ra, double dec, double radiusInArcsec, 
                  std::string filterName, std::string idName,
@@ -172,10 +169,12 @@ public:
 
     std::vector<TagAlongColumn> getTagAlongColumns(int indexId = -1);
 
-
     lsst::afw::detection::SourceSet getCatalogue(double radiusInArcsec, std::string filterName,
 						 std::string idName);
 
+    // RA,Dec in degrees
+    // Returns a vector of vectors, where the first two are RA and Dec [in degrees],
+    // followed by each of the requested columns.
     std::vector<std::vector<double> > getCatalogueExtra(double ra, double dec, double radiusInArcsec,
                                                        std::vector<std::string> columns, int indexId = -1);
 
@@ -200,16 +199,19 @@ private:
     std::vector<index_t*> _indexList;
 
     solver_t *_solver;
-    starxy_t *_starxy;   ///List of sources to solve for
-    int _numBrightObjects;   //Only use the brightest objects in solve.
-    //Refuse to add starlists with fewer objects than this value
-    int _minimumNumberOfObjectsToAccept; 
+    // List of sources
+    starxy_t *_starxy;
+    // Number of bright sources to use in the solve
+    int _numBrightObjects;
         
-    //Variables indicating the coordinate system of the solution
+    // Variables indicating the coordinate system of the solution
     double _equinox;
     std::string _raDecSys;
-    
+
+    // Did we get an astrometric solution?
     bool _isSolved;
+
+    lsst::afw::coord::CoordSystem _getCoordSys();
 
     index_t *_loadIndexMeta(std::string filename);
 

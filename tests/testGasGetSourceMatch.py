@@ -102,7 +102,6 @@ class GlobalAstrometrySolutionTest(unittest.TestCase):
         metaFile = os.path.join(eups.productDir("astrometry_net_data"), "metadata.paf")
         self.gas = net.GlobalAstrometrySolution(metaFile)
 
-
         starlistFile = os.path.join(eups.productDir("meas_astrom"), "tests", "cfht.xy.txt")
         self.starlist = loadXYFromFile(starlistFile)
         self.gas.setStarlist(self.starlist)
@@ -112,13 +111,10 @@ class GlobalAstrometrySolutionTest(unittest.TestCase):
 
 
     def testOutput(self):
-    
         self.gas.setLogLevel(3)
         flag = self.gas.solve(334.303012, -17.233988)
         #flag = self.gas.solve(wcs)
-        
         self.assertTrue(flag, "Failed to solve")
-        
         sm = self.gas.getMatchedSources()
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-

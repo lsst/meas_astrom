@@ -258,12 +258,10 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     else:
         isSolved = solver.solve(wcsIn)
 
-    moreMeta = dafBase.PropertyList()
-
     # Did we solve?
-    log.log(log.DEBUG, "Finished Solve step.")
+    log.log(log.DEBUG, 'Finished astrometric solution')
     if not isSolved:
-        log.log(log.WARN, "No solution found, using input WCS")
+        log.log(log.WARN, "No astrometric solution found, using input WCS")
         return astrom
     wcs = solver.getWcs()
 
@@ -272,8 +270,6 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     filterName = chooseFilterName(exposure, policy, solver, log, filterName)
     idName = getIdColumn(policy)
     try:
-        #print 'size, fiter, id', imgSizeInArcsec, filterName, idName
-        #cat = solver.getCatalogue(2*imgSizeInArcsec, filterName, idName)
         margin = 50 # pixels
         X = solver.getCatalogueForSolvedField(filterName, idName, margin)
         cat = X.refsources
@@ -338,6 +334,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     exposure.setWcs(wcs)
 
     # add current EUPS astrometry_net_data setup.
+    moreMeta = dafBase.PropertyList()
     andata = os.environ.get('ASTROMETRY_NET_DATA_DIR')
     if andata is None:
         moreMeta.add('ANEUPS', 'none', 'ASTROMETRY_NET_DATA_DIR')
