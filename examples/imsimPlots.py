@@ -158,7 +158,7 @@ def plotsForField(inButler, keys, fixup, plots=None, prefix=''):
     keepi = []
     for i in xrange(len(ref)):
         #print ref[i].getXAstrom(), ref[i].getYAstrom(), ref[i].getRa(), ref[i].getDec()
-        x,y = wcs.skyToPixel(ref[i].getRa(), ref[i].getDec())
+        x,y = wcs.skyToPixel(ref[i].getRaDec())
         if x < 0 or y < 0 or x > W or y > H:
             continue
         ref[i].setXAstrom(x)

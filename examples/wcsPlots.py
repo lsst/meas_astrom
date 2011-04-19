@@ -49,7 +49,7 @@ def plotMatches(imgsources, refsources, matches, wcs, W, H, prefix,
 
     rx,ry = [],[]
     for r in refsources:
-        xy = wcs.skyToPixel(r.getRa(), r.getDec())
+        xy = wcs.skyToPixel(r.getRaDec())
         rx.append(xy[0])
         ry.append(xy[1])
     rx = np.array(rx)
@@ -350,7 +350,7 @@ def plotCorrespondences2(imgsources, refsources, matches, wcs, W, H, prefix,
     print 'rx,ry'
     rx,ry = [],[]
     for r in refsources:
-        xy = wcs.skyToPixel(r.getRa(), r.getDec())
+        xy = wcs.skyToPixel(r.getRaDec())
         rx.append(xy[0])
         ry.append(xy[1])
     rx = np.array(rx)
@@ -398,7 +398,7 @@ def plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix):
 
     rx,ry = [],[]
     for r in refsources:
-        xy = wcs.skyToPixel(r.getRa(), r.getDec())
+        xy = wcs.skyToPixel(r.getRaDec())
         rx.append(xy[0])
         ry.append(xy[1])
     rx = np.array(rx)

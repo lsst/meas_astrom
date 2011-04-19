@@ -81,9 +81,9 @@ def main():
         import numpy as np
 
         fitscols = []
-        fitscols.append(pyfits.Column(name='RA', array=np.array([r.getRa() for r in ref]),
+        fitscols.append(pyfits.Column(name='RA', array=np.degrees(np.array([r.getRa() for r in ref])),
                                   format='D', unit='deg'))
-        fitscols.append(pyfits.Column(name='DEC', array=np.array([r.getDec() for r in ref]),
+        fitscols.append(pyfits.Column(name='DEC', array=np.degrees(np.array([r.getDec() for r in ref])),
                                   format='D', unit='deg'))
         for c,d in zip(cols, tagdata):
             fmap = { 'Int64' : 'K',

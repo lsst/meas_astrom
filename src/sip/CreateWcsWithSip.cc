@@ -111,48 +111,36 @@ int CreateWcsWithSip::getVIndex(int j, int order) {
 
 
 void CreateWcsWithSip::_calculateForwardMatrices() {
-    //If for some reason the code stops working, this line may be to blame. It assumes that
-    //the function call returns crpix in fits coordinates. If wcs is ever changed to return crpix
-    //in lsst coords, this will cause problems
+    // Assumes FITS (1-indexed) coordinates.
     afwGeom::PointD crpix = _linearWcs->getPixelOrigin();
 
-    //Setup
-    //
-
-    //Calculate u, v and intermediate world coordinates
+    // Calculate u, v and intermediate world coordinates
     Eigen::VectorXd u(_size), v(_size), iwc1(_size), iwc2(_size);
     
     for(int i=0; i < _size; ++i) {
-    
-        //iwc's store the intermediate world coordinate positions of catalogue objects
-        double ra = _matchList[i].first->getRa();
-        double dec = _matchList[i].first->getDec();
-        afwCoord::Coord::Ptr  c = afwCoord::Coord::Ptr( new afwCoord::Fk5Coord(ra, dec));
+        // iwc's store the intermediate world coordinate positions of catalogue objects
+        afwCoord::Coord::Ptr c = _matchList[i].first->getRaDec();
         afwGeom::PointD p = _linearWcs->skyToIntermediateWorldCoord(c);
         iwc1[i] = p[0];
         iwc2[i] = p[1];
-        
-        //u and v are intermediate pixel coordinates of observed (distorted) positions
+        // u and v are intermediate pixel coordinates of observed (distorted) positions
         u[i] = _matchList[i].second->getXAstrom() - crpix[0];
         v[i] = _matchList[i].second->getYAstrom() - crpix[1];
     }
     
    
-    //Forward transform
-    //
-    int ord = _sipOrder;    //shorthand
+    // Forward transform
+    int ord = _sipOrder;
     Eigen::MatrixXd forwardC = _calculateCMatrix(u, v, ord);
     Eigen::VectorXd mu = _leastSquaresSolve(iwc1, forwardC);
     Eigen::VectorXd nu = _leastSquaresSolve(iwc2, forwardC);
 
+    // Use mu and nu to refine CD
 
-    //Use mu and nu to refine CD
-    //
-
-    //Given the implementation of getUIndex() and getVIndex(), the refined values
-    //of the elements of the CD matrices are in elements 1 and "_sipOrder" of mu and nu.
-    //If the implementation of getUIndex() and getVIndex() change, these assertions
-    //will catch that change.
+    // Given the implementation of getUIndex() and getVIndex(), the refined values
+    // of the elements of the CD matrices are in elements 1 and "_sipOrder" of mu and nu.
+    // If the implementation of getUIndex() and getVIndex() change, these assertions
+    // will catch that change.
     assert(getUIndex(0, ord) == 0 && getVIndex(0, ord) == 0);
     assert(getUIndex(1, ord) == 0 && getVIndex(1, ord) == 1);
     assert(getUIndex(ord, ord) == 1 && getVIndex(ord, ord) == 0);
@@ -165,16 +153,14 @@ void CreateWcsWithSip::_calculateForwardMatrices() {
 
     Eigen::Matrix2d CDinv = CD.inverse();   //Direct inverse OK for 2x2 matrix in Eigen
 
-    //The zeroth elements correspond to a shift in crpix
+    // The zeroth elements correspond to a shift in crpix
     crpix[0] -= mu[0]*CDinv(0,0) + nu[0]*CDinv(0,1); 
     crpix[1] -= mu[0]*CDinv(1,0) + nu[0]*CDinv(1,1);
 
     afwGeom::PointD crval = _getCrvalAsGeomPoint();
     _linearWcs = afwImg::Wcs::Ptr( new afwImg::Wcs(crval, crpix, CD));
 
-
     //Get Sip terms
-    //
     
     //The rest of the elements correspond to
     //mu[i] == CD11*Apq + CD12*Bpq and
@@ -187,14 +173,11 @@ void CreateWcsWithSip::_calculateForwardMatrices() {
     for(int i=1; i< mu.rows(); ++i) {
         int p = getUIndex(i, ord);
         int q = getVIndex(i, ord);
-        
         if( (p+q > 1) && (p+q < ord)) {    
             Eigen::Vector2d munu(2,1);
             munu(0) = mu(i);
             munu(1) = nu(i);
-            
             Eigen::Vector2d AB = CDinv * munu;
-            
             _sipA(p,q) = AB[0];
             _sipB(p,q) = AB[1];
         }
@@ -206,38 +189,29 @@ void CreateWcsWithSip::_calculateForwardMatrices() {
 
     
 void CreateWcsWithSip::_calculateReverseMatrices() {
-
-    //If for some reason the code stops working, this line may be to blame. It assumes that
-    //the function call returns crpix in fits coordinates. If wcs is ever changed to return crpix
-    //in lsst coords, this will cause problems
+    // Assumes FITS (1-indexed) coordinates.
     afwGeom::PointD crpix = _linearWcs->getPixelOrigin();
-
 
     Eigen::VectorXd u(_size), v(_size);
     Eigen::VectorXd U(_size), V(_size);
     Eigen::VectorXd delta1(_size), delta2(_size);
     
     for(int i=0; i < _size; ++i) {
-
-        //u and v are intermediate pixel coordinates of observed (distorted) positions
+        // u and v are intermediate pixel coordinates of observed (distorted) positions
         u[i] = _matchList[i].second->getXAstrom() - crpix[0];
         v[i] = _matchList[i].second->getYAstrom() - crpix[1];
-
-        //U and V are the true, undistorted intermediate pixel positions as calculated
-        //from the catalogue ra and decs and the (updated) linear wcs
-        double ra = _matchList[i].first->getRa();
-        double dec = _matchList[i].first->getDec();
-        afwCoord::Fk5Coord::Ptr  c = afwCoord::Fk5Coord::Ptr( new afwCoord::Fk5Coord(ra, dec));
+        // U and V are the true, undistorted intermediate pixel positions as calculated
+        // from the catalogue ra and decs and the (updated) linear wcs
+        afwCoord::Coord::Ptr c = _matchList[i].first->getRaDec();
         afwGeom::PointD p = _linearWcs->skyToPixel(c);
         U[i] = p[0] - crpix[0];
         V[i] = p[1] - crpix[1];
-        
         delta1[i] = u[i] - U[i];
         delta2[i] = v[i] - V[i];
     }
     
     
-    //Reverse transform
+    // Reverse transform
     int ord = _reverseSipOrder;
     Eigen::MatrixXd reverseC = _calculateCMatrix(U, V, ord); 
     Eigen::VectorXd tmpA = _leastSquaresSolve(delta1, reverseC);
@@ -247,12 +221,9 @@ void CreateWcsWithSip::_calculateReverseMatrices() {
     for(int j=0; j< tmpA.rows(); ++j) {
         int p = getUIndex(j, ord);
         int q = getVIndex(j, ord);
-
         _sipAp(p,q) = tmpA[j];
         _sipBp(p,q) = tmpB[j];   
     } 
-    
-       
 }
 
 
@@ -271,7 +242,7 @@ double CreateWcsWithSip::getScatterInPixels() {
         double imgX = imgSrc->getXAstrom();
         double imgY = imgSrc->getYAstrom();
         
-        afwGeom::PointD xy = _newWcs->skyToPixel(catSrc->getRa(), catSrc->getDec());    
+        afwGeom::PointD xy = _newWcs->skyToPixel(catSrc->getRaDec());
         double catX = xy[0];
         double catY = xy[1];
         
@@ -288,36 +259,29 @@ double CreateWcsWithSip::getScatterInPixels() {
 ///Get the scatter in position in arcseconds
 double CreateWcsWithSip::getScatterInArcsec() {
     unsigned int size = _matchList.size();
-    
     vector<double> val;
     val.reserve(size);
-    
-    for (unsigned int i = 0; i< size; ++i) {
+    for (unsigned int i = 0; i < size; ++i) {
         det::Source::Ptr catSrc = _matchList[i].first;
         det::Source::Ptr imgSrc = _matchList[i].second;
-
-        double catRa = catSrc->getRa();
-        double catDec = catSrc->getDec();
-        
-        
-        afwCoord::Coord::ConstPtr ad = _newWcs->pixelToSky(imgSrc->getXAstrom(), imgSrc->getYAstrom());    
-        double imgRa = ad->getLongitude(afwCoord::DEGREES);
-        double imgDec = ad->getLatitude(afwCoord::DEGREES);
-        
-        //This is not strictly the correct calculation for distance in raDec space,
-        //but because we are dealing with distances hopefully < 1" it's a reasonable 
-        //approximation
-        val.push_back(hypot(imgRa - catRa, imgDec - catDec));
+        afwCoord::Coord::ConstPtr catRadec = catSrc->getRaDec();
+        afwCoord::Coord::ConstPtr imgRadec = _newWcs->pixelToSky(imgSrc->getXAstrom(), imgSrc->getYAstrom());
+        val.push_back(catRadec->angularSeparation(*imgRadec, afwCoord::DEGREES));
+        /*
+         printf("ras: (%.3f, %.3f), decs: (%.3f, %.3f), dist: %.3f deg / %.3f deg.\n",
+         catRadec->toFk5().getRa(afwCoord::DEGREES),
+         imgRadec->toFk5().getRa(afwCoord::DEGREES),
+         catRadec->toFk5().getDec(afwCoord::DEGREES),
+         imgRadec->toFk5().getDec(afwCoord::DEGREES),
+         catRadec->angularSeparation(*imgRadec, afwCoord::DEGREES),
+         imgRadec->angularSeparation(*catRadec, afwCoord::DEGREES));
+         */
     }
-    
     assert(val.size() > 0);
-    
     math::Statistics stat = math::makeStatistics(val, math::MEDIAN);
     double scatter = stat.getValue(math::MEDIAN);
-    
     return scatter*3600;    //Convert to arcsec
 }
-
 
 
 Eigen::MatrixXd CreateWcsWithSip::_calculateCMatrix(Eigen::VectorXd axis1, Eigen::VectorXd axis2, int order) {
@@ -389,11 +353,9 @@ Eigen::VectorXd CreateWcsWithSip::_leastSquaresSolve(Eigen::VectorXd b, Eigen::M
 
 afwGeom::PointD CreateWcsWithSip::_getCrvalAsGeomPoint() {
     afwCoord::Fk5Coord coo = _linearWcs->getSkyOrigin()->toFk5();
-    
     double ra =coo.getRa(afwCoord::DEGREES);
     double dec=coo.getDec(afwCoord::DEGREES);
-    return afwGeom::makePointD(ra,dec );
-
+    return afwGeom::makePointD(ra,dec);
 }
 
         

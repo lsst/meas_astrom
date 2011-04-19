@@ -310,8 +310,7 @@ def showStandards(standardStarSet, exp, frame, countsMin=None, flagMask=None, rm
     width, height = exp.getMaskedImage().getWidth(), exp.getMaskedImage().getHeight()
     
     for s in standardStarSet:
-        ra, dec = s.getRa(), s.getDec()
-        x, y = wcs.raDecToXY(ra, dec)
+        x,y = wcs.skyToPixel(s.getRaDec())
 
         if x < 0 or x >= width or y < 0 or y >= height:
             continue
@@ -339,9 +338,7 @@ def setRaDec(wcs, sourceSet):
     """Set the ra/dec fields in a sourceSet from [XY]Astrom"""
     
     for s in sourceSet:
-        ra, dec = wcs.xyToRaDec(s.getXAstrom(), s.getYAstrom())
-        s.setRa(ra)
-        s.setDec(dec)
+        s.setRaDec(wcs.pixelToSky(s.getXAstrom(), s.getYAstrom()))
 
 def writeSourceSet(sourceSet, outfile="-"):
     if outfile == "-":

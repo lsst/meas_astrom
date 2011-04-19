@@ -21,10 +21,9 @@
  */
  
 #define BOOST_TEST_DYN_LINK
-#define BOOST_TEST_MODULE testlsf1d
-
-//The boost unit test header
-#include "boost/test/unit_test.hpp"
+#define BOOST_TEST_MODULE testcreatewcswithsip
+#include <boost/test/unit_test.hpp>
+#include <boost/test/floating_point_comparison.hpp>
 
 using namespace std;
 
@@ -95,11 +94,10 @@ vector<afwDet::SourceMatch> generateSourceSet(afwImg::TanWcs::Ptr wcsPtr)
             src->setXAstrom(i);
             src->setYAstrom(j);
 
-            afwCoord::Fk5Coord c = wcsPtr->pixelToSky(i, j)->toFk5();
-            
-            cat->setRa(c.getRa(afwCoord::DEGREES));
-            cat->setDec(c.getDec(afwCoord::DEGREES));
-            
+            afwCoord::Coord::Ptr c = wcsPtr->pixelToSky(i, j);
+			cat->setRaDec(c);
+			printf("RA,Dec = (%.3f, %.3f) deg\n", c->toFk5().getRa(afwCoord::DEGREES), c->toFk5().getDec(afwCoord::DEGREES));
+
             double dist = hypot(src->getXAstrom()-cat->getXAstrom(), src->getYAstrom() - cat->getYAstrom());
             sourceMatchSet.push_back(afwDet::SourceMatch(cat, src, dist));
         }
@@ -114,34 +112,29 @@ vector<afwDet::SourceMatch> generateSourceSet(afwImg::TanWcs::Ptr wcsPtr)
 
 void checkResults(afwImg::Wcs::Ptr wcsPtr, afwImg::TanWcs::Ptr sipWcsPtr, vector<afwDet::SourceMatch> sourceMatchSet)
 {
+	//printf("sourceMatchSet size: %i\n", (int)sourceMatchSet.size());
     for(unsigned int i=0; i< sourceMatchSet.size(); ++i)
     {
-        double catX = sourceMatchSet[i].first->getXAstrom();
-        double catY = sourceMatchSet[i].first->getYAstrom();    
-        
-        double srcX = sourceMatchSet[i].second->getXAstrom();
-        double srcY = sourceMatchSet[i].second->getYAstrom();    
-    
-        afwCoord::Fk5Coord catCoo = wcsPtr->pixelToSky(catX, catY)->toFk5();
-        afwCoord::Fk5Coord srcCoo = sipWcsPtr->pixelToSky(srcX, srcY)->toFk5();
-        
-        double catA = sourceMatchSet[i].first->getRa(); //catCoo.getRa(afwCoord::DEGREES);
-        double catD = sourceMatchSet[i].first->getDec(); //catCoo.getDec(afwCoord::DEGREES);
-        
-        double srcA = srcCoo.getRa(afwCoord::DEGREES);
-        double srcD = srcCoo.getDec(afwCoord::DEGREES);
-
-        //Forward transform (units are degrees)    
-        BOOST_CHECK_CLOSE(catA, srcA, 1e-4);         
-        BOOST_CHECK_CLOSE(catD, srcD, 1e-4);         
-        
-        //Reverse tranform (units are pixels)
-        afwGeom::PointD sipxy = sipWcsPtr->skyToPixel(catA, catD);
-        BOOST_CHECK_CLOSE(srcX+1, sipxy[0]+1, 1e-8);         
-        BOOST_CHECK_CLOSE(srcY+1, sipxy[1]+1, 1e-8);         
-
+		afwDet::Source::Ptr cat = sourceMatchSet[i].first;
+		afwDet::Source::Ptr src = sourceMatchSet[i].second;
+        double srcX = src->getXAstrom();
+        double srcY = src->getYAstrom();    
+		double catRa  = cat->getRa();
+		double catDec = cat->getDec();
+		afwCoord::Fk5Coord srcRaDec = sipWcsPtr->pixelToSky(srcX, srcY)->toFk5();
+		afwCoord::CoordUnit RAD = afwCoord::RADIANS;
+		/*
+		 printf("cat RA,Dec = (%.5f, %.5f) rad\n", catRa, catDec);
+		 printf("src RA,Dec = (%.5f, %.5f) rad\n", srcRaDec.getRa(RAD), srcRaDec.getDec(RAD));
+		 */
+		// these are in radians
+		BOOST_CHECK_SMALL(catRa  - srcRaDec.getRa(RAD),  1e-6);
+		BOOST_CHECK_SMALL(catDec - srcRaDec.getDec(RAD), 1e-6);
+		// these are in pixels.
+        afwGeom::PointD catxy = sipWcsPtr->skyToPixel(cat->getRaDec());
+        BOOST_CHECK_SMALL(srcX - catxy[0], 1e-6);
+        BOOST_CHECK_SMALL(srcY - catxy[1], 1e-6);
     }
-
 }
 
 

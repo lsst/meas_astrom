@@ -132,9 +132,7 @@ class DistortedImageTestCase(unittest.TestCase):
 
         #Set catalogue ra and decs
         for src in cat:
-            raDec = catWcs.pixelToSky(src.getXAstrom(), src.getYAstrom())
-            src.setRa(math.degrees(raDec[0]))
-            src.setDec(math.degrees(raDec[1]))
+            src.setRaDec(catWcs.pixelToSky(src.getXAstrom(), src.getYAstrom()))
 
         return cat
 

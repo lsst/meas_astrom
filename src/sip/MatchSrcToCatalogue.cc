@@ -97,21 +97,13 @@ void sip::MatchSrcToCatalogue::findMatches() {
     for (unsigned int i = 0; i< _imgSet.size(); ++i) {
         double x = _imgSet[i]->getXAstrom();
         double y = _imgSet[i]->getYAstrom();
-
         afwCoord::Coord::ConstPtr raDec = _wcs->pixelToSky(x, y);
-
-        _imgSet[i]->setRa(raDec->getLongitude(afwCoord::DEGREES));
-        _imgSet[i]->setDec(raDec->getLatitude(afwCoord::DEGREES));
+        _imgSet[i]->setRaDec(raDec);
     }
 
     //For completeness, set x and y for the catSrc
     for (unsigned int i = 0; i< _catSet.size(); ++i) {
-        double ra = _catSet[i]->getRa();
-        double dec = _catSet[i]->getDec();
-
-        afwCoord::IcrsCoord::Ptr raDec(new afwCoord::IcrsCoord(ra, dec));
-        afwGeom::PointD p = _wcs->skyToPixel(raDec);
-
+        afwGeom::PointD p = _wcs->skyToPixel(_catSet[i]->getRaDec());
         _catSet[i]->setXAstrom(p[0]);
         _catSet[i]->setYAstrom(p[1]);
     }
