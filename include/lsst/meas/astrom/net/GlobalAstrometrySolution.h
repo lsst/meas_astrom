@@ -134,8 +134,11 @@ public:
 
     //Solve for a wcs solution
     bool solve();
+
     // RA,Dec in degrees
-    bool solve(const afw::image::PointD raDec);
+    // FIXME -- should be a Coord.
+    bool solve(const afw::geom::Point2D raDec);
+
     // RA,Dec in degrees
     bool solve(double ra, double dec);
     bool solve(const lsst::afw::image::Wcs::Ptr wcsPtr, double imageScaleUncertaintyPercent = 5);

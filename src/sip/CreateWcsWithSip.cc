@@ -71,8 +71,8 @@ CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::Sourc
     _calculateReverseMatrices();
 
     //Build a new wcs incorporating thee sip matrices
-    afwGeom::PointD crval = _getCrvalAsGeomPoint();
-    afwGeom::PointD crpix = _linearWcs->getPixelOrigin();
+    afwGeom::Point2D crval = _getCrvalAsGeomPoint();
+    afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
     Eigen::MatrixXd CD = _linearWcs->getCDMatrix();
     
     _newWcs = afwImg::TanWcs::Ptr(new afwImg::TanWcs(crval, crpix, CD, _sipA, _sipB, _sipAp, _sipBp));
@@ -112,7 +112,7 @@ int CreateWcsWithSip::getVIndex(int j, int order) {
 
 void CreateWcsWithSip::_calculateForwardMatrices() {
     // Assumes FITS (1-indexed) coordinates.
-    afwGeom::PointD crpix = _linearWcs->getPixelOrigin();
+    afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
 
     // Calculate u, v and intermediate world coordinates
     Eigen::VectorXd u(_size), v(_size), iwc1(_size), iwc2(_size);
@@ -120,7 +120,7 @@ void CreateWcsWithSip::_calculateForwardMatrices() {
     for(int i=0; i < _size; ++i) {
         // iwc's store the intermediate world coordinate positions of catalogue objects
         afwCoord::Coord::Ptr c = _matchList[i].first->getRaDec();
-        afwGeom::PointD p = _linearWcs->skyToIntermediateWorldCoord(c);
+        afwGeom::Point2D p = _linearWcs->skyToIntermediateWorldCoord(c);
         iwc1[i] = p[0];
         iwc2[i] = p[1];
         // u and v are intermediate pixel coordinates of observed (distorted) positions
@@ -157,7 +157,7 @@ void CreateWcsWithSip::_calculateForwardMatrices() {
     crpix[0] -= mu[0]*CDinv(0,0) + nu[0]*CDinv(0,1); 
     crpix[1] -= mu[0]*CDinv(1,0) + nu[0]*CDinv(1,1);
 
-    afwGeom::PointD crval = _getCrvalAsGeomPoint();
+    afwGeom::Point2D crval = _getCrvalAsGeomPoint();
     _linearWcs = afwImg::Wcs::Ptr( new afwImg::Wcs(crval, crpix, CD));
 
     //Get Sip terms
@@ -190,7 +190,7 @@ void CreateWcsWithSip::_calculateForwardMatrices() {
     
 void CreateWcsWithSip::_calculateReverseMatrices() {
     // Assumes FITS (1-indexed) coordinates.
-    afwGeom::PointD crpix = _linearWcs->getPixelOrigin();
+    afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
 
     Eigen::VectorXd u(_size), v(_size);
     Eigen::VectorXd U(_size), V(_size);
@@ -203,7 +203,7 @@ void CreateWcsWithSip::_calculateReverseMatrices() {
         // U and V are the true, undistorted intermediate pixel positions as calculated
         // from the catalogue ra and decs and the (updated) linear wcs
         afwCoord::Coord::Ptr c = _matchList[i].first->getRaDec();
-        afwGeom::PointD p = _linearWcs->skyToPixel(c);
+        afwGeom::Point2D p = _linearWcs->skyToPixel(c);
         U[i] = p[0] - crpix[0];
         V[i] = p[1] - crpix[1];
         delta1[i] = u[i] - U[i];
@@ -242,7 +242,7 @@ double CreateWcsWithSip::getScatterInPixels() {
         double imgX = imgSrc->getXAstrom();
         double imgY = imgSrc->getYAstrom();
         
-        afwGeom::PointD xy = _newWcs->skyToPixel(catSrc->getRaDec());
+        afwGeom::Point2D xy = _newWcs->skyToPixel(catSrc->getRaDec());
         double catX = xy[0];
         double catY = xy[1];
         
@@ -351,11 +351,11 @@ Eigen::VectorXd CreateWcsWithSip::_leastSquaresSolve(Eigen::VectorXd b, Eigen::M
 }
 
 
-afwGeom::PointD CreateWcsWithSip::_getCrvalAsGeomPoint() {
+afwGeom::Point2D CreateWcsWithSip::_getCrvalAsGeomPoint() {
     afwCoord::Fk5Coord coo = _linearWcs->getSkyOrigin()->toFk5();
     double ra =coo.getRa(afwCoord::DEGREES);
     double dec=coo.getDec(afwCoord::DEGREES);
-    return afwGeom::makePointD(ra,dec);
+    return afwGeom::Point2D(ra,dec);
 }
 
         

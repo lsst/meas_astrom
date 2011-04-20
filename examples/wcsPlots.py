@@ -571,7 +571,7 @@ def plotDistortion(sip, W, H, ncells, prefix, titletxt, exaggerate=1.,
     for y in cy:
         dx,dy = [],[]
         for x in xx:
-            pix = afwGeom.makePointD(x, y)
+            pix = afwGeom.Point2D(x, y)
             distpix = sip.distortPixel(pix)
             dx.append(distpix[0])
             dy.append(distpix[1])
@@ -586,7 +586,7 @@ def plotDistortion(sip, W, H, ncells, prefix, titletxt, exaggerate=1.,
     for x in cx:
         dx,dy = [],[]
         for y in yy:
-            pix = afwGeom.makePointD(x, y)
+            pix = afwGeom.Point2D(x, y)
             distpix = sip.distortPixel(pix)
             dx.append(distpix[0])
             dy.append(distpix[1])

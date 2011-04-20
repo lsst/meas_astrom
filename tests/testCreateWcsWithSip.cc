@@ -50,7 +50,7 @@ namespace det = lsst::afw::detection;
 namespace math = lsst::afw::math;
 
 
-afwImg::TanWcs::Ptr createWcsPtr(afwGeom::PointD crval, afwGeom::PointD crpix, Eigen::Matrix2d CD)
+afwImg::TanWcs::Ptr createWcsPtr(afwGeom::Point2D crval, afwGeom::Point2D crpix, Eigen::Matrix2d CD)
 {
     afwImg::TanWcs::Ptr wcs = afwImg::TanWcs::Ptr(new  afwImg::TanWcs(crval, crpix, CD));
     return wcs;
@@ -60,8 +60,8 @@ afwImg::TanWcs::Ptr createWcsPtr(afwGeom::PointD crval, afwGeom::PointD crpix, E
 afwImg::TanWcs::Ptr createDefaultWcsPtr()
 {
 
-    afwGeom::PointD crval = afwGeom::makePointD(44., 45.);
-    afwGeom::PointD crpix = afwGeom::makePointD(0,0);   //(0,0) in lsst coords
+    afwGeom::Point2D crval = afwGeom::Point2D(44., 45.);
+    afwGeom::Point2D crpix = afwGeom::Point2D(0,0);   //(0,0) in lsst coords
     
     double arcsecPerPixel = 1/3600.;
     Eigen::Matrix2d CD;
@@ -131,7 +131,7 @@ void checkResults(afwImg::Wcs::Ptr wcsPtr, afwImg::TanWcs::Ptr sipWcsPtr, vector
 		BOOST_CHECK_SMALL(catRa  - srcRaDec.getRa(RAD),  1e-6);
 		BOOST_CHECK_SMALL(catDec - srcRaDec.getDec(RAD), 1e-6);
 		// these are in pixels.
-        afwGeom::PointD catxy = sipWcsPtr->skyToPixel(cat->getRaDec());
+        afwGeom::Point2D catxy = sipWcsPtr->skyToPixel(cat->getRaDec());
         BOOST_CHECK_SMALL(srcX - catxy[0], 1e-6);
         BOOST_CHECK_SMALL(srcY - catxy[1], 1e-6);
     }

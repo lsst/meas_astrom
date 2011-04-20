@@ -115,8 +115,8 @@ elif opt == 2:
     #are too far off, then the solver will fail
     success = gas.solve(ra, dec)
 elif opt == 3:
-    #Position can also be passed as a PointD object
-    pos = afwImage.PointD(ra, dec)
+    #Position can also be passed as a Point2D object
+    pos = afwGeom.Point2D(ra, dec)
     success = gas.solve(pos)
 elif opt == 4:
     #You can also pass in a wcs, which is used as an initial guess

@@ -22,7 +22,7 @@
  * see <http://www.lsstcorp.org/LegalNotices/>.
  */
  
-
+#include "lsst/afw/geom.h"
 #include "lsst/afw/image/TanWcs.h"
 #include "lsst/meas/astrom/net/GlobalAstrometrySolution.h"
 #include "lsst/daf/base/PropertyList.h"
@@ -41,6 +41,7 @@ namespace net {
 
 
 using namespace std;
+namespace afwGeom = lsst::afw::geom;
 namespace afwImg = lsst::afw::image;
 namespace afwCoord = lsst::afw::coord;
 namespace afwGeom = lsst::afw::geom;
@@ -54,7 +55,7 @@ int const USE_ALL_STARS_FOR_SOLUTION = -1;
 static vector<double> getTagAlongFromIndex(index_t* index, string fieldName, int *ids, int numIds);
 
 static afwCoord::Coord::Ptr xyztocoord(afwCoord::CoordSystem coordsys, const double* xyz) {
-    afwCoord::Coord::Ptr radec = afwCoord::makeCoord(coordsys, afwGeom::makePointD(xyz[0], xyz[1], xyz[2]));
+    afwCoord::Coord::Ptr radec = afwCoord::makeCoord(coordsys, afwGeom::Point3D(xyz[0], xyz[1], xyz[2]));
     return radec;
 }
 
@@ -380,7 +381,7 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
 
     // FIXME -- use Coord
 ///Find a solution with an initial guess at the position    
-bool GlobalAstrometrySolution::solve(const afw::image::PointD raDec   ///<Right ascension/declination
+bool GlobalAstrometrySolution::solve(const afw::geom::Point2D raDec   ///<Right ascension/declination
                                                ///in decimal degrees
                                           ) {
     return solve(raDec[0], raDec[1]);
@@ -592,10 +593,8 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getWcs()  {
 
     MatchObj* match = solver_get_best_match(_solver);
 
-    afwGeom::PointD crpix = afwGeom::makePointD(match->wcstan.crpix[0],
-                                                                match->wcstan.crpix[1]);   
-    afwGeom::PointD crval = afwGeom::makePointD(match->wcstan.crval[0],
-                                                                match->wcstan.crval[1]);
+    afwGeom::Point2D crpix = afwGeom::Point2D(match->wcstan.crpix[0], match->wcstan.crpix[1]);
+    afwGeom::Point2D crval = afwGeom::Point2D(match->wcstan.crval[0], match->wcstan.crval[1]);
     
     int naxis = 2;
     Eigen::Matrix2d CD;
@@ -643,10 +642,8 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "Tweaking failed"));
     }
 
-    afwGeom::PointD crpix = afwGeom::makePointD(sip->wcstan.crpix[0],
-                                                                sip->wcstan.crpix[1]);
-    afwGeom::PointD crval = afwGeom::makePointD(sip->wcstan.crval[0],
-                                                                sip->wcstan.crval[1]);
+    afwGeom::Point2D crpix = afwGeom::Point2D(sip->wcstan.crpix[0], sip->wcstan.crpix[1]);
+    afwGeom::Point2D crval = afwGeom::Point2D(sip->wcstan.crval[0], sip->wcstan.crval[1]);
 
     //Linear conversion matrix
     int naxis = 2;

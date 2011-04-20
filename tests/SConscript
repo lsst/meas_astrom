@@ -8,7 +8,7 @@ import lsst.tests
 for fileName in glob.glob("*.cc"):
     env.Program(fileName, LIBS=env.getlibs("meas_astrom"))
 
-ignoreList = ["testConvertCheby"]
+ignoreList = []
 tests = lsst.tests.Control(env, ignoreList=ignoreList)
 
 if not eups.productDir("astrometry_net_data"):

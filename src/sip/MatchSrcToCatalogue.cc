@@ -28,7 +28,6 @@
 namespace except = lsst::pex::exceptions;
 namespace afwCoord = lsst::afw::coord;
 namespace afwGeom = lsst::afw::geom;
-namespace afwImg = lsst::afw::image;
 namespace det = lsst::afw::detection;
 namespace sip = lsst::meas::astrom::sip;
 
@@ -103,7 +102,7 @@ void sip::MatchSrcToCatalogue::findMatches() {
 
     //For completeness, set x and y for the catSrc
     for (unsigned int i = 0; i< _catSet.size(); ++i) {
-        afwGeom::PointD p = _wcs->skyToPixel(_catSet[i]->getRaDec());
+        afwGeom::Point2D p = _wcs->skyToPixel(_catSet[i]->getRaDec());
         _catSet[i]->setXAstrom(p[0]);
         _catSet[i]->setYAstrom(p[1]);
     }

@@ -24,6 +24,7 @@ import math, os, sys
 import eups
 import lsst.pex.policy as policy
 import lsst.afw.detection as afwDetection
+import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.afw.math as afwMath
 import lsst.afw.display.ds9 as ds9
@@ -54,11 +55,9 @@ def detectFootprints(exposure, positiveThreshold, psf=None, negativeThreshold=No
 
     if not psf:                         # no need to convolve if we don't know the PSF
         convolvedImage = maskedImage
-        llc = afwImage.PointI(0, 0)
-        urc = afwImage.PointI(maskedImage.getWidth() - 1, maskedImage.getHeight() - 1)
+        goodBBox = maskedImage.getBBox(afwImage.PARENT)
     else:
-        convolvedImage = maskedImage.Factory(maskedImage.getDimensions())
-        convolvedImage.setXY0(maskedImage.getXY0())
+        convolvedImage = maskedImage.Factory(maskedImage.getBBox(afwImage.PARENT))
         
         if display:
             ds9.mtv(maskedImage)
@@ -71,13 +70,9 @@ def detectFootprints(exposure, positiveThreshold, psf=None, negativeThreshold=No
         #
         # Only search psf-smooth part of frame
         #
-        llc = afwImage.PointI(psf.getKernel().getWidth()/2, 
-                            psf.getKernel().getHeight()/2)
-        urc = afwImage.PointI(convolvedImage.getWidth() - 1, convolvedImage.getHeight() - 1)
-        urc -= llc
+        goodBBox = psf.getKernel().shrinkBBox(maskedImage.getBBox(afwImage.PARENT))
 
-    bbox = afwImage.BBox(llc, urc)
-    middle = convolvedImage.Factory(convolvedImage, bbox)
+    middle = convolvedImage.Factory(convolvedImage, goodBBox, afwImage.PARENT)
 
     dsNegative = None 
     if negativeThreshold != None:
@@ -92,11 +87,9 @@ def detectFootprints(exposure, positiveThreshold, psf=None, negativeThreshold=No
     #
     # ds only searched the middle but it belongs to the entire MaskedImage
     #
-    dsPositive.setRegion(afwImage.BBox(afwImage.PointI(maskedImage.getX0(), maskedImage.getY0()),
-                                       maskedImage.getWidth(), maskedImage.getHeight()));
+    dsPositive.setRegion(maskedImage.getBBox(afwImage.PARENT))
     if dsNegative:
-        dsNegative.setRegion(afwImage.BBox(afwImage.PointI(maskedImage.getX0(), maskedImage.getY0()),
-                                           maskedImage.getWidth(), maskedImage.getHeight()));
+        dsNegative.setRegion(maskedImage.getBBox(afwImage.PARENT))
     #
     # We want to grow the detections into the edge by at least one pixel so that it sees the EDGE bit
     #
@@ -231,7 +224,7 @@ def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF
 
     for what in ("header", "data"):
         if what == "header":
-            bbox = afwImage.BBox()
+            bbox = afwGeom.Box2I()
             ampBBox = {}
             wcs = {}
         else:
@@ -247,12 +240,12 @@ def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF
 
             if what == "header":
                 md = afwImage.readMetadata(filename + "_img.fits")
-                xy0 = afwImage.PointI(md.get("CRVAL1A"), md.get("CRVAL2A"))
-                xy1 = xy0 + afwImage.PointI(md.get("NAXIS1") - 1, md.get("NAXIS2") - 1)
+                xy0 = afwGeom.Point2I(md.get("CRVAL1A"), md.get("CRVAL2A"))
+                xy1 = xy0 + afwGeom.Extent2I(md.get("NAXIS1") - 1, md.get("NAXIS2") - 1)
                 bbox.grow(xy0)
                 bbox.grow(xy1)
 
-                ampBBox[a] = afwImage.BBox(xy0, xy1)
+                ampBBox[a] = afwGeom.Box2I(xy0, xy1)
                 wcs[a] = afwImage.Wcs(md)
             else:
                 try:

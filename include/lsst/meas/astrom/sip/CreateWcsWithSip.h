@@ -133,7 +133,7 @@ private:
     Eigen::MatrixXd _calculateCMatrix(Eigen::VectorXd axis1, Eigen::VectorXd axis2, int order);
     Eigen::VectorXd _leastSquaresSolve(Eigen::VectorXd b, Eigen::MatrixXd A);
     
-    lsst::afw::geom::PointD _getCrvalAsGeomPoint();
+    lsst::afw::geom::Point2D _getCrvalAsGeomPoint();
     
     int getUIndex(int j, int order);
     int getVIndex(int j, int order);
