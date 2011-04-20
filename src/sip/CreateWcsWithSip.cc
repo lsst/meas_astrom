@@ -70,7 +70,7 @@ CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::Sourc
     _calculateForwardMatrices();
     _calculateReverseMatrices();
 
-    //Build a new wcs incorporating thee sip matrices
+    //Build a new wcs incorporating the sip matrices
     afwGeom::Point2D crval = _getCrvalAsGeomPoint();
     afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
     Eigen::MatrixXd CD = _linearWcs->getCDMatrix();
@@ -351,8 +351,10 @@ Eigen::VectorXd CreateWcsWithSip::_leastSquaresSolve(Eigen::VectorXd b, Eigen::M
 }
 
 
+
 afwGeom::Point2D CreateWcsWithSip::_getCrvalAsGeomPoint() {
     afwCoord::Fk5Coord coo = _linearWcs->getSkyOrigin()->toFk5();
+    // NOTE, these are in degrees to agree with Wcs / TanWcs
     double ra =coo.getRa(afwCoord::DEGREES);
     double dec=coo.getDec(afwCoord::DEGREES);
     return afwGeom::Point2D(ra,dec);
