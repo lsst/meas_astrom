@@ -111,6 +111,8 @@ public:
     ///Get the number of terms in the SIP matrix
     inline int getOrder() { return  _sipA.rows(); }
 
+    inline int getNPoints() { return _size; }
+
 private:
     
     const std::vector<lsst::afw::detection::SourceMatch> _matchList;

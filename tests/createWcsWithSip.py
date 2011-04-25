@@ -105,14 +105,15 @@ class CreateWcsWithSipCase(unittest.TestCase):
         self.assertTrue(flag, "Failed to solve distorted image. Too much distortion?")
         imgWcs = gas.getWcs()
         gas.reset()
-    
+
         #Create a wcs with sip
         matchList = self.matchSrcAndCatalogue(cat, img, imgWcs)
         sipObject = sip.CreateWcsWithSip(matchList, imgWcs, 3)
         imgWcs = sipObject.getNewWcs()
 
+        print 'number of matches:', len(matchList), sipObject.getNPoints()
         scatter = sipObject.getScatterInArcsec()
-        print "Scatter in arcsec is %g" %(scatter)
+        print "Scatter in arcsec is %g" % (scatter)
         self.assertTrue(scatter < self.tolArcsec, "Scatter exceeds tolerance in arcsec")
 
         if False:
@@ -123,7 +124,6 @@ class CreateWcsWithSipCase(unittest.TestCase):
     def loadCatalogue(self, filename, gas):
         """Load a list of xy points from a file, solve for position, and
         return a SourceSet of points"""
-
 
         cat = sourceSetIO.read(filename)
 
@@ -138,10 +138,7 @@ class CreateWcsWithSipCase(unittest.TestCase):
 
         #Set catalogue ra and decs
         for src in cat:
-            raDec = catWcs.pixelToSky(src.getXAstrom(), src.getYAstrom())
-            src.setRa(math.degrees(raDec[0]))
-            src.setDec(math.degrees(raDec[1]))
-
+            src.setRaDec(catWcs.pixelToSky(src.getXAstrom(), src.getYAstrom()))
         return cat
 
     def matchSrcAndCatalogue(self, cat, img, imgWcs, distInArcsec=1.0, cleanParam=3):

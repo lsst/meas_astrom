@@ -42,28 +42,22 @@ def clean(srcMatch, wcs, order=3, nsigma=3):
     Return:
     std::vector<det::SourceMatch> of the good data points
     """
-    
-    #Cataloge ra and dec
-    raFunc = lambda x: (x.first).getRa()
-    catRa = map(raFunc, srcMatch)
-    decFunc = lambda x: (x.first).getDec()
-    catDec = map(decFunc, srcMatch)
-    
-    #Wcs ra and dec
-    wcsX = np.zeros(len(catRa))
-    wcsY = np.zeros(len(catRa))
-    for i in range(len(catRa)):
-        tmp1, tmp2 = wcs.skyToPixel(catRa[i], catDec[i])
-        wcsX[i] = tmp1
-        wcsY[i] = tmp2
 
+    N = len(srcMatch)
+    catX = np.zeros(N)
+    #catY = np.zeros(N)
+    for i in range(N):
+        x,y = wcs.skyToPixel(srcMatch[i].first.getRaDec())
+        catX[i] = x
+        #catY[i] = y
 
-    getx = lambda x: (x.second).getXAstrom()
-    x = np.array(map(getx, srcMatch))
-    dx = x - wcsX
-    s = np.zeros( (len(x)) ) + .1
+    ## FIXME -- why does this only use X?
+
+    x = np.array([s.second.getXAstrom() for s in srcMatch])
+    dx = x - catX
+    sigma = np.zeros_like(dx) + 0.1
     
-    idx = indicesOfGoodPoints(x, dx, s, order=order, nsigma=nsigma)
+    idx = indicesOfGoodPoints(x, dx, sigma, order=order, nsigma=nsigma)
 
     clean = []
     for i in idx:
@@ -95,7 +89,7 @@ def indicesOfGoodPoints(x, y, s, order=1, nsigma=3, maxiter=100):
         
         sigma = (y-f).std()
         deviance = np.fabs( (y - f) /sigma)
-        newidx = np.where(deviance < nsigma)
+        newidx = np.flatnonzero(deviance < nsigma)
 
         if False:
             import matplotlib.pyplot as mpl
@@ -117,13 +111,11 @@ def indicesOfGoodPoints(x, y, s, order=1, nsigma=3, maxiter=100):
         flag=False
     
     #We get here because we either a) stopped finding bad points
-    #or b) ran out of iterations. Eitherway, we just return our
+    #or b) ran out of iterations. Either way, we just return our
     #list of indices of good points.
-    #Somewhere along the line, newidx becomes a tuple, only the 0th
-    #elt of which is the list we need
-    if len(newidx[0]) == 0:
+    if len(newidx) == 0:
         raise RuntimeError("All points cleaned out. This is probably a bug")
-    return newidx[0]
+    return newidx
     
 
 def chooseRx(x, idx, order):
