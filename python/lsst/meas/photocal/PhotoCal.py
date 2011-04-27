@@ -25,7 +25,7 @@ import numpy as np
 import lsst.meas.astrom as measAst
 import lsst.meas.astrom.sip as sip
 import lsst.meas.algorithms.utils as malgUtil
-from lsst.pex.logging import Log, Debug, LogRec, Prop
+import lsst.pex.logging as pexLog
 
 from lsst.meas.photocal.PhotometricMagnitude import PhotometricMagnitude
 
@@ -45,12 +45,10 @@ If useCatalogClassification is true, use the star/galaxy classification from the
 use the value from the measured sources (specifically, the STAR bit in the detection flags)
     """
 
-    if log is None or True:
-        class fakelog(object):
-            def log(self, x, msg):
-                print msg
+    import pdb; pdb.set_trace()
 
-        log = fakelog()
+    if log is None:
+        log = pexLog.Log.getDefaultLog()
 
     global display, fig
     display = lsstDebug.Info(__name__).display
@@ -64,20 +62,20 @@ use the value from the measured sources (specifically, the STAR bit in the detec
         raise ValueError("sourceMatch contains no elements")
 
     # Only use stars for which the flags indicate the photometry is good.
-    log.log(Log.DEBUG, "Number of sources: %d" % (len(sourceMatch)))
+    log.log(log.DEBUG, "Number of sources: %d" % (len(sourceMatch)))
 
     STAR = malgUtil.getDetectionFlags()['STAR']
     #
     # See if any catalogue objects are labelled as stars; if not use the measured object's classifier
     #
     if useCatalogClassification and len([m for m in sourceMatch if (m.first.getFlagForDetection() & STAR)]) == 0:
-        log.log(Log.WARN, "No catalogue objects are classified as stars;  using measured object S/G classifier")
+        log.log(log.WARN, "No catalogue objects are classified as stars;  using measured object S/G classifier")
         useCatalogClassification = False
 
     sourceMatch = [m for m in sourceMatch if
                    (m.second.getFlagForDetection() & goodFlagValue) == goodFlagValue and
                    not (m.second.getFlagForDetection() & badFlagValue)]
-    log.log(Log.DEBUG, "Number of sources with good flag settings: %d" % (len(sourceMatch)))
+    log.log(log.DEBUG, "Number of sources with good flag settings: %d" % (len(sourceMatch)))
 
     if len(sourceMatch) == 0:
         raise ValueError("flags indicate all elements of sourceMatch have bad photometry")
@@ -87,7 +85,7 @@ use the value from the measured sources (specifically, the STAR bit in the detec
         sourceMatch = [m for m in sourceMatch if (m.first.getFlagForDetection()  & STAR)]
     else:
         sourceMatch = [m for m in sourceMatch if (m.second.getFlagForDetection() & STAR)]
-    log.log(Log.DEBUG, "Number of stellar sources with good flag settings: %d" % (len(sourceMatch)))
+    log.log(log.DEBUG, "Number of stellar sources with good flag settings: %d" % (len(sourceMatch)))
 
     if len(sourceMatch) == 0:
         raise RuntimeError("No sources remaining in match list after cuts")
@@ -233,7 +231,7 @@ We perform niter iterations of a simple sigma-clipping algorithm with a a couple
                     sigma_max = 2*sig   # upper bound on st. dev. for clipping. multiplier is a heuristic
 
                 if log:
-                    log.log(Log.DEBUG,
+                    log.log(log.DEBUG,
                             "Photo calibration histogram: center = %.2f, sig = %.2f" % (center, sig))
 
             else:
@@ -324,7 +322,7 @@ We perform niter iterations of a simple sigma-clipping algorithm with a a couple
                 msg += " on first iteration; using average of all calibration stars"
 
             if log:
-                log.log(Log.WARN, msg)
+                log.log(log.WARN, msg)
             else:
                 print >> sys.stderr, msg
 
