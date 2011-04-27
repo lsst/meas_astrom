@@ -111,7 +111,7 @@ use the value from the measured sources (specifically, the STAR bit in the detec
     for i in range(len(nsigma)):
         zp, sigma, ngood = getZeroPoint(out["src"], out["cat"], srcErr=out["srcErr"], zp0=zp,
                                         useMedian=useMedian[i],
-                                        sigma_max=sigma_max[i], nsigma=nsigma[i], niter=niter[i])
+                                        sigma_max=sigma_max[i], nsigma=nsigma[i], niter=niter[i], log=log)
     
     return PhotometricMagnitude(zeroFlux=1.0, zeroMag=zp)
 
@@ -160,7 +160,7 @@ def getMagnitudes(sourceMatch):
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-def getZeroPoint(src, ref, srcErr=None, zp0=None, useMedian=True, sigma_max=None, nsigma=2, niter=3):
+def getZeroPoint(src, ref, srcErr=None, zp0=None, useMedian=True, sigma_max=None, nsigma=2, niter=3, log=None):
     """Flux calibration code, returning (ZeroPoint, Distribution Width, Number of stars)
 
 We perform niter iterations of a simple sigma-clipping algorithm with a a couple of twists:
@@ -232,7 +232,9 @@ We perform niter iterations of a simple sigma-clipping algorithm with a a couple
                 if sigma_max is None:
                     sigma_max = 2*sig   # upper bound on st. dev. for clipping. multiplier is a heuristic
 
-                print "center = %.2f, sig = %.2f" % (center, sig)
+                if log:
+                    log.log(Log.DEBUG,
+                            "Photo calibration histogram: center = %.2f, sig = %.2f" % (center, sig))
 
             else:
                 if sigma_max is None:
@@ -258,60 +260,77 @@ We perform niter iterations of a simple sigma-clipping algorithm with a a couple
 
         good = abs(dmag - center) < nsigma*min(sig, sigma_max) # don't clip too softly
 
-        old_ngood = ngood
-        ngood = sum(good)
-        if ngood == 0:
-            if i == 0:                  # failed the first time round -- probably all fell in one bin
-                center = np.average(dmag, weights=dmagErr)
-            return center, sig, len(dmag)
-        elif ngood == old_ngood:
-            break
-
         #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
         if display:
             if not pyplot:
                 print >> sys.stderr, "I am unable to plot as I failed to import matplotlib"
             else:
-                fig.clf()
+                try:
+                    fig.clf()
 
-                axes = fig.add_axes((0.1, 0.1, 0.85, 0.80));
+                    axes = fig.add_axes((0.1, 0.1, 0.85, 0.80));
 
-                axes.plot(ref[good], dmag[good] - center, "b+")
-                axes.errorbar(ref[good], dmag[good] - center, yerr=dmagErr[good], linestyle='', color='b')
+                    axes.plot(ref[good], dmag[good] - center, "b+")
+                    axes.errorbar(ref[good], dmag[good] - center, yerr=dmagErr[good], linestyle='', color='b')
 
-                bad = np.logical_not(good)
-                axes.plot(ref[bad], dmag[bad] - center, "r+")
-                axes.errorbar(ref[bad], dmag[bad] - center, yerr=dmagErr[bad], linestyle='', color='r')
+                    bad = np.logical_not(good)
+                    axes.plot(ref[bad], dmag[bad] - center, "r+")
+                    axes.errorbar(ref[bad], dmag[bad] - center, yerr=dmagErr[bad], linestyle='', color='r')
 
-                axes.plot((-100, 100), (0, 0), "g-")
-                for x in (-1, 1):
-                    axes.plot((-100, 100), x*0.05*np.ones(2), "g--")
+                    axes.plot((-100, 100), (0, 0), "g-")
+                    for x in (-1, 1):
+                        axes.plot((-100, 100), x*0.05*np.ones(2), "g--")
 
-                axes.set_ylim(-1.1, 1.1)
-                axes.set_xlim(24, 13)
-                axes.set_xlabel("Reference")
-                axes.set_ylabel("Reference - Instrumental")
+                    axes.set_ylim(-1.1, 1.1)
+                    axes.set_xlim(24, 13)
+                    axes.set_xlabel("Reference")
+                    axes.set_ylabel("Reference - Instrumental")
 
-                fig.show()
-                if display > 1:
-                    while i == 0 or reply != "c":
-                        try:
-                            reply = raw_input("Next iteration? [ynpc] ")
-                        except EOFError:
-                            reply = "n"
+                    fig.show()
+                    
+                    if display > 1:
+                        while i == 0 or reply != "c":
+                            try:
+                                reply = raw_input("Next iteration? [ynhpc] ")
+                            except EOFError:
+                                reply = "n"
 
-                        if reply in ("", "c", "n", "p", "y"):
+                            if reply == "h":
+                                print >> sys.stderr, "Options: c[ontinue] h[elp] n[o] p[db] y[es]"
+                                continue
+
+                            if reply in ("", "c", "n", "p", "y"):
+                                break
+                            else:
+                                print >> sys.stderr, "Unrecognised response: %s" % reply
+
+                        if reply == "n":
                             break
-                        else:
-                            print >> sys.stderr, "Unrecognised response: %s" % reply
-
-                    if reply == "n":
-                        break
-                    elif reply == "p":
-                        import pdb; pdb.set_trace() 
+                        elif reply == "p":
+                            import pdb; pdb.set_trace()
+                except Exception, e:
+                    print >> sys.stderr, "Error plotting in PhotoCal.getZeroPoint: %s" % e
 
         #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+        old_ngood = ngood
+        ngood = sum(good)
+        if ngood == 0:
+            msg = "PhotoCal.getZeroPoint: no good stars remain"
+
+            if i == 0:                  # failed the first time round -- probably all fell in one bin
+                center = np.average(dmag, weights=dmagErr)
+                msg += " on first iteration; using average of all calibration stars"
+
+            if log:
+                log.log(Log.WARN, msg)
+            else:
+                print >> sys.stderr, msg
+
+            return center, sig, len(dmag)
+        elif ngood == old_ngood:
+            break
 
         if False:
             ref = ref[good]
