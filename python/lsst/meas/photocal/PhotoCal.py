@@ -108,6 +108,7 @@ use the value from the measured sources (specifically, the STAR bit in the detec
         zp, sigma, ngood = getZeroPoint(out["src"], out["cat"], srcErr=out["srcErr"], zp0=zp,
                                         useMedian=useMedian[i],
                                         sigma_max=sigma_max[i], nsigma=nsigma[i], niter=niter[i], log=log)
+    log.log(log.INFO, "Magnitude zero point: %f +/- %f from %d stars" % (zp, sigma, ngood))
     
     return PhotometricMagnitude(zeroFlux=1.0, zeroMag=zp)
 
