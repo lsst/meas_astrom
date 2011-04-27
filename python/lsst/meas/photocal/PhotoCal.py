@@ -220,7 +220,7 @@ We perform niter iterations of a simple sigma-clipping algorithm with a a couple
                 while j < nhist and hist[j] > 0.5*peak:
                     j += 1
                 j = min(j, nhist - 1)
-                j = min(sum(hist[range(j)]), nhist - 1)
+                j = min(sum(hist[range(j)]), npt - 1)
                 q3 = dmag[j]
 
                 if q1 == q3:
