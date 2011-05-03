@@ -31,32 +31,12 @@ class XYAstromTest(unittest.TestCase):
 
     def setUp(self):
         self.defaultPolicy = pexPolicy.Policy.createPolicy(pexPolicy.PolicyString(
-        """#<?cfg paf policy?>     
-        matchThreshold: 22
-        distanceForCatalogueMatchinArcsec: 1.0
-        cleaningParameter: 3
-        calculateSip: false
-        numBrightStars: 75
-        defaultFilterName: mag
-        """
+            """#<?cfg paf policy?>     
+            matchThreshold: 22
+            """
         ))
-        
-        #Load sample input from disk
-        mypath = eups.productDir("meas_astrom")
-        path = os.path.join(mypath, "examples")
-        self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci"))
-        self.srcSet = ssi.read(os.path.join(path, "v695833-e0-c000.xy.txt"))
-        for s in self.srcSet:
-            s.setApFlux(s.getPsfFlux())
-        
-        # The .xy.txt file has sources in the range ~ [0,2000],[0,4500], but
-        # the exposure is only one amp -- 1024x1153.  Work around.
-        print 'Exposure image size: %i x %i' % (self.exposure.getWidth(), self.exposure.getHeight())
-        self.forceImageSize = (2048, 4612) # approximately; 2x4 x (1024 x 1153)
-        print 'Forcing image size to %i x %i to match source list.' % (self.forceImageSize[0],
-                                                                       self.forceImageSize[1])
-
         # Set up local astrometry_net_data
+        mypath = eups.productDir("meas_astrom")
         datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
 		# Work around lame scons bug (doesn't pass HOME)
         os.environ['HOME'] = 'iswheretheheartis'
@@ -68,27 +48,11 @@ class XYAstromTest(unittest.TestCase):
 
     def tearDown(self):
         del self.defaultPolicy
-        del self.exposure
-        del self.srcSet
 
     def testXYAstrom(self):
         log = Log.getDefaultLog()
         solver = measAstrom.createSolver(self.defaultPolicy, log)
-        solver.setStarlist(self.srcSet)
-        solver.setImageSize(*self.forceImageSize)
-        key = 'pixelScaleUncertainty'
-        policy = self.defaultPolicy
-        if policy.exists(key):
-            dscale = float(policy.get(key))
-            solver.solve(self.exposure.getWcs(), dscale)
-        else:
-            solver.solve(self.exposure.getWcs())
-
-        wcs = self.exposure.getWcs()
-        radec = wcs.pixelToSky(0, 0)
-        print 'ra,dec', radec
-        ra,dec = (radec.toIcrs().getRa(afwCoord.DEGREES),
-                  radec.toIcrs().getDec(afwCoord.DEGREES))
+        ra,dec = 215.505616846, 53.1874283624
         print 'ra,dec', ra,dec
         radius = 300.
         filterName = 'mag'
@@ -104,8 +68,7 @@ class XYAstromTest(unittest.TestCase):
         for i in range(10):
             print ref[i]
             print 'r,d', i, ':', ref[i].getRa(), ref[i].getDec()
-            print 'r,d', i, ':', ref[i].getRaAstrom(), ref[i].getDecAstrom()
-            print 'x,y', i, ':', ref[i].getXAstrom(), ref[i].getYAstrom()
+            #print 'r,d', i, ':', ref[i].getRaAstrom(), ref[i].getDecAstrom()
             ra = ref[i].getRa()
             dec = ref[i].getDec()
             if ra != 0 or dec != 0:
@@ -123,11 +86,6 @@ class XYAstromTest(unittest.TestCase):
             self.assertEqual(ra,  ref[i].getRaObject())
             self.assertEqual(dec, ref[i].getDecObject())
         self.assertFalse(allzero)
-
-
-
-
-
 
 def suite():
     """Returns a suite containing all the test cases in this module."""
