@@ -805,28 +805,26 @@ vector<afwDet::SourceMatch> GlobalAstrometrySolution::getMatchedSources(string f
         src->setPsfFlux(flux);
         
         //Weight positions by confidence in the fact that they match
+        // FIXME -- this is insane.  What units are these in?
         double confidence = verify_logodds_to_weight(match->matchodds[i]); //Can be == 0
         src->setXAstromErr( 1/(confidence + DBL_EPSILON));
         src->setYAstromErr( 1/(confidence + DBL_EPSILON));
         
-        src->setRaDec(wcsPtr->pixelToSky(x, y));
+        src->setRaDecAstromFromXy(wcsPtr);
         
         // Matching catalogue objects
         afwDet::Source::Ptr ref(new afwDet::Source());
         double* xyz = match->refxyz + match->theta[i] * 3;
         afwCoord::Coord::Ptr radec = xyztocoord(coordsys, xyz);
-        ref->setRaDec(radec);
+        ref->setAllRaDecFields(radec);
+        ref->setAllXyFromRaDec(wcsPtr);
 
-        afwGeom::PointD p = wcsPtr->skyToPixel(radec);
-        ref->setXAstrom(p[0]);
-        ref->setYAstrom(p[1]);
-
+        // FIXME -- should set the other error fields -- but not to these values!
         ref->setXAstromErr( 1/(confidence + DBL_EPSILON));
         ref->setYAstromErr( 1/(confidence + DBL_EPSILON));
 
         if (refMag.size()) {
-            double mag = refMag[i];
-            ref->setPsfFlux( pow(10.0, -mag/2.5) );
+            ref->setPsfFlux( pow(10.0, -refMag[i]/2.5) );
         }
         if (refId.size()) {
 	  ref->setSourceId(refId[i]);
@@ -1207,7 +1205,7 @@ GlobalAstrometrySolution::getCatalogue(double ra,
         // Create a source for every position stored
         for (int j = 0; j<nstars; ++j) {
             afwDet::Source::Ptr src(new afwDet::Source());
-            src->setRaDec(xyztocoord(coordsys, xyz + j*3));
+            src->setAllRaDecFields(xyztocoord(coordsys, xyz + j*3));
             inds.push_back(starinds[j]);
             if (mag.size()) {
                 // convert mag to flux

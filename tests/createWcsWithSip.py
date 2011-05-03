@@ -138,7 +138,7 @@ class CreateWcsWithSipCase(unittest.TestCase):
 
         #Set catalogue ra and decs
         for src in cat:
-            src.setRaDec(catWcs.pixelToSky(src.getXAstrom(), src.getYAstrom()))
+            src.setRaDecFromXy(catWcs)
         return cat
 
     def matchSrcAndCatalogue(self, cat, img, imgWcs, distInArcsec=1.0, cleanParam=3):
