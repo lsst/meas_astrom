@@ -266,7 +266,8 @@ double CreateWcsWithSip::getScatterInArcsec() {
         det::Source::Ptr imgSrc = _matchList[i].second;
         afwCoord::Coord::ConstPtr catRadec = catSrc->getRaDec();
         afwCoord::Coord::ConstPtr imgRadec = _newWcs->pixelToSky(imgSrc->getXAstrom(), imgSrc->getYAstrom());
-        val.push_back(catRadec->angularSeparation(*imgRadec, afwCoord::DEGREES));
+        afwGeom::Angle sep = catRadec->angularSeparation(*imgRadec);
+        val.push_back(sep.asDegrees());
         /*
          printf("ras: (%.3f, %.3f), decs: (%.3f, %.3f), dist: %.3f deg / %.3f deg.\n",
          catRadec->toFk5().getRa(afwCoord::DEGREES),
@@ -355,8 +356,8 @@ Eigen::VectorXd CreateWcsWithSip::_leastSquaresSolve(Eigen::VectorXd b, Eigen::M
 afwGeom::Point2D CreateWcsWithSip::_getCrvalAsGeomPoint() {
     afwCoord::Fk5Coord coo = _linearWcs->getSkyOrigin()->toFk5();
     // NOTE, these are in degrees to agree with Wcs / TanWcs
-    double ra =coo.getRa(afwCoord::DEGREES);
-    double dec=coo.getDec(afwCoord::DEGREES);
+    double ra = coo.getRa().asDegrees();
+    double dec = coo.getDec().asDegrees();
     return afwGeom::Point2D(ra,dec);
 }
 

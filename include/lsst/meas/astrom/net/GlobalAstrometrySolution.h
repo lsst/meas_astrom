@@ -44,6 +44,7 @@
 #include "lsst/afw/image/Wcs.h"
 #include "lsst/afw/image/Utils.h"
 #include "lsst/afw/coord/Coord.h"
+#include "lsst/afw/geom/Angle.h"
 #include "lsst/pex/policy/Policy.h"
 #include "lsst/daf/base/PropertySet.h"
 #include "lsst/utils/Utils.h"
@@ -77,14 +78,6 @@ enum {
     UNKNOWN_PARITY = PARITY_BOTH
 };
     
-
-//When deciding whether an index file needs to be loaded from disk, we we want to use
-//position on the sky as a factor (if we're doing a blind search we don't). 
-//Used by _addSuitableIndicesToSolver. If ra or dec are set to this value, then
-//the function does not use position as a factor
-enum { NO_POSITION_SET=-360};
-
-
 struct TagAlongColumn_s {
     std::string name;
     tfits_type fitstype;
@@ -136,11 +129,10 @@ public:
     bool solve();
 
     // RA,Dec in degrees
-    // FIXME -- should be a Coord.
-    bool solve(const afw::geom::Point2D raDec);
+    bool solve(lsst::afw::coord::Coord::ConstPtr raDec);
 
     // RA,Dec in degrees
-    bool solve(double ra, double dec);
+    bool solve(const lsst::afw::geom::Angle ra, const lsst::afw::geom::Angle dec);
     bool solve(const lsst::afw::image::Wcs::Ptr wcsPtr, double imageScaleUncertaintyPercent = 5);
 
     //Return the solution
@@ -157,7 +149,7 @@ public:
 
     // RA,Dec in degrees!
     ReferenceSources
-    getCatalogue(double ra, double dec, double radiusInArcsec, 
+    getCatalogue(lsst::afw::geom::Angle ra, lsst::afw::geom::Angle dec, lsst::afw::geom::Angle radiusInArcsec, 
                  std::string filterName, std::string idName,
                  int indexId = -1);
 
@@ -172,13 +164,13 @@ public:
 
     std::vector<TagAlongColumn> getTagAlongColumns(int indexId = -1);
 
-    lsst::afw::detection::SourceSet getCatalogue(double radiusInArcsec, std::string filterName,
+    lsst::afw::detection::SourceSet getCatalogue(lsst::afw::geom::Angle radiusInArcsec, std::string filterName,
 						 std::string idName);
 
     // RA,Dec in degrees
     // Returns a vector of vectors, where the first two are RA and Dec [in degrees],
     // followed by each of the requested columns.
-    std::vector<std::vector<double> > getCatalogueExtra(double ra, double dec, double radiusInArcsec,
+    std::vector<std::vector<double> > getCatalogueExtra(lsst::afw::geom::Angle ra, lsst::afw::geom::Angle dec, lsst::afw::geom::Angle radiusInArcsec,
                                                        std::vector<std::string> columns, int indexId = -1);
 
     void loadIndices();
@@ -219,9 +211,9 @@ private:
     index_t *_loadIndexMeta(std::string filename);
 
     void _solverSetField();
-    bool _callSolver(double ra=NO_POSITION_SET, double dec=NO_POSITION_SET);
-    int _addSuitableIndicesToSolver(double minImageSizeArcsec, double maxImageSizeArcsec, \
-        double ra=NO_POSITION_SET, double dec=NO_POSITION_SET);    
+    bool _callSolver(lsst::afw::geom::Angle ra=lsst::afw::geom::NullAngle, lsst::afw::geom::Angle dec=lsst::afw::geom::NullAngle);
+    int _addSuitableIndicesToSolver(lsst::afw::geom::Angle minImageSizeArcsec, lsst::afw::geom::Angle maxImageSizeArcsec, \
+        lsst::afw::geom::Angle ra=lsst::afw::geom::NullAngle, lsst::afw::geom::Angle dec=lsst::afw::geom::NullAngle);    
 
     template <typename T>
     std::vector<T> _getTagAlongData(int indexId, std::string columnName,

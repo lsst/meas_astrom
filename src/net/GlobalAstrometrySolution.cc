@@ -356,10 +356,10 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
 
     // Get the central ra/dec and pixel scale [in arcsec/pixel]
     afwCoord::Coord::ConstPtr raDec = wcsPtr->pixelToSky(xc, yc);
-    double ra  = raDec->getLongitude(afwCoord::DEGREES);
-    double dec = raDec->getLatitude(afwCoord::DEGREES);
+    afwGeom::Angle ra  = raDec->getLongitude();
+    afwGeom::Angle dec = raDec->getLatitude();
     _mylog.log(pexLog::Log::DEBUG,
-               boost::format("Solving using initial guess at position of\n %.7f %.7f\n") % ra % dec);
+               boost::format("Solving using initial guess at position of\n %.7f %.7f deg\n") % ra.asDegrees() % dec.asDegrees());
 
     double pixelScale = wcsPtr->pixelScale();
     double lwr = pixelScale*(1 - unc);
@@ -379,24 +379,21 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
     return solve(ra, dec);
 }
 
-    // FIXME -- use Coord
 ///Find a solution with an initial guess at the position    
-bool GlobalAstrometrySolution::solve(const afw::geom::Point2D raDec   ///<Right ascension/declination
-                                               ///in decimal degrees
-                                          ) {
-    return solve(raDec[0], raDec[1]);
+bool GlobalAstrometrySolution::solve(afwCoord::Coord::ConstPtr raDec) {
+    return solve(raDec->getLongitude(), raDec->getLatitude());
 }
 
 ///Find a solution with an initial guess at the position.
-bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in degrees
-                                     double dec   ///< Declination in degrees
+bool GlobalAstrometrySolution::solve(afwGeom::Angle ra,   ///<Right ascension
+                                     afwGeom::Angle dec   ///< Declination
                                           )  {    
     string msg;
 
     // Tell the solver to only consider matches within the image size of the supposed RA,Dec.
     // The magic number 2.0 out front says to accept matches within 2 radii of the given *center* position.
-    double maxRadius = 2.0 * arcsec2deg(solver_get_max_radius_arcsec(_solver));
-    msg = boost::str(boost::format("Setting RA,Dec = (%g, %g), radius = %g deg") % ra % dec % maxRadius);
+    afwGeom::Angle maxRadius = (2.0 * solver_get_max_radius_arcsec(_solver)) * afwGeom::arcseconds;
+    msg = boost::str(boost::format("Setting RA,Dec = (%g, %g), radius = %g deg") % ra.asDegrees() % dec.asDegrees() % maxRadius.asDegrees());
     _mylog.log(pexLog::Log::DEBUG, msg);
     solver_set_radec(_solver, ra, dec, maxRadius);
 
@@ -407,7 +404,7 @@ bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in degrees
         const char* indexname = solver_get_best_match_index_name(_solver);
         msg = boost::str(boost::format("Solved index is %s") % indexname);
     } else {
-        msg = boost::str(boost::format("Failed to verify position (%.7f %.7f)\n") % ra % dec);
+        msg = boost::str(boost::format("Failed to verify position (%.7f %.7f)\n") % ra.asDegrees() % dec.asDegrees());
     }
     _mylog.log(pexLog::Log::DEBUG, msg);            
 
@@ -420,7 +417,7 @@ bool GlobalAstrometrySolution::solve()  {
     // Don't use any hints about the RA,Dec position.
     solver_clear_radec(_solver);
 
-    _callSolver(NO_POSITION_SET, NO_POSITION_SET);
+    _callSolver(afwGeom::NullAngle, afwGeom::NullAngle);
 
     if (_isSolved){
         const char* indexname = solver_get_best_match_index_name(_solver);
@@ -436,7 +433,7 @@ bool GlobalAstrometrySolution::solve()  {
 // Check that all the setup was done correctly, then set the solver to work By
 // default, _callSolver does a blind solve, unless the optional ra and dec are
 // given values. Sets _isSolved to true if a solution is found
-bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
+bool GlobalAstrometrySolution::_callSolver(afwGeom::Angle ra, afwGeom::Angle dec) {
     //Throw exceptions if setup is incorrect
     if ( !_starxy) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "Starlist hasn't been set yet"));
@@ -483,7 +480,7 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
                   arcsec2arcmin(qlo), arcsec2arcmin(qhi));
 
     _mylog.log(pexLog::Log::DEBUG, "Setting indices");
-    _addSuitableIndicesToSolver(qlo, qhi, ra, dec);
+    _addSuitableIndicesToSolver(qlo * afwGeom::arcseconds, qhi * afwGeom::arcseconds, ra, dec);
     _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
     solver_run(_solver);
     
@@ -531,13 +528,13 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
 /// \param dec Optional declination of inital guess at solution position
 /// 
 /// \return Number of indices loaded
-int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double quadSizeArcsecLwr, 
-    double quadSizeArcsecUpr, double ra, double dec) {
+int GlobalAstrometrySolution::_addSuitableIndicesToSolver(afwGeom::Angle quadSizeArcsecLwr,
+    afwGeom::Angle quadSizeArcsecUpr, afwGeom::Angle ra, afwGeom::Angle dec) {
 
     bool hasAtLeastOneIndexOfSuitableScale = false;
     int nMeta = _indexList.size();
     int nSuitable = 0;
-    bool blind = (ra == NO_POSITION_SET) || (dec == NO_POSITION_SET);
+    bool blind = (ra == afwGeom::NullAngle) || (dec == afwGeom::NullAngle);
 
     for (int i = 0; i<nMeta; ++i){
         index_t* index = _indexList[i];
@@ -625,6 +622,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     
     //jitter is a measure of how much we can expect the xy of stars to scatter from the expected
     //radec due to noise in our measurments.
+    // don't use Angle here
     double jitterArcsec = tan_pixel_scale(&mo->wcstan) * solver_get_field_jitter(_solver);
     jitterArcsec = hypot(jitterArcsec, mo->index_jitter);
     int inverseOrder = order;
@@ -949,7 +947,7 @@ GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string i
 
 ///Returns a sourceSet of objects that are nearby in an raDec sense to the best match solution
 afwDet::SourceSet 
-GlobalAstrometrySolution::getCatalogue(double radiusInArcsec, string filterName, string idName) {
+GlobalAstrometrySolution::getCatalogue(afwGeom::Angle radiusInArcsec, string filterName, string idName) {
     if (!_isSolved) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
@@ -957,9 +955,10 @@ GlobalAstrometrySolution::getCatalogue(double radiusInArcsec, string filterName,
     // Don't free this!
     MatchObj* match = solver_get_best_match(_solver);
     double *center = match->center;
-    double ra, dec;
-    xyzarr2radecdeg(center, &ra, &dec);
-    // DEGREES
+    double ra_deg, dec_deg;
+    xyzarr2radecdeg(center, &ra_deg, &dec_deg);
+    afwGeom::Angle ra  = ra_deg  * afwGeom::degrees;
+    afwGeom::Angle dec = dec_deg * afwGeom::degrees;
     ReferenceSources refs = getCatalogue(ra, dec, radiusInArcsec, filterName, idName);
     return refs.refsources;
 }
@@ -1112,7 +1111,7 @@ std::vector<TagAlongColumn> GlobalAstrometrySolution::getTagAlongColumns(int ind
 }
 
 
-std::vector<std::vector<double> > GlobalAstrometrySolution::getCatalogueExtra(double ra, double dec, double radiusInArcsec,
+std::vector<std::vector<double> > GlobalAstrometrySolution::getCatalogueExtra(afwGeom::Angle ra, afwGeom::Angle dec, afwGeom::Angle radiusInArcsec,
                                                                              std::vector<std::string> columns, int indexId) {
     index_t* index = NULL;
     for (unsigned int i=0; i<_indexList.size(); i++) {
@@ -1160,9 +1159,9 @@ std::vector<std::vector<double> > GlobalAstrometrySolution::getCatalogueExtra(do
 ///strings returned by getCatalogueMetadataFields(). If you're not interested in fluxes, set
 ///filterName to ""
 ReferenceSources
-GlobalAstrometrySolution::getCatalogue(double ra,
-								       double dec,
-								       double radiusInArcsec,
+GlobalAstrometrySolution::getCatalogue(afwGeom::Angle ra,
+								       afwGeom::Angle dec,
+								       afwGeom::Angle radiusInArcsec,
 								       string filterName,
 								       string idName,
                                        int indexId) {
