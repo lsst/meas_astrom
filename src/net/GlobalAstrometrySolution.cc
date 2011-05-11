@@ -537,9 +537,6 @@ int GlobalAstrometrySolution::_addSuitableIndicesToSolver(afwGeom::Angle quadSiz
     int nSuitable = 0;
     bool blind = (ra == afwGeom::NullAngle) || (dec == afwGeom::NullAngle);
 
-    printf("_addSuitableIndicesToSolver: RA=%g, Dec=%g deg; quad size range %g, %g arcsec\n",
-           ra.asDegrees(), dec.asDegrees(), quadSizeLow.asArcseconds(), quadSizeHigh.asArcseconds());
-
     for (int i = 0; i<nMeta; ++i){
         index_t* index = _indexList[i];
 

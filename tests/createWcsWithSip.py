@@ -35,6 +35,7 @@ import lsst.afw.detection as det
 import lsst.afw.math as afwMath
 import lsst.utils.tests as utilsTests
 import lsst.afw.geom as afwGeom
+import lsst.afw.image as afwImage
 
 import lsst.meas.astrom.sip as sip
 import lsst.meas.astrom.sip.genDistortedImage as distort
@@ -77,24 +78,16 @@ class CreateWcsWithSipCase(unittest.TestCase):
         pass
         
     def testLinearXDistort(self):
-	print "linearXDistort"
-        self.singleTestInstance(self.filename, distort.linearXDistort, 
-            GLOBALGAS)
+        print "linearXDistort"
+        self.singleTestInstance(self.filename, distort.linearXDistort, GLOBALGAS)
 
     def testLinearYDistort(self):
-	print "linearYDistort"
-        self.singleTestInstance(self.filename, distort.linearYDistort, 
-            GLOBALGAS)
+        print "linearYDistort"
+        self.singleTestInstance(self.filename, distort.linearYDistort, GLOBALGAS)
 
     def testQuadraticDistort(self):
-	print "linearQuadraticDistort"
-        self.singleTestInstance(self.filename, distort.linearYDistort, 
-            GLOBALGAS)
-
-
-    #
-    # Implementation functions
-    #
+        print "linearQuadraticDistort"
+        self.singleTestInstance(self.filename, distort.linearYDistort, GLOBALGAS)
     
     def singleTestInstance(self, filename, distortFunc, gas):
         cat = self.loadCatalogue(self.filename, GLOBALGAS)
@@ -109,23 +102,22 @@ class CreateWcsWithSipCase(unittest.TestCase):
 
         #Create a wcs with sip
         matchList = self.matchSrcAndCatalogue(cat, img, imgWcs)
-
-        print 'matchList:'
-        for m in matchList:
-            print m
-        
         sipObject = sip.CreateWcsWithSip(matchList, imgWcs, 3)
+
+        #print 'Put in TAN Wcs:'
+        #print imgWcs.getFitsMetadata().toString()
         imgWcs = sipObject.getNewWcs()
+        #print 'Got SIP Wcs:'
+        #print imgWcs.getFitsMetadata().toString()
+
+        # Write out the SIP header
+        #afwImage.fits_write_imageF('createWcsWithSip.sip', afwImage.ImageF(0,0),
+        #imgWcs.getFitsMetadata())
 
         print 'number of matches:', len(matchList), sipObject.getNPoints()
         scatter = sipObject.getScatterOnSky().asArcseconds()
         print "Scatter in arcsec is %g" % (scatter)
 
-        if scatter >= self.tolArcsec:
-            print 'matches:'
-            for m in matchList:
-                print '  ', m
-                
         self.assertTrue(scatter < self.tolArcsec, "Scatter exceeds tolerance in arcsec")
 
         if False:
@@ -153,14 +145,14 @@ class CreateWcsWithSipCase(unittest.TestCase):
             src.setRaDecFromXy(catWcs)
         return cat
 
-    def matchSrcAndCatalogue(self, cat, img, imgWcs, distInArcsec=1.0, cleanParam=3):
+    def matchSrcAndCatalogue(self, cat, img, imgWcs, dist=1.*afwGeom.arcseconds, cleanParam=3):
         """Given an input catalogue, match a list of objects in an image, given
         their x,y position and a wcs solution.
 
         Return: A list of x, y, dx and dy. Each element of the list is itself a list
         """
 
-        matcher = sip.MatchSrcToCatalogue(cat, img, imgWcs, distInArcsec * afwGeom.arcseconds)
+        matcher = sip.MatchSrcToCatalogue(cat, img, imgWcs, dist)
         matchList = matcher.getMatches()
 
         mList = cleanBadPoints.clean(matchList, imgWcs, order=cleanParam)

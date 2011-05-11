@@ -85,23 +85,27 @@ void sip::MatchSrcToCatalogue::findMatches() {
     //The design of this class ensures all private variables must be set at this point,
     //so assertions should be thrown if this is not the case
 
-    printf("findMatches: %i img and %i srces\n", (int)(_imgSet.size()), (int)(_catSet.size()));
+    //printf("findMatches: %i img and %i srces\n", (int)(_imgSet.size()), (int)(_catSet.size()));
     //Calculate ra and dec for every imgSrc
     for (unsigned int i = 0; i < _imgSet.size(); ++i) {
-        printf("img source %i: X,Y Astrom: %.1f, %.1f\n", i,
-               _imgSet[i]->getXAstrom(), _imgSet[i]->getYAstrom());
+        /*
+         printf("img source %i: X,Y Astrom: %.1f, %.1f\n", i,
+         _imgSet[i]->getXAstrom(), _imgSet[i]->getYAstrom());
+         */
         // set the RA,Dec{,Astrom} fields from {X,Y}Astrom
         _imgSet[i]->setRaDecFromXy(_wcs);
-        printf("  -> RA,Dec %.3f, %.3f\n", _imgSet[i]->getRa().asDegrees(), _imgSet[i]->getDec().asDegrees());
+        //printf("  -> RA,Dec %.3f, %.3f\n", _imgSet[i]->getRa().asDegrees(), _imgSet[i]->getDec().asDegrees());
     }
 
     //For completeness, set x and y for the catSrc
     for (unsigned int i = 0; i < _catSet.size(); ++i) {
         _catSet[i]->setRaDecAstrom(_catSet[i]->getRaDec());
-        printf("cat source %i: RA,Dec %.3f, %.3f\n", i, _catSet[i]->getRa().asDegrees(), _catSet[i]->getDec().asDegrees());
-        printf("  RA,DecAstrom: (%.3f, %.3f)\n", _catSet[i]->getRaAstrom().asDegrees(), _catSet[i]->getDecAstrom().asDegrees());
         _catSet[i]->setXyAstromFromRaDec(_wcs);
-        printf("  -> X,YAstrom %.1f, %.1f\n", _catSet[i]->getXAstrom(), _catSet[i]->getYAstrom());
+        /*
+         printf("cat source %i: RA,Dec %.3f, %.3f\n", i, _catSet[i]->getRa().asDegrees(), _catSet[i]->getDec().asDegrees());
+         printf("  RA,DecAstrom: (%.3f, %.3f)\n", _catSet[i]->getRaAstrom().asDegrees(), _catSet[i]->getDecAstrom().asDegrees());
+         printf("  -> X,YAstrom %.1f, %.1f\n", _catSet[i]->getXAstrom(), _catSet[i]->getYAstrom());
+         */
     }
     
     _match = det::matchRaDec(_catSet, _imgSet, _dist);

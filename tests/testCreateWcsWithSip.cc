@@ -96,6 +96,7 @@ vector<afwDet::SourceMatch> generateSourceSet(afwImg::TanWcs::Ptr wcsPtr)
 
             afwCoord::Coord::Ptr c = wcsPtr->pixelToSky(i, j);
 			cat->setRaDec(c);
+			cat->setRaDecAstrom(c);
 			printf("RA,Dec = (%.3f, %.3f) deg\n", c->toFk5().getRa().asDegrees(), c->toFk5().getDec().asDegrees());
 
             double dist = hypot(src->getXAstrom()-cat->getXAstrom(), src->getYAstrom() - cat->getYAstrom());

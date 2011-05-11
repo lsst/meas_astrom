@@ -33,6 +33,7 @@ import eups
 import lsst.meas.astrom.net as net
 import lsst.afw.detection as det
 import lsst.utils.tests as utilsTests
+import lsst.afw.geom as afwGeom
 
 import lsst.meas.astrom.sip as sip
 import lsst.meas.astrom.sip.genDistortedImage as distort
@@ -136,14 +137,14 @@ class DistortedImageTestCase(unittest.TestCase):
 
         return cat
 
-    def matchSrcAndCatalogue(self, cat, img, imgWcs, distInArcsec=1.0, cleanParam=3):
+    def matchSrcAndCatalogue(self, cat, img, imgWcs, dist=1.*afwGeom.arcseconds, cleanParam=3):
         """Given an input catalogue, match a list of objects in an image, given
         their x,y position and a wcs solution.
 
         Return: A list of x, y, dx and dy. Each element of the list is itself a list
         """
 
-        matcher = sip.MatchSrcToCatalogue(cat, img, imgWcs, distInArcsec)    
+        matcher = sip.MatchSrcToCatalogue(cat, img, imgWcs, dist)
         matchList = matcher.getMatches()
 
         mList = cleanBadPoints.clean(matchList, imgWcs, order=cleanParam)
