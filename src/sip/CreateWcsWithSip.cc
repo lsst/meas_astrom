@@ -41,8 +41,6 @@ namespace det = lsst::afw::detection;
 namespace math = lsst::afw::math;
 
 
-
-
 ///Constructor
 CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::SourceMatch> match,
                      const lsst::afw::image::Wcs::Ptr linearWcs,
@@ -66,6 +64,17 @@ CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::Sourc
         throw LSST_EXCEPT(except::RuntimeErrorException, "Number of matches less than requested sip order");
     }
 
+    printf("CreateWcsWithSip: input match list:\n");
+    for (size_t i=0; i<_matchList.size(); i++) {
+        det::Source::Ptr cat = _matchList[i].first;
+        det::Source::Ptr img = _matchList[i].second;
+        printf("  % 3i:  cat RA,Dec (%.3f, %.3f); X,Y (%.1f, %.1f)\n", (int)i,
+               cat->getRaAstrom().asDegrees(), cat->getDecAstrom().asDegrees(),
+               cat->getXAstrom(), cat->getYAstrom());
+        printf("     :  img RA,Dec (%.3f, %.3f); X,Y (%.1f, %.1f)\n",
+               img->getRaAstrom().asDegrees(), img->getDecAstrom().asDegrees(),
+               img->getXAstrom(), img->getYAstrom());
+    }
 
     _calculateForwardMatrices();
     _calculateReverseMatrices();
@@ -76,6 +85,21 @@ CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::Sourc
     Eigen::MatrixXd CD = _linearWcs->getCDMatrix();
     
     _newWcs = afwImg::TanWcs::Ptr(new afwImg::TanWcs(crval, crpix, CD, _sipA, _sipB, _sipAp, _sipBp));
+
+    printf("CreateWcsWithSip: output WCS:\n");
+    for (size_t i=0; i<_matchList.size(); i++) {
+        det::Source::Ptr cat = _matchList[i].first;
+        det::Source::Ptr img = _matchList[i].second;
+
+        afwGeom::Point2D catxy = _newWcs->skyToPixel(cat->getRaDecAstrom());
+        afwCoord::Coord::Ptr imgrd = _newWcs->pixelToSky(img->getXAstrom(), img->getYAstrom());
+        printf("  % 3i:  cat RA,Dec (%.3f, %.3f) --Wcs--> X,Y (%.1f, %.1f)\n", (int)i,
+               cat->getRaAstrom().asDegrees(), cat->getDecAstrom().asDegrees(),
+               catxy[0], catxy[1]);
+        printf("     :  img RA,Dec (%.3f, %.3f); <--Wcs-- X,Y (%.1f, %.1f)\n",
+               imgrd->getLongitude().asDegrees(), imgrd->getLatitude().asDegrees(),
+               img->getXAstrom(), img->getYAstrom());
+    }
 
 }
 
@@ -184,10 +208,6 @@ void CreateWcsWithSip::_calculateForwardMatrices() {
     }
 }
 
-
-
-
-    
 void CreateWcsWithSip::_calculateReverseMatrices() {
     // Assumes FITS (1-indexed) coordinates.
     afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
@@ -210,7 +230,6 @@ void CreateWcsWithSip::_calculateReverseMatrices() {
         delta2[i] = v[i] - V[i];
     }
     
-    
     // Reverse transform
     int ord = _reverseSipOrder;
     Eigen::MatrixXd reverseC = _calculateCMatrix(U, V, ord); 
@@ -225,8 +244,6 @@ void CreateWcsWithSip::_calculateReverseMatrices() {
         _sipBp(p,q) = tmpB[j];   
     } 
 }
-
-
 
 ///Get the scatter in position in pixel space 
 double CreateWcsWithSip::getScatterInPixels() {
@@ -256,8 +273,8 @@ double CreateWcsWithSip::getScatterInPixels() {
 }
     
 
-///Get the scatter in position in arcseconds
-double CreateWcsWithSip::getScatterInArcsec() {
+///Get the scatter in (celestial) position
+afwGeom::Angle CreateWcsWithSip::getScatterOnSky() {
     unsigned int size = _matchList.size();
     vector<double> val;
     val.reserve(size);
@@ -268,20 +285,22 @@ double CreateWcsWithSip::getScatterInArcsec() {
         afwCoord::Coord::ConstPtr imgRadec = _newWcs->pixelToSky(imgSrc->getXAstrom(), imgSrc->getYAstrom());
         afwGeom::Angle sep = catRadec->angularSeparation(*imgRadec);
         val.push_back(sep.asDegrees());
-        /*
-         printf("ras: (%.3f, %.3f), decs: (%.3f, %.3f), dist: %.3f deg / %.3f deg.\n",
-         catRadec->toFk5().getRa(afwCoord::DEGREES),
-         imgRadec->toFk5().getRa(afwCoord::DEGREES),
-         catRadec->toFk5().getDec(afwCoord::DEGREES),
-         imgRadec->toFk5().getDec(afwCoord::DEGREES),
-         catRadec->angularSeparation(*imgRadec, afwCoord::DEGREES),
-         imgRadec->angularSeparation(*catRadec, afwCoord::DEGREES));
-         */
+
+        printf("ras: (%.3f, %.3f), decs: (%.3f, %.3f), dist: %.3f deg / %.3f deg.\n",
+               catRadec->toFk5().getRa().asDegrees(),
+               imgRadec->toFk5().getRa().asDegrees(),
+               catRadec->toFk5().getDec().asDegrees(),
+               imgRadec->toFk5().getDec().asDegrees(),
+               catRadec->angularSeparation(*imgRadec).asDegrees(),
+               imgRadec->angularSeparation(*catRadec).asDegrees());
     }
     assert(val.size() > 0);
     math::Statistics stat = math::makeStatistics(val, math::MEDIAN);
     double scatter = stat.getValue(math::MEDIAN);
-    return scatter*3600;    //Convert to arcsec
+
+    printf("Scatter: %g degrees\n", scatter);
+
+    return scatter * afwGeom::degrees;
 }
 
 
@@ -298,7 +317,6 @@ Eigen::MatrixXd CreateWcsWithSip::_calculateCMatrix(Eigen::VectorXd axis1, Eigen
             int p = getUIndex(j, order);
             int q = getVIndex(j, order);
             assert(p+q < order);
-            
             C(i,j) = pow(axis1[i], p) * pow(axis2[i], q);
         }
         
@@ -355,10 +373,7 @@ Eigen::VectorXd CreateWcsWithSip::_leastSquaresSolve(Eigen::VectorXd b, Eigen::M
 
 afwGeom::Point2D CreateWcsWithSip::_getCrvalAsGeomPoint() {
     afwCoord::Fk5Coord coo = _linearWcs->getSkyOrigin()->toFk5();
-    // NOTE, these are in degrees to agree with Wcs / TanWcs
-    double ra = coo.getRa().asDegrees();
-    double dec = coo.getDec().asDegrees();
-    return afwGeom::Point2D(ra,dec);
+    return coo.getPosition(afwGeom::degrees);
 }
 
         

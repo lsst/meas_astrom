@@ -46,6 +46,7 @@
 #include "lsst/afw/detection/SourceMatch.h"
 #include "lsst/afw/detection/Source.h"
 #include "lsst/afw/geom/Point.h"
+#include "lsst/afw/geom/Angle.h"
 #include "lsst/afw/image/Wcs.h"
 #include "lsst/afw/image/TanWcs.h"
 
@@ -106,7 +107,7 @@ public:
 
     PTR(lsst::afw::image::TanWcs) getNewWcs();
     double getScatterInPixels();
-    double getScatterInArcsec();
+    lsst::afw::geom::Angle getScatterOnSky();
 
     ///Get the number of terms in the SIP matrix
     inline int getOrder() { return  _sipA.rows(); }

@@ -29,6 +29,7 @@ from lsst.pex.exceptions import LsstCppException
 import lsst.afw.image as afwImg
 import lsst.daf.base as dafBase
 import lsst.afw.coord as afwCoord
+import lsst.afw.geom as afwGeom
 import lsst.meas.algorithms.utils as maUtils
 
 import net as astromNet
@@ -149,15 +150,14 @@ def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None
             (anindexname, anid, anhp))
 
     # all in deg.
-    ra = matchmeta.getDouble('RA')
-    dec = matchmeta.getDouble('DEC')
-    rad = matchmeta.getDouble('RADIUS')
+    ra = matchmeta.getDouble('RA') * afwGeom.degrees
+    dec = matchmeta.getDouble('DEC') * afwGeom.degrees
+    rad = matchmeta.getDouble('RADIUS') * afwGeom.degrees
     log.log(Log.DEBUG, 'Searching RA,Dec %.3f,%.3f, radius %.1f arcsec, filter "%s", id column "%s", indexid %i' %
-            (ra, dec, rad * 3600., filterName, idName, anid))
-    #myinds = solver.getIndexList()
+            (ra.asDegrees(), dec.asDegrees(), rad.asArcseconds(), filterName, idName, anid))
 
     # FIXME -- need anid?  Not necessarily... ref ids are supposed to be unique!
-    X = solver.getCatalogue(ra, dec, rad * 3600., filterName, idName, anid)
+    X = solver.getCatalogue(ra, dec, rad, filterName, idName, anid)
     cat = X.refsources
     log.log(Log.DEBUG, 'Found %i reference catalog sources in range' % len(cat))
 
@@ -218,7 +218,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
             ds9.dot("o", s.getXAstrom(), s.getYAstrom(), size=3, ctype=ds9.RED, frame=frame)
 
     #Extract an initial guess WCS if available    
-    wcsIn = exposure.getWcs() #May be None
+    wcsIn = exposure.getWcs()
     # Exposure uses the special object "NoWcs" instead of NULL.  Because they're special.
     haswcs = exposure.hasWcs()
     if not haswcs:
@@ -266,7 +266,6 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     wcs = solver.getWcs()
 
     # Generate a list of catalogue objects in the field.
-    imgSizeInArcsec = wcs.pixelScale() * hypot(W,H)
     filterName = chooseFilterName(exposure, policy, solver, log, filterName)
     idName = getIdColumn(policy)
     try:
@@ -289,11 +288,11 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     
     if True:
         # Now generate a list of matching objects
-        distInArcsec = policy.get('distanceForCatalogueMatchinArcsec')
+        dist = policy.get('distanceForCatalogueMatchinArcsec') * afwGeom.arcseconds
         cleanParam = policy.get('cleaningParameter')
 
         matchList = matchSrcAndCatalogue(cat=cat, img=sourceSet, wcs=wcs,
-            distInArcsec=distInArcsec, cleanParam=cleanParam)
+                                         dist=dist, cleanParam=cleanParam)
 
         uniq = set([sm.second.getId() for sm in matchList])
         if len(matchList) != len(uniq):
@@ -323,7 +322,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
 
     if policy.get('calculateSip'):
         sipOrder = policy.get('sipOrder')
-        wcs, matchList = calculateSipTerms(wcs, cat, sourceSet, distInArcsec, cleanParam, sipOrder, log)
+        wcs, matchList = calculateSipTerms(wcs, cat, sourceSet, dist, cleanParam, sipOrder, log)
 
         astrom.sipWcs = wcs
         astrom.sipMatches = matchList
@@ -345,12 +344,12 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     # cache: field center and size.  These may be off by 1/2 or 1 or 3/2 pixels.
     # dstn does not care.
     cx,cy = W/2.,H/2.
-    radec = wcs.pixelToSky(cx, cy)
-    ra,dec = radec.getLongitude(afwCoord.DEGREES), radec.getLatitude(afwCoord.DEGREES)
-    moreMeta.add('RA', ra, 'field center in degrees')
-    moreMeta.add('DEC', dec, 'field center in degrees')
-    moreMeta.add('RADIUS', imgSizeInArcsec/2./3600.,
-            'field radius in degrees, approximate')
+    radec = wcs.pixelToSky(cx, cy).toIcrs()
+    moreMeta.add('RA', radec.getRa().asDegrees(), 'field center in degrees')
+    moreMeta.add('DEC', radec.getDec().asDegrees(), 'field center in degrees')
+    imgSize = wcs.pixelScale() * hypot(W,H)
+    moreMeta.add('RADIUS', (imgSize / 2.).asDegrees(),
+                 'field radius in degrees, approximate')
     moreMeta.add('SMATCHV', 1, 'SourceMatchVector version number')
 
     if display:
@@ -492,7 +491,7 @@ def chooseFilterName(exposure, policy, solver, log, filterName=None):
                      % (defaultFilter, '", "'.join(availableFilters)))
 
 
-def calculateSipTerms(inputWcs, cat, sourceSet, distInArcsec, cleanParam, sipOrder, log=None):
+def calculateSipTerms(inputWcs, cat, sourceSet, dist, cleanParam, sipOrder, log=None):
     """Iteratively calculate sip distortions and regenerate matchList based on improved wcs"""
 
     if log is None:
@@ -502,7 +501,7 @@ def calculateSipTerms(inputWcs, cat, sourceSet, distInArcsec, cleanParam, sipOrd
 
     #Create a first pass at a set of matching objects
     matchList = matchSrcAndCatalogue(cat=cat, img=sourceSet, wcs=wcs,
-        distInArcsec=distInArcsec, cleanParam=cleanParam)
+                                     dist=dist, cleanParam=cleanParam)
 
     i=0
     while True:
@@ -517,12 +516,12 @@ def calculateSipTerms(inputWcs, cat, sourceSet, distInArcsec, cleanParam, sipOrd
 
         matchSize = len(matchList)
         msg="Sip Iteration %i: %i objects match. rms scatter is %g arcsec or %g pixels" \
-                %(i, matchSize, sipObject.getScatterInArcsec(), sipObject.getScatterInPixels())
+             %(i, matchSize, sipObject.getScatterOnSky().asArcseconds(), sipObject.getScatterInPixels())
         log.log(Log.DEBUG, msg)
 
         #Use the new wcs to update the match list
         proposedMatchlist = matchSrcAndCatalogue(cat=cat, img=sourceSet, wcs=proposedWcs,
-            distInArcsec=distInArcsec, cleanParam=cleanParam)
+                                                 dist=dist, cleanParam=cleanParam)
 
         if len(proposedMatchlist) <= matchSize:
             #We're regressing, so stop
@@ -538,12 +537,11 @@ def calculateSipTerms(inputWcs, cat, sourceSet, distInArcsec, cleanParam, sipOrd
 
     return wcs, matchList
 
-
-def matchSrcAndCatalogue(cat=None, img=None, wcs=None, distInArcsec=1.0, cleanParam=3):
+# 'distInArcsec' is deprecated; use dist instead.
+def matchSrcAndCatalogue(cat=None, img=None, wcs=None, dist=1.0 * afwGeom.arcseconds, cleanParam=3):
     """Given an input catalogue, match a list of objects in an image, given
     their x,y position and a wcs solution.
     """
-
     if cat is None:
         raise RuntimeError("Catalogue list is not set")
     if img is None:
@@ -551,8 +549,7 @@ def matchSrcAndCatalogue(cat=None, img=None, wcs=None, distInArcsec=1.0, cleanPa
     if wcs is None:
         raise RuntimeError("wcs is not set")
 
-
-    matcher = astromSip.MatchSrcToCatalogue(cat, img, wcs, distInArcsec)
+    matcher = astromSip.MatchSrcToCatalogue(cat, img, wcs, dist)
     matchList = matcher.getMatches()
 
     if matchList is None:

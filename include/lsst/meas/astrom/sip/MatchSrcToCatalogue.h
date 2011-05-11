@@ -33,6 +33,7 @@
 #include "lsst/pex/exceptions/Runtime.h"
 #include "lsst/afw/detection/Source.h"
 #include "lsst/afw/detection/SourceMatch.h"
+#include "lsst/afw/geom/Angle.h"
 
 namespace lsst {
     namespace afw {
@@ -43,9 +44,6 @@ namespace lsst {
 namespace meas { 
 namespace astrom { 
 namespace sip {
-
-namespace det = lsst::afw::detection;
-
 
 /// Match a SourceSet of objects with known ra/dec with a SourceSet of objects with known xy positions
 /// Take a catalogue of objects with known positions, a catalogue of objects with known xy, and a wcs
@@ -61,10 +59,10 @@ public:
     typedef boost::shared_ptr<MatchSrcToCatalogue> Ptr;
     typedef boost::shared_ptr<MatchSrcToCatalogue const> ConstPtr;
     
-    MatchSrcToCatalogue(det::SourceSet const& catSet,
-                        det::SourceSet const& imgSet,       
+    MatchSrcToCatalogue(lsst::afw::detection::SourceSet const& catSet,
+                        lsst::afw::detection::SourceSet const& imgSet,       
                         CONST_PTR(lsst::afw::image::Wcs) wcs,   
-                        double distInArcsec = 1.0     
+                        lsst::afw::geom::Angle matchDist
                        );
 
     //Don't need a Copy constructor
@@ -73,22 +71,22 @@ public:
     ~MatchSrcToCatalogue();
 
     //Mutators
-    void setDist(double distInArcsec);
+    void setDist(lsst::afw::geom::Angle dist);
     void setWcs(CONST_PTR(lsst::afw::image::Wcs) wcs);
-    void setCatSrcSet(const det::SourceSet &srcSet);
-    void setImgSrcSet(const det::SourceSet &srcSet);
+    void setCatSrcSet(const lsst::afw::detection::SourceSet &srcSet);
+    void setImgSrcSet(const lsst::afw::detection::SourceSet &srcSet);
 
     void findMatches();
 
     //Accessors
-    std::vector<det::SourceMatch> getMatches();
+    std::vector<lsst::afw::detection::SourceMatch> getMatches();
     
 
 private:
-    det::SourceSet _imgSet, _catSet;      ///< Copies of input sets
-    std::vector<det::SourceMatch> _match; ///List of tuples of matching indices
+    lsst::afw::detection::SourceSet _imgSet, _catSet;      ///< Copies of input sets
+    std::vector<lsst::afw::detection::SourceMatch> _match; ///List of tuples of matching indices
     CONST_PTR(lsst::afw::image::Wcs) _wcs;
-    double _distInArcsec;               ///< How close must two objects be to match 
+    lsst::afw::geom::Angle _dist;              ///< How close must two objects be to match 
 
     void _removeOneToMany();
     void _removeManyToOne();

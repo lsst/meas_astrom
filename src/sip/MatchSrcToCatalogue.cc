@@ -48,11 +48,10 @@ namespace sip = lsst::meas::astrom::sip;
 sip::MatchSrcToCatalogue::MatchSrcToCatalogue(det::SourceSet const& catSet,  
                                               det::SourceSet const& imgSet, 
                                               CONST_PTR(lsst::afw::image::Wcs) wcs, 
-                                              double distInArcsec  
-                                        ){
+                                              afwGeom::Angle dist) {
     setImgSrcSet(imgSet);
     setCatSrcSet(catSet);
-    setDist(distInArcsec);
+    setDist(dist);
     setWcs(wcs);
 }
 
@@ -61,23 +60,17 @@ sip::MatchSrcToCatalogue::~MatchSrcToCatalogue() {}
     
 
 /// Set a new value for the maximum allowed distance between two matching objects (in ra/dec space) 
-void sip::MatchSrcToCatalogue::setDist(double distInArcsec){
-    if (distInArcsec <= 0){
+void sip::MatchSrcToCatalogue::setDist(afwGeom::Angle dist) {
+    if (dist <= 0) {
         throw LSST_EXCEPT(except::InvalidParameterException, "Distance must be > 0");
     }
-
-    _distInArcsec = distInArcsec;
+    _dist = dist;
 }
-
-
 
 /// Set a different Wcs solution
-void sip::MatchSrcToCatalogue::setWcs(CONST_PTR(lsst::afw::image::Wcs) wcs)
-{
+void sip::MatchSrcToCatalogue::setWcs(CONST_PTR(lsst::afw::image::Wcs) wcs) {
     _wcs = wcs;
 }
-
-//void MatchSrcToCatalogue::setCatSrcSet(const det::SourceSet &srcSet);
 
 /// sourceSet is a vector of pointers to Sources.
 void sip::MatchSrcToCatalogue::setImgSrcSet(const det::SourceSet &srcSet) {
@@ -92,22 +85,26 @@ void sip::MatchSrcToCatalogue::findMatches() {
     //The design of this class ensures all private variables must be set at this point,
     //so assertions should be thrown if this is not the case
 
+    printf("findMatches: %i img and %i srces\n", (int)(_imgSet.size()), (int)(_catSet.size()));
     //Calculate ra and dec for every imgSrc
-    for (unsigned int i = 0; i< _imgSet.size(); ++i) {
-        double x = _imgSet[i]->getXAstrom();
-        double y = _imgSet[i]->getYAstrom();
-        afwCoord::Coord::ConstPtr raDec = _wcs->pixelToSky(x, y);
-        _imgSet[i]->setRaDec(raDec);
+    for (unsigned int i = 0; i < _imgSet.size(); ++i) {
+        printf("img source %i: X,Y Astrom: %.1f, %.1f\n", i,
+               _imgSet[i]->getXAstrom(), _imgSet[i]->getYAstrom());
+        // set the RA,Dec{,Astrom} fields from {X,Y}Astrom
+        _imgSet[i]->setRaDecFromXy(_wcs);
+        printf("  -> RA,Dec %.3f, %.3f\n", _imgSet[i]->getRa().asDegrees(), _imgSet[i]->getDec().asDegrees());
     }
 
     //For completeness, set x and y for the catSrc
-    for (unsigned int i = 0; i< _catSet.size(); ++i) {
-        afwGeom::Point2D p = _wcs->skyToPixel(_catSet[i]->getRaDec());
-        _catSet[i]->setXAstrom(p[0]);
-        _catSet[i]->setYAstrom(p[1]);
+    for (unsigned int i = 0; i < _catSet.size(); ++i) {
+        _catSet[i]->setRaDecAstrom(_catSet[i]->getRaDec());
+        printf("cat source %i: RA,Dec %.3f, %.3f\n", i, _catSet[i]->getRa().asDegrees(), _catSet[i]->getDec().asDegrees());
+        printf("  RA,DecAstrom: (%.3f, %.3f)\n", _catSet[i]->getRaAstrom().asDegrees(), _catSet[i]->getDecAstrom().asDegrees());
+        _catSet[i]->setXyAstromFromRaDec(_wcs);
+        printf("  -> X,YAstrom %.1f, %.1f\n", _catSet[i]->getXAstrom(), _catSet[i]->getYAstrom());
     }
     
-    _match = det::matchRaDec(_catSet, _imgSet, _distInArcsec);
+    _match = det::matchRaDec(_catSet, _imgSet, _dist);
 
     _removeOneToMany();  
     _removeManyToOne();  

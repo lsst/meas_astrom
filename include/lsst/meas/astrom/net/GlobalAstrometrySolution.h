@@ -118,9 +118,9 @@ public:
     void setStarlist(lsst::afw::detection::SourceSet vec);
     void setNumBrightObjects(int N);
     void setImageSize(int W, int H);
-    inline void setMinimumImageScale(double scale){   _solver->funits_lower = scale; }
-    inline void setMaximumImageScale(double scale){   _solver->funits_upper = scale; }
-    void setImageScaleArcsecPerPixel(double scale);
+    inline void setMinimumImageScale(lsst::afw::geom::Angle scale){ _solver->funits_lower = scale.asArcseconds(); }
+    inline void setMaximumImageScale(lsst::afw::geom::Angle scale){ _solver->funits_upper = scale.asArcseconds(); }
+    void setImageScaleArcsecPerPixel(lsst::afw::geom::Angle scale);
     void setLogLevel(int level);
     void setMatchThreshold(double threshold);
     void setParity(int parity);
@@ -128,10 +128,7 @@ public:
     //Solve for a wcs solution
     bool solve();
 
-    // RA,Dec in degrees
     bool solve(lsst::afw::coord::Coord::ConstPtr raDec);
-
-    // RA,Dec in degrees
     bool solve(const lsst::afw::geom::Angle ra, const lsst::afw::geom::Angle dec);
     bool solve(const lsst::afw::image::Wcs::Ptr wcsPtr, double imageScaleUncertaintyPercent = 5);
 
@@ -140,16 +137,16 @@ public:
     lsst::afw::image::Wcs::Ptr getDistortedWcs(int order = 3);
     std::vector<lsst::afw::detection::SourceMatch> getMatchedSources(std::string filterName="",
 								     std::string idName="");
-    double getSolvedImageScale();
+    lsst::afw::geom::Angle getSolvedImageScale();
 
     std::vector<std::string> getCatalogueMetadataFields();
 
     ReferenceSources
     getCatalogueForSolvedField(std::string filter, std::string idname, double margin);
 
-    // RA,Dec in degrees!
     ReferenceSources
-    getCatalogue(lsst::afw::geom::Angle ra, lsst::afw::geom::Angle dec, lsst::afw::geom::Angle radiusInArcsec, 
+    getCatalogue(lsst::afw::geom::Angle ra, lsst::afw::geom::Angle dec,
+                 lsst::afw::geom::Angle radius,
                  std::string filterName, std::string idName,
                  int indexId = -1);
 
@@ -164,14 +161,14 @@ public:
 
     std::vector<TagAlongColumn> getTagAlongColumns(int indexId = -1);
 
-    lsst::afw::detection::SourceSet getCatalogue(lsst::afw::geom::Angle radiusInArcsec, std::string filterName,
+    lsst::afw::detection::SourceSet getCatalogue(lsst::afw::geom::Angle radius, std::string filterName,
 						 std::string idName);
 
-    // RA,Dec in degrees
     // Returns a vector of vectors, where the first two are RA and Dec [in degrees],
     // followed by each of the requested columns.
-    std::vector<std::vector<double> > getCatalogueExtra(lsst::afw::geom::Angle ra, lsst::afw::geom::Angle dec, lsst::afw::geom::Angle radiusInArcsec,
-                                                       std::vector<std::string> columns, int indexId = -1);
+    std::vector<std::vector<double> > getCatalogueExtra(lsst::afw::geom::Angle ra, lsst::afw::geom::Angle dec,
+                                                        lsst::afw::geom::Angle radius,
+                                                        std::vector<std::string> columns, int indexId = -1);
 
     void loadIndices();
 
@@ -185,8 +182,6 @@ public:
 
     //Call this before performing a new match
     void reset();
-
-
 
 private:
     lsst::pex::logging::Log _mylog;
@@ -211,9 +206,12 @@ private:
     index_t *_loadIndexMeta(std::string filename);
 
     void _solverSetField();
-    bool _callSolver(lsst::afw::geom::Angle ra=lsst::afw::geom::NullAngle, lsst::afw::geom::Angle dec=lsst::afw::geom::NullAngle);
-    int _addSuitableIndicesToSolver(lsst::afw::geom::Angle minImageSizeArcsec, lsst::afw::geom::Angle maxImageSizeArcsec, \
-        lsst::afw::geom::Angle ra=lsst::afw::geom::NullAngle, lsst::afw::geom::Angle dec=lsst::afw::geom::NullAngle);    
+    bool _callSolver(lsst::afw::geom::Angle ra=lsst::afw::geom::NullAngle,
+                     lsst::afw::geom::Angle dec=lsst::afw::geom::NullAngle);
+    int _addSuitableIndicesToSolver(lsst::afw::geom::Angle minImageSize,
+                                    lsst::afw::geom::Angle maxImageSize,
+                                    lsst::afw::geom::Angle ra=lsst::afw::geom::NullAngle,
+                                    lsst::afw::geom::Angle dec=lsst::afw::geom::NullAngle);
 
     template <typename T>
     std::vector<T> _getTagAlongData(int indexId, std::string columnName,

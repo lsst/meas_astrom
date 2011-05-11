@@ -122,14 +122,16 @@ void checkResults(afwImg::Wcs::Ptr wcsPtr, afwImg::TanWcs::Ptr sipWcsPtr, vector
 		afwGeom::Angle catRa  = cat->getRa();
 		afwGeom::Angle catDec = cat->getDec();
 		afwCoord::Fk5Coord srcRaDec = sipWcsPtr->pixelToSky(srcX, srcY)->toFk5();
-		/*
-		 printf("cat RA,Dec = (%.5f, %.5f) rad\n", catRa, catDec);
-		 printf("src RA,Dec = (%.5f, %.5f) rad\n", srcRaDec.getRa(RAD), srcRaDec.getDec(RAD));
-		 */
+
+		printf("cat RA,Dec = (%.5f, %.5f) deg\n", catRa.asDegrees(), catDec.asDegrees());
+		printf("src RA,Dec = (%.5f, %.5f) deg\n", srcRaDec.getRa().asDegrees(), srcRaDec.getDec().asDegrees());
+
 		BOOST_CHECK_SMALL((catRa  - srcRaDec.getRa()).asRadians(), 1e-6);
 		BOOST_CHECK_SMALL((catDec - srcRaDec.getDec()).asRadians(), 1e-6);
 		// these are in pixels.
         afwGeom::Point2D catxy = sipWcsPtr->skyToPixel(cat->getRaDec());
+		printf("cat X,Y = (%.3f, %.3f)\n", catxy[0], catxy[1]);
+		printf("src X,Y = (%.3f, %.3f)\n", srcX, srcY);
         BOOST_CHECK_SMALL(srcX - catxy[0], 1e-6);
         BOOST_CHECK_SMALL(srcY - catxy[1], 1e-6);
     }
@@ -245,18 +247,14 @@ BOOST_AUTO_TEST_CASE(linearYX)
 
 
 
-BOOST_AUTO_TEST_CASE(quadraticX)
-{
-
+BOOST_AUTO_TEST_CASE(quadraticX) {
     afwImg::TanWcs::Ptr wcsPtr = createDefaultWcsPtr();
     vector<afwDet::SourceMatch> sourceMatchSet = generateSourceSet(wcsPtr);
     
     //Add an offset to each point
-    for(unsigned int i = 0; i<sourceMatchSet.size(); ++i)
-    {
+    for (size_t i = 0; i<sourceMatchSet.size(); ++i) {
         double x = sourceMatchSet[i].second->getXAstrom();
         double y = sourceMatchSet[i].second->getYAstrom();
-        
         sourceMatchSet[i].second->setXAstrom(x + 1e-5*x*x);
         sourceMatchSet[i].second->setYAstrom(y);
     }

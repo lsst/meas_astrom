@@ -34,6 +34,7 @@ import lsst.meas.astrom.net as net
 import lsst.afw.detection as det
 import lsst.afw.math as afwMath
 import lsst.utils.tests as utilsTests
+import lsst.afw.geom as afwGeom
 
 import lsst.meas.astrom.sip as sip
 import lsst.meas.astrom.sip.genDistortedImage as distort
@@ -108,12 +109,23 @@ class CreateWcsWithSipCase(unittest.TestCase):
 
         #Create a wcs with sip
         matchList = self.matchSrcAndCatalogue(cat, img, imgWcs)
+
+        print 'matchList:'
+        for m in matchList:
+            print m
+        
         sipObject = sip.CreateWcsWithSip(matchList, imgWcs, 3)
         imgWcs = sipObject.getNewWcs()
 
         print 'number of matches:', len(matchList), sipObject.getNPoints()
-        scatter = sipObject.getScatterInArcsec()
+        scatter = sipObject.getScatterOnSky().asArcseconds()
         print "Scatter in arcsec is %g" % (scatter)
+
+        if scatter >= self.tolArcsec:
+            print 'matches:'
+            for m in matchList:
+                print '  ', m
+                
         self.assertTrue(scatter < self.tolArcsec, "Scatter exceeds tolerance in arcsec")
 
         if False:
@@ -148,7 +160,7 @@ class CreateWcsWithSipCase(unittest.TestCase):
         Return: A list of x, y, dx and dy. Each element of the list is itself a list
         """
 
-        matcher = sip.MatchSrcToCatalogue(cat, img, imgWcs, distInArcsec)    
+        matcher = sip.MatchSrcToCatalogue(cat, img, imgWcs, distInArcsec * afwGeom.arcseconds)
         matchList = matcher.getMatches()
 
         mList = cleanBadPoints.clean(matchList, imgWcs, order=cleanParam)
