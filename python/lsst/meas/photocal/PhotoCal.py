@@ -29,11 +29,11 @@ import lsst.pex.logging as pexLog
 
 from lsst.meas.photocal.PhotometricMagnitude import PhotometricMagnitude
 
-import lsstDebug
 try:
     import matplotlib.pyplot as pyplot
 except ImportError:
     pyplot = None
+
 
 def calcPhotoCal(sourceMatch, log=None, magLimit=22, useCatalogClassification=True,
                  goodFlagValue=malgUtil.getDetectionFlags()['BINNED1'],
@@ -49,6 +49,7 @@ use the value from the measured sources (specifically, the STAR bit in the detec
         log = pexLog.Log.getDefaultLog()
 
     global display, fig
+    import lsstDebug
     display = lsstDebug.Info(__name__).display
     if display and pyplot:
         try:
