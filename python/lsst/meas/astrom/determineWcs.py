@@ -343,7 +343,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
             # plot the catalogue positions
             ds9.dot("+", s1.getXAstrom(), s1.getYAstrom(), size=3, ctype=ds9.BLUE, frame=frame)
 
-    moreMeta = createMeta(W, H, wcs, imgSizeInArcsec, filterName, stargalName, variableName, magerrName)
+    moreMeta = createMetadata(W, H, wcs, imgSizeInArcsec, filterName, stargalName, variableName, magerrName)
     matchListMeta = solver.getMatchedIndexMetadata()
     moreMeta.combine(matchListMeta)
 
