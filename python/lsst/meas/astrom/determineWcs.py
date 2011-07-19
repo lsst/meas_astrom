@@ -48,6 +48,9 @@ except ImportError, e:
     except NameError:
         display = False
 
+
+# XXX This whole module should be made a lot more object-oriented -- PAP
+
 def createSolver(policy, log):
     path=os.path.join(os.environ['ASTROMETRY_NET_DATA_DIR'], "metadata.paf")
     solver = astromNet.GlobalAstrometrySolution(path, log)
@@ -285,7 +288,9 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         log.log(Log.WARN, "Available filters: " + str(solver.getCatalogueMetadataFields()))
         raise
 
-    addTagAlongValuesToReferenceSources(solver, policy, log, cat, indexid, inds, filterName)
+    stargalName, variableName, magerrName = getTagAlongNamesFromPolicy(policy, filterName)
+    addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
+                                        log, cat, indexid, inds, filterName)
     
     if True:
         # Now generate a list of matching objects
@@ -333,31 +338,12 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     log.log(Log.DEBUG, "Setting exposure's WCS: to\n" + wcs.getFitsMetadata().toString())
     exposure.setWcs(wcs)
 
-    # add current EUPS astrometry_net_data setup.
-    moreMeta = dafBase.PropertyList()
-    andata = os.environ.get('ASTROMETRY_NET_DATA_DIR')
-    if andata is None:
-        moreMeta.add('ANEUPS', 'none', 'ASTROMETRY_NET_DATA_DIR')
-    else:
-        andata = os.path.basename(andata)
-        moreMeta.add('ANEUPS', andata, 'ASTROMETRY_NET_DATA_DIR')
-
-    # cache: field center and size.  These may be off by 1/2 or 1 or 3/2 pixels.
-    # dstn does not care.
-    cx,cy = W/2.,H/2.
-    radec = wcs.pixelToSky(cx, cy)
-    ra,dec = radec.getLongitude(afwCoord.DEGREES), radec.getLatitude(afwCoord.DEGREES)
-    moreMeta.add('RA', ra, 'field center in degrees')
-    moreMeta.add('DEC', dec, 'field center in degrees')
-    moreMeta.add('RADIUS', imgSizeInArcsec/2./3600.,
-            'field radius in degrees, approximate')
-    moreMeta.add('SMATCHV', 1, 'SourceMatchVector version number')
-
     if display:
         for s1, s2, d in matchList:
             # plot the catalogue positions
             ds9.dot("+", s1.getXAstrom(), s1.getYAstrom(), size=3, ctype=ds9.BLUE, frame=frame)
 
+    moreMeta = createMetadata(W, H, wcs, imgSizeInArcsec, filterName, stargalName, variableName, magerrName)
     matchListMeta = solver.getMatchedIndexMetadata()
     moreMeta.combine(matchListMeta)
 
@@ -368,22 +354,161 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     return astrom
 
 
-def addTagAlongValuesToReferenceSources(solver, policy, log, refcat, indexid, inds, filterName):
+def createMetadata(width, height, wcs, imgSizeInArcsec, filterName, stargalName, variableName, magerrName):
+    """Create match metadata entries required for regenerating the catalog
+
+    @param width Width of the image (pixels)
+    @param height Height of the image (pixels)
+    @param imgSizeInArcsec Field radius (arcsec)
+    @param filterName Name of filter, used for magnitudes
+    @param stargalName Name of star/galaxy tagalong column
+    @param variableName Name of variability tagalong column
+    @param magerrName Name of magnitude error tagalong column
+    @return Metadata
+    """
+    meta = dafBase.PropertyList()
+    andata = os.environ.get('ASTROMETRY_NET_DATA_DIR')
+    if andata is None:
+        meta.add('ANEUPS', 'none', 'ASTROMETRY_NET_DATA_DIR')
+    else:
+        andata = os.path.basename(andata)
+        meta.add('ANEUPS', andata, 'ASTROMETRY_NET_DATA_DIR')
+
+    # cache: field center and size.  These may be off by 1/2 or 1 or 3/2 pixels.
+    # dstn does not care.
+    cx,cy = width/2.0, height/2.0
+    radec = wcs.pixelToSky(cx, cy)
+    ra,dec = radec.getLongitude(afwCoord.DEGREES), radec.getLatitude(afwCoord.DEGREES)
+    meta.add('RA', ra, 'field center in degrees')
+    meta.add('DEC', dec, 'field center in degrees')
+    meta.add('RADIUS', imgSizeInArcsec/2./3600.,
+            'field radius in degrees, approximate')
+    meta.add('SMATCHV', 1, 'SourceMatchVector version number')
+    meta.add('FILTER', filterName, 'filter name for tagalong data')
+    meta.add('STARGAL', stargalName, 'star/galaxy name for tagalong data')
+    meta.add('VARIABLE', variableName, 'variability name for tagalong data')
+    meta.add('MAGERR', magerrName, 'magnitude error name for tagalong data')
+    return meta
+
+def generateMatchesFromMatchList(matchList, sources, wcs, width, height, log=Log.getDefaultLog()):
+    """Generate actual matches from a matchlist and the original source list
+
+    Matches are persisted as a join table, with identifiers from the catalog
+    and the original source list.  This function glues them together.
+
+    @param matchList Unpersisted matchList
+    @param sources Original source list used in matching
+    @param wcs World Coordinate System
+    @param width Width of image (pixels)
+    @param height Height of image (pixels)
+    @return matches
+    """
+
+    meta = matchList.getSourceMatchMetadata()
+    matches = matchList.getSourceMatches()
+
+    ref = readReferenceSourcesFromMetadata(meta, log=log)
+
+    keepref = []
+    for i in xrange(len(ref)):
+        x, y = wcs.skyToPixel(ref[i].getRaDec())
+        if x < 0 or y < 0 or x > width or y > height:
+            continue
+        ref[i].setXAstrom(x)
+        ref[i].setYAstrom(y)
+        keepref.append(ref[i])
+    log.log(log.INFO, "Read %d catalogue sources; %d in image" % (len(ref), len(keepref)))
+    ref = keepref
+
+    #log.setThreshold(log.DEBUG)
+    joinMatchList(matches, ref, first=True, log=log)
+    joinMatchList(matches, sources, first=False, log=log)
+    #log.setThreshold(log.INFO)
+
+    cleanList = [m for m in matches if m.first is not None and m.second is not None]
+    if len(cleanList) != len(matches):
+        log.log(log.WARN, "Missing entries after joining match list: %d of %d joined" % 
+                (len(cleanList), len(matches)))
+    return cleanList
+
+def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None, filterName=None):
+    """Read the catalog based on the provided metadata"""
+    ra = meta.getDouble('RA')
+    dec = meta.getDouble('DEC')
+    radius = meta.getDouble('RADIUS') * 3600.0 # arcsec
+
+    if policy is None:
+        policy = pexPolicy.Policy()
+    policy.set('matchThreshold', 30)
+    solver = createSolver(policy, log)
+    idName = 'id'
+    anid = meta.getInt('ANINDID')
+
+    if filterName is None:
+        try:
+            filterName = meta.get('FILTER')
+        except:
+            raise RuntimeError("FILTER not set in match metadata, and not provided")
+    
+    filterName = filterName.strip()
+    log.log(log.DEBUG, "Reading catalogue at %f,%f +/- %f in %s" % (ra, dec, radius, filterName))
+    cat = solver.getCatalogue(ra, dec, radius, filterName, idName, anid)
+    log.log(log.DEBUG, "%d catalogue sources found" % len(cat.refsources))
+
+    try:
+        stargalName, variableName, magerrName = getTagAlongNamesFromMetadata(meta)
+    except:
+        log.log(log.WARN, "Tagalong names not set in match metadata; using policy/defaults")
+        stargalName, variableName, magerrName = getTagAlongNamesFromPolicy(policy, filterName)
+        addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
+                                            self.log, cat, anid, cat.inds, filterName)
+    return cat.refsources
+
+
+def getTagAlongNamesFromPolicy(policy, filterName):
+    """Get the column names for the tagalong data from a policy
+
+    @param policy Policy with catalog configuration
+    @param filterName Name of filter for magnitudes
+    @return star/galaxy column name, variability column name, magnitude error column name
+    """
+    # sensible default column names
+    stargalName = 'starnotgal'
+    variableName = 'variable'           # "variable" as in a variable star
+    magerrorPattern = '%(filter)s_err'    # magnitude error column name pattern
+
+    # Names of keywords in policy
+    stargalPolicyKey = 'starGalaxyColumnName'
+    varPolicyKey = 'variableColumnName'
+    errPolicyKey = 'magErrorColumnPattern'
+
+    if policy is not None:
+        if policy.exists(stargalPolicyKey):
+            stargalName = policy.get(stargalPolicyKey)
+        if policy.exists(varPolicyKey):
+            variableName = policy.get(varPolicyKey)
+        if policy.exists(errPolicyKey):
+            magerrorPattern = policy.get(errPolicyKey)
+        magerrName = magerrorPattern % dict(filter=filterName)
+
+    return stargalName, variableName, magerrName
+
+def getTagAlongNamesFromMetadata(meta):
+    """Get the column names for the tagalong data from match metadata
+
+    @return star/galaxy column name, variability column name, magnitude error column name
+    """
+    return meta.get('STARGAL').strip(), meta.get('VARIABLE').strip(), meta.get('MAGERR').strip()
+
+
+def addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
+                                        log, refcat, indexid, inds, filterName):
     # Now add the photometric errors, star/galaxy, and variability flags.
     cols = solver.getTagAlongColumns(indexid)
     colnames = [c.name for c in cols]
 
-    # sensible default column names (to avoid having to update meas_pipe's policy)
-    stargalName = 'starnotgal'
-    # "variable" as in a variable star
-    variableName = 'variable'
-    # magnitude error column name pattern
-    magerrorPattern = '%(filter)s_err'
 
-    stargalPolicyKey = 'starGalaxyColumnName'
     stargal = None
-    if policy.exists(stargalPolicyKey):
-        stargalName = policy.get(stargalPolicyKey)
     if not stargalName in colnames:
         log.log(Log.WARN, ('Star/galaxy column was not found in Astrometry.net index file (index id=%i): expected \"%s\", but available columns are: [ %s ]' %
                            (indexid, stargalName, ', '.join(['"%s"' % c for c in colnames]))))
@@ -391,10 +516,7 @@ def addTagAlongValuesToReferenceSources(solver, policy, log, refcat, indexid, in
         log.log(Log.INFO, 'Using reference star/galaxy column \"%s\"' % stargalName)
         stargal = solver.getTagAlongBool(indexid, stargalName, inds)
 
-    varPolicyKey = 'variableColumnName'
     variable = None
-    if policy.exists(varPolicyKey):
-        variableName = policy.get(varPolicyKey)
     if not variableName in colnames:
         log.log(Log.WARN, ('Variability flag column was not found in Astrometry.net index file (index id=%i): expected \"%s\", but available columns are: [ %s ]' %
                            (indexid, variableName, ', '.join(['"%s"' % c for c in colnames]))))
@@ -403,10 +525,6 @@ def addTagAlongValuesToReferenceSources(solver, policy, log, refcat, indexid, in
         variable = solver.getTagAlongBool(indexid, variableName, inds)
 
     magerr = None
-    errPolicyKey = 'magErrorColumnPattern'
-    if policy.exists(errPolicyKey):
-        magerrorPattern = policy.get(errPolicyKey)
-    magerrName = magerrorPattern % dict(filter=filterName)
     if not magerrName in colnames:
         log.log(Log.WARN, ('Magnitude error column was not found in Astrometry.net index file (index id=%i): expected \"%s\", but available columns are: [ %s ]' %
                            (indexid, magerrName, ', '.join(['"%s"' % c for c in colnames]))))
