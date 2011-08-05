@@ -273,8 +273,9 @@ We perform niter iterations of a simple sigma-clipping algorithm with a a couple
                     axes.errorbar(ref[good], dmag[good] - center, yerr=dmagErr[good], linestyle='', color='b')
 
                     bad = np.logical_not(good)
-                    axes.plot(ref[bad], dmag[bad] - center, "r+")
-                    axes.errorbar(ref[bad], dmag[bad] - center, yerr=dmagErr[bad], linestyle='', color='r')
+                    if len(ref[bad]) > 0:
+                        axes.plot(ref[bad], dmag[bad] - center, "r+")
+                        axes.errorbar(ref[bad], dmag[bad] - center, yerr=dmagErr[bad], linestyle='', color='r')
 
                     axes.plot((-100, 100), (0, 0), "g-")
                     for x in (-1, 1):
