@@ -342,7 +342,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
             # plot the catalogue positions
             ds9.dot("+", s1.getXAstrom(), s1.getYAstrom(), size=3, ctype=ds9.BLUE, frame=frame)
 
-    moreMeta = createMetadata(W, H, wcs, imgSizeInArcsec, filterName, stargalName, variableName, magerrName)
+    moreMeta = createMetadata(W, H, wcs, filterName, stargalName, variableName, magerrName)
     matchListMeta = solver.getMatchedIndexMetadata()
     moreMeta.combine(matchListMeta)
 
@@ -353,12 +353,11 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     return astrom
 
 
-def createMetadata(width, height, wcs, imgSizeInArcsec, filterName, stargalName, variableName, magerrName):
+def createMetadata(width, height, wcs, filterName, stargalName, variableName, magerrName):
     """Create match metadata entries required for regenerating the catalog
 
     @param width Width of the image (pixels)
     @param height Height of the image (pixels)
-    @param imgSizeInArcsec Field radius (arcsec)
     @param filterName Name of filter, used for magnitudes
     @param stargalName Name of star/galaxy tagalong column
     @param variableName Name of variability tagalong column
@@ -377,11 +376,11 @@ def createMetadata(width, height, wcs, imgSizeInArcsec, filterName, stargalName,
     # dstn does not care.
     cx,cy = width/2.0, height/2.0
     radec = wcs.pixelToSky(cx, cy).toIcrs()
-    moreMeta.add('RA', radec.getRa().asDegrees(), 'field center in degrees')
-    moreMeta.add('DEC', radec.getDec().asDegrees(), 'field center in degrees')
-    imgSize = wcs.pixelScale() * hypot(W,H)
-    moreMeta.add('RADIUS', (imgSize / 2.).asDegrees(),
-                 'field radius in degrees, approximate')
+    meta.add('RA', radec.getRa().asDegrees(), 'field center in degrees')
+    meta.add('DEC', radec.getDec().asDegrees(), 'field center in degrees')
+    imgSize = wcs.pixelScale() * hypot(width, height)
+    meta.add('RADIUS', (imgSize / 2.).asDegrees(),
+             'field radius in degrees, approximate')
     meta.add('SMATCHV', 1, 'SourceMatchVector version number')
     meta.add('FILTER', filterName, 'filter name for tagalong data')
     meta.add('STARGAL', stargalName, 'star/galaxy name for tagalong data')
