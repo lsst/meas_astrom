@@ -29,11 +29,11 @@ import lsst.pex.logging as pexLog
 
 from lsst.meas.photocal.PhotometricMagnitude import PhotometricMagnitude
 
-import lsstDebug
 try:
     import matplotlib.pyplot as pyplot
 except ImportError:
     pyplot = None
+
 
 def calcPhotoCal(sourceMatch, log=None, magLimit=22, useCatalogClassification=True,
                  goodFlagValue=malgUtil.getDetectionFlags()['BINNED1'],
@@ -49,6 +49,7 @@ use the value from the measured sources (specifically, the STAR bit in the detec
         log = pexLog.Log.getDefaultLog()
 
     global display, fig
+    import lsstDebug
     display = lsstDebug.Info(__name__).display
     if display and pyplot:
         try:
@@ -272,8 +273,9 @@ We perform niter iterations of a simple sigma-clipping algorithm with a a couple
                     axes.errorbar(ref[good], dmag[good] - center, yerr=dmagErr[good], linestyle='', color='b')
 
                     bad = np.logical_not(good)
-                    axes.plot(ref[bad], dmag[bad] - center, "r+")
-                    axes.errorbar(ref[bad], dmag[bad] - center, yerr=dmagErr[bad], linestyle='', color='r')
+                    if len(ref[bad]) > 0:
+                        axes.plot(ref[bad], dmag[bad] - center, "r+")
+                        axes.errorbar(ref[bad], dmag[bad] - center, yerr=dmagErr[bad], linestyle='', color='r')
 
                     axes.plot((-100, 100), (0, 0), "g-")
                     for x in (-1, 1):

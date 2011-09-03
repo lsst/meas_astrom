@@ -42,6 +42,7 @@ import lsst.afw.image as afwImage
 import lsst.meas.astrom.net as net
 import lsst.utils.tests as utilsTests
 import lsst.afw.image as afwImg
+import lsst.afw.geom as afwGeom
 import lsst.afw.detection.detectionLib as detect
 import lsst.pex.exceptions as pexExcept
 try:
@@ -112,7 +113,8 @@ class GlobalAstrometrySolutionTest(unittest.TestCase):
 
     def testOutput(self):
         self.gas.setLogLevel(3)
-        flag = self.gas.solve(334.303012, -17.233988)
+        flag = self.gas.solve(334.303012 * afwGeom.degrees,
+                              -17.233988 * afwGeom.degrees)
         #flag = self.gas.solve(wcs)
         self.assertTrue(flag, "Failed to solve")
         sm = self.gas.getMatchedSources()
