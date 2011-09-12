@@ -431,9 +431,10 @@ def generateMatchesFromMatchList(matchList, sources, wcs, width, height, log=Log
 
 def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None, filterName=None):
     """Read the catalog based on the provided metadata"""
-    ra = meta.getDouble('RA')
-    dec = meta.getDouble('DEC')
-    radius = meta.getDouble('RADIUS') * 3600.0 # arcsec
+    # all these are in degrees
+    ra  = meta.getDouble('RA') * afwGeom.degrees
+    dec = meta.getDouble('DEC') * afwGeom.degrees
+    radius = meta.getDouble('RADIUS') * afwGeom.degrees
 
     if policy is None:
         policy = pexPolicy.Policy()
@@ -449,14 +450,15 @@ def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None,
             raise RuntimeError("FILTER not set in match metadata, and not provided")
     
     filterName = filterName.strip()
-    log.log(log.DEBUG, "Reading catalogue at %f,%f +/- %f in %s" % (ra, dec, radius, filterName))
+    log.log(log.DEBUG, "Reading catalogue at %f,%f (deg) +/- %f (arcsec) in filter %s" %
+            (ra.asDegrees(), dec.asDegrees(), radius.asArcseconds(), filterName))
     cat = solver.getCatalogue(ra, dec, radius, filterName, idName, anid)
     log.log(log.DEBUG, "%d catalogue sources found" % len(cat.refsources))
 
     try:
         stargalName, variableName, magerrName = getTagAlongNamesFromMetadata(meta)
     except:
-        log.log(log.WARN, "Tagalong names not set in match metadata; using policy/defaults")
+        log.log(log.WARN, "Tag-along names not set in match metadata; using policy/defaults")
         stargalName, variableName, magerrName = getTagAlongNamesFromPolicy(policy, filterName)
         addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
                                             self.log, cat, anid, cat.inds, filterName)
