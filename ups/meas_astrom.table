@@ -3,7 +3,7 @@ setupRequired(meas_algorithms >= 4.3.1.0)
 setupRequired(pex_logging >= 4.1.1.0)
 
 setupRequired(wcslib >= 4.4.4)
-setupRequired(astrometry_net >= 0.30)
+setupRequired(astrometry_net == 0.30)
 
 setupOptional(astrometry_net_data)
 
