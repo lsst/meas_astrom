@@ -69,6 +69,9 @@ static afwCoord::Coord::Ptr xyztocoord(afwCoord::CoordSystem coordsys, const dou
     _starxy(NULL), 
     _numBrightObjects(USE_ALL_STARS_FOR_SOLUTION),
     _isSolved(false) {
+
+        // make qfits errors bubble up to astrometry.net to get logged.
+        fits_use_error_system();
     
     _solver = solver_new();
 
@@ -82,7 +85,7 @@ static afwCoord::Coord::Ptr xyztocoord(afwCoord::CoordSystem coordsys, const dou
     //Add meta information about every index listed in the policy file
     std::vector<std::string> indexArray = pol.getStringArray("indexFile");
 
-    _mylog.log(pexLog::Log::DEBUG, "Loading meta information on indices...");    
+    _mylog.log(pexLog::Log::DEBUG, "Loading astrometry_net_data metadata...");    
     for (unsigned int i = 0; i < indexArray.size(); ++i) {
         index_t *meta = _loadIndexMeta(pkgDir + "/" + indexArray[i]);
         bool duplicate = false;
@@ -107,7 +110,7 @@ static afwCoord::Coord::Ptr xyztocoord(afwCoord::CoordSystem coordsys, const dou
         
         _indexList.push_back(meta);
     }
-    _mylog.log(pexLog::Log::DEBUG, "Meta information loaded...");    
+    _mylog.log(pexLog::Log::DEBUG, "astrometry_net_data metadata loaded.");
 }
     
 dafBase::PropertySet::Ptr GlobalAstrometrySolution::getMatchedIndexMetadata() {
@@ -706,7 +709,7 @@ static vector<boost::int64_t> getInt64TagAlongFromIndex(const index_t* index, st
     if (fieldName != "") {
         // Grab tag-along data here. If it's not there, throw an exception
         if (!startree_has_tagalong(index->starkd) ) {
-            msg = boost::str(boost::format("Index file \"%s\" has no metadata") % index->indexname);
+            msg = boost::str(boost::format("Index file \"%s\" has no tag-along data") % index->indexname);
             throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
         }
         
@@ -851,7 +854,7 @@ vector<string> GlobalAstrometrySolution::getCatalogueMetadataFields() {
     //Reload the index if necssary
     index_reload(_indexList[0]);
     if (! startree_has_tagalong(_indexList[0]->starkd) ) {
-        _mylog.log(pexLog::Log::DEBUG, "No metadata found for index");        
+        _mylog.log(pexLog::Log::DEBUG, "No tag-along data found for index");
         return output;
     }
     
@@ -1260,7 +1263,7 @@ static vector<double> getTagAlongFromIndex(index_t* index, string fieldName, int
         tagAlong = startree_get_data_column(index->starkd, fieldName.c_str(), ids, numIds);
 
         if( tagAlong == NULL) {
-            msg = boost::str(boost::format("No meta data called %s found in index %s") %
+            msg = boost::str(boost::format("No tag-along column called %s found in index %s") %
                 fieldName % index->indexname);
             throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
         }
