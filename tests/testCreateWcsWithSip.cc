@@ -31,7 +31,7 @@ using namespace std;
 #include <cmath>
 #include <iostream>
 #include "boost/shared_ptr.hpp"
-#include "Eigen/Core"
+#include "Eigen/Core.h"
 
 #include "lsst/afw/coord/Coord.h"
 #include "lsst/afw/image/TanWcs.h"

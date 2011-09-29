@@ -24,7 +24,6 @@
  
 
 #include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
-#include "Eigen/SVD"
 
 namespace lsst { 
 namespace meas { 
@@ -308,22 +307,45 @@ Eigen::MatrixXd CreateWcsWithSip::_calculateCMatrix(Eigen::VectorXd axis1, Eigen
     
 
 
-///Given a vector b and a matrix A, solve for x that minimizes ||b - Ax||
+///Given a vector b and a matrix A, solve b - Ax = 0
 /// b is an m x 1 vector, A is an n x m matrix, and x, the output is a 
 ///\param b An m x 1 vector, where m is the number of parameters in the fit
 ///\param A An n x m vecotr, where n is the number of equations in the solution
 ///
 ///\returns x, an m x 1 vector of best fit params
 Eigen::VectorXd CreateWcsWithSip::_leastSquaresSolve(Eigen::VectorXd b, Eigen::MatrixXd A) {
-    if  (A.rows() != B.rows()) {
+
+    int rowsA = A.rows();
+    int colsA = A.cols();
+    int rowsB = b.rows();
+    
+    if  (rowsA != rowsB) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "vector b of wrong size");        
     }
 
-    // With Eigen 2, solved using normal equations and tried three different solvers.
-    // With Eigen 3, just use SVD - it's improved in speed, and it makes the solution much
-    // more robust since we get the minimum-norm least-squares solution when the
-    // problem is underconstrained.  --JFB
-    Eigen::VectorXd par = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+    Eigen::MatrixXd Atr = A.transpose();
+    Eigen::MatrixXd AtrA = Atr * A;  //A transpose x A
+    Eigen::MatrixXd Atrb = Atr * b; //A transpose x b
+
+    //Try three different methods of solving the linear equation
+    Eigen::VectorXd par(colsA);
+    if (! AtrA.ldlt().solve(Atrb, &par)) {
+         pexLog::TTrace<5>("lsst.meas.astrom.sip.LeastSquaresSolve",
+                           "Unable fit data with Cholesky LDL^t");
+
+        if (! AtrA.llt().solve(Atrb, &par)) {
+             pexLog::TTrace<5>("lsst.meas.astrom.sip.LeastSquaresSolve",
+                           "Unable fit data with Cholesky LL^t either");
+                        
+            if (! AtrA.lu().solve(Atrb, &par)) {
+                 pexLog::TTrace<5>("lsst.meas.astrom.sip.LeastSquaresSolve",
+                               "Unable fit data with LU decomposition either");
+
+                 throw LSST_EXCEPT(pexExcept::Exception,
+                     "Unable to solve least squares equation in LeastSquaresSolve()");
+            }
+        }
+    }
     
     return par;
 }

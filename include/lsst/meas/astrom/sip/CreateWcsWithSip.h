@@ -32,7 +32,10 @@
 
 #include "boost/shared_ptr.hpp"
 #include "lsst/base.h"
-#include "Eigen/Core"
+#include "Eigen/Core.h"
+#include "Eigen/SVD"
+#include "Eigen/Cholesky"
+#include "Eigen/LU"
 
 
 #include "lsst/pex/logging/Log.h"
