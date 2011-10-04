@@ -147,23 +147,8 @@ template<class FittingFunc> LeastSqFitter1d<FittingFunc>::LeastSqFitter1d(const 
 
     //Try three different methods of solving the linear equation
     _par = Eigen::VectorXd(_order);
-    if (! _A.ldlt().solve(_beta, &_par)) {
-         pexLogging::TTrace<5>("lsst.meas.astrom.sip.LeastSqFitter1d",
-                           "Unable fit data with Cholesky LDL^t");
-
-        if (! _A.llt().solve(_beta, &_par)) {
-             pexLogging::TTrace<5>("lsst.meas.astrom.sip.LeastSqFitter1d",
-                           "Unable fit data with Cholesky LL^t either");
-                        
-            if (! _A.lu().solve(_beta, &_par)) {
-                 pexLogging::TTrace<5>("lsst.meas.astrom.sip.LeastSqFitter1d",
-                               "Unable fit data with LU decomposition either");
-
-                 throw LSST_EXCEPT(pexExcept::Exception,
-                     "Unable to solve least squares equation in LeastSqFitter1d()");
-            }
-        }
-    }
+    Eigen::FullPivLU<Eigen::MatrixXd> lu(_A);
+    _par = _A.ldlt().solve(_beta);
 }
         
 
@@ -182,9 +167,7 @@ template<class FittingFunc> Eigen::VectorXd LeastSqFitter1d<FittingFunc>::getPar
 ///Return the 1 sigma uncertainties in the best fit parameters as an Eigen::Matrix
 template<class FittingFunc> Eigen::VectorXd LeastSqFitter1d<FittingFunc>::getErrors() {
 
-    Eigen::MatrixXd Ainv = Eigen::MatrixXd::Zero(_order, _order);
-    _A.lu().computeInverse(&Ainv);
-
+    Eigen::MatrixXd Ainv = _A.partialPivLU().inverse();
     Eigen::VectorXd vec = Eigen::VectorXd::Zero(_order);
     for (unsigned int i = 0; i< _order; ++i) {
         vec(i) = std::sqrt(Ainv(i,i));

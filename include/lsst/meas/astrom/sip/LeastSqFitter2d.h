@@ -164,28 +164,7 @@ template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const 
 
     
     _par = Eigen::VectorXd(_nPar);
-#if 1
-    //Try three different methods of solving the linear equation
-    if (! _A.ldlt().solve(_beta, &_par)) { // ? does this ever really return false? RHL
-         pexLogging::TTrace<5>("lsst.meas.astrom.sip.LeastSqFitter2d",
-                           "Unable fit data with Cholesky LDL^t");
-
-        if (! _A.llt().solve(_beta, &_par)) {
-             pexLogging::TTrace<5>("lsst.meas.astrom.sip.LeastSqFitter2d",
-                           "Unable fit data with Cholesky LL^t either");
-                        
-            if (! _A.lu().solve(_beta, &_par)) {
-                 pexLogging::TTrace<5>("lsst.meas.astrom.sip.LeastSqFitter2d",
-                               "Unable fit data with LU decomposition either");
-
-                 throw LSST_EXCEPT(pexExcept::Exception,
-                     "Unable to solve least squared equation in LeastSqFitter2d()");
-            }
-        }
-    }
-#else
-    _A.svd().solve(_beta, &_par);
-#endif
+    _par = _A.ldlt().solve(_beta);
 }
 
         
