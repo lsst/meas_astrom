@@ -132,8 +132,8 @@ void checkResults(afwImg::Wcs::Ptr wcsPtr, afwImg::TanWcs::Ptr sipWcsPtr, vector
 		BOOST_CHECK_SMALL(catDec - srcRaDec.getDec(RAD), 1e-6);
 		// these are in pixels.
         afwGeom::Point2D catxy = sipWcsPtr->skyToPixel(cat->getRaDec());
-        BOOST_CHECK_SMALL(srcX - catxy[0], 1e-6);
-        BOOST_CHECK_SMALL(srcY - catxy[1], 1e-6);
+        BOOST_CHECK_SMALL(srcX - catxy[0], 5e-5);
+        BOOST_CHECK_SMALL(srcY - catxy[1], 5e-5);
     }
 }
 

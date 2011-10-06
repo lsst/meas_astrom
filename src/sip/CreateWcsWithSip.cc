@@ -314,22 +314,10 @@ Eigen::MatrixXd CreateWcsWithSip::_calculateCMatrix(Eigen::VectorXd axis1, Eigen
 ///
 ///\returns x, an m x 1 vector of best fit params
 Eigen::VectorXd CreateWcsWithSip::_leastSquaresSolve(Eigen::VectorXd b, Eigen::MatrixXd A) {
-
-    int rowsA = A.rows();
-    int colsA = A.cols();
-    int rowsB = b.rows();
-    
-    if  (rowsA != rowsB) {
+    if  (A.rows() != b.rows()) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "vector b of wrong size");        
     }
-
-    Eigen::MatrixXd Atr = A.transpose();
-    Eigen::MatrixXd AtrA = Atr * A;  //A transpose x A
-    Eigen::MatrixXd Atrb = Atr * b; //A transpose x b
-
-    //Try three different methods of solving the linear equation
-    Eigen::VectorXd par(colsA);
-    par = AtrA.ldlt().solve(Atrb);    
+    Eigen::VectorXd par = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
     return par;
 }
 

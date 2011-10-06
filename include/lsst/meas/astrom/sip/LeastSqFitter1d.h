@@ -167,7 +167,7 @@ template<class FittingFunc> Eigen::VectorXd LeastSqFitter1d<FittingFunc>::getPar
 ///Return the 1 sigma uncertainties in the best fit parameters as an Eigen::Matrix
 template<class FittingFunc> Eigen::VectorXd LeastSqFitter1d<FittingFunc>::getErrors() {
 
-    Eigen::MatrixXd Ainv = _A.partialPivLU().inverse();
+    Eigen::MatrixXd Ainv = _A.partialPivLu().inverse();
     Eigen::VectorXd vec = Eigen::VectorXd::Zero(_order);
     for (unsigned int i = 0; i< _order; ++i) {
         vec(i) = std::sqrt(Ainv(i,i));

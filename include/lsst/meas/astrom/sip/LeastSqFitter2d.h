@@ -262,8 +262,9 @@ template<class FittingFunc>  std::vector<double> LeastSqFitter2d<FittingFunc>::r
 
 ///Companion function to getParams(). Returns uncertainties in the parameters as a matrix
 template<class FittingFunc> Eigen::MatrixXd LeastSqFitter2d<FittingFunc>::getErrors() {
-    Eigen::MatrixXd V = _A.svd().matrixV();
-    Eigen::VectorXd w = _A.svd().singularValues();
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd(_A, Eigen::ComputeThinV);
+    Eigen::MatrixXd V = svd.matrixV();
+    Eigen::VectorXd w = svd.singularValues();
 
     Eigen::VectorXd err(_nPar);
     for (unsigned int i = 0; i < _nPar; ++i) {

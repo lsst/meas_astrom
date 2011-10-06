@@ -35,6 +35,7 @@ using namespace std;
 #include <cassert>
 #include "boost/shared_ptr.hpp"
 #include "Eigen/Core"
+#include "Eigen/SVD"
 #include "lsst/afw/math/FunctionLibrary.h"
 
 #include "lsst/meas/astrom/sip/LeastSqFitter2d.h"
@@ -282,7 +283,7 @@ BOOST_AUTO_TEST_CASE(fitLinearXSurface2)
     int order=2;
     sip::LeastSqFitter2d<math::PolynomialFunction1<double> > lsf(x, y, z, s, order);
     Eigen::MatrixXd par = lsf.getParams();
-    assert (par[0] == par[0]);          // stop compiler whining about par not being used
+    assert (par(0,0) == par(0,0));          // stop compiler whining about par not being used
 
     lsf.printParams();
     for(unsigned int i = 0; i < x.size(); ++i) {
