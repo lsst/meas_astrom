@@ -31,10 +31,8 @@
 #include <vector>
 
 #include "boost/shared_ptr.hpp"
-#include "Eigen/Core.h"
+#include "Eigen/Core"
 #include "Eigen/SVD"
-#include "Eigen/Cholesky"
-#include "Eigen/LU"
 
 #include "lsst/pex/exceptions/Runtime.h"
 #include "lsst/pex/logging/Trace.h"
@@ -80,27 +78,23 @@ public:
     double valueAt(double x, double y);
     std::vector<double> residuals();
     
-    void printParams();
     double getChiSq();
     double getReducedChiSq();
 
-
 private:
     void initFunctions();
-             
-    void calculateA();
-    void calculateBeta();
+
+    Eigen::MatrixXd expandParams(Eigen::VectorXd const & input) const;
+
     double func2d(double x, double y, int term);
     double func1d(double value, int exponent);
     
     std::vector<double> _x, _y, _z, _s;
-    unsigned int _order;   //Degree of polynomial to fit, e.g 4=> cubic
-    unsigned int _nPar;    //Number of parameters in fitting eqn, e.g x^2, xy, y^2, x^3, 
-    unsigned int _nData;   //Number of data points, == _x.size()
+    int _order;   //Degree of polynomial to fit, e.g 4=> cubic
+    int _nPar;    //Number of parameters in fitting eqn, e.g x^2, xy, y^2, x^3, 
+    int _nData;   //Number of data points, == _x.size()
     
-    Eigen::MatrixXd _A;
-    Eigen::VectorXd _beta;
-    Eigen::MatrixXd _Ainv;
+    Eigen::JacobiSVD<Eigen::MatrixXd> _svd;
     Eigen::VectorXd _par;
 
     std::vector<boost::shared_ptr<FittingFunc> > _funcArray;
@@ -126,28 +120,28 @@ namespace math = lsst::afw::math;
 ///\param order Order of 2d function to fit
 template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const std::vector<double> &x, 
     const std::vector<double> &y, const std::vector<double> &z, const std::vector<double> &s, int order) :
-    _x(x), _y(y), _z(z), _s(s), _order(order), _nPar(0), _A(1,1), _beta(1), _par(1) {
+    _x(x), _y(y), _z(z), _s(s), _order(order), _nPar(0), _par(1) {
     
     //_nPar, the number of terms to fix (x^2, xy, y^2 etc.) is \Sigma^(order+1) 1
     _nPar = 0;
-    for (int i = 0; i<order; ++i) {
+    for (int i = 0; i < order; ++i) {
         _nPar += i + 1;
     }
     
     //Check input vectors are the same size
     _nData = _x.size();
-    if (_nData != _y.size()) {
+    if (_nData != static_cast<int>(_y.size())) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "x and y vectors of different lengths");        
     }
-    if (_nData != _s.size()) {
+    if (_nData != static_cast<int>(_s.size())) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "x and s vectors of different lengths");        
     }
-    if (_nData != _z.size()) {
+    if (_nData != static_cast<int>(_z.size())) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "x and z vectors of different lengths");        
     }
 
-    for (unsigned int i = 0; i < _nData; ++i) {
-        if ( _s[i] == 0 ) {
+    for (int i = 0; i < _nData; ++i) {
+        if ( _s[i] == 0.0 ) {
             std::string msg = "Illegal zero value for fit weight encountered.";
             throw LSST_EXCEPT(except::RuntimeErrorException, msg);        
         }
@@ -157,17 +151,21 @@ template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const 
         throw LSST_EXCEPT(except::RuntimeErrorException, "Fewer data points than parameters");        
     }
     
-    
     initFunctions();
-    calculateBeta();
-    calculateA();
 
-    
-    _par = Eigen::VectorXd(_nPar);
-    _par = _A.ldlt().solve(_beta);
+    Eigen::MatrixXd design(_nData, _nPar);
+    Eigen::VectorXd rhs(_nData);
+    for (int i = 0; i < _nData; ++i) {
+        rhs[i] = z[i] / s[i];
+        for (int j = 0; j < _nPar; ++j) {
+            design(i, j) = func2d(_x[i], _y[i], j) / _s[i];
+        }
+    }
+    _svd.compute(design, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    _par = _svd.solve(rhs);
 }
 
-        
+
 ///Build up a triangular matrix of the parameters. The shape of the matrix is
 ///such that the values correspond to the coefficients of the following polynomials\n
 /// 1   y    y^2  y^3 \n
@@ -178,42 +176,28 @@ template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const 
 ///
 /// where row x column < order
 template<class FittingFunc> Eigen::MatrixXd LeastSqFitter2d<FittingFunc>::getParams() {
+    return expandParams(_par);
+}
 
-    Eigen::MatrixXd out = Eigen::MatrixXd::Zero(_order, _order);  //Should be a shared ptr?
-
+/// Turn a flattened parameter-like vector into a triangular matrix.
+template<class FittingFunc> 
+Eigen::MatrixXd LeastSqFitter2d<FittingFunc>::expandParams(Eigen::VectorXd const & input) const {
+    Eigen::MatrixXd out = Eigen::MatrixXd::Zero(_order, _order);
     int count = 0;
-    for (unsigned int i = 0; i < _order; ++i) {
-        for (unsigned int j = 0; j < _order - i; ++j) {
-            out(i, j) = _par(count++);
+    for (int i = 0; i < _order; ++i) {
+        for (int j = 0; j < _order - i; ++j) {
+            out(i, j) = input[count++];
         }
     }
     return out;
 }
-
-
-///Print the parameters of the fit matrix. This function is helpful in debugging 
-///because we haven't wrapped the Eigen::Matrix class into Python, so we can't 
-///extract values easily.
-template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::printParams() {
-
-    Eigen::MatrixXd out = Eigen::MatrixXd::Zero(_order, _order);  //Should be a shared ptr?
-
-    int count = 0;
-    for (unsigned int i = 0; i < _order; ++i) {
-        for (unsigned int j = 0; j < _order - i; ++j) {
-            printf("%7e  ", _par(count++));
-        }
-        printf("\n");
-    }
-}
-
 
 /// \brief Return a measure of the goodness of fit. 
 /// \f[ \chi^2 = \sum \left( \frac{z_i - f(x_i, y_i)}{s_i} \right)^2  \f]
 template<class FittingFunc> double LeastSqFitter2d<FittingFunc>::getChiSq() {
     
     double chisq = 0;
-    for (unsigned int i = 0; i < _nData; ++i) {
+    for (int i = 0; i < _nData; ++i) {
         double val = _z[i] - valueAt(_x[i], _y[i]);
         val /= _s[i];
         chisq += pow(val, 2);
@@ -239,7 +223,7 @@ template<class FittingFunc>  double LeastSqFitter2d<FittingFunc>::valueAt(double
     double val = 0;
     
     //Sum the values of the different orders to get the value of the fitted function
-    for (unsigned int i = 0; i < _nPar; ++i) {
+    for (int i = 0; i < _nPar; ++i) {
         val += _par[i] * func2d(x, y, i);
     }
     return val;
@@ -252,7 +236,7 @@ template<class FittingFunc>  std::vector<double> LeastSqFitter2d<FittingFunc>::r
     std::vector<double> out;
     out.reserve(_nData);
     
-    for (unsigned int i = 0; i < _nData; ++i) {
+    for (int i = 0; i < _nData; ++i) {
         out.push_back(_z[i] - valueAt(_x[i], _y[i]));
     }
     
@@ -261,20 +245,15 @@ template<class FittingFunc>  std::vector<double> LeastSqFitter2d<FittingFunc>::r
 
 
 ///Companion function to getParams(). Returns uncertainties in the parameters as a matrix
-template<class FittingFunc> Eigen::MatrixXd LeastSqFitter2d<FittingFunc>::getErrors() {
-    Eigen::JacobiSVD<Eigen::MatrixXd> svd(_A, Eigen::ComputeThinV);
-    Eigen::MatrixXd V = svd.matrixV();
-    Eigen::VectorXd w = svd.singularValues();
-
-    Eigen::VectorXd err(_nPar);
-    for (unsigned int i = 0; i < _nPar; ++i) {
-        err(i) = 0;
-        for (unsigned int j = 0; j < _nPar; ++j) {
-            double val =  V(i, j)/w(j);
-            err(i) += val*val;
-        }
+template<class FittingFunc>
+Eigen::MatrixXd LeastSqFitter2d<FittingFunc>::getErrors() {
+    Eigen::ArrayXd variance(_nPar);
+    for (int i = 0; i < _nPar; ++i) {
+        variance[i] = _svd.matrixV().row(i).dot(
+            (_svd.singularValues().array().inverse().square() * _svd.matrixV().col(i).array()).matrix()
+        );
     }
-    return err;
+    return expandParams(variance.sqrt().matrix());
 }
 
     
@@ -286,7 +265,7 @@ template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::initFunctions() {
     coeff.reserve( _order);
     
     coeff.push_back(1);
-    for (unsigned int i = 0; i < _order; ++i) {
+    for (int i = 0; i < _order; ++i) {
         boost::shared_ptr<FittingFunc> p(new FittingFunc(coeff));
         _funcArray.push_back(p);
         
@@ -294,42 +273,7 @@ template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::initFunctions() {
         coeff.push_back(1);  //coeff now looks like [0,0,...,0,1]
     }
 }
-    
-
-template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::calculateA() {
-
-    assert(_nPar != 0);
-    _A = Eigen::MatrixXd(static_cast<int> (_nPar), static_cast<int> (_nPar));
-
-    for (unsigned int i = 0; i < _nPar; ++i) {
-        for (unsigned int j = 0; j < _nPar; ++j) {
-            double val = 0;
-            for (unsigned int k = 0; k < _nData; ++k) {
-                val += func2d(_x[k], _y[k], i) * func2d(_x[k], _y[k], j)/( _s[k]*_s[k]);
-            }
-            _A(i, j) = val;
-        }
-        
-    }        
-}
-
-    
-template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::calculateBeta() {
-
-    assert(_nPar != 0);
-    _beta = Eigen::VectorXd(_nPar);
-
-    double val;
-    for (unsigned int i = 0; i < _nPar; ++i) {
-        _beta(i) = 0;
-        for (unsigned int j = 0; j < _nData; ++j) {
-            val = _z[j]*func2d(_x[j], _y[j], i)/ (_s[j]*_s[j]);
-            _beta(i) += val;
-        }
-    }
-}
- 
- 
+     
 
 //The ith term in the fitting polynomial is of the form x^a * y^b. This function figures
 //out the value of a and b, then calculates the value of the ith term at the given x and y

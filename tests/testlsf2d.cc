@@ -32,7 +32,7 @@ using namespace std;
 
 #include <vector>
 #include <cmath>
-#include <cassert>
+#include <iostream>
 #include "boost/shared_ptr.hpp"
 #include "Eigen/Core"
 #include "Eigen/SVD"
@@ -76,6 +76,7 @@ BOOST_AUTO_TEST_CASE(fitLine)
 }
 #endif
 
+static Eigen::IOFormat matrixFmt(Eigen::FullPrecision, 0, ",", "\n", "[", "]", "[", "]");
 
 #include <cstdio>
 
@@ -99,7 +100,9 @@ BOOST_AUTO_TEST_CASE(fitLinearSurfaceX)
     sip::LeastSqFitter2d<math::PolynomialFunction1<double> > lsf(x, y, z, s, order);
     
     Eigen::MatrixXd par = lsf.getParams();
-    
+
+    std::cerr << "LinearSurfaceX:\n" << par.format(matrixFmt) << "\n";
+
     BOOST_CHECK(par.rows() == order);
     BOOST_CHECK(par.cols() == order);
 
@@ -283,9 +286,7 @@ BOOST_AUTO_TEST_CASE(fitLinearXSurface2)
     int order=2;
     sip::LeastSqFitter2d<math::PolynomialFunction1<double> > lsf(x, y, z, s, order);
     Eigen::MatrixXd par = lsf.getParams();
-    assert (par(0,0) == par(0,0));          // stop compiler whining about par not being used
-
-    lsf.printParams();
+    std::cerr << "LinearXSurface2:\n" << par.format(matrixFmt) << "\n";
     for(unsigned int i = 0; i < x.size(); ++i) {
         printf("%.3f %.3f %.3f %.3f\n", x[i], y[i], z[i], lsf.valueAt(x[i], y[i]));
         BOOST_CHECK_CLOSE(z[i], lsf.valueAt(x[i], y[i]), .001);
@@ -353,7 +354,7 @@ BOOST_AUTO_TEST_CASE(fitChebyshevX2)
     int order=3;
     sip::LeastSqFitter2d<math::Chebyshev1Function1<double> > lsf(x, y, z, s, order);
     Eigen::MatrixXd par = lsf.getParams();
-    std::cout << par << std::endl;
+    std::cerr << "ChebyshevX2:\n" << par.format(matrixFmt) << std::endl;
 
     BOOST_CHECK_CLOSE( par(0,0), 1., .001); 
     BOOST_CHECK_CLOSE( par(1,0), 2., .001); 
@@ -435,7 +436,7 @@ BOOST_AUTO_TEST_CASE(fitChebyshevX3)
     int order=3;
     sip::LeastSqFitter2d<math::Chebyshev1Function1<double> > lsf(x, y, z, s, order);
     Eigen::MatrixXd par = lsf.getParams();
-    std::cout << par << std::endl;
+    std::cerr << "ChebyshevX3:\n" << par.format(matrixFmt) << std::endl;
     BOOST_CHECK_CLOSE( par(0,0), -2e-3, .001); 
     BOOST_CHECK_CLOSE( par(1,0), -1e-3, .001); 
         

@@ -110,7 +110,7 @@ class Lsf2dTestCase(unittest.TestCase):
         
         print " "
         lsf = sip.LeastSqFitter2dPoly(x, y, z, s, 2)
-        lsf.printParams()
+        print lsf.getParams()
         
         print "Output:"
         for i in range(len(x)):

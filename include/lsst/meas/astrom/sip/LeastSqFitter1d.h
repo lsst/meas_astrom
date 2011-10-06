@@ -30,10 +30,8 @@
 #include <vector>
 
 #include "boost/shared_ptr.hpp"
-#include "Eigen/Core.h"
+#include "Eigen/Core"
 #include "Eigen/SVD"
-#include "Eigen/Cholesky"
-#include "Eigen/LU"
 
 #include "lsst/pex/exceptions/Runtime.h"
 #include "lsst/pex/logging/Trace.h"
@@ -86,18 +84,14 @@ public:
     
 private:
     void initFunctions();
-             
-    void calculateA();
-    void calculateBeta();
+
     double func1d(double value, int exponent);
     
-
     std::vector<double> _x, _y, _s;
-    unsigned int _order;   //Degree of polynomial to fit, e.g 4=> cubic
-    unsigned int _nData;   //Number of data points, == _x.size()
+    int _order;   //Degree of polynomial to fit, e.g 4=> cubic
+    int _nData;   //Number of data points, == _x.size()
     
-    Eigen::MatrixXd _A;
-    Eigen::VectorXd _beta;
+    Eigen::JacobiSVD<Eigen::MatrixXd> _svd;
     Eigen::VectorXd _par;
 
     std::vector<boost::shared_ptr<FittingFunc> > _funcArray;
@@ -121,17 +115,17 @@ namespace math = lsst::afw::math;
 ///\param order Order of 2d function to fit
 template<class FittingFunc> LeastSqFitter1d<FittingFunc>::LeastSqFitter1d(const std::vector<double> &x, 
     const std::vector<double> &y, const std::vector<double> &s, unsigned int order) :
-    _x(x), _y(y), _s(s), _order(order), _A(1,1), _beta(1) {
+    _x(x), _y(y), _s(s), _order(order) {
     
     if (order == 0) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "Fit order must be >= 1");        
     }
     
     _nData = _x.size();
-    if  (_nData != _y.size()) {
+    if  (_nData != static_cast<int>(_y.size())) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "x and y vectors of different lengths");        
     }
-    if (_nData != _s.size()) {
+    if (_nData != static_cast<int>(_s.size())) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "x and s vectors of different lengths");        
     }
 
@@ -139,16 +133,18 @@ template<class FittingFunc> LeastSqFitter1d<FittingFunc>::LeastSqFitter1d(const 
         throw LSST_EXCEPT(except::RuntimeErrorException, "Fewer data points than parameters");        
     }
 
-
     initFunctions();
-    calculateBeta();
-    calculateA();
 
-
-    //Try three different methods of solving the linear equation
-    _par = Eigen::VectorXd(_order);
-    Eigen::FullPivLU<Eigen::MatrixXd> lu(_A);
-    _par = _A.ldlt().solve(_beta);
+    Eigen::MatrixXd design(_nData, _order);
+    Eigen::VectorXd rhs(_nData);
+    for (int i = 0; i < _nData; ++i) {
+        rhs[i] = y[i] / _s[i];
+        for (int j = 0; j < _order; ++j) {
+            design(i, j) = func1d(_x[i], j) / _s[i];
+        }
+    }
+    _svd.compute(design, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    _par = _svd.solve(rhs);
 }
         
 
@@ -157,7 +153,7 @@ template<class FittingFunc> LeastSqFitter1d<FittingFunc>::LeastSqFitter1d(const 
 template<class FittingFunc> Eigen::VectorXd LeastSqFitter1d<FittingFunc>::getParams() {
 
     Eigen::VectorXd vec = Eigen::VectorXd::Zero(_order);
-    for (unsigned int i = 0; i< _order; ++i) {
+    for (int i = 0; i < _order; ++i) {
         vec(i) = _par(i);
     }
     return vec;
@@ -166,13 +162,13 @@ template<class FittingFunc> Eigen::VectorXd LeastSqFitter1d<FittingFunc>::getPar
 
 ///Return the 1 sigma uncertainties in the best fit parameters as an Eigen::Matrix
 template<class FittingFunc> Eigen::VectorXd LeastSqFitter1d<FittingFunc>::getErrors() {
-
-    Eigen::MatrixXd Ainv = _A.partialPivLu().inverse();
-    Eigen::VectorXd vec = Eigen::VectorXd::Zero(_order);
-    for (unsigned int i = 0; i< _order; ++i) {
-        vec(i) = std::sqrt(Ainv(i,i));
+    Eigen::ArrayXd variance(_order);
+    for (int i = 0; i < _order; ++i) {
+        variance[i] = _svd.matrixV().row(i).dot(
+            (_svd.singularValues().array().inverse().square() * _svd.matrixV().col(i).array()).matrix()
+        );
     }
-    return vec;
+    return variance.sqrt().matrix();
 }
 
 
@@ -183,7 +179,7 @@ template<class FittingFunc> FittingFunc LeastSqFitter1d<FittingFunc>::getBestFit
     //LSF says that a linear function is order 2 (two coefficients), FF says only 1
     FittingFunc func(_order - 1);
 
-    for (unsigned int i = 0; i< _order; ++i) {
+    for (int i = 0; i < _order; ++i) {
         func.setParameter(i, _par(i));
     }
     return func;
@@ -207,7 +203,7 @@ template<class FittingFunc>  std::vector<double> LeastSqFitter1d<FittingFunc>::r
     
     FittingFunc f = getBestFitFunction();
     
-    for (unsigned int i = 0; i< _nData; ++i) {
+    for (int i = 0; i < _nData; ++i) {
         out.push_back(_y[i] - f(_x[i]));
     }
     
@@ -222,7 +218,7 @@ template<class FittingFunc> double LeastSqFitter1d<FittingFunc>::getChiSq() {
     FittingFunc f = getBestFitFunction();
 
     double chisq = 0;
-    for (unsigned int i = 0; i < _nData; ++i) {
+    for (int i = 0; i < _nData; ++i) {
         double val = _y[i] - f(_x[i]);
         val /= _s[i];
         chisq += pow(val, 2);
@@ -253,7 +249,7 @@ template<class FittingFunc> void LeastSqFitter1d<FittingFunc>::initFunctions() {
     coeff.reserve( _order);
     
     coeff.push_back(1.0);
-    for ( unsigned int i = 0; i< _order; ++i) {
+    for (int i = 0; i < _order; ++i) {
         boost::shared_ptr<FittingFunc> p(new FittingFunc(coeff));
         _funcArray.push_back(p);
         coeff[i] = 0.0;
@@ -261,43 +257,6 @@ template<class FittingFunc> void LeastSqFitter1d<FittingFunc>::initFunctions() {
     }
 }
     
-
-template<class FittingFunc> void LeastSqFitter1d<FittingFunc>::calculateA() {
-
-    _A = Eigen::MatrixXd( static_cast<int> (_order), static_cast<int> (_order));
-
-    unsigned int i, j;
-    for (i = 0; i< _order; ++i) {
-        for (j = 0; j< _order; ++j) {
-            double val = 0;
-            for (unsigned int k = 0; k < _nData; ++k) {
-                val += func1d(_x[k], i) * func1d(_x[k], j)/( _s[k]*_s[k]);
-            }
-            _A(i, j) = val;
-        }
-        
-    }        
-
-}
-
-    
-template<class FittingFunc> void LeastSqFitter1d<FittingFunc>::calculateBeta() {
-
-    _beta = Eigen::VectorXd(_order);
-
-    double val;
-    unsigned int j;
-    for (unsigned int i = 0; i < _order; ++i) {
-        _beta(i) = 0;
-        for (j = 0; j< _nData; ++j) {
-            val = _y[j]*func1d(_x[j], i)/ (_s[i]*_s[i]);
-            _beta(i) += val;
-        }
-    }
-}
- 
- 
-
 template<class FittingFunc> double LeastSqFitter1d<FittingFunc>::func1d(double value, int exponent) {
     return (*_funcArray[exponent])(value);
 }
