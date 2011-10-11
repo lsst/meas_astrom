@@ -44,6 +44,7 @@
 #include "lsst/afw/image/Wcs.h"
 #include "lsst/afw/image/Utils.h"
 #include "lsst/afw/coord/Coord.h"
+#include "lsst/afw/geom/Angle.h"
 #include "lsst/pex/policy/Policy.h"
 #include "lsst/daf/base/PropertySet.h"
 #include "lsst/utils/Utils.h"
@@ -77,14 +78,6 @@ enum {
     UNKNOWN_PARITY = PARITY_BOTH
 };
     
-
-//When deciding whether an index file needs to be loaded from disk, we we want to use
-//position on the sky as a factor (if we're doing a blind search we don't). 
-//Used by _addSuitableIndicesToSolver. If ra or dec are set to this value, then
-//the function does not use position as a factor
-enum { NO_POSITION_SET=-360};
-
-
 struct TagAlongColumn_s {
     std::string name;
     tfits_type fitstype;
@@ -125,9 +118,9 @@ public:
     void setStarlist(lsst::afw::detection::SourceSet vec);
     void setNumBrightObjects(int N);
     void setImageSize(int W, int H);
-    inline void setMinimumImageScale(double scale){   _solver->funits_lower = scale; }
-    inline void setMaximumImageScale(double scale){   _solver->funits_upper = scale; }
-    void setImageScaleArcsecPerPixel(double scale);
+    inline void setMinimumImageScale(lsst::afw::geom::Angle scale){ _solver->funits_lower = scale.asArcseconds(); }
+    inline void setMaximumImageScale(lsst::afw::geom::Angle scale){ _solver->funits_upper = scale.asArcseconds(); }
+    void setImageScaleArcsecPerPixel(lsst::afw::geom::Angle scale);
     void setLogLevel(int level);
     void setMatchThreshold(double threshold);
     void setParity(int parity);
@@ -135,12 +128,8 @@ public:
     //Solve for a wcs solution
     bool solve();
 
-    // RA,Dec in degrees
-    // FIXME -- should be a Coord.
-    bool solve(const afw::geom::Point2D raDec);
-
-    // RA,Dec in degrees
-    bool solve(double ra, double dec);
+    bool solve(lsst::afw::coord::Coord::ConstPtr raDec);
+    bool solve(const lsst::afw::geom::Angle ra, const lsst::afw::geom::Angle dec);
     bool solve(const lsst::afw::image::Wcs::Ptr wcsPtr, double imageScaleUncertaintyPercent = 5);
 
     //Return the solution
@@ -148,16 +137,16 @@ public:
     lsst::afw::image::Wcs::Ptr getDistortedWcs(int order = 3);
     std::vector<lsst::afw::detection::SourceMatch> getMatchedSources(std::string filterName="",
 								     std::string idName="");
-    double getSolvedImageScale();
+    lsst::afw::geom::Angle getSolvedImageScale();
 
     std::vector<std::string> getCatalogueMetadataFields();
 
     ReferenceSources
     getCatalogueForSolvedField(std::string filter, std::string idname, double margin);
 
-    // RA,Dec in degrees!
     ReferenceSources
-    getCatalogue(double ra, double dec, double radiusInArcsec, 
+    getCatalogue(lsst::afw::geom::Angle ra, lsst::afw::geom::Angle dec,
+                 lsst::afw::geom::Angle radius,
                  std::string filterName, std::string idName,
                  int indexId = -1);
 
@@ -172,14 +161,14 @@ public:
 
     std::vector<TagAlongColumn> getTagAlongColumns(int indexId = -1);
 
-    lsst::afw::detection::SourceSet getCatalogue(double radiusInArcsec, std::string filterName,
+    lsst::afw::detection::SourceSet getCatalogue(lsst::afw::geom::Angle radius, std::string filterName,
 						 std::string idName);
 
-    // RA,Dec in degrees
     // Returns a vector of vectors, where the first two are RA and Dec [in degrees],
     // followed by each of the requested columns.
-    std::vector<std::vector<double> > getCatalogueExtra(double ra, double dec, double radiusInArcsec,
-                                                       std::vector<std::string> columns, int indexId = -1);
+    std::vector<std::vector<double> > getCatalogueExtra(lsst::afw::geom::Angle ra, lsst::afw::geom::Angle dec,
+                                                        lsst::afw::geom::Angle radius,
+                                                        std::vector<std::string> columns, int indexId = -1);
 
     void loadIndices();
 
@@ -193,8 +182,6 @@ public:
 
     //Call this before performing a new match
     void reset();
-
-
 
 private:
     lsst::pex::logging::Log _mylog;
@@ -219,9 +206,12 @@ private:
     index_t *_loadIndexMeta(std::string filename);
 
     void _solverSetField();
-    bool _callSolver(double ra=NO_POSITION_SET, double dec=NO_POSITION_SET);
-    int _addSuitableIndicesToSolver(double minImageSizeArcsec, double maxImageSizeArcsec, \
-        double ra=NO_POSITION_SET, double dec=NO_POSITION_SET);    
+    bool _callSolver(lsst::afw::geom::Angle ra=lsst::afw::geom::NullAngle,
+                     lsst::afw::geom::Angle dec=lsst::afw::geom::NullAngle);
+    int _addSuitableIndicesToSolver(lsst::afw::geom::Angle minImageSize,
+                                    lsst::afw::geom::Angle maxImageSize,
+                                    lsst::afw::geom::Angle ra=lsst::afw::geom::NullAngle,
+                                    lsst::afw::geom::Angle dec=lsst::afw::geom::NullAngle);
 
     template <typename T>
     std::vector<T> _getTagAlongData(int indexId, std::string columnName,

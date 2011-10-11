@@ -24,6 +24,7 @@ import math, os, sys
 import eups
 import lsst.afw.detection as afwDetection
 import lsst.afw.image as afwImage
+import lsst.afw.geom  as afwGeom
 
 """This is not a test file, but a convenient way of  reading/writing source sets to and from an ascii file"""
 
@@ -56,10 +57,12 @@ def read(fileName):
 
         s.setId(int(id))
         s.setFlagForDetection(int(flags))
-        s.setRa(float(ra))
+        ra,dec = float(ra), float(dec)
+        #print 'RA,Dec', ra, dec
+        s.setRa(ra * afwGeom.degrees)
+        s.setDec(dec * afwGeom.degrees)
         s.setXAstrom(float(x))
         s.setYAstrom(float(y))
-        s.setDec(float(dec))
         s.setPsfFlux(float(cts))
 
     return sourceSet

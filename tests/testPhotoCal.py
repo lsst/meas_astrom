@@ -101,6 +101,7 @@ class PhotoCalTest(unittest.TestCase):
 
     def testGetSourceMatch(self):
         log = Log.getDefaultLog()
+        #log.setThreshold(Log.DEBUG)
         solver = measAstrom.createSolver(self.defaultPolicy, log)
         solver.setStarlist(self.srcSet)
         solver.setImageSize(*self.forceImageSize)
@@ -113,12 +114,13 @@ class PhotoCalTest(unittest.TestCase):
             solver.solve(self.exposure.getWcs())
 
         m = solver.getMatchedSources()
-        print 'Got matched sources:', m
-        
+        #print 'Got matched sources:', m
                         
     def test1(self):
-        astrom = measAstrom.determineWcs(self.defaultPolicy, self.exposure,
-                                         self.srcSet, forceImageSize=self.forceImageSize)
+        log = Log.getDefaultLog()
+        #log.setThreshold(Log.DEBUG)
+        astrom = measAstrom.determineWcs(self.defaultPolicy, self.exposure, self.srcSet,
+                                         log=log, forceImageSize=self.forceImageSize)
         matches = astrom.getMatches()
            
         pCal = photocal.calcPhotoCal(matches)

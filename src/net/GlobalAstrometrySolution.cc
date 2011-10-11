@@ -190,8 +190,8 @@ void GlobalAstrometrySolution::setDefaultValues() {
     solver_set_default_values(_solver);
     // Set image scale limits (in arcseconds per pixel) to non-zero and
     // non-infinity.
-    setMinimumImageScale(1e-6);
-    setMaximumImageScale(3600*360);
+    setMinimumImageScale(1e-6 * afwGeom::arcseconds);
+    setMaximumImageScale(360 * afwGeom::degrees);
     // How good must a match be to be considered good enough?  Log-odds.
     setMatchThreshold(log(1e12));
     // Handedness of the CCD coordinate system
@@ -313,11 +313,11 @@ void GlobalAstrometrySolution::_solverSetField() {
 }   
 
 // Set the plate scale of the image in arcsec per pixel
-void GlobalAstrometrySolution::setImageScaleArcsecPerPixel(double imgScale ///< Plate scale of image
+void GlobalAstrometrySolution::setImageScaleArcsecPerPixel(lsst::afw::geom::Angle imgScale ///< Plate scale of image
                                                           ) {
     //Note that the solver will fail if min==max, so we make them different by a small amount.    
-    setMinimumImageScale(0.99*imgScale);
-    setMaximumImageScale(1.01*imgScale);
+    setMinimumImageScale(0.99 * imgScale);
+    setMaximumImageScale(1.01 * imgScale);
 }
 
 
@@ -357,19 +357,20 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
     double xc, yc;
     solver_get_field_center(_solver, &xc, &yc);
 
-    // Get the central ra/dec and pixel scale [in arcsec/pixel]
+    // Get the central ra/dec and pixel scale
     afwCoord::Coord::ConstPtr raDec = wcsPtr->pixelToSky(xc, yc);
-    double ra  = raDec->getLongitude(afwCoord::DEGREES);
-    double dec = raDec->getLatitude(afwCoord::DEGREES);
+    afwGeom::Angle ra  = raDec->getLongitude();
+    afwGeom::Angle dec = raDec->getLatitude();
     _mylog.log(pexLog::Log::DEBUG,
-               boost::format("Solving using initial guess at position of\n %.7f %.7f\n") % ra % dec);
+               boost::format("Solving using initial guess at position of\n %.7f %.7f deg\n") % ra.asDegrees() % dec.asDegrees());
 
-    double pixelScale = wcsPtr->pixelScale();
-    double lwr = pixelScale*(1 - unc);
-    double upr = pixelScale*(1 + unc);
+    afwGeom::Angle pixelScale = wcsPtr->pixelScale();
+    afwGeom::Angle lwr = pixelScale*(1 - unc);
+    afwGeom::Angle upr = pixelScale*(1 + unc);
     setMinimumImageScale(lwr);
     setMaximumImageScale(upr);
-    _mylog.log(pexLog::Log::DEBUG, boost::format("Exposure's WCS scale: %g arcsec/pix; setting scale range %.3f - %.3f arcsec/pixel\n") % pixelScale % lwr % upr);
+    _mylog.log(pexLog::Log::DEBUG, boost::format("Exposure's WCS scale: %g arcsec/pix; setting scale range %.3f - %.3f arcsec/pixel\n") %
+               pixelScale.asArcseconds() % lwr.asArcseconds() % upr.asArcseconds());
 
     if ( wcsPtr->isFlipped()) {
         setParity(FLIPPED_PARITY);
@@ -382,26 +383,23 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
     return solve(ra, dec);
 }
 
-    // FIXME -- use Coord
 ///Find a solution with an initial guess at the position    
-bool GlobalAstrometrySolution::solve(const afw::geom::Point2D raDec   ///<Right ascension/declination
-                                               ///in decimal degrees
-                                          ) {
-    return solve(raDec[0], raDec[1]);
+bool GlobalAstrometrySolution::solve(afwCoord::Coord::ConstPtr raDec) {
+    return solve(raDec->getLongitude(), raDec->getLatitude());
 }
 
 ///Find a solution with an initial guess at the position.
-bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in degrees
-                                     double dec   ///< Declination in degrees
+bool GlobalAstrometrySolution::solve(afwGeom::Angle ra,   ///<Right ascension
+                                     afwGeom::Angle dec   ///< Declination
                                           )  {    
     string msg;
 
     // Tell the solver to only consider matches within the image size of the supposed RA,Dec.
     // The magic number 2.0 out front says to accept matches within 2 radii of the given *center* position.
-    double maxRadius = 2.0 * arcsec2deg(solver_get_max_radius_arcsec(_solver));
-    msg = boost::str(boost::format("Setting RA,Dec = (%g, %g), radius = %g deg") % ra % dec % maxRadius);
+    afwGeom::Angle maxRadius = (2.0 * solver_get_max_radius_arcsec(_solver)) * afwGeom::arcseconds;
+    msg = boost::str(boost::format("Setting RA,Dec = (%g, %g), radius = %g deg") % ra.asDegrees() % dec.asDegrees() % maxRadius.asDegrees());
     _mylog.log(pexLog::Log::DEBUG, msg);
-    solver_set_radec(_solver, ra, dec, maxRadius);
+    solver_set_radec(_solver, ra.asDegrees(), dec.asDegrees(), maxRadius.asDegrees());
 
     _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
     _callSolver(ra, dec);
@@ -410,7 +408,7 @@ bool GlobalAstrometrySolution::solve(double ra,   ///<Right ascension in degrees
         const char* indexname = solver_get_best_match_index_name(_solver);
         msg = boost::str(boost::format("Solved index is %s") % indexname);
     } else {
-        msg = boost::str(boost::format("Failed to verify position (%.7f %.7f)\n") % ra % dec);
+        msg = boost::str(boost::format("Failed to verify position (%.7f %.7f)\n") % ra.asDegrees() % dec.asDegrees());
     }
     _mylog.log(pexLog::Log::DEBUG, msg);            
 
@@ -423,7 +421,7 @@ bool GlobalAstrometrySolution::solve()  {
     // Don't use any hints about the RA,Dec position.
     solver_clear_radec(_solver);
 
-    _callSolver(NO_POSITION_SET, NO_POSITION_SET);
+    _callSolver(afwGeom::NullAngle, afwGeom::NullAngle);
 
     if (_isSolved){
         const char* indexname = solver_get_best_match_index_name(_solver);
@@ -439,7 +437,7 @@ bool GlobalAstrometrySolution::solve()  {
 // Check that all the setup was done correctly, then set the solver to work By
 // default, _callSolver does a blind solve, unless the optional ra and dec are
 // given values. Sets _isSolved to true if a solution is found
-bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
+bool GlobalAstrometrySolution::_callSolver(afwGeom::Angle ra, afwGeom::Angle dec) {
     //Throw exceptions if setup is incorrect
     if ( !_starxy) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "Starlist hasn't been set yet"));
@@ -454,11 +452,11 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
     }
 
-    double lower = solver_get_pixscale_low(_solver);
-    double upper = solver_get_pixscale_high(_solver);
+    afwGeom::Angle lower = solver_get_pixscale_low (_solver) * afwGeom::arcseconds;
+    afwGeom::Angle upper = solver_get_pixscale_high(_solver) * afwGeom::arcseconds;
 
     if (lower >= upper) {
-        string msg = boost::str(boost::format("Minimum image scale (%g) must be strictly less than max scale (%g)") % lower % upper);
+        string msg = boost::str(boost::format("Minimum image scale (%g) must be strictly less than max scale (%g)") % lower.asArcseconds() % upper.asArcseconds());
         throw(LSST_EXCEPT(pexExcept::DomainErrorException, msg));
     }
 
@@ -475,10 +473,10 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
     //Output some useful debugging info
     _mylog.format(pexLog::Log::DEBUG, "Image size %.0f x %.0f pixels", xSizePixels, ySizePixels);
     _mylog.format(pexLog::Log::DEBUG, "Searching plate scale range %.3f -- %.3f arcsec/pixel",
-                  lower, upper);
+                  lower.asArcseconds(), upper.asArcseconds());
     _mylog.format(pexLog::Log::DEBUG, "--> Image size %.3f x %.3f to %.3f x %.3f arcmin",
-                  arcsec2arcmin(lower * xSizePixels), arcsec2arcmin(lower * ySizePixels), 
-                  arcsec2arcmin(upper * xSizePixels), arcsec2arcmin(upper * ySizePixels));
+                  lower.asArcminutes() * xSizePixels, upper.asArcminutes() * ySizePixels,
+                  lower.asArcminutes() * xSizePixels, upper.asArcminutes() * ySizePixels);
 
     double qlo, qhi;
     solver_get_quad_size_range_arcsec(_solver, &qlo, &qhi);
@@ -486,7 +484,7 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
                   arcsec2arcmin(qlo), arcsec2arcmin(qhi));
 
     _mylog.log(pexLog::Log::DEBUG, "Setting indices");
-    _addSuitableIndicesToSolver(qlo, qhi, ra, dec);
+    _addSuitableIndicesToSolver(qlo * afwGeom::arcseconds, qhi * afwGeom::arcseconds, ra, dec);
     _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
     solver_run(_solver);
     
@@ -534,25 +532,26 @@ bool GlobalAstrometrySolution::_callSolver(double ra, double dec) {
 /// \param dec Optional declination of inital guess at solution position
 /// 
 /// \return Number of indices loaded
-int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double quadSizeArcsecLwr, 
-    double quadSizeArcsecUpr, double ra, double dec) {
-
+int GlobalAstrometrySolution::_addSuitableIndicesToSolver(afwGeom::Angle quadSizeLow,
+                                                          afwGeom::Angle quadSizeHigh,
+                                                          afwGeom::Angle ra, afwGeom::Angle dec) {
     bool hasAtLeastOneIndexOfSuitableScale = false;
     int nMeta = _indexList.size();
     int nSuitable = 0;
-    bool blind = (ra == NO_POSITION_SET) || (dec == NO_POSITION_SET);
+    bool blind = (ra == afwGeom::NullAngle) || (dec == afwGeom::NullAngle);
 
     for (int i = 0; i<nMeta; ++i){
         index_t* index = _indexList[i];
 
-        if (!index_overlaps_scale_range(index, quadSizeArcsecLwr, quadSizeArcsecUpr))
+        if (!index_overlaps_scale_range(index, quadSizeLow.asArcseconds(), quadSizeHigh.asArcseconds()))
             continue;
 
         hasAtLeastOneIndexOfSuitableScale = true;
 
         //Is this either a blind solve, or does the index cover a suitable
         //patch of sky
-        if (!(blind || index_is_within_range(index, ra, dec, arcsec2deg(quadSizeArcsecUpr))))
+        if (!(blind || index_is_within_range(index, ra.asDegrees(), dec.asDegrees(),
+                                             quadSizeHigh.asDegrees())))
             continue;
 
         // Found a good one!
@@ -572,8 +571,7 @@ int GlobalAstrometrySolution::_addSuitableIndicesToSolver(double quadSizeArcsecL
         
         if(hasAtLeastOneIndexOfSuitableScale) {
             msg += "Probably the ra/dec range isn't covered";
-        }
-        else {
+        } else {
             msg += "No indices of a suitable scale were found";
         }
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, msg));
@@ -628,6 +626,7 @@ lsst::afw::image::Wcs::Ptr GlobalAstrometrySolution::getDistortedWcs(int order) 
     
     //jitter is a measure of how much we can expect the xy of stars to scatter from the expected
     //radec due to noise in our measurments.
+    // don't use Angle here
     double jitterArcsec = tan_pixel_scale(&mo->wcstan) * solver_get_field_jitter(_solver);
     jitterArcsec = hypot(jitterArcsec, mo->index_jitter);
     int inverseOrder = order;
@@ -950,9 +949,9 @@ GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string i
 }
     
 
-///Returns a sourceSet of objects that are nearby in an raDec sense to the best match solution
+///Returns a sourceSet of objects that are nearby in an RA,Dec sense to the best match solution
 afwDet::SourceSet 
-GlobalAstrometrySolution::getCatalogue(double radiusInArcsec, string filterName, string idName) {
+GlobalAstrometrySolution::getCatalogue(afwGeom::Angle radius, string filterName, string idName) {
     if (!_isSolved) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
@@ -960,10 +959,11 @@ GlobalAstrometrySolution::getCatalogue(double radiusInArcsec, string filterName,
     // Don't free this!
     MatchObj* match = solver_get_best_match(_solver);
     double *center = match->center;
-    double ra, dec;
-    xyzarr2radecdeg(center, &ra, &dec);
-    // DEGREES
-    ReferenceSources refs = getCatalogue(ra, dec, radiusInArcsec, filterName, idName);
+    double ra_deg, dec_deg;
+    xyzarr2radecdeg(center, &ra_deg, &dec_deg);
+    afwGeom::Angle ra  = ra_deg  * afwGeom::degrees;
+    afwGeom::Angle dec = dec_deg * afwGeom::degrees;
+    ReferenceSources refs = getCatalogue(ra, dec, radius, filterName, idName);
     return refs.refsources;
 }
 
@@ -1115,7 +1115,7 @@ std::vector<TagAlongColumn> GlobalAstrometrySolution::getTagAlongColumns(int ind
 }
 
 
-std::vector<std::vector<double> > GlobalAstrometrySolution::getCatalogueExtra(double ra, double dec, double radiusInArcsec,
+std::vector<std::vector<double> > GlobalAstrometrySolution::getCatalogueExtra(afwGeom::Angle ra, afwGeom::Angle dec, afwGeom::Angle radius,
                                                                              std::vector<std::string> columns, int indexId) {
     index_t* index = NULL;
     for (unsigned int i=0; i<_indexList.size(); i++) {
@@ -1134,9 +1134,9 @@ std::vector<std::vector<double> > GlobalAstrometrySolution::getCatalogueExtra(do
     int nstars = 0;
     double* radecs = NULL;
     double center[3];
-    // DEGREES
-    radecdeg2xyzarr(ra, dec, center);
-    double radius2 = arcsec2distsq(radiusInArcsec);
+    // this takes degrees
+    radecdeg2xyzarr(ra.asDegrees(), dec.asDegrees(), center);
+    double radius2 = radius.toUnitSphereDistanceSquared();
     startree_search_for(index->starkd, center, radius2, NULL, &radecs, &starinds, &nstars);
 
     std::vector<double> ras;
@@ -1163,16 +1163,17 @@ std::vector<std::vector<double> > GlobalAstrometrySolution::getCatalogueExtra(do
 ///strings returned by getCatalogueMetadataFields(). If you're not interested in fluxes, set
 ///filterName to ""
 ReferenceSources
-GlobalAstrometrySolution::getCatalogue(double ra,
-								       double dec,
-								       double radiusInArcsec,
-								       string filterName,
-								       string idName,
+GlobalAstrometrySolution::getCatalogue(afwGeom::Angle ra,
+                                       afwGeom::Angle dec,
+                                       afwGeom::Angle radius,
+                                       string filterName,
+                                       string idName,
                                        int indexId) {
 
     double center[3];
-    radecdeg2xyzarr(ra, dec, center);
-    double radius2 = arcsec2distsq(radiusInArcsec);
+    // degrees
+    radecdeg2xyzarr(ra.asDegrees(), dec.asDegrees(), center);
+    double radius2 = radius.toUnitSphereDistanceSquared();
     string msg;
 
     ReferenceSources refs;
@@ -1184,7 +1185,7 @@ GlobalAstrometrySolution::getCatalogue(double ra,
         index_t* index = _indexList[i];
         if (indexId != -1 && index->indexid != indexId)
             continue;
-        if (!index_is_within_range(index, ra, dec, arcsec2deg(radiusInArcsec)))
+        if (!index_is_within_range(index, ra.asDegrees(), dec.asDegrees(), radius.asDegrees()))
             continue;
 
         // Ensure the index is loaded...
@@ -1281,12 +1282,12 @@ static vector<double> getTagAlongFromIndex(index_t* index, string fieldName, int
 
 ///Plate scale of solution in arcsec/pixel. Note this is different than getMin(Max)ImageScale()
 ///which return the intial guesses of platescale.
-double GlobalAstrometrySolution::getSolvedImageScale(){
+lsst::afw::geom::Angle GlobalAstrometrySolution::getSolvedImageScale(){
     if (!_isSolved) {
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
     MatchObj* match = getMatchObject();
-    return match->scale;
+    return match->scale * afwGeom::arcseconds;
 } 
 
 MatchObj* GlobalAstrometrySolution::getMatchObject() {
@@ -1295,12 +1296,10 @@ MatchObj* GlobalAstrometrySolution::getMatchObject() {
 
 ///Reset the object so it's ready to match another field.
 void GlobalAstrometrySolution::reset() {
-
     if (_solver != NULL) {
         solver_free(_solver);
         _solver = solver_new();
     }
-    
     if (_starxy != NULL) {
         starxy_free(_starxy);
         _starxy = NULL;

@@ -96,7 +96,8 @@ vector<afwDet::SourceMatch> generateSourceSet(afwImg::TanWcs::Ptr wcsPtr)
 
             afwCoord::Coord::Ptr c = wcsPtr->pixelToSky(i, j);
 			cat->setRaDec(c);
-			printf("RA,Dec = (%.3f, %.3f) deg\n", c->toFk5().getRa(afwCoord::DEGREES), c->toFk5().getDec(afwCoord::DEGREES));
+			cat->setRaDecAstrom(c);
+			printf("RA,Dec = (%.3f, %.3f) deg\n", c->toFk5().getRa().asDegrees(), c->toFk5().getDec().asDegrees());
 
             double dist = hypot(src->getXAstrom()-cat->getXAstrom(), src->getYAstrom() - cat->getYAstrom());
             sourceMatchSet.push_back(afwDet::SourceMatch(cat, src, dist));
@@ -119,19 +120,19 @@ void checkResults(afwImg::Wcs::Ptr wcsPtr, afwImg::TanWcs::Ptr sipWcsPtr, vector
 		afwDet::Source::Ptr src = sourceMatchSet[i].second;
         double srcX = src->getXAstrom();
         double srcY = src->getYAstrom();    
-		double catRa  = cat->getRa();
-		double catDec = cat->getDec();
+		afwGeom::Angle catRa  = cat->getRa();
+		afwGeom::Angle catDec = cat->getDec();
 		afwCoord::Fk5Coord srcRaDec = sipWcsPtr->pixelToSky(srcX, srcY)->toFk5();
-		afwCoord::CoordUnit RAD = afwCoord::RADIANS;
-		/*
-		 printf("cat RA,Dec = (%.5f, %.5f) rad\n", catRa, catDec);
-		 printf("src RA,Dec = (%.5f, %.5f) rad\n", srcRaDec.getRa(RAD), srcRaDec.getDec(RAD));
-		 */
-		// these are in radians
-		BOOST_CHECK_SMALL(catRa  - srcRaDec.getRa(RAD),  1e-6);
-		BOOST_CHECK_SMALL(catDec - srcRaDec.getDec(RAD), 1e-6);
+
+		printf("cat RA,Dec = (%.5f, %.5f) deg\n", catRa.asDegrees(), catDec.asDegrees());
+		printf("src RA,Dec = (%.5f, %.5f) deg\n", srcRaDec.getRa().asDegrees(), srcRaDec.getDec().asDegrees());
+
+		BOOST_CHECK_SMALL((catRa  - srcRaDec.getRa()).asRadians(), 1e-6);
+		BOOST_CHECK_SMALL((catDec - srcRaDec.getDec()).asRadians(), 1e-6);
 		// these are in pixels.
         afwGeom::Point2D catxy = sipWcsPtr->skyToPixel(cat->getRaDec());
+		printf("cat X,Y = (%.3f, %.3f)\n", catxy[0], catxy[1]);
+		printf("src X,Y = (%.3f, %.3f)\n", srcX, srcY);
         BOOST_CHECK_SMALL(srcX - catxy[0], 1e-6);
         BOOST_CHECK_SMALL(srcY - catxy[1], 1e-6);
     }
@@ -247,18 +248,14 @@ BOOST_AUTO_TEST_CASE(linearYX)
 
 
 
-BOOST_AUTO_TEST_CASE(quadraticX)
-{
-
+BOOST_AUTO_TEST_CASE(quadraticX) {
     afwImg::TanWcs::Ptr wcsPtr = createDefaultWcsPtr();
     vector<afwDet::SourceMatch> sourceMatchSet = generateSourceSet(wcsPtr);
     
     //Add an offset to each point
-    for(unsigned int i = 0; i<sourceMatchSet.size(); ++i)
-    {
+    for (size_t i = 0; i<sourceMatchSet.size(); ++i) {
         double x = sourceMatchSet[i].second->getXAstrom();
         double y = sourceMatchSet[i].second->getYAstrom();
-        
         sourceMatchSet[i].second->setXAstrom(x + 1e-5*x*x);
         sourceMatchSet[i].second->setYAstrom(y);
     }
