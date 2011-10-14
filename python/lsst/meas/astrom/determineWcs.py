@@ -441,7 +441,7 @@ def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None,
     policy.set('matchThreshold', 30)
     solver = createSolver(policy, log)
     idName = 'id'
-    anid = meta.getInt('ANINDID')
+    anid = meta.getInt('ANINDID') if meta.exists('ANINDID') else -1
 
     if filterName is None:
         try:
@@ -454,6 +454,9 @@ def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None,
             (ra.asDegrees(), dec.asDegrees(), radius.asArcseconds(), filterName))
     cat = solver.getCatalogue(ra, dec, radius, filterName, idName, anid)
     log.log(log.DEBUG, "%d catalogue sources found" % len(cat.refsources))
+
+    if anid == -1:
+        meta.add('ANINDID', cat.indexid, 'Astrometry.net index id')
 
     try:
         stargalName, variableName, magerrName = getTagAlongNamesFromMetadata(meta)
