@@ -26,6 +26,7 @@ import lsst.afw.coord              as afwCoord
 import lsst.utils.tests            as utilsTests
 import lsst.pex.policy             as pexPolicy
 from lsst.pex.logging import Log
+import lsst.afw.geom  as afwGeom
                 
 class XYAstromTest(unittest.TestCase):
 
@@ -59,7 +60,7 @@ class XYAstromTest(unittest.TestCase):
         idName = 'id'
         anid = 2033
 
-        X = solver.getCatalogue(ra, dec, radius, filterName, idName, anid)
+        X = solver.getCatalogue(ra * afwGeom.degrees, dec * afwGeom.degrees, radius * afwGeom.arcseconds, filterName, idName, anid)
         ref = X.refsources
         print 'Got', len(ref), 'ref sources'
         # Number of sources within the search radius.
@@ -67,24 +68,24 @@ class XYAstromTest(unittest.TestCase):
         allzero = True
         for i in range(10):
             print ref[i]
-            print 'r,d', i, ':', ref[i].getRa(), ref[i].getDec()
+            print 'r,d', i, ':', ref[i].getRa().asDegrees(), ref[i].getDec().asDegrees()
             #print 'r,d', i, ':', ref[i].getRaAstrom(), ref[i].getDecAstrom()
-            ra = ref[i].getRa()
-            dec = ref[i].getDec()
+            ra = ref[i].getRa().asRadians()
+            dec = ref[i].getDec().asRadians()
             if ra != 0 or dec != 0:
                 allzero = False
             self.assertTrue(ra >= 0.)
             self.assertTrue(ra < 2.*math.pi)
             self.assertTrue(dec >= -math.pi)
             self.assertTrue(dec <=  math.pi)
-            self.assertEqual(ra,  ref[i].getRaAstrom())
-            self.assertEqual(dec, ref[i].getDecAstrom())
-            self.assertEqual(ra,  ref[i].getRaFlux())
-            self.assertEqual(dec, ref[i].getDecFlux())
-            self.assertEqual(ra,  ref[i].getRaPeak())
-            self.assertEqual(dec, ref[i].getDecPeak())
-            self.assertEqual(ra,  ref[i].getRaObject())
-            self.assertEqual(dec, ref[i].getDecObject())
+            self.assertEqual(ra,  ref[i].getRaAstrom().asRadians())
+            self.assertEqual(dec, ref[i].getDecAstrom().asRadians())
+            self.assertEqual(ra,  ref[i].getRaFlux().asRadians())
+            self.assertEqual(dec, ref[i].getDecFlux().asRadians())
+            self.assertEqual(ra,  ref[i].getRaPeak().asRadians())
+            self.assertEqual(dec, ref[i].getDecPeak().asRadians())
+            self.assertEqual(ra,  ref[i].getRaObject().asRadians())
+            self.assertEqual(dec, ref[i].getDecObject().asRadians())
         self.assertFalse(allzero)
 
 def suite():

@@ -93,7 +93,7 @@ def plotsForField(inButler, keys, fixup, plots=None, prefix=''):
     radius = wcs.pixelScale() * hypot(xc, yc) * 1.1
     print 'Image W,H', W,H
     print 'Image center RA,Dec', ra, dec
-    print 'Searching radius', radius, 'arcsec'
+    print 'Searching radius', radius.asArcseconds(), 'arcsec'
     log = Log.getDefaultLog()
     log.setThreshold(Log.DEBUG);
     pol = policy.Policy()

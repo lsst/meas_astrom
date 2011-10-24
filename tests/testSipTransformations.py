@@ -29,7 +29,7 @@ import unittest
 
 import lsst.afw.image as afwImage
 import lsst.utils.tests as utilsTests
-from lsst.afw.coord import DEGREES
+import lsst.afw.geom as afwGeom
 
 
 
@@ -91,7 +91,7 @@ class SipTransformationTest(unittest.TestCase):
         '''
 
         
-        self.sip_rdxy = [(r,d,x-1,y-1) for (r,d,x,y) in [
+        self.sip_rdxy = [(r * afwGeom.degrees, d * afwGeom.degrees, x-1,y-1) for (r,d,x,y) in [
             (1.42667846826, 3.37583321746, 2167.54521667, 2020.40323873),
             (1.4266863759, 3.3757783481,  2168.5452166700, 2020.4032387300),
             (1.5000000000, 3.3000000000, 3711.0128841126, 3134.4402504066),
@@ -139,7 +139,7 @@ class SipTransformationTest(unittest.TestCase):
 
         # --> good to about 5 decimal digits in pixels.
 
-        self.tan_rdxy = [(r,d,x-1,y-1) for (r,d,x,y) in [
+        self.tan_rdxy = [(r * afwGeom.degrees, d * afwGeom.degrees, x-1, y-1) for (r,d,x,y) in [
             (1.42667846826, 3.37583321746, 2167.54521667,   2020.40323873),
             (1.4266863759,  3.3757783481,  2168.5452166700, 2020.4032387300),
             (1.5000000000, 3.3000000000,  3711.9022585704, 3134.0179793251),
@@ -149,13 +149,10 @@ class SipTransformationTest(unittest.TestCase):
 
     # UGH, the coord interface is nasty.
     def pixelToRaDec(self, wcs, xx, yy):
-            rd = wcs.pixelToSky(xx, yy)
-            #print 'rd is', rd
-            #rr = rd.getRa(DEGREES)
-            #dd = rd.getDec(DEGREES)
-            rr = rd.getLongitude(DEGREES)
-            dd = rd.getLatitude(DEGREES)
-            return (rr, dd)
+        rd = wcs.pixelToSky(xx, yy)
+        rr = rd.getLongitude().asDegrees()
+        dd = rd.getLatitude().asDegrees()
+        return (rr, dd)
 
     def roundTrip(self, wcs, rdxy):
         for (ra,dec,x,y) in rdxy:
@@ -168,11 +165,11 @@ class SipTransformationTest(unittest.TestCase):
             #print 'pixels are', type(xx), type(yy)
             #print 'ra,dec are', type(rr), type(rr)
             
-            self.assertAlmostEqual(rr, ra, 5)
-            self.assertAlmostEqual(dd, dec, 5)
+            self.assertAlmostEqual(rr, ra.asDegrees(), 5)
+            self.assertAlmostEqual(dd, dec.asDegrees(), 5)
 
             ra,dec = self.pixelToRaDec(wcs, x, y)
-            xx,yy = wcs.skyToPixel(ra, dec)
+            xx,yy = wcs.skyToPixel(ra * afwGeom.degrees, dec * afwGeom.degrees)
             print
             print 'Pixel %-14.12g, %-14.12g --> RA,Dec %-14.12g, %-14.12g -->' %  (x, y, ra, dec)
             print 'Pixel %-14.12g, %-14.12g' % (xx, yy)
@@ -198,8 +195,8 @@ class SipTransformationTest(unittest.TestCase):
             self.assertAlmostEqual(x, xx, 3)
             self.assertAlmostEqual(y, yy, 3)
             rr,dd = self.pixelToRaDec(wcs, x, y)
-            self.assertAlmostEqual(ra, rr, 5)
-            self.assertAlmostEqual(dec, dd, 5)
+            self.assertAlmostEqual(ra.asDegrees(), rr, 5)
+            self.assertAlmostEqual(dec.asDegrees(), dd, 5)
             print 'x,y %-14.12g, %-14.12g --> ra,dec %-14.12g, %-14.12g' % (x, y, ra, dec)
             print '  Expected:                                   %-14.12g, %-14.12g' % (rr,dd)
 

@@ -17,9 +17,10 @@ import lsst.afw.detection as afwDet
 import lsst.afw.math as afwMath
 import lsst.afw.display.ds9 as ds9
 import lsst.afw.display.utils as displayUtils
-import lsst
 import lsst.meas.astrom as measAstrom
 from lsst.pex.logging import Log
+#from lsst.afw.geom import Angle
+import lsst.afw.geom as afwGeom
 
 try:
     type(verbose)
@@ -73,7 +74,7 @@ class matchlistTestCase(unittest.TestCase):
         anindid = 2033
 
         solver = measAstrom.createSolver(pol, log)
-        X = solver.getCatalogue(ra, dec, rad*3600., filtername, idname, anindid)
+        X = solver.getCatalogue(ra * afwGeom.degrees, dec * afwGeom.degrees, rad * afwGeom.degrees, filtername, idname, anindid)
         ss = X.refsources
         inds = X.inds
         print 'got', len(ss), 'catalog sources'
@@ -127,8 +128,8 @@ class matchlistTestCase(unittest.TestCase):
         for i in xrange(len(smv)):
             self.assertEqual(smv2[i].first.getSourceId(), smv[i].first.getSourceId())
             self.assertEqual(smv2[i].second.getSourceId(), smv[i].second.getSourceId())
-            self.assertEqual(smv2[i].first.getRa(), smv[i].first.getRa())
-            self.assertEqual(smv2[i].first.getDec(), smv[i].first.getDec())
+            self.assertEqual(smv2[i].first.getRa().asDegrees(), smv[i].first.getRa().asDegrees())
+            self.assertEqual(smv2[i].first.getDec().asDegrees(), smv[i].first.getDec().asDegrees())
             self.assertEqual(smv2[i].first.getPsfFlux(), smv[i].first.getPsfFlux())
 
 

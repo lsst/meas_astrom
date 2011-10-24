@@ -3,7 +3,7 @@ import sys
 import lsst.pex.policy as policy
 import lsst.meas.astrom as measAstrom
 from lsst.pex.logging import Log
-from lsst.afw.coord import DEGREES
+import lsst.afw.geom as afwGeom
 
 def main():
     from optparse import OptionParser
@@ -18,7 +18,7 @@ def main():
 
     ra = float(args[0])
     dec = float(args[1])
-    radius = float(args[2]) * 3600.
+    radius = float(args[2])
 
     log = Log.getDefaultLog()
     log.setThreshold(Log.DEBUG);
@@ -33,7 +33,8 @@ def main():
     indexid = ids[0]
 
     idName = 'id'
-    X = solver.getCatalogue(ra, dec, radius, '', idName, indexid)
+    X = solver.getCatalogue(ra * afwGeom.degrees, dec * afwGeom.degrees,
+                            radius * afwGeom.degrees, '', idName, indexid)
     ref = X.refsources
     inds = X.inds
     print 'Got', len(ref), 'reference catalog sources'
@@ -67,7 +68,7 @@ def main():
         print
 
         for i,r in enumerate(ref):
-            print r.getRa(), r.getDec(),
+            print r.getRa().asDegrees(), r.getDec().asDegrees(),
             for c,d in zip(cols, tagdata):
                 if c.arraysize > 1:
                     for a in len(c.arraysize):
@@ -81,10 +82,10 @@ def main():
         import numpy as np
 
         fitscols = []
-        fitscols.append(pyfits.Column(name='RA', array=np.degrees(np.array([r.getRa() for r in ref])),
-                                  format='D', unit='deg'))
-        fitscols.append(pyfits.Column(name='DEC', array=np.degrees(np.array([r.getDec() for r in ref])),
-                                  format='D', unit='deg'))
+        fitscols.append(pyfits.Column(name='RA', array=np.array([r.getRa().asDegrees() for r in ref]),
+                                      format='D', unit='deg'))
+        fitscols.append(pyfits.Column(name='DEC', array=np.array([r.getDec().asDegrees() for r in ref]),
+                                      format='D', unit='deg'))
         for c,d in zip(cols, tagdata):
             fmap = { 'Int64' : 'K',
                      'Int' : 'J',

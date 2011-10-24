@@ -1,21 +1,7 @@
 # -*- python -*-
-Import("env")
+from lsst.sconsUtils import scripts
 
-import glob, os, sys
-import eups
-import lsst.tests
+scripts.BasicSConscript.tests()
 
-for fileName in glob.glob("*.cc"):
-    env.Program(fileName, LIBS=env.getlibs("meas_astrom"))
-
-ignoreList = []
-tests = lsst.tests.Control(env, ignoreList=ignoreList)
-
-if not eups.productDir("astrometry_net_data"):
-    print >> sys.stderr, "Not running tests as astrometry_net_data is not setup"
-
-tests.run("*.cc")
-
-for target in tests.run("*.py"):
-    for d in ["net", "sip"]:
-        env.Depends(target, "#/python/lsst/meas/astrom/%s/_%sLib%s" % (d, d, env['LDMODULESUFFIX']))
+#if not eups.productDir("astrometry_net_data"):
+#    print >> sys.stderr, "Not running tests as astrometry_net_data is not setup"
