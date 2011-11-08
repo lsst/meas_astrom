@@ -4,13 +4,15 @@ import eups, sys
 
 eupsObj = eups.Eups()
 
-have_asd = True
-for vers in ("cfhtlsDeep", "cfhttemplate"):
+ignoreList = []
+for vers in ("cfhtlsDeep", "cfhttemplate",):
     ok, version, reason = eupsObj.setup("astrometry_net_data", versionName=vers)
     if not ok:
         print >> sys.stderr, \
             "Skipping tests as I couldn't set up astrometry_net_data %s" % vers
-        have_asd = False
+        if vers == "cfhtlsDeep":
+            ignoreList.append("testDetermineWcs.py")
+        if vers == "cfhttemplate":
+            ignoreList.append("testGasGetSourceMatch.py")
         
-if have_asd:
-    scripts.BasicSConscript.tests()
+scripts.BasicSConscript.tests(ignoreList=ignoreList)
