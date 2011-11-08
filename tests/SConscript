@@ -1,7 +1,16 @@
 # -*- python -*-
 from lsst.sconsUtils import scripts
+import eups, sys
 
-scripts.BasicSConscript.tests()
+eupsObj = eups.Eups()
 
-#if not eups.productDir("astrometry_net_data"):
-#    print >> sys.stderr, "Not running tests as astrometry_net_data is not setup"
+have_asd = True
+for vers in ("cfhtlsDeep", "cfhttemplate"):
+    ok, version, reason = eupsObj.setup("astrometry_net_data", versionName=vers)
+    if not ok:
+        print >> sys.stderr, \
+            "Skipping tests as I couldn't set up astrometry_net_data %s" % vers
+        have_asd = False
+        
+if have_asd:
+    scripts.BasicSConscript.tests()
