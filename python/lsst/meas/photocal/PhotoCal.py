@@ -63,14 +63,6 @@ use the value from the measured sources (specifically, the STAR bit in the detec
     # Only use stars for which the flags indicate the photometry is good.
     log.log(log.DEBUG, "Number of sources: %d" % (len(sourceMatch)))
 
-    STAR = malgUtil.getDetectionFlags()['STAR']
-    #
-    # See if any catalogue objects are labelled as stars; if not use the measured object's classifier
-    #
-    if useCatalogClassification and len([m for m in sourceMatch if (m.first.getFlagForDetection() & STAR)]) == 0:
-        log.log(log.WARN, "No catalogue objects are classified as stars;  using measured object S/G classifier")
-        useCatalogClassification = False
-
     sourceMatch = [m for m in sourceMatch if
                    (m.second.getFlagForDetection() & goodFlagValue) == goodFlagValue and
                    not (m.second.getFlagForDetection() & badFlagValue)]
@@ -78,6 +70,14 @@ use the value from the measured sources (specifically, the STAR bit in the detec
 
     if len(sourceMatch) == 0:
         raise ValueError("flags indicate all elements of sourceMatch have bad photometry")
+
+    STAR = malgUtil.getDetectionFlags()['STAR']
+    #
+    # See if any catalogue objects are labelled as stars; if not use the measured object's classifier
+    #
+    if useCatalogClassification and len([m for m in sourceMatch if (m.first.getFlagForDetection() & STAR)]) == 0:
+        log.log(log.WARN, "No catalogue objects are classified as stars;  using measured object S/G classifier")
+        useCatalogClassification = False
 
     # Only use objects classified as stars for the photometric calibration
     if useCatalogClassification:
