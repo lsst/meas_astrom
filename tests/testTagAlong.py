@@ -83,8 +83,6 @@ class TagAlongTest(unittest.TestCase):
 
         # Set up local astrometry_net_data
         datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'testTagAlong')
-        # Work around lame scons bug (doesn't pass HOME)
-        os.environ['HOME'] = 'iswheretheheartis'
         eupsObj = eups.Eups(root=datapath)
         ok, version, reason = eupsObj.setup('astrometry_net_data')
         if not ok:

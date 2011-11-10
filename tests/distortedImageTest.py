@@ -46,9 +46,6 @@ import sourceSetIO
 # Set up local astrometry_net_data
 meas_astrom_dir = eups.productDir("meas_astrom")
 datapath = os.path.join(meas_astrom_dir, 'tests', 'astrometry_net_data', 'cfhttemplate')
-
-# Work around lame scons bug (doesn't pass HOME)
-os.environ['HOME'] = 'iswheretheheartis' 
 eupsObj = eups.Eups(root=datapath)
 
 ok, version, reason = eupsObj.setup('astrometry_net_data')
