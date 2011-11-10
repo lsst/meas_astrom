@@ -45,6 +45,8 @@ If useCatalogClassification is true, use the star/galaxy classification from the
 use the value from the measured sources (specifically, the STAR bit in the detection flags)
     """
 
+    import pdb;pdb.set_trace()
+
     if log is None:
         log = pexLog.Log.getDefaultLog()
 
@@ -75,17 +77,21 @@ use the value from the measured sources (specifically, the STAR bit in the detec
     #
     # See if any catalogue objects are labelled as stars; if not use the measured object's classifier
     #
-    if useCatalogClassification and len([m for m in sourceMatch if (m.first.getFlagForDetection() & STAR)]) == 0:
-        log.log(log.WARN, "No catalogue objects are classified as stars;  using measured object S/G classifier")
-        useCatalogClassification = False
-
-    # Only use objects classified as stars for the photometric calibration
     if useCatalogClassification:
-        sourceMatch = [m for m in sourceMatch if (m.first.getFlagForDetection()  & STAR)]
-    else:
-        sourceMatch = [m for m in sourceMatch if (m.second.getFlagForDetection() & STAR)]
-    log.log(log.DEBUG, "Number of stellar sources with good flag settings: %d" % (len(sourceMatch)))
-
+        starMatch = [m for m in sourceMatch if (m.first.getFlagForDetection() & STAR)]
+        if len(starMatch) == 0:
+            log.log(log.WARN, "No catalogue objects are classified as stars; " +
+                    "using measured object S/G classifier")
+            useCatalogClassification = False
+        else:
+            sourceMatch = starMatch
+    if not useCatalogClassification:
+        starMatch = [m for m in sourceMatch if (m.second.getFlagForDetection() & STAR)]
+        if len(starMatch) == 0:
+            log.log(log.WARN, "No image objects are classified as stars; using all sources")
+        else:
+            sourceMatch = starMatch
+    log.log(log.DEBUG, "Number of sources after stellar cuts: %d" % (len(sourceMatch)))
     if len(sourceMatch) == 0:
         raise RuntimeError("No sources remaining in match list after cuts")
  
