@@ -45,8 +45,6 @@ If useCatalogClassification is true, use the star/galaxy classification from the
 use the value from the measured sources (specifically, the STAR bit in the detection flags)
     """
 
-    import pdb;pdb.set_trace()
-
     if log is None:
         log = pexLog.Log.getDefaultLog()
 
