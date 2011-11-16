@@ -1,0 +1,53 @@
+
+# /
+/.emacs*
+/config.log
+/incant.bsh
+/.scon*
+
+# /doc/
+/doc/htmlDir
+
+# /examples/
+/examples/refSources
+
+# /lib/
+/lib/*.dylib
+/lib/*.so
+
+# /python/lsst/meas/
+/python/lsst/meas/*.pyc
+
+# /python/lsst/meas/astrom/
+/python/lsst/meas/astrom/*.pyc
+
+# /python/lsst/meas/astrom/net/
+/python/lsst/meas/astrom/net/*.pyc
+/python/lsst/meas/astrom/net/netLib.py
+/python/lsst/meas/astrom/net/netLib_wrap.os
+/python/lsst/meas/astrom/net/netLib_wrap.cc
+/python/lsst/meas/astrom/net/_netLib.so
+
+# /python/lsst/meas/astrom/sip/
+/python/lsst/meas/astrom/sip/*.pyc
+/python/lsst/meas/astrom/sip/sipLib_wrap.*
+/python/lsst/meas/astrom/sip/sipLib.py
+/python/lsst/meas/astrom/sip/*.so
+
+# /python/lsst/meas/photocal/
+/python/lsst/meas/photocal/*.pyc
+
+# /src/net/
+/src/net/*.os
+
+# /src/sip/
+/src/sip/*.os
+
+# /tests/
+/tests/.tests
+/tests/*.pyc
+/tests/testConvertCheby
+/tests/testlsf1d
+/tests/testlsf2d
+/tests/core.*
+/tests/testCreateWcsWithSip
