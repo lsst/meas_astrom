@@ -43,7 +43,7 @@ namespace sip = lsst::meas::astrom::sip;
 /// \param catSet  List of catalogue positions with known ra and dec
 /// \param imgSet  List of image positions with known x and y
 /// \param wcs     A Wcs object to convert from xy to radec
-/// \param distInArcsec How close to objects need to be in order to be considered the same
+/// \param dist    How close to objects need to be in order to be considered the same
 /// 
 sip::MatchSrcToCatalogue::MatchSrcToCatalogue(det::SourceSet const& catSet,  
                                               det::SourceSet const& imgSet, 
