@@ -62,7 +62,7 @@ public:
     MatchSrcToCatalogue(lsst::afw::detection::SourceSet const& catSet,
                         lsst::afw::detection::SourceSet const& imgSet,       
                         CONST_PTR(lsst::afw::image::Wcs) wcs,   
-                        lsst::afw::geom::Angle matchDist
+                        lsst::afw::geom::Angle dist
                        );
 
     //Don't need a Copy constructor

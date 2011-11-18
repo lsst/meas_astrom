@@ -6,7 +6,8 @@
 .sconf_temp/
 .sconsign.dblite
 config.log
-doc/htmlDir
+doc/html
+doc/doxygen.conf
 examples/refSources
 python/lsst/meas/astrom/net/netLib.py
 python/lsst/meas/astrom/net/netLib_wrap.cc
@@ -18,4 +19,7 @@ tests/testConvertCheby
 tests/testCreateWcsWithSip
 tests/testlsf1d
 tests/testlsf2d
-ups/*.cfgc
+*.cfgc
+doc/html/
+doc/*.tag
+version.py

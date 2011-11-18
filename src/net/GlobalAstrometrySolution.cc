@@ -384,7 +384,7 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
 }
 
 ///Find a solution with an initial guess at the position    
-bool GlobalAstrometrySolution::solve(afwCoord::Coord::ConstPtr raDec) {
+bool GlobalAstrometrySolution::solve(afw::coord::Coord::ConstPtr raDec) {
     return solve(raDec->getLongitude(), raDec->getLatitude());
 }
 
