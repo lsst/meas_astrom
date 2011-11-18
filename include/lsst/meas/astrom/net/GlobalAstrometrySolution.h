@@ -35,7 +35,7 @@
 #include "boost/cstdint.hpp"
 #include "boost/shared_ptr.hpp"
 #include "boost/format.hpp"
-#include "Eigen/Core.h"
+#include "Eigen/Core"
 
 #include "lsst/pex/exceptions.h"
 #include "lsst/pex/logging/Trace.h"

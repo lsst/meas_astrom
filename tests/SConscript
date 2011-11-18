@@ -1,21 +1,18 @@
 # -*- python -*-
-Import("env")
+from lsst.sconsUtils import scripts
+import eups, sys
 
-import glob, os, sys
-import eups
-import lsst.tests
-
-for fileName in glob.glob("*.cc"):
-    env.Program(fileName, LIBS=env.getlibs("meas_astrom"))
+eupsObj = eups.Eups()
 
 ignoreList = []
-tests = lsst.tests.Control(env, ignoreList=ignoreList)
-
-#if not eups.productDir("astrometry_net_data"):
-#    print >> sys.stderr, "Not running tests as astrometry_net_data is not setup"
-
-tests.run("*.cc")
-
-for target in tests.run("*.py"):
-    for d in ["net", "sip"]:
-        env.Depends(target, "#/python/lsst/meas/astrom/%s/_%sLib%s" % (d, d, env['LDMODULESUFFIX']))
+for vers in ("cfhtlsDeep", "cfhttemplate",):
+    ok, version, reason = eupsObj.setup("astrometry_net_data", versionName=vers)
+    if not ok:
+        print >> sys.stderr, \
+            "Skipping tests as I couldn't set up astrometry_net_data %s" % vers
+        if vers == "cfhtlsDeep":
+            ignoreList.append("testDetermineWcs.py")
+        if vers == "cfhttemplate":
+            ignoreList.append("testGasGetSourceMatch.py")
+        
+scripts.BasicSConscript.tests(ignoreList=ignoreList)

@@ -46,9 +46,6 @@ import sourceSetIO
 # Set up local astrometry_net_data
 meas_astrom_dir = eups.productDir("meas_astrom")
 datapath = os.path.join(meas_astrom_dir, 'tests', 'astrometry_net_data', 'cfhttemplate')
-
-# Work around lame scons bug (doesn't pass HOME)
-os.environ['HOME'] = 'iswheretheheartis' 
 eupsObj = eups.Eups(root=datapath)
 
 ok, version, reason = eupsObj.setup('astrometry_net_data')
@@ -68,7 +65,7 @@ class DistortedImageTestCase(unittest.TestCase):
     def setUp(self):
         path=eups.productDir("meas_astrom")
         self.filename=os.path.join(path, "tests", "cat.xy.list")
-        self.orderlist = range(2,10) #Fit distortion with every order in this range
+        self.orderlist = range(2,5) #Fit distortion with every order in this range
 
     def tearDown(self):
         pass
@@ -105,15 +102,18 @@ class DistortedImageTestCase(unittest.TestCase):
         #Returns a clean list of matches (i.e with outliers removed)
         matchList = self.matchSrcAndCatalogue(cat, img, imgWcs)    
         x, y, dx, dy = self.get1dVectorsFromSourceMatchVector(matchList)
-
         s = list(.1 for i in range(len(x)))
         for i in order:
             lsfX = sip.LeastSqFitter2dPoly(x, y, dx, s, i);
             lsfY = sip.LeastSqFitter2dPoly(x, y, dy, s, i);
             
             for j in range(len(x)):
-                self.assertAlmostEqual(dx[j], lsfX.valueAt(x[j], y[j]), 3)
-                self.assertAlmostEqual(dy[j], lsfY.valueAt(x[j], y[j]), 3)
+                diffX = abs(dx[j] - lsfX.valueAt(x[j], y[j]))
+                diffY = abs(dy[j] - lsfY.valueAt(x[j], y[j]))
+                self.assert_(diffX < 0.1, msg="%f - %f >= 0.1 at order %d" 
+                             % (dx[i], lsfX.valueAt(x[j], y[j]), i))
+                self.assert_(diffY < 0.1, msg="%f - %f >= 0.1 at order %d" 
+                             % (dy[i], lsfY.valueAt(x[j], y[j]), i))
         
 
     def loadCatalogue(self, filename, gas):

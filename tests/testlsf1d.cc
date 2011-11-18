@@ -33,7 +33,7 @@ using namespace std;
 #include <cstdio>
 #include <cassert>
 #include "boost/shared_ptr.hpp"
-#include "Eigen/Core.h"
+#include "Eigen/Core"
 #include "lsst/afw/math/FunctionLibrary.h"
 
 #include "lsst/meas/astrom/sip/LeastSqFitter1d.h"

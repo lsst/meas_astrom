@@ -17,7 +17,6 @@ import lsst.afw.detection as afwDet
 import lsst.afw.math as afwMath
 import lsst.afw.display.ds9 as ds9
 import lsst.afw.display.utils as displayUtils
-import lsst
 import lsst.meas.astrom as measAstrom
 from lsst.pex.logging import Log
 #from lsst.afw.geom import Angle
@@ -55,8 +54,6 @@ class matchlistTestCase(unittest.TestCase):
         # Set up local astrometry_net_data
         datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
         print 'Setting up astrometry_net_data:', datapath
-        # Work around lame scons bug (doesn't pass HOME)
-        os.environ['HOME'] = 'iswheretheheartis'
         eupsObj = eups.Eups(root=datapath)
         ok, version, reason = eupsObj.setup('astrometry_net_data')
         if not ok:

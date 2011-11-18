@@ -337,39 +337,10 @@ Eigen::MatrixXd CreateWcsWithSip::_calculateCMatrix(Eigen::VectorXd axis1, Eigen
 ///
 ///\returns x, an m x 1 vector of best fit params
 Eigen::VectorXd CreateWcsWithSip::_leastSquaresSolve(Eigen::VectorXd b, Eigen::MatrixXd A) {
-
-    int rowsA = A.rows();
-    int colsA = A.cols();
-    int rowsB = b.rows();
-    
-    if  (rowsA != rowsB) {
+    if  (A.rows() != b.rows()) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "vector b of wrong size");        
     }
-
-    Eigen::MatrixXd Atr = A.transpose();
-    Eigen::MatrixXd AtrA = Atr * A;  //A transpose x A
-    Eigen::MatrixXd Atrb = Atr * b; //A transpose x b
-
-    //Try three different methods of solving the linear equation
-    Eigen::VectorXd par(colsA);
-    if (! AtrA.ldlt().solve(Atrb, &par)) {
-         pexLog::TTrace<5>("lsst.meas.astrom.sip.LeastSquaresSolve",
-                           "Unable fit data with Cholesky LDL^t");
-
-        if (! AtrA.llt().solve(Atrb, &par)) {
-             pexLog::TTrace<5>("lsst.meas.astrom.sip.LeastSquaresSolve",
-                           "Unable fit data with Cholesky LL^t either");
-                        
-            if (! AtrA.lu().solve(Atrb, &par)) {
-                 pexLog::TTrace<5>("lsst.meas.astrom.sip.LeastSquaresSolve",
-                               "Unable fit data with LU decomposition either");
-
-                 throw LSST_EXCEPT(pexExcept::Exception,
-                     "Unable to solve least squares equation in LeastSquaresSolve()");
-            }
-        }
-    }
-    
+    Eigen::VectorXd par = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
     return par;
 }
 

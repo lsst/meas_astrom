@@ -31,7 +31,7 @@ using namespace std;
 #include <cmath>
 #include <iostream>
 #include "boost/shared_ptr.hpp"
-#include "Eigen/Core.h"
+#include "Eigen/Core"
 
 #include "lsst/afw/coord/Coord.h"
 #include "lsst/afw/image/TanWcs.h"
@@ -133,8 +133,8 @@ void checkResults(afwImg::Wcs::Ptr wcsPtr, afwImg::TanWcs::Ptr sipWcsPtr, vector
         afwGeom::Point2D catxy = sipWcsPtr->skyToPixel(cat->getRaDec());
 		printf("cat X,Y = (%.3f, %.3f)\n", catxy[0], catxy[1]);
 		printf("src X,Y = (%.3f, %.3f)\n", srcX, srcY);
-        BOOST_CHECK_SMALL(srcX - catxy[0], 1e-6);
-        BOOST_CHECK_SMALL(srcY - catxy[1], 1e-6);
+        BOOST_CHECK_SMALL(srcX - catxy[0], 2.5e-5);
+        BOOST_CHECK_SMALL(srcY - catxy[1], 2.5e-5);
     }
 }
 
