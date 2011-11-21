@@ -1,0 +1,119 @@
+#<?cfg paf dictionary ?>
+
+definitions: {
+    # Parameters for solving for wcs
+    blindSolve: {
+        type: "boolean"
+        description: "Whether to ignore wcs information in header when trying to solve. Slows down the solution step significantly, but can be useful if the initial wcs is significantly off"
+        minOccurs: 0
+        maxOccurs: 1
+        default: false
+    }
+    numBrightStars: {
+        type: "int"
+        description: "Use only this number of stars when solving. Makes solver run faster"
+        minOccurs: 0
+        maxOccurs: 1
+        default: 50
+    }
+#    allowDistortion: {
+#         type: "boolean"
+#         description: "Inform the solver that the image may suffer from some distortion. Leave this on if a purely linear wcs solution will get the postions of some stars wrong by more than 1 pixel."
+#         default: true
+#         minOccurs: 0
+#         maxOccurs: 1
+#    }
+    matchThreshold: {
+        type: "double"
+        description: "How good does a match need to be to be accepted. Typical value is log(1e12) approximately 27"
+        default: 27.631
+        minOccurs: 0
+        maxOccurs: 1
+    }
+    pixelScaleRangeFactor: {
+        type: "double"
+        description: "range of allowed fit pixel scale = [input scale/pixelScaleRangeFactor, input scale * pixelScaleRangeFactor]"
+        minOccurs: 0
+        maxOccurs: 1
+        default: 1.1
+        allowed: {
+            min: 1.0
+        }
+    }
+
+    #Parameters for matching source to catalogue
+    distanceForCatalogueMatchinArcsec: {
+        type: "double"
+        description: "Allow the difference in position of sources (between image and catalogue) be as great as this distance and still consider them a match. Used when constructing a setof common objects between an image and a catalogue, so that image distortion can be measured"
+        minOccurs: 0
+        maxOccurs: 1
+        default: 1.0
+    }
+    cleaningParameter: {
+        type: "double"
+        description: "Used to sigma clip the matches. Matches between image and catalogue whose distance is more than this many sigma from the measured mean difference are discarded."
+        minOccurs: 0
+        maxOccurs: 1
+        default: 3.0
+    }
+    
+    defaultFilterName: {
+        type: "string"
+        description: "When matching source to catalogue, we have the option
+        of returning the catalogue magnitude for each star. To do this,
+        we need to know the filter used for these observations (e.g Johnson B,
+        or Sloan z). This variable stores the dictionary key under which
+        the filter name is stored. This variable is not required.
+        The default value, mag, is usually to be found in the catalogue's
+        index files. If this variable is unset, no catalogue magnitudes
+        are returned."
+        minOccurs: 0
+        maxOccurs: 1
+        default: "mag"
+    }
+
+    defaultIdColumnName: {
+        type: "string"
+        description: "In the astrometry_net_data index file, what is the reference catalog ID column called?"
+        minOccurs: 0
+        maxOccurs: 1
+        default: "id"
+    }
+    
+    calculateSip:{
+        type: "boolean"
+        description: "Do we want to solve for distortion in the image?"
+        minOccurs: 0
+        maxOccurs: 1
+        default: true
+    }
+    sipOrder: {
+        type: "int"
+        description: "What order polynomial to use to fit image distortions"
+        minOccurs: 0
+        maxOccurs: 1
+        default: 4
+    }
+
+    starGalaxyColumnName: {
+        type: string
+        description: "Name of column for star/galaxy separation"
+        minOccurs: 0
+        maxOccurs: 1
+        default: "starnotgal"
+    }
+    variableColumnName: {
+        type: string
+        description: "Name of column for variable flag"
+        minOccurs: 0
+        maxOccurs: 1
+        default: "variable"
+    }
+    magErrorColumnPattern: {
+        type: string
+        description: "Pattern for determining magnitude error column name from magnitude column name"
+        minOccurs: 0
+        maxOccurs: 1
+        default: "%(filter)s_err"
+    }
+}
