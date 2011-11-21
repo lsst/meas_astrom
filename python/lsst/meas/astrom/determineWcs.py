@@ -39,17 +39,6 @@ import sip.cleanBadPoints as cleanBadPoints
 import lsst.afw.display.ds9 as ds9
 import numpy
 
-try:
-    import lsstDebug
-
-    display = lsstDebug.Info(__name__).display
-except ImportError, e:
-    try:
-        type(display)
-    except NameError:
-        display = False
-
-
 # XXX This whole module should be made a lot more object-oriented -- PAP
 
 def createSolver(policy, log):
@@ -199,6 +188,16 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     forceImageSize  tuple of (W,H): force this image size, rather than getting it from the Exposure.
     filterName  Use this filter name, rather than getting it from the exposure.
     '''
+
+    try:
+        import lsstDebug
+
+        display = lsstDebug.Info(__name__).display
+    except ImportError, e:
+        try:
+            type(display)
+        except NameError:
+            display = False
 
     astrom = InitialAstrometry()
 
