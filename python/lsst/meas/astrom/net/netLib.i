@@ -33,29 +33,25 @@ Python interface to lsst::afw::meas::astrom::net classes
 
 
 %{
-#include "lsst/pex/logging/BlockTimingLog.h"    
-#include "lsst/pex/logging/ScreenLog.h"    
-#include "lsst/pex/logging/DualLog.h"    
+#include "lsst/pex/logging/BlockTimingLog.h"
+#include "lsst/pex/logging/ScreenLog.h"
+#include "lsst/pex/logging/DualLog.h"
+#include "lsst/pex/logging/FileDestination.h"
+#include "lsst/afw/geom/ellipses.h"
+#include "lsst/afw/math.h"
+#include "lsst/afw/image.h"
+#include "lsst/afw/detection.h"
+#include "lsst/afw/detection/AperturePhotometry.h"
+#include "lsst/afw/cameraGeom.h"
+
 #include "lsst/meas/astrom/net/GlobalAstrometrySolution.h"
-#include "lsst/afw/geom.h" // should not be needed; ticket #1121
 
 #include "starkd_search_stars.c"
 
 %}
 
-// As in ap/.../apLib.i -- handle swig problems with boost::int64_t
-namespace boost {
-#if defined(SWIGWORDSIZE64)
-    typedef long int64_t;
-#else
-    typedef long long int64_t;
-#endif
-}
-
 %include "lsst/p_lsstSwig.i"
 %include "std_string.i"
-%include "std_vector.i"
- //%include "std_pair.i"
 
 %pythoncode %{
 import lsst.utils

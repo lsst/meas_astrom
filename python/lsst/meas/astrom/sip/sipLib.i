@@ -32,12 +32,19 @@ Python interface to lsst::afw::meas::astrom::sip classes
 %module(package="lsst.meas.astrom.sip",docstring=sipLib_DOCSTRING) sipLib
 
 %{
+#include "lsst/pex/logging/FileDestination.h"
 #include "lsst/meas/astrom/sip/MatchSrcToCatalogue.h"
 #include "lsst/afw/math/FunctionLibrary.h"
 #include "lsst/meas/astrom/sip/LeastSqFitter1d.h"
 #include "lsst/meas/astrom/sip/LeastSqFitter2d.h"
 #include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
-#include "lsst/afw/geom.h" // should not be needed; ticket #1121
+#include "lsst/afw/geom/ellipses.h"
+#include "lsst/afw/math.h"
+#include "lsst/afw/image.h"
+#include "lsst/afw/cameraGeom.h"
+#include "lsst/afw/detection.h"
+#include "lsst/afw/detection/AperturePhotometry.h"
+
 #define PY_ARRAY_UNIQUE_SYMBOL LSST_MEAS_ASTROM_NUMPY_API
 #include "numpy/arrayobject.h"
 %}
@@ -46,7 +53,6 @@ Python interface to lsst::afw::meas::astrom::sip classes
 
 %include "lsst/p_lsstSwig.i"
 %include "std_string.i"
-%include "std_vector.i"
 %include "lsst/ndarray/ndarray.i"
 
 %declareEigenMatrix(Eigen::Matrix2d);
@@ -61,6 +67,7 @@ def version(HeadURL = r"$HeadURL: svn+ssh://svn.lsstcorp.org/DMS/afw/trunk/pytho
     return HeadURL
 %}
 
+%import "lsst/afw/math/mathLib.i"
 %import "lsst/afw/image/imageLib.i"
 %import "lsst/afw/detection/detectionLib.i"
 
@@ -68,7 +75,6 @@ def version(HeadURL = r"$HeadURL: svn+ssh://svn.lsstcorp.org/DMS/afw/trunk/pytho
 
 %include "lsst/base.h"
 %include "lsst/meas/astrom/sip/MatchSrcToCatalogue.h"
-%include "lsst/afw/math/FunctionLibrary.h"
 %include "lsst/meas/astrom/sip/LeastSqFitter1d.h"
 %include "lsst/meas/astrom/sip/LeastSqFitter2d.h"
 %include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
