@@ -98,9 +98,9 @@ static afwCoord::Coord::Ptr xyztocoord(afwCoord::CoordSystem coordsys, const dou
             if (meta->indexid == other->indexid &&
                 meta->healpix == other->healpix &&
                 meta->hpnside == other->hpnside) {
-                string msg = boost::str(boost::format("Index file \"%s\" is a duplicate (has same index id, healpix and healpix nside) as index file \"%s\"")
-                                        % meta->indexname % other->indexname);
-                _mylog.log(pexLog::Log::WARN, msg);
+                _mylog.format(pexLog::Log::WARN,
+                              "Index file \"%s\" is a duplicate (has same index id, healpix and healpix nside) as index file \"%s\"",
+                              meta->indexname, other->indexname);
                 duplicate = true;
                 break;
             }
@@ -239,9 +239,7 @@ void GlobalAstrometrySolution::setStarlist(afwDet::SourceSet vec ///<List of Sou
 
     int nwarn = 15;
     if (i < nwarn) {
-        string msg = boost::str(boost::format("Source list only has %i valid objects; probably need %i or more\n") % i % nwarn);
-        msg += "Valid objects have positive, finite values for x, y and psfFlux";
-        _mylog.log(pexLog::Log::WARN, msg);
+        _mylog.format(pexLog::Log::WARN, "Source list only has %i valid objects; probably need %i or more.  Valid objects have positive, finite values for x, y and psfFlux", i, nwarn);
     }
 
     // Step 2. Copy these elements into a new starxy structure of the correct
@@ -361,16 +359,15 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
     afwCoord::Coord::ConstPtr raDec = wcsPtr->pixelToSky(xc, yc);
     afwGeom::Angle ra  = raDec->getLongitude();
     afwGeom::Angle dec = raDec->getLatitude();
-    _mylog.log(pexLog::Log::DEBUG,
-               boost::format("Solving using initial guess at position of\n %.7f %.7f deg\n") % ra.asDegrees() % dec.asDegrees());
+    _mylog.format(pexLog::Log::DEBUG, "Solving using initial guess at position of RA,Dec (%.7f, %.7f) deg", ra.asDegrees(), dec.asDegrees());
 
     afwGeom::Angle pixelScale = wcsPtr->pixelScale();
     afwGeom::Angle lwr = pixelScale*(1 - unc);
     afwGeom::Angle upr = pixelScale*(1 + unc);
     setMinimumImageScale(lwr);
     setMaximumImageScale(upr);
-    _mylog.log(pexLog::Log::DEBUG, boost::format("Exposure's WCS scale: %g arcsec/pix; setting scale range %.3f - %.3f arcsec/pixel\n") %
-               pixelScale.asArcseconds() % lwr.asArcseconds() % upr.asArcseconds());
+    _mylog.format(pexLog::Log::DEBUG, "Exposure's WCS scale: %g arcsec/pix; setting scale range %.3f - %.3f arcsec/pixel",
+                  pixelScale.asArcseconds(), lwr.asArcseconds(), upr.asArcseconds());
 
     if ( wcsPtr->isFlipped()) {
         setParity(FLIPPED_PARITY);
@@ -397,8 +394,7 @@ bool GlobalAstrometrySolution::solve(afwGeom::Angle ra,   ///<Right ascension
     // Tell the solver to only consider matches within the image size of the supposed RA,Dec.
     // The magic number 2.0 out front says to accept matches within 2 radii of the given *center* position.
     afwGeom::Angle maxRadius = (2.0 * solver_get_max_radius_arcsec(_solver)) * afwGeom::arcseconds;
-    msg = boost::str(boost::format("Setting RA,Dec = (%g, %g), radius = %g deg") % ra.asDegrees() % dec.asDegrees() % maxRadius.asDegrees());
-    _mylog.log(pexLog::Log::DEBUG, msg);
+    _mylog.format(pexLog::Log::DEBUG, "Setting RA,Dec = (%g, %g), radius = %g deg", ra.asDegrees(), dec.asDegrees(), maxRadius.asDegrees());
     solver_set_radec(_solver, ra.asDegrees(), dec.asDegrees(), maxRadius.asDegrees());
 
     _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
@@ -406,11 +402,11 @@ bool GlobalAstrometrySolution::solve(afwGeom::Angle ra,   ///<Right ascension
 
     if (_isSolved){
         const char* indexname = solver_get_best_match_index_name(_solver);
-        msg = boost::str(boost::format("Solved index is %s") % indexname);
+        _mylog.format(pexLog::Log::DEBUG, "Solved index is %s",  indexname);
     } else {
-        msg = boost::str(boost::format("Failed to verify position (%.7f %.7f)\n") % ra.asDegrees() % dec.asDegrees());
+        _mylog.format(pexLog::Log::DEBUG, "Failed to verify position RA,Dec = (%.7f %.7f) deg",
+                      ra.asDegrees(), dec.asDegrees());
     }
-    _mylog.log(pexLog::Log::DEBUG, msg);            
 
     return _isSolved;
 }
@@ -425,10 +421,9 @@ bool GlobalAstrometrySolution::solve()  {
 
     if (_isSolved){
         const char* indexname = solver_get_best_match_index_name(_solver);
-        string msg = boost::str(boost::format("Astrometric solution found with index %s") % indexname);
-        _mylog.log(pexLog::Log::DEBUG, msg);
+        _mylog.format(pexLog::Log::DEBUG, "Astrometric solution found with index %s", indexname);
     } else {
-        _mylog.log(pexLog::Log::DEBUG, "Failed to find astrometric solution");
+        _mylog.format(pexLog::Log::DEBUG, "Failed to find astrometric solution");
     }
 
     return _isSolved;
@@ -480,7 +475,7 @@ bool GlobalAstrometrySolution::_callSolver(afwGeom::Angle ra, afwGeom::Angle dec
 
     double qlo, qhi;
     solver_get_quad_size_range_arcsec(_solver, &qlo, &qhi);
-    _mylog.format(pexLog::Log::DEBUG, "Using indices with quads in the range %.2f to %.2f arcmin\n",
+    _mylog.format(pexLog::Log::DEBUG, "Using indices with quads in the range %.2f to %.2f arcmin",
                   arcsec2arcmin(qlo), arcsec2arcmin(qhi));
 
     _mylog.log(pexLog::Log::DEBUG, "Setting indices");
@@ -493,8 +488,7 @@ bool GlobalAstrometrySolution::_callSolver(afwGeom::Angle ra, afwGeom::Angle dec
         MatchObj* match = solver_get_best_match(_solver);
         _mylog.format(pexLog::Log::DEBUG, "Solved: %i matches, %i conflicts, %i unmatched",
                       (int)match->nmatch, (int)match->nconflict, (int)match->ndistractor);
-        _mylog.log(pexLog::Log::DEBUG, "Calling tweak2() to tune up match...");
-        _mylog.format(pexLog::Log::DEBUG, "Starting log-odds: %g", match->logodds);
+        _mylog.format(pexLog::Log::DEBUG, "Calling tweak2() to tune up match.  Starting log-odds: %g", match->logodds);
         // Use "tweak2" to tune up this match, resulting in a better WCS and more catalog matches.
         // magic 1: only go to linear order (no SIP distortions).
 
@@ -558,9 +552,7 @@ int GlobalAstrometrySolution::_addSuitableIndicesToSolver(afwGeom::Angle quadSiz
 
         // Load the data (not just metadata), if it hasn't been already...
         index_reload(index);
-
-        string msg = boost::str(boost::format("Adding index %s") % index->indexname);
-    	_mylog.log(pexLog::Log::DEBUG, msg);
+        _mylog.format(pexLog::Log::DEBUG, "Adding index %s", index->indexname);
 
         solver_add_index(_solver, index);
         nSuitable++;
@@ -568,9 +560,8 @@ int GlobalAstrometrySolution::_addSuitableIndicesToSolver(afwGeom::Angle quadSiz
     
     if(nSuitable == 0) {
         string msg = "No suitable indices found for given input parameters:";
-        
         if(hasAtLeastOneIndexOfSuitableScale) {
-            msg += "Probably the ra/dec range isn't covered";
+            msg += "Probably the RA,Dec range isn't covered";
         } else {
             msg += "No indices of a suitable scale were found";
         }
@@ -1168,7 +1159,8 @@ GlobalAstrometrySolution::getCatalogue(afwGeom::Angle ra,
                                        afwGeom::Angle radius,
                                        string filterName,
                                        string idName,
-                                       int indexId) {
+                                       int indexId,
+                                       bool useIndexHealpix) {
 
     double center[3];
     // degrees
@@ -1183,10 +1175,16 @@ GlobalAstrometrySolution::getCatalogue(afwGeom::Angle ra,
 
     for (unsigned int i=0; i<_indexList.size(); i++) {
         index_t* index = _indexList[i];
-        if (indexId != -1 && index->indexid != indexId)
+        if (indexId != -1 && index->indexid != indexId) {
+            _mylog.format(pexLog::Log::DEBUG, "Skipping index %i != desired indexid %i", index->indexid, indexId);
             continue;
-        if (!index_is_within_range(index, ra.asDegrees(), dec.asDegrees(), radius.asDegrees()))
+        }
+        if (useIndexHealpix &&
+            !index_is_within_range(index, ra.asDegrees(), dec.asDegrees(), radius.asDegrees())) {
+            double dist = healpix_distance_to_radec(index->healpix, index->hpnside, ra.asDegrees(), dec.asDegrees(), NULL);
+            _mylog.format(pexLog::Log::DEBUG, "Index %i not within range (minimum distance: %g deg > %g deg)", index->indexid, dist, radius.asDegrees());
             continue;
+        }
 
         // Ensure the index is loaded...
         index_reload(index);
@@ -1198,6 +1196,24 @@ GlobalAstrometrySolution::getCatalogue(afwGeom::Angle ra,
         startree_search_for(index->starkd, center, radius2, &xyz, NULL, &starinds, &nstars);
 
         if (nstars == 0)
+            continue;
+
+        _mylog.format(pexLog::Log::DEBUG, "Index %i: found %i reference sources", index->indexid, nstars);
+
+        // For fields that straddle index boundaries, we will get multiple
+        // matching reference source sets.  We also get multiple matches due
+        // to multiple scales.
+        //
+        // Unfortunately, the stupid ReferenceSources struct has only a single
+        // "indexid", and list of star indices in that index, so we can't easily
+        // return reference sources from multiple indices.  I should have 
+        // designed the interface differently.
+        //
+        // Hideously ugly hack: assume the overlapping margin area in indices
+        // is large enough that any search radius can be said to be in a single
+        // best index -- the one with the most matches!
+        //
+        if (nstars <= (int)refs.inds.size())
             continue;
 
         vector<double> mag = getTagAlongFromIndex(index, filterName, starinds, nstars);
@@ -1226,17 +1242,15 @@ GlobalAstrometrySolution::getCatalogue(afwGeom::Angle ra,
         refs.indexid = index->indexid;
         refs.refsources = sources;
         refs.inds = inds;
-
-        // NOTE change in behavior -- return only sources from first catalog...
-        break;
     }
+
     return refs;
 }
 
 
 ///A convenient interface to astrometry.net's startree_get_data_column. 
 ///Checks that the fieldName exists, and that something is returned.
-///Returns an vector of length numIds
+///Returns a vector of length numIds
 ///
 ///\param index Astrometry.net index field to extract tagalong data from
 ///\param fieldName Name of tagalong column to extract. If this is empty (i.e ""), nothing is

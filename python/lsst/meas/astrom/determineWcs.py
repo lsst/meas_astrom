@@ -428,7 +428,7 @@ def generateMatchesFromMatchList(matchList, sources, wcs, width, height, log=Log
                 (len(cleanList), len(matches)))
     return cleanList
 
-def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None, filterName=None):
+def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None, filterName=None, useIndexHealpix=True):
     """Read the catalog based on the provided metadata"""
     # all these are in degrees
     ra  = meta.getDouble('RA') * afwGeom.degrees
@@ -451,7 +451,8 @@ def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None,
     filterName = filterName.strip()
     log.log(log.DEBUG, "Reading catalogue at %f,%f (deg) +/- %f (arcsec) in filter %s" %
             (ra.asDegrees(), dec.asDegrees(), radius.asArcseconds(), filterName))
-    cat = solver.getCatalogue(ra, dec, radius, filterName, idName, anid)
+    cat = solver.getCatalogue(ra, dec, radius, filterName, idName, anid,
+                              useIndexHealpix)
     log.log(log.DEBUG, "%d catalogue sources found" % len(cat.refsources))
 
     if anid == -1:

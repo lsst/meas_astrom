@@ -148,7 +148,8 @@ public:
     getCatalogue(lsst::afw::geom::Angle ra, lsst::afw::geom::Angle dec,
                  lsst::afw::geom::Angle radius,
                  std::string filterName, std::string idName,
-                 int indexId = -1);
+                 int indexId = -1,
+                 bool useIndexHealpix = true);
 
     std::vector<double> getTagAlongDouble(int indexId, std::string columnName,
                                           std::vector<int> inds);
