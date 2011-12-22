@@ -37,6 +37,7 @@
 #include "boost/format.hpp"
 #include "Eigen/Core"
 
+#include "lsst/base.h"
 #include "lsst/pex/exceptions.h"
 #include "lsst/pex/logging/Trace.h"
 #include "lsst/afw/detection/Source.h"
@@ -87,10 +88,13 @@ struct TagAlongColumn_s {
 };
 typedef struct TagAlongColumn_s TagAlongColumn;
 
+// Ugly: an internal representation of reference sources, required for fetching
+// "tag-along" data
+class InternalRefSources;
+
 struct ReferenceSources_s {
     lsst::afw::detection::SourceSet refsources;
-    int indexid;
-    std::vector<int> inds;
+    CONST_PTR(InternalRefSources) intrefsources;
 };
 typedef struct ReferenceSources_s ReferenceSources;
 
@@ -149,7 +153,9 @@ public:
                  lsst::afw::geom::Angle radius,
                  std::string filterName, std::string idName,
                  int indexId = -1,
-                 bool useIndexHealpix = true);
+                 bool useIndexHealpix = true,
+                 bool resolveDuplicates = true,
+                 bool resolveUsingId = true);
 
     std::vector<double> getTagAlongDouble(int indexId, std::string columnName,
                                           std::vector<int> inds);

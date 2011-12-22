@@ -59,6 +59,36 @@ static afwCoord::Coord::Ptr xyztocoord(afwCoord::CoordSystem coordsys, const dou
     return radec;
 }
 
+static afwCoord::Coord::Ptr radectocoord(afwCoord::CoordSystem coordsys,
+                                         const double* radec) {
+    afwCoord::Coord::Ptr rd = afwCoord::makeCoord(coordsys,
+                                                  radec[0] * afwGeom::degrees,
+                                                  radec[1] * afwGeom::degrees);
+    return rd;
+}
+
+
+class InternalRefSources {
+public:
+    InternalRefSources() {}
+    void add(int indexid, std::vector<int> inds) {
+        _indexids.push_back(indexid);
+        _indices.push_back(inds);
+    }
+    size_t size() const {
+        return _indexids.size();
+    }
+    int getIndexId(int i) const {
+        return _indexids[i];
+    }
+    std::vector<int> getIndices(int i) const {
+        return _indices[i];
+    }
+private:
+    std::vector<int> _indexids;
+    std::vector<std::vector<int> > _indices;
+};
+
 //
 //Constructors, Destructors
 //
@@ -869,7 +899,7 @@ GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string i
         throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
     MatchObj* match = solver_get_best_match(_solver);
-    double* xyz;
+    double* radecs;
     int* starinds;
     int nstars;
     double scale;
@@ -885,9 +915,7 @@ GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string i
     // add margin
     r2 = deg2distsq(match->radius_deg + arcsec2deg(scale * margin));
 
-    refs.indexid = match->index->indexid;
-    
-    startree_search_for(match->index->starkd, match->center, r2, &xyz, NULL, &starinds, &nstars);
+    startree_search_for(match->index->starkd, match->center, r2, NULL, &radecs, &starinds, &nstars);
     if (nstars == 0)
         return refs;
 
@@ -897,17 +925,15 @@ GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string i
     H = (int)(match->wcstan.imageh);
     outi = 0;
     for (i=0; i<nstars; i++) {
-        double* xyzi;
         double px, py;
-        xyzi = xyz + 3*i;
-        if (!tan_xyzarr2pixelxy(&(match->wcstan), xyzi, &px, &py))
+        if (!tan_radec2pixelxy(&(match->wcstan), radecs[2*i], radecs[2*i+1], &px, &py))
             continue;
         // in bounds (+ margin) ?
         if (px < -margin || px > W+margin || py < -margin || py > H+margin)
             continue;
 
         afwDet::Source::Ptr src(new afwDet::Source());
-        src->setRaDec(xyztocoord(coordsys, xyzi));
+        src->setRaDec(radectocoord(coordsys, radecs+2*i));
         ss.push_back(src);
         starinds[outi] = starinds[i];
         outi++;
@@ -931,10 +957,12 @@ GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string i
     vector<int> inds(starinds, starinds + ss.size());
 
     free(starinds);
-    free(xyz);
+    free(radecs);
 
     refs.refsources = ss;
-    refs.inds = inds;
+    PTR(InternalRefSources) irefs(new InternalRefSources());
+    irefs->add(match->index->indexid, inds);
+    refs.intrefsources = CONST_PTR(InternalRefSources)(irefs.get());
 
     return refs;
 }
@@ -1160,7 +1188,10 @@ GlobalAstrometrySolution::getCatalogue(afwGeom::Angle ra,
                                        string filterName,
                                        string idName,
                                        int indexId,
-                                       bool useIndexHealpix) {
+                                       bool useIndexHealpix,
+                                       bool resolveDuplicates,
+                                       bool resolveUsingId
+    ) {
 
     double center[3];
     // degrees
@@ -1169,9 +1200,11 @@ GlobalAstrometrySolution::getCatalogue(afwGeom::Angle ra,
     string msg;
 
     ReferenceSources refs;
-    refs.indexid = -1;
 
     afwCoord::CoordSystem coordsys = _getCoordSys();
+
+    std::set<boost::int64_t> refids;
+    std::set<std::pair<double,double> > refradecs;
 
     for (unsigned int i=0; i<_indexList.size(); i++) {
         index_t* index = _indexList[i];
@@ -1190,42 +1223,62 @@ GlobalAstrometrySolution::getCatalogue(afwGeom::Angle ra,
         index_reload(index);
 
         //Find nearby stars
-        double *xyz = NULL;
+        double *radecs = NULL;
         int *starinds = NULL;
         int nstars = 0;
-        startree_search_for(index->starkd, center, radius2, &xyz, NULL, &starinds, &nstars);
+        startree_search_for(index->starkd, center, radius2, NULL, &radecs, &starinds, &nstars);
 
         if (nstars == 0)
             continue;
 
         _mylog.format(pexLog::Log::DEBUG, "Index %i: found %i reference sources", index->indexid, nstars);
 
-        // For fields that straddle index boundaries, we will get multiple
-        // matching reference source sets.  We also get multiple matches due
-        // to multiple scales.
-        //
-        // Unfortunately, the stupid ReferenceSources struct has only a single
-        // "indexid", and list of star indices in that index, so we can't easily
-        // return reference sources from multiple indices.  I should have 
-        // designed the interface differently.
-        //
-        // Hideously ugly hack: assume the overlapping margin area in indices
-        // is large enough that any search radius can be said to be in a single
-        // best index -- the one with the most matches!
-        //
-        if (nstars <= (int)refs.inds.size())
-            continue;
-
-        vector<double> mag = getTagAlongFromIndex(index, filterName, starinds, nstars);
+        // we need the IDs in the resolving step below...
         vector<boost::int64_t> ids = getIds(idName, index, starinds, nstars);
 
+        // For fields that straddle index boundaries, we will get multiple
+        // matching reference source sets.  We will also get multiple matches
+        // due to indices at multiple scales.
+        //
+        // Here we resolve those duplicates.
+        if (resolveDuplicates) {
+            int k=0;
+            if (resolveUsingId) {
+                assert(ids.size());
+            }
+            for (int j=0; j<nstars; ++j) {
+                bool keep;
+                if (resolveUsingId) {
+                    // Try inserting "ids[j]"; returns true if it was inserted (ie, didn't already exist)
+                    keep = refids.insert(ids[j]).second;
+                } else {
+                    // Try inserting the RA,Dec pair.
+                    std::pair<double,double> rd(radecs[2*j+0],radecs[2*j+1]);
+                    keep = refradecs.insert(rd).second;
+                }
+                if (!keep)
+                    continue;
+                if (j != k) {
+                    memcpy(radecs + k*2, radecs + j*2, sizeof(double)*2);
+                    starinds[k] = starinds[j];
+                    ids[k] = ids[j];
+                    ++k;
+                }
+            }
+            _mylog.format(pexLog::Log::DEBUG, "Index %i: keeping %i of %i reference sources", index->indexid, k, nstars);
+            nstars = k;
+            if (nstars == 0)
+                continue;
+        }
+
+        vector<double> mag = getTagAlongFromIndex(index, filterName, starinds, nstars);
         afwDet::SourceSet sources;
         std::vector<int> inds;
 
         // Create a source for every position stored
         for (int j = 0; j<nstars; ++j) {
             afwDet::Source::Ptr src(new afwDet::Source());
-            src->setAllRaDecFields(xyztocoord(coordsys, xyz + j*3));
+            src->setAllRaDecFields(radectocoord(coordsys, radecs + j*2));
             inds.push_back(starinds[j]);
             if (mag.size()) {
                 // convert mag to flux
@@ -1236,12 +1289,13 @@ GlobalAstrometrySolution::getCatalogue(afwGeom::Angle ra,
             }
             sources.push_back(src);
         }
-        free(xyz);
+        free(radecs);
         free(starinds);
 
-        refs.indexid = index->indexid;
         refs.refsources = sources;
-        refs.inds = inds;
+        PTR(InternalRefSources) irefs(new InternalRefSources());
+        irefs->add(index->indexid, inds);
+        refs.intrefsources = CONST_PTR(InternalRefSources)(irefs.get());
     }
 
     return refs;
