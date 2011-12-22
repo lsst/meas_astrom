@@ -153,22 +153,20 @@ def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None
     #    raise ValueError('Need ASTROMETRY_NET_DATA_DIR = "%s"' % 
     log.log(Log.DEBUG, 'Astrometry.net dir was "%s", now "%s"' %
             (os.path.basename(myandata), os.path.basename(andata)))
-
     anid = matchmeta.getInt('ANINDID')
     anhp = matchmeta.getInt('ANINDHP')
     anindexname = os.path.basename(matchmeta.getString('ANINDNM'))
     log.log(Log.DEBUG, 'Astrometry.net index was "%s" (id %i, healpix %i)' %
-            (anindexname, anid, anhp))
+            (anindexname, anhp))
 
     # all in deg.
     ra = matchmeta.getDouble('RA') * afwGeom.degrees
     dec = matchmeta.getDouble('DEC') * afwGeom.degrees
     rad = matchmeta.getDouble('RADIUS') * afwGeom.degrees
-    log.log(Log.DEBUG, 'Searching RA,Dec %.3f,%.3f, radius %.1f arcsec, filter "%s", id column "%s", indexid %i' %
-            (ra.asDegrees(), dec.asDegrees(), rad.asArcseconds(), filterName, idName, anid))
+    log.log(Log.DEBUG, 'Searching RA,Dec %.3f,%.3f, radius %.1f arcsec, filter "%s", id column "%s"' %
+            (ra.asDegrees(), dec.asDegrees(), rad.asArcseconds(), filterName, idName))
 
-    # FIXME -- need anid?  Not necessarily... ref ids are supposed to be unique!
-    X = solver.getCatalogue(ra, dec, rad, filterName, idName, anid)
+    X = solver.getCatalogue(ra, dec, rad, filterName, idName)
     cat = X.refsources
     log.log(Log.DEBUG, 'Found %i reference catalog sources in range' % len(cat))
 
@@ -479,7 +477,6 @@ def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None,
     policy.set('matchThreshold', 30)
     solver = createSolver(policy, log)
     idName = 'id'
-    anid = meta.getInt('ANINDID') if meta.exists('ANINDID') else -1
 
     if filterName is None:
         try:
@@ -490,12 +487,9 @@ def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None,
     filterName = filterName.strip()
     log.log(log.DEBUG, "Reading catalogue at %f,%f (deg) +/- %f (arcsec) in filter %s" %
             (ra.asDegrees(), dec.asDegrees(), radius.asArcseconds(), filterName))
-    cat = solver.getCatalogue(ra, dec, radius, filterName, idName, anid,
+    cat = solver.getCatalogue(ra, dec, radius, filterName, idName, -1,
                               useIndexHealpix)
     log.log(log.DEBUG, "%d catalogue sources found" % len(cat.refsources))
-
-    if anid == -1:
-        meta.add('ANINDID', cat.indexid, 'Astrometry.net index id')
 
     try:
         stargalName, variableName, magerrName = _getTagAlongNamesFromMetadata(meta)
@@ -503,7 +497,7 @@ def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None,
         log.log(log.WARN, "Tag-along names not set in match metadata; using policy/defaults")
         stargalName, variableName, magerrName = _getTagAlongNamesFromPolicy(policy, filterName)
     _addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
-                                        log, cat.refsources, cat.indexid, cat.inds, filterName)
+                                        log, cat, filterName)
     return cat.refsources
 
 
