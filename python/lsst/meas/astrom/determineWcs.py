@@ -39,29 +39,32 @@ import sip.cleanBadPoints as cleanBadPoints
 import lsst.afw.display.ds9 as ds9
 import numpy
 
-def createSolver(policy, log):
-    path=os.path.join(os.environ['ASTROMETRY_NET_DATA_DIR'], "metadata.paf")
-    solver = astromNet.GlobalAstrometrySolution(path, log)
-    matchThreshold = policy.get('matchThreshold')
-    solver.setMatchThreshold(matchThreshold)
-    # FIXME -- this could go in policy... or we could use new Astrometry.net logging
-    # callbacks to put those messages to their own pexLogging channel.
-    solver.setLogLevel(2)
-    return solver
+def joinMatchList(matchlist, sources, first=True, log=None,
+                  mask=0, offset=0):
+    '''
+    In database terms: this function joins the IDs in "matchlist" to
+    the IDs in "sources", and denormalizes the "matchlist".
 
-def getIdColumn(policy):
-    '''Returns the column name of the ID field in the reference catalog'''
-    idName = ''
-    colname = 'defaultIdColumnName'
-    if policy.exists(colname):
-        idName = policy.get(colname)
-    return idName
+    In non-DB terms: sets either the "matchlist[*].first" or
+    "matchlist[*].second" values to point to entries in "sources".
 
-def joinMatchList(matchlist, sources, first=True, log=None, mask=0, offset=0):
-    # build map of reference id to reference object.
+    On input, "matchlist[*].first/second" are placeholder Source
+    objects that only have the IDs set.  On return, these values are
+    replaced by real entries in "sources".
 
+    If:
+      first == True,
+      matchlist[0].first.getSourceId() == 42, and
+      sources[4].getSourceId() == 42
+    then, on return,
+      matchlist[0].first == sources[4]
+
+    Used by "generateMatchesFromMatchList"; see there for more
+    documentation.
+    '''
     srcstr = ('reference objects' if first else 'sources')
 
+    # build map of ID to source
     idtoref = {}
     for s in sources:
         sid = s.getSourceId()
@@ -108,6 +111,24 @@ def joinMatchList(matchlist, sources, first=True, log=None, mask=0, offset=0):
         log.log(Log.DEBUG, 'Joined %i of %i matchlist IDs to %s' %
                 (nmatched, len(matchlist), srcstr))
 
+def createSolver(policy, log):
+    path=os.path.join(os.environ['ASTROMETRY_NET_DATA_DIR'], "metadata.paf")
+    solver = astromNet.GlobalAstrometrySolution(path, log)
+    matchThreshold = policy.get('matchThreshold')
+    solver.setMatchThreshold(matchThreshold)
+    # FIXME -- this could go in policy... or we could use new Astrometry.net logging
+    # callbacks to put those messages to their own pexLogging channel.
+    solver.setLogLevel(2)
+    return solver
+
+def _getIdColumn(policy):
+    '''Returns the column name of the ID field in the reference catalog'''
+    idName = ''
+    colname = 'defaultIdColumnName'
+    if policy.exists(colname):
+        idName = policy.get(colname)
+    return idName
+
 
 def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None,
                              filterName=None, idName=None):
@@ -117,9 +138,9 @@ def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None
     if solver is None:
         solver = createSolver(policy, log)
 
-    filterName = chooseFilterName(None, policy, solver, log, filterName)
+    filterName = _chooseFilterName(None, policy, solver, log, filterName)
     if idName is None:
-        idName = getIdColumn(policy)
+        idName = _getIdColumn(policy)
 
     version = matchmeta.getInt('SMATCHV')
     if version != 1:
@@ -208,7 +229,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
 
     if doTrim:
         nStart = len(sourceSet)
-        sourceSet = trimBadPoints(exposure, sourceSet)
+        sourceSet = _trimBadPoints(exposure, sourceSet)
         if log:
             nEnd = len(sourceSet)
             log.log(log.DEBUG, "Kept %i of %i sources after trimming" %(nEnd, nStart))
@@ -266,8 +287,8 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     wcs = solver.getWcs()
 
     # Generate a list of catalogue objects in the field.
-    filterName = chooseFilterName(exposure, policy, solver, log, filterName)
-    idName = getIdColumn(policy)
+    filterName = _chooseFilterName(exposure, policy, solver, log, filterName)
+    idName = _getIdColumn(policy)
     try:
         margin = 50 # pixels
         X = solver.getCatalogueForSolvedField(filterName, idName, margin)
@@ -284,8 +305,8 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         log.log(Log.WARN, "Available filters: " + str(solver.getCatalogueMetadataFields()))
         raise
 
-    stargalName, variableName, magerrName = getTagAlongNamesFromPolicy(policy, filterName)
-    addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
+    stargalName, variableName, magerrName = _getTagAlongNamesFromPolicy(policy, filterName)
+    _addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
                                         log, cat, indexid, inds, filterName)
     
     if True:
@@ -339,7 +360,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
             # plot the catalogue positions
             ds9.dot("+", s1.getXAstrom(), s1.getYAstrom(), size=3, ctype=ds9.BLUE, frame=frame)
 
-    moreMeta = createMetadata(W, H, wcs, filterName, stargalName, variableName, magerrName)
+    moreMeta = _createMetadata(W, H, wcs, filterName, stargalName, variableName, magerrName)
     matchListMeta = solver.getMatchedIndexMetadata()
     moreMeta.combine(matchListMeta)
 
@@ -350,7 +371,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     return astrom
 
 
-def createMetadata(width, height, wcs, filterName, stargalName, variableName, magerrName):
+def _createMetadata(width, height, wcs, filterName, stargalName, variableName, magerrName):
     """Create match metadata entries required for regenerating the catalog
 
     @param width Width of the image (pixels)
@@ -385,11 +406,21 @@ def createMetadata(width, height, wcs, filterName, stargalName, variableName, ma
     meta.add('MAGERR', magerrName, 'magnitude error name for tagalong data')
     return meta
 
-def generateMatchesFromMatchList(matchList, sources, wcs, width, height, log=Log.getDefaultLog()):
-    """Generate actual matches from a matchlist and the original source list
-
-    Matches are persisted as a join table, with identifiers from the catalog
-    and the original source list.  This function glues them together.
+def generateMatchesFromMatchList(matchList, sources, wcs, width, height,
+                                 log=Log.getDefaultLog()):
+    '''
+    This function is required to reconstitute a matchlist after being
+    unpersisted.  The persisted form of a matchlist is simply a list
+    of integers: the ID numbers of the matched image sources and
+    reference sources.  For you database types, this is a "normal
+    form" representation.  The "live" form of a matchlist has links to
+    the real Source objects that are matched; it is "denormalized".
+    This function takes a normalized matchlist, along with the list of
+    sources to which the matchlist refers.  It fetches the reference
+    sources that are within range, and then denormalizes the matchlist
+    -- sets the "matchList[*].first" and "matchList[*].second" entries
+    to point to the sources in the "sources" argument, and to the
+    reference sources fetched from the astrometry_net_data files.
 
     @param matchList Unpersisted matchList
     @param sources Original source list used in matching
@@ -397,7 +428,7 @@ def generateMatchesFromMatchList(matchList, sources, wcs, width, height, log=Log
     @param width Width of image (pixels)
     @param height Height of image (pixels)
     @return matches
-    """
+    '''
 
     meta = matchList.getSourceMatchMetadata()
     matches = matchList.getSourceMatches()
@@ -415,12 +446,11 @@ def generateMatchesFromMatchList(matchList, sources, wcs, width, height, log=Log
     log.log(log.INFO, "Read %d catalogue sources; %d in image" % (len(ref), len(keepref)))
     ref = keepref
 
-    #log.setThreshold(log.DEBUG)
     joinMatchList(matches, ref, first=True, log=log)
     joinMatchList(matches, sources, first=False, log=log)
-    #log.setThreshold(log.INFO)
 
-    cleanList = [m for m in matches if m.first is not None and m.second is not None]
+    cleanList = [m for m in matches
+                 if m.first is not None and m.second is not None]
     if len(cleanList) != len(matches):
         log.log(log.WARN, "Missing entries after joining match list: %d of %d joined" % 
                 (len(cleanList), len(matches)))
@@ -457,16 +487,16 @@ def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None,
         meta.add('ANINDID', cat.indexid, 'Astrometry.net index id')
 
     try:
-        stargalName, variableName, magerrName = getTagAlongNamesFromMetadata(meta)
+        stargalName, variableName, magerrName = _getTagAlongNamesFromMetadata(meta)
     except:
         log.log(log.WARN, "Tag-along names not set in match metadata; using policy/defaults")
-        stargalName, variableName, magerrName = getTagAlongNamesFromPolicy(policy, filterName)
-    addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
+        stargalName, variableName, magerrName = _getTagAlongNamesFromPolicy(policy, filterName)
+    _addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
                                         log, cat.refsources, cat.indexid, cat.inds, filterName)
     return cat.refsources
 
 
-def getTagAlongNamesFromPolicy(policy, filterName):
+def _getTagAlongNamesFromPolicy(policy, filterName):
     """Get the column names for the tagalong data from a policy
 
     @param policy Policy with catalog configuration
@@ -494,7 +524,7 @@ def getTagAlongNamesFromPolicy(policy, filterName):
 
     return stargalName, variableName, magerrName
 
-def getTagAlongNamesFromMetadata(meta):
+def _getTagAlongNamesFromMetadata(meta):
     """Get the column names for the tagalong data from match metadata
 
     @return star/galaxy column name, variability column name, magnitude error column name
@@ -502,7 +532,7 @@ def getTagAlongNamesFromMetadata(meta):
     return meta.get('STARGAL').strip(), meta.get('VARIABLE').strip(), meta.get('MAGERR').strip()
 
 
-def addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
+def _addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
                                         log, refcat, indexid, inds, filterName):
     # Now add the photometric errors, star/galaxy, and variability flags.
     cols = solver.getTagAlongColumns(indexid)
@@ -556,7 +586,7 @@ def addTagAlongValuesToReferenceSources(solver, stargalName, variableName, mager
         for i in xrange(len(refcat)):
             refcat[i].setPsfFluxErr(magerr[i] * refcat[i].getPsfFlux() * -numpy.log(10.)/2.5)
 
-def trimBadPoints(exposure, sourceSet):
+def _trimBadPoints(exposure, sourceSet):
     """Remove elements from sourceSet whose xy positions aren't within the boundaries of exposure
 
     Input:
@@ -576,7 +606,7 @@ def trimBadPoints(exposure, sourceSet):
     return goodSet
 
 
-def chooseFilterName(exposure, policy, solver, log, filterName=None):
+def _chooseFilterName(exposure, policy, solver, log, filterName=None):
     """When extracting catalogue magnitudes, which colour filter should we request
     e.g U,B,V etc."""
 
