@@ -52,7 +52,7 @@ def joinMatchList(matchlist, sources, first=True, log=None,
     objects that only have the IDs set.  On return, these values are
     replaced by real entries in "sources".
 
-    If:
+    Example: if:
       first == True,
       matchlist[0].first.getSourceId() == 42, and
       sources[4].getSourceId() == 42
@@ -407,7 +407,10 @@ def _createMetadata(width, height, wcs, filterName, stargalName, variableName, m
     return meta
 
 def generateMatchesFromMatchList(matchList, sources, wcs, width, height,
-                                 log=Log.getDefaultLog()):
+                                 log=Log.getDefaultLog(),
+                                 returnRefs=False,
+                                 sourceIdOffset=None,
+                                 sourceIdMask=None):
     '''
     This function is required to reconstitute a matchlist after being
     unpersisted.  The persisted form of a matchlist is simply a list
@@ -422,38 +425,45 @@ def generateMatchesFromMatchList(matchList, sources, wcs, width, height,
     to point to the sources in the "sources" argument, and to the
     reference sources fetched from the astrometry_net_data files.
 
-    @param matchList Unpersisted matchList
+    @param matchList Unpersisted matchList (an lsst.afw.detection.PersistableSourceMatchVector)
     @param sources Original source list used in matching
     @param wcs World Coordinate System
-    @param width Width of image (pixels)
-    @param height Height of image (pixels)
-    @return matches
+    @param width Width of image (integer, pixels)
+    @param height Height of image (integer, pixels)
+    @return matches  or  matches,refs (if returnRefs=True)
     '''
 
     meta = matchList.getSourceMatchMetadata()
     matches = matchList.getSourceMatches()
 
-    ref = readReferenceSourcesFromMetadata(meta, log=log)
+    refs = readReferenceSourcesFromMetadata(meta, log=log)
 
-    keepref = []
-    for i in xrange(len(ref)):
-        x, y = wcs.skyToPixel(ref[i].getRaDec())
+    keeprefs = []
+    for ref in refs:
+        x, y = wcs.skyToPixel(ref.getRaDec())
         if x < 0 or y < 0 or x > width or y > height:
             continue
-        ref[i].setXAstrom(x)
-        ref[i].setYAstrom(y)
-        keepref.append(ref[i])
-    log.log(log.INFO, "Read %d catalogue sources; %d in image" % (len(ref), len(keepref)))
-    ref = keepref
+        ref.setXAstrom(x)
+        ref.setYAstrom(y)
+        keeprefs.append(ref)
+    log.log(log.INFO, "Read %d catalogue sources; %d in image" % (len(refs), len(keeprefs)))
+    refs = keeprefs
 
-    joinMatchList(matches, ref, first=True, log=log)
-    joinMatchList(matches, sources, first=False, log=log)
+    joinMatchList(matches, refs, first=True, log=log)
+    kwargs = {}
+    if sourceIdOffset is not None:
+        kwargs['offset'] = sourceIdOffset
+    if sourceIdMask is not None:
+        kwargs['mask'] = sourceIdMask
+    joinMatchList(matches, sources, first=False, log=log, **kwargs)
 
     cleanList = [m for m in matches
                  if m.first is not None and m.second is not None]
     if len(cleanList) != len(matches):
         log.log(log.WARN, "Missing entries after joining match list: %d of %d joined" % 
                 (len(cleanList), len(matches)))
+    if returnRefs:
+        return cleanList,refs
     return cleanList
 
 def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None, filterName=None, useIndexHealpix=True):
