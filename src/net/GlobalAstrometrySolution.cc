@@ -1205,8 +1205,8 @@ GlobalAstrometrySolution::searchCatalogue(const double* xyzcenter, double r2,
                     memcpy(radecs + k*2, radecs + j*2, sizeof(double)*2);
                     starinds[k] = starinds[j];
                     ids[k] = ids[j];
-                    ++k;
                 }
+                ++k;
             }
             _mylog.format(pexLog::Log::DEBUG, "Index %i: keeping %i of %i reference sources", index->indexid, k, nstars);
             nstars = k;
