@@ -39,8 +39,6 @@ import sip.cleanBadPoints as cleanBadPoints
 import lsst.afw.display.ds9 as ds9
 import numpy
 
-# XXX This whole module should be made a lot more object-oriented -- PAP
-
 def createSolver(policy, log):
     path=os.path.join(os.environ['ASTROMETRY_NET_DATA_DIR'], "metadata.paf")
     solver = astromNet.GlobalAstrometrySolution(path, log)
@@ -463,8 +461,8 @@ def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None,
     except:
         log.log(log.WARN, "Tag-along names not set in match metadata; using policy/defaults")
         stargalName, variableName, magerrName = getTagAlongNamesFromPolicy(policy, filterName)
-        addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
-                                            self.log, cat, anid, cat.inds, filterName)
+    addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
+                                        log, cat.refsources, cat.indexid, cat.inds, filterName)
     return cat.refsources
 
 
