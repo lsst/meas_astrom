@@ -892,82 +892,6 @@ vector<string> GlobalAstrometrySolution::getCatalogueMetadataFields() {
     return output;
 }
 
-///Returns a sourceSet of objects that are nearby in an raDec sense to the best match solution
-ReferenceSources
-GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string idName, double margin) {
-    if (! _isSolved) {
-        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
-    }
-    MatchObj* match = solver_get_best_match(_solver);
-    double* radecs;
-    int* starinds;
-    int nstars;
-    double scale;
-    double r2;
-    int i, W, H;
-    int outi;
-    
-    ReferenceSources refs;
-    afwDet::SourceSet ss;
-
-    // arcsec/pix
-    scale = tan_pixel_scale(&(match->wcstan));
-    // add margin
-    r2 = deg2distsq(match->radius_deg + arcsec2deg(scale * margin));
-
-    startree_search_for(match->index->starkd, match->center, r2, NULL, &radecs, &starinds, &nstars);
-    if (nstars == 0)
-        return refs;
-
-    afwCoord::CoordSystem coordsys = _getCoordSys();
-
-    W = (int)(match->wcstan.imagew);
-    H = (int)(match->wcstan.imageh);
-    outi = 0;
-    for (i=0; i<nstars; i++) {
-        double px, py;
-        if (!tan_radec2pixelxy(&(match->wcstan), radecs[2*i], radecs[2*i+1], &px, &py))
-            continue;
-        // in bounds (+ margin) ?
-        if (px < -margin || px > W+margin || py < -margin || py > H+margin)
-            continue;
-
-        afwDet::Source::Ptr src(new afwDet::Source());
-        src->setRaDec(radectocoord(coordsys, radecs+2*i));
-        ss.push_back(src);
-        starinds[outi] = starinds[i];
-        outi++;
-    }
-
-    vector<double> mag = getTagAlongFromIndex(match->index, filterName, starinds, outi);
-    if (mag.size()) {
-        for (unsigned int i=0; i<ss.size(); i++) {
-            // It seems crazy to convert back to flux...
-            ss[i]->setPsfFlux(pow(10.0, -mag[i]/2.5));
-        }
-    }
-
-    vector<boost::int64_t> ids = getIds(idName, match->index, starinds, outi);
-    if (ids.size()) {
-        for (unsigned int i=0; i<ss.size(); i++) {
-            ss[i]->setSourceId(ids[i]);
-        }
-    }
-
-    vector<int> inds(starinds, starinds + ss.size());
-
-    free(starinds);
-    free(radecs);
-
-    refs.refsources = ss;
-    PTR(InternalRefSources) irefs(new InternalRefSources());
-    irefs->add(match->index->indexid, inds);
-    refs.intrefsources = CONST_PTR(InternalRefSources)(irefs.get());
-
-    return refs;
-}
-    
-
 ///Returns a sourceSet of objects that are nearby in an RA,Dec sense to the best match solution
 afwDet::SourceSet 
 GlobalAstrometrySolution::getCatalogue(afwGeom::Angle radius, string filterName, string idName) {
@@ -997,74 +921,76 @@ index_t* GlobalAstrometrySolution::_getIndex(int indexId) {
 }
 
 template <typename T>
-std::vector<T> GlobalAstrometrySolution::_getTagAlongData(int indexId, std::string columnName,
-                                                          tfits_type ctype, std::vector<int> inds) {
-
-    index_t* index = _getIndex(indexId);
-    if (!index)
-        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
-                          boost::str(boost::format("Astrometry.net index with ID %i was not found") % indexId)));
-
-    fitstable_t* tag = startree_get_tagalong(index->starkd);
-    if (!tag)
-        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
-                          boost::str(boost::format("Astrometry.net index with ID %i: no tag-along table was found") % indexId)));
-
-    int* cinds = new int[inds.size()];
-    for (size_t i=0; i<inds.size(); i++)
-        cinds[i] = inds[i];
-    
-    int arraysize = -1;
-    void* vdata = fitstable_read_column_array_inds(tag, columnName.c_str(), ctype, cinds, inds.size(), &arraysize);
-    delete[] cinds;
+std::vector<T> GlobalAstrometrySolution::_getTagAlongData(InternalRefSourcesCPtr irefs,
+                                                          std::string columnName,
+                                                          tfits_type ctype) {
     std::vector<T> vals;
 
-    if (ctype != fitscolumn_boolean_type()) {
-        T* x = static_cast<T*>(vdata);
-        vals = std::vector<T>(x + 0, x + inds.size() * arraysize);
-    } else {
-        // Workaround a bug in Astrometry.net 0.30: for boolean type, the "vdata"
-        // values are 'T' and 'F' -- can't just cast them to 'bool'!!
-        unsigned char* cdata = static_cast<unsigned char*>(vdata);
-        T* x = new T[inds.size()];
-        for (int i=0, N=inds.size(); i<N*arraysize; i++) {
-            if (cdata[i] == 'T')
-                x[i] = true;
-            else if (cdata[i] == 'F')
-                x[i] = false;
-            else
-                throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
-                                  boost::str(boost::format("Error retrieving boolean column \"%s\" from FITS file: entry %i has value 0x%x")
-                                             % columnName.c_str() % i % (int)cdata[i])));
+    for (size_t j=0; j<irefs->size(); ++j) {
+        int indexId = irefs->getIndexId(j);
+        std::vector<int> inds = irefs->getIndices(j);
+
+        index_t* index = _getIndex(indexId);
+        if (!index)
+            throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
+                              boost::str(boost::format("Astrometry.net index with ID %i was not found") % indexId)));
+
+        fitstable_t* tag = startree_get_tagalong(index->starkd);
+        if (!tag)
+            throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
+                              boost::str(boost::format("Astrometry.net index with ID %i: no tag-along table was found") % indexId)));
+
+        int* cinds = &(inds[0]);
+        int arraysize = -1;
+        void* vdata = fitstable_read_column_array_inds(tag, columnName.c_str(), ctype, cinds, inds.size(), &arraysize);
+        size_t N = inds.size() * arraysize;
+        vals.reserve(vals.size() + N);
+        if (ctype == fitscolumn_boolean_type()) {
+            // Workaround a bug in Astrometry.net 0.30: for boolean type, the "vdata"
+            // values are 'T' and 'F' -- can't just cast them to 'bool'!!
+            unsigned char* cdata = static_cast<unsigned char*>(vdata);
+            for (size_t i=0; i<N; ++i) {
+                if (cdata[i] == 'T')
+                    vals.push_back(true);
+                else if (cdata[i] == 'F')
+                    vals.push_back(false);
+                else
+                    throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
+                                      boost::str(boost::format("Error retrieving boolean column \"%s\" from FITS file: entry %i has value 0x%x")
+                                                 % columnName.c_str() % i % (int)cdata[i])));
+            }
+        } else {
+            T* x = static_cast<T*>(vdata);
+            if (vals.size() == 0) {
+                vals = std::vector<T>(x + 0, x + N);
+            } else {
+                for (size_t k=0; k<N; ++k)
+                    vals.push_back(x[k]);
+            }
         }
-        vals = std::vector<T>(x + 0, x + inds.size() * arraysize);
-        delete[] x;
+        free(vdata);
     }
-    free(vdata);
     return vals;
 }
 
-std::vector<double> GlobalAstrometrySolution::getTagAlongDouble(int indexId, std::string columnName,
-                                                                std::vector<int> inds) {
-    std::vector<double> vals = _getTagAlongData<double>(indexId, columnName, fitscolumn_double_type(), inds);
+std::vector<double> GlobalAstrometrySolution::getTagAlongDouble(InternalRefSourcesCPtr irefs,
+                                                                std::string columnName) {
+    std::vector<double> vals = _getTagAlongData<double>(irefs, columnName, fitscolumn_double_type());
     return vals;
 }
 
-std::vector<int> GlobalAstrometrySolution::getTagAlongInt(int indexId, std::string columnName,
-                                                          std::vector<int> inds) {
-    std::vector<int> vals = _getTagAlongData<int>(indexId, columnName, fitscolumn_int_type(), inds);
+std::vector<int> GlobalAstrometrySolution::getTagAlongInt(InternalRefSourcesCPtr irefs, std::string columnName) {
+    std::vector<int> vals = _getTagAlongData<int>(irefs, columnName, fitscolumn_int_type());
     return vals;
 }
 
-std::vector<boost::int64_t> GlobalAstrometrySolution::getTagAlongInt64(int indexId, std::string columnName,
-                                                                       std::vector<int> inds) {
-    std::vector<boost::int64_t> vals = _getTagAlongData<boost::int64_t>(indexId, columnName, fitscolumn_i64_type(), inds);
+std::vector<boost::int64_t> GlobalAstrometrySolution::getTagAlongInt64(InternalRefSourcesCPtr irefs, std::string columnName) {
+    std::vector<boost::int64_t> vals = _getTagAlongData<boost::int64_t>(irefs, columnName, fitscolumn_i64_type());
     return vals;
 }
-
-std::vector<bool> GlobalAstrometrySolution::getTagAlongBool(int indexId, std::string columnName,
-                                  std::vector<int> inds) {
-    std::vector<bool> vals = _getTagAlongData<bool>(indexId, columnName, fitscolumn_boolean_type(), inds);
+    
+std::vector<bool> GlobalAstrometrySolution::getTagAlongBool(InternalRefSourcesCPtr irefs, std::string columnName) {
+    std::vector<bool> vals = _getTagAlongData<bool>(irefs, columnName, fitscolumn_boolean_type());
     return vals;
 }
 
@@ -1175,36 +1101,53 @@ std::vector<std::vector<double> > GlobalAstrometrySolution::getCatalogueExtra(af
     return x;
 }
 
+class GlobalAstrometrySolution::RefSourceFilter {
+public:
+    RefSourceFilter() {}
+    virtual ~RefSourceFilter() = 0;
+    virtual bool check(double ra, double dec, boost::int64_t id) { return true; }
+};
+// grumble grumble
+GlobalAstrometrySolution::RefSourceFilter::~RefSourceFilter() {}
 
-///Returns a sourceSet of objects that are nearby in an raDec sense to the requested position. If
-///filterName is not blank, we also extract out the magnitude information for that filter and 
-///store (as a flux) in the returned SourceSet object. The value of filterName must match one of the
-///strings returned by getCatalogueMetadataFields(). If you're not interested in fluxes, set
-///filterName to ""
+
+class RefSourceInBoundsFilter : public GlobalAstrometrySolution::RefSourceFilter {
+public:
+    RefSourceInBoundsFilter(const tan_t* wcs, double margin) : _wcs(wcs), _margin(margin) {}
+    virtual ~RefSourceInBoundsFilter() {}
+    virtual bool check(double ra, double dec, boost::int64_t id) {
+        double px, py;
+        if (!tan_radec2pixelxy(_wcs, ra, dec, &px, &py))
+            return false;
+        // in bounds (+ margin) ?
+        if (px < -_margin || px > _wcs->imagew + _margin ||
+            py < -_margin || py > _wcs->imageh + _margin)
+            return false;
+        return true;
+    }
+private:
+    const tan_t* _wcs;
+    double _margin;
+};
+
 ReferenceSources
-GlobalAstrometrySolution::getCatalogue(afwGeom::Angle ra,
-                                       afwGeom::Angle dec,
-                                       afwGeom::Angle radius,
-                                       string filterName,
-                                       string idName,
-                                       int indexId,
-                                       bool useIndexHealpix,
-                                       bool resolveDuplicates,
-                                       bool resolveUsingId
-    ) {
-
-    double center[3];
-    // degrees
-    radecdeg2xyzarr(ra.asDegrees(), dec.asDegrees(), center);
-    double radius2 = radius.toUnitSphereDistanceSquared();
-    string msg;
-
+GlobalAstrometrySolution::searchCatalogue(const double* xyzcenter, double r2,
+                                          std::string filterName, std::string idName,
+                                          int indexId,
+                                          bool useIndexHealpix,
+                                          bool resolveDuplicates,
+                                          bool resolveUsingId,
+                                          RefSourceFilter* filt) {
     ReferenceSources refs;
-
     afwCoord::CoordSystem coordsys = _getCoordSys();
+    double ra, dec, radiusdeg;
+    xyzarr2radecdeg(xyzcenter, &ra, &dec);
+    radiusdeg = distsq2deg(r2);
 
     std::set<boost::int64_t> refids;
     std::set<std::pair<double,double> > refradecs;
+
+    PTR(InternalRefSources) irefs(new InternalRefSources());
 
     for (unsigned int i=0; i<_indexList.size(); i++) {
         index_t* index = _indexList[i];
@@ -1213,27 +1156,27 @@ GlobalAstrometrySolution::getCatalogue(afwGeom::Angle ra,
             continue;
         }
         if (useIndexHealpix &&
-            !index_is_within_range(index, ra.asDegrees(), dec.asDegrees(), radius.asDegrees())) {
-            double dist = healpix_distance_to_radec(index->healpix, index->hpnside, ra.asDegrees(), dec.asDegrees(), NULL);
-            _mylog.format(pexLog::Log::DEBUG, "Index %i not within range (minimum distance: %g deg > %g deg)", index->indexid, dist, radius.asDegrees());
+            !index_is_within_range(index, ra, dec, radiusdeg)) {
+            double dist = healpix_distance_to_radec(index->healpix, index->hpnside, ra, dec, NULL);
+            _mylog.format(pexLog::Log::DEBUG, "Index %i not within range (minimum distance: %g deg > %g deg)", index->indexid, dist, radiusdeg);
             continue;
         }
 
         // Ensure the index is loaded...
         index_reload(index);
 
-        //Find nearby stars
+        // Find nearby stars
         double *radecs = NULL;
         int *starinds = NULL;
         int nstars = 0;
-        startree_search_for(index->starkd, center, radius2, NULL, &radecs, &starinds, &nstars);
+        startree_search_for(index->starkd, xyzcenter, r2, NULL, &radecs, &starinds, &nstars);
 
         if (nstars == 0)
             continue;
 
         _mylog.format(pexLog::Log::DEBUG, "Index %i: found %i reference sources", index->indexid, nstars);
 
-        // we need the IDs in the resolving step below...
+        // we may need the IDs in the resolving step below...
         vector<boost::int64_t> ids = getIds(idName, index, starinds, nstars);
 
         // For fields that straddle index boundaries, we will get multiple
@@ -1272,7 +1215,6 @@ GlobalAstrometrySolution::getCatalogue(afwGeom::Angle ra,
         }
 
         vector<double> mag = getTagAlongFromIndex(index, filterName, starinds, nstars);
-        afwDet::SourceSet sources;
         std::vector<int> inds;
 
         // Create a source for every position stored
@@ -1287,19 +1229,71 @@ GlobalAstrometrySolution::getCatalogue(afwGeom::Angle ra,
             if (ids.size()) {
                 src->setSourceId(ids[j]);
             }
-            sources.push_back(src);
+            refs.refsources.push_back(src);
         }
         free(radecs);
         free(starinds);
 
-        refs.refsources = sources;
-        PTR(InternalRefSources) irefs(new InternalRefSources());
         irefs->add(index->indexid, inds);
-        refs.intrefsources = CONST_PTR(InternalRefSources)(irefs.get());
     }
-
+    refs.intrefsources = irefs;
     return refs;
 }
+
+
+
+///Returns a sourceSet of objects that are nearby in an raDec sense to the requested position. If
+///filterName is not blank, we also extract out the magnitude information for that filter and 
+///store (as a flux) in the returned SourceSet object. The value of filterName must match one of the
+///strings returned by getCatalogueMetadataFields(). If you're not interested in fluxes, set
+///filterName to ""
+ReferenceSources
+GlobalAstrometrySolution::getCatalogue(afwGeom::Angle ra,
+                                       afwGeom::Angle dec,
+                                       afwGeom::Angle radius,
+                                       string filterName,
+                                       string idName,
+                                       int indexId,
+                                       bool useIndexHealpix,
+                                       bool resolveDuplicates,
+                                       bool resolveUsingId
+    ) {
+
+    double center[3];
+    // degrees
+    radecdeg2xyzarr(ra.asDegrees(), dec.asDegrees(), center);
+    double radius2 = radius.toUnitSphereDistanceSquared();
+
+    return searchCatalogue(center, radius2, filterName, idName,
+                           indexId, useIndexHealpix, resolveDuplicates,
+                           resolveUsingId, NULL);
+}
+
+
+///Returns a sourceSet of objects that are nearby in an raDec sense to the best match solution
+ReferenceSources
+GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string idName, double margin) {
+    if (! _isSolved) {
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
+    }
+    MatchObj* match = solver_get_best_match(_solver);
+    double scale;
+    double r2;
+
+    // arcsec/pix
+    scale = tan_pixel_scale(&(match->wcstan));
+    // add margin
+    r2 = deg2distsq(match->radius_deg + arcsec2deg(scale * margin));
+
+    
+    bool resolve = (idName.size() > 0);
+    RefSourceInBoundsFilter filt(&(match->wcstan), margin);
+    ReferenceSources refs = searchCatalogue(match->center, r2, filterName, idName,
+                                            -1, true, resolve, resolve, &filt);
+    return refs;
+}
+    
+
 
 
 ///A convenient interface to astrometry.net's startree_get_data_column. 

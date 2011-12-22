@@ -62,7 +62,7 @@ class XYAstromTest(unittest.TestCase):
         ref = X.refsources
         print 'Got', len(ref), 'ref sources'
         # Number of sources within the search radius.
-        self.assertEqual(len(ref), 143)
+        self.assertEqual(len(ref), 142)
         allzero = True
         for i in range(10):
             print ref[i]

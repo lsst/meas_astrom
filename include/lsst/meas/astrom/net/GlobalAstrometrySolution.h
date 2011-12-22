@@ -92,9 +92,11 @@ typedef struct TagAlongColumn_s TagAlongColumn;
 // "tag-along" data
 class InternalRefSources;
 
+typedef CONST_PTR(InternalRefSources) InternalRefSourcesCPtr;
+
 struct ReferenceSources_s {
     lsst::afw::detection::SourceSet refsources;
-    CONST_PTR(InternalRefSources) intrefsources;
+    InternalRefSourcesCPtr intrefsources;
 };
 typedef struct ReferenceSources_s ReferenceSources;
 
@@ -157,14 +159,18 @@ public:
                  bool resolveDuplicates = true,
                  bool resolveUsingId = true);
 
-    std::vector<double> getTagAlongDouble(int indexId, std::string columnName,
-                                          std::vector<int> inds);
-    std::vector<int> getTagAlongInt(int indexId, std::string columnName,
-                                    std::vector<int> inds);
-    std::vector<boost::int64_t> getTagAlongInt64(int indexId, std::string columnName,
-                                                 std::vector<int> inds);
-    std::vector<bool> getTagAlongBool(int indexId, std::string columnName,
-                                      std::vector<int> inds);
+    // These are spelled out largely for the benefit of use from python.
+    std::vector<double> getTagAlongDouble(InternalRefSourcesCPtr irefs,
+                                          std::string columnName);
+
+    std::vector<int> getTagAlongInt(InternalRefSourcesCPtr irefs,
+                                    std::string columnName);
+
+    std::vector<boost::int64_t> getTagAlongInt64(InternalRefSourcesCPtr irefs,
+                                                 std::string columnName);
+
+    std::vector<bool> getTagAlongBool(InternalRefSourcesCPtr irefs,
+                                      std::string columnName);
 
     std::vector<TagAlongColumn> getTagAlongColumns(int indexId = -1);
 
@@ -190,6 +196,9 @@ public:
     //Call this before performing a new match
     void reset();
 
+
+
+    class RefSourceFilter;
 private:
     lsst::pex::logging::Log _mylog;
 
@@ -221,10 +230,21 @@ private:
                                     lsst::afw::geom::Angle dec=lsst::afw::geom::NullAngle);
 
     template <typename T>
-    std::vector<T> _getTagAlongData(int indexId, std::string columnName,
-                                    tfits_type ctype, std::vector<int> inds);
+    std::vector<T> _getTagAlongData(InternalRefSourcesCPtr irefs,
+                                    std::string columnName,
+                                    tfits_type ctype);
 
     index_t* _getIndex(int indexId);
+
+    ReferenceSources
+    searchCatalogue(const double* xyzcenter, double r2,
+                    std::string filterName, std::string idName,
+                    int indexId = -1,
+                    bool useIndexHealpix = true,
+                    bool resolveDuplicates = true,
+                    bool resolveUsingId = true,
+                    RefSourceFilter* filt = NULL);
+
 
 };
 
