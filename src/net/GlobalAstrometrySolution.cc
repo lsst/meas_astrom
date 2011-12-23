@@ -71,9 +71,12 @@ static afwCoord::Coord::Ptr radectocoord(afwCoord::CoordSystem coordsys,
 class InternalRefSources {
 public:
     InternalRefSources() {}
-    void add(int indexid, std::vector<int> inds) {
+    // add a new indexid and vector of indices, returning a reference to the
+    // vector's new position.
+    std::vector<int>& add(int indexid, const std::vector<int> & inds=std::vector<int>()) {
         _indexids.push_back(indexid);
         _indices.push_back(inds);
+        return _indices[_indices.size()-1];
     }
     size_t size() const {
         return _indexids.size();
@@ -81,7 +84,7 @@ public:
     int getIndexId(int i) const {
         return _indexids[i];
     }
-    std::vector<int> getIndices(int i) const {
+    const std::vector<int> & getIndices(int i) const {
         return _indices[i];
     }
 private:
@@ -1215,7 +1218,8 @@ GlobalAstrometrySolution::searchCatalogue(const double* xyzcenter, double r2,
         }
 
         vector<double> mag = getTagAlongFromIndex(index, filterName, starinds, nstars);
-        std::vector<int> inds;
+
+        std::vector<int>& inds = irefs->add(index->indexid);
 
         // Create a source for every position stored
         for (int j = 0; j<nstars; ++j) {
@@ -1233,8 +1237,6 @@ GlobalAstrometrySolution::searchCatalogue(const double* xyzcenter, double r2,
         }
         free(radecs);
         free(starinds);
-
-        irefs->add(index->indexid, inds);
     }
     refs.intrefsources = irefs;
     return refs;
