@@ -157,7 +157,7 @@ def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None
     anhp = matchmeta.getInt('ANINDHP')
     anindexname = os.path.basename(matchmeta.getString('ANINDNM'))
     log.log(Log.DEBUG, 'Astrometry.net index was "%s" (id %i, healpix %i)' %
-            (anindexname, anhp))
+            (anindexname, anid, anhp))
 
     # all in deg.
     ra = matchmeta.getDouble('RA') * afwGeom.degrees
