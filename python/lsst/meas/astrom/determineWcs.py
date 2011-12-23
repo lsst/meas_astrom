@@ -301,7 +301,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         log.log(Log.WARN, "Available filters: " + str(solver.getCatalogueMetadataFields()))
         raise
 
-    stargalName, variableName, magerrName = _getTagAlongNamesFromPolicy(policy, filterName)
+    stargalName, variableName, magerrName = getTagAlongNamesFromPolicy(policy, filterName)
     _addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
                                         log, refcat, filterName)
 
@@ -495,13 +495,13 @@ def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None,
         stargalName, variableName, magerrName = _getTagAlongNamesFromMetadata(meta)
     except:
         log.log(log.WARN, "Tag-along names not set in match metadata; using policy/defaults")
-        stargalName, variableName, magerrName = _getTagAlongNamesFromPolicy(policy, filterName)
+        stargalName, variableName, magerrName = getTagAlongNamesFromPolicy(policy, filterName)
     _addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
                                         log, cat, filterName)
     return cat.refsources
 
 
-def _getTagAlongNamesFromPolicy(policy, filterName):
+def getTagAlongNamesFromPolicy(policy, filterName):
     """Get the column names for the tagalong data from a policy
 
     @param policy Policy with catalog configuration
