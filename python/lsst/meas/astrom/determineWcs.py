@@ -138,7 +138,7 @@ def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None
     if solver is None:
         solver = createSolver(policy, log)
 
-    filterName = _chooseFilterName(None, policy, solver, log, filterName)
+    filterName = chooseFilterName(None, policy, solver, log, filterName)
     if idName is None:
         idName = _getIdColumn(policy)
 
@@ -285,7 +285,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     wcs = solver.getWcs()
 
     # Generate a list of catalogue objects in the field.
-    filterName = _chooseFilterName(exposure, policy, solver, log, filterName)
+    filterName = chooseFilterName(exposure, policy, solver, log, filterName)
     idName = _getIdColumn(policy)
     try:
         margin = 50 # pixels
@@ -613,7 +613,7 @@ def _trimBadPoints(exposure, sourceSet):
     return goodSet
 
 
-def _chooseFilterName(exposure, policy, solver, log, filterName=None):
+def chooseFilterName(exposure, policy, solver, log, filterName=None):
     """When extracting catalogue magnitudes, which colour filter should we request
     e.g U,B,V etc."""
 
