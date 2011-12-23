@@ -999,14 +999,17 @@ std::vector<bool> GlobalAstrometrySolution::getTagAlongBool(InternalRefSourcesCP
 
 std::vector<TagAlongColumn> GlobalAstrometrySolution::getTagAlongColumns(int indexId) {
     index_t* index;
-    if (indexId == -1)
+    if (indexId == -1) {
         index = _indexList[0];
+    }
+
     else {
         index = _getIndex(indexId);
         if (!index)
             throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
                               boost::str(boost::format("Astrometry.net index with ID %i was not found") % indexId)));
     }
+    index_reload(index);
 
     fitstable_t* tag = startree_get_tagalong(index->starkd);
     if (!tag)
