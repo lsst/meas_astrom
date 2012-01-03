@@ -465,8 +465,13 @@ def generateMatchesFromMatchList(matchList, sources, wcs, width, height,
         return cleanList,refs
     return cleanList
 
-def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None, filterName=None, useIndexHealpix=True):
-    """Read the catalog based on the provided metadata"""
+def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None, filterName=None, useIndexHealpix=True, wcs=None):
+    '''
+    Read the catalog based on the provided metadata
+
+    wcs: if not None, use this WCS to set the XAstrom,YAstrom fields from
+         the RA,Dec values.
+    '''
     # all these are in degrees
     ra  = meta.getDouble('RA') * afwGeom.degrees
     dec = meta.getDouble('DEC') * afwGeom.degrees
@@ -498,6 +503,13 @@ def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None,
         stargalName, variableName, magerrName = getTagAlongNamesFromPolicy(policy, filterName)
     _addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
                                         log, cat, filterName)
+
+    if wcs is not None:
+        for src in cat.refsources:
+            p = wcsIn.skyToPixel(src.getRaDec())
+            src.setXAstrom(p.getX())
+            src.setYAstrom(p.getY())
+
     return cat.refsources
 
 
