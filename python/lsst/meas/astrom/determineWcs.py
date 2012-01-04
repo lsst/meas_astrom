@@ -461,9 +461,10 @@ def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None,
         stargalName, variableName, magerrName = getTagAlongNamesFromMetadata(meta)
     except:
         log.log(log.WARN, "Tag-along names not set in match metadata; using policy/defaults")
-        stargalName, variableName, magerrName = getTagAlongNamesFromPolicy(policy, filterName)
-        addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
-                                            self.log, cat, anid, cat.inds, filterName)
+        
+    stargalName, variableName, magerrName = getTagAlongNamesFromPolicy(policy, filterName)
+    addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
+                                        self.log, cat, anid, cat.inds, filterName)
     return cat.refsources
 
 
