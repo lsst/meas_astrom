@@ -464,7 +464,7 @@ def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None,
         
     stargalName, variableName, magerrName = getTagAlongNamesFromPolicy(policy, filterName)
     addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
-                                        self.log, cat, anid, cat.inds, filterName)
+                                        log, cat, anid, cat.inds, filterName)
     return cat.refsources
 
 
