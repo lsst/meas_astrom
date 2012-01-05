@@ -42,7 +42,11 @@ import numpy
 # XXX This whole module should be made a lot more object-oriented -- PAP
 
 def createSolver(policy, log):
-    path=os.path.join(os.environ['ASTROMETRY_NET_DATA_DIR'], "metadata.paf")
+    adn_dir = os.environ.get('ASTROMETRY_NET_DATA_DIR')
+    if not adn_dir:
+        return None
+
+    path = os.path.join(adn_dir, "metadata.paf")
     solver = astromNet.GlobalAstrometrySolution(path, log)
     matchThreshold = policy.get('matchThreshold')
     solver.setMatchThreshold(matchThreshold)
@@ -279,7 +283,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
     except LsstCppException, e:
         log.log(Log.WARN, str(e))
         log.log(Log.WARN, "Attempting to access catalogue positions and fluxes")
-        version = os.environ['ASTROMETRY_NET_DATA_DIR']
+        version = os.environ.get('ASTROMETRY_NET_DATA_DIR')
         log.log(Log.WARN, "Catalogue version: %s" %(version))
         log.log(Log.WARN, "ID column: %s" %(idName))
         log.log(Log.WARN, "Requested filter: %s" %(filterName))
