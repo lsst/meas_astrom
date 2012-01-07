@@ -227,7 +227,7 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
 
     if doTrim:
         nStart = len(sourceSet)
-        sourceSet = _trimBadPoints(exposure, sourceSet)
+        sourceSet = trimBadPoints(exposure, sourceSet)
         if log:
             nEnd = len(sourceSet)
             log.log(log.DEBUG, "Kept %i of %i sources after trimming" %(nEnd, nStart))
@@ -605,7 +605,7 @@ def _addTagAlongValuesToReferenceSources(solver, stargalName, variableName, mage
         for i in xrange(len(cat)):
             cat[i].setPsfFluxErr(magerr[i] * cat[i].getPsfFlux() * -numpy.log(10.)/2.5)
 
-def _trimBadPoints(exposure, sourceSet):
+def trimBadPoints(exposure, sourceSet):
     """Remove elements from sourceSet whose xy positions aren't within the boundaries of exposure
 
     Input:
