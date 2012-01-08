@@ -37,6 +37,7 @@
 #include "boost/format.hpp"
 #include "Eigen/Core"
 
+#include "lsst/base.h"
 #include "lsst/pex/exceptions.h"
 #include "lsst/pex/logging/Trace.h"
 #include "lsst/afw/detection/Source.h"
@@ -87,10 +88,15 @@ struct TagAlongColumn_s {
 };
 typedef struct TagAlongColumn_s TagAlongColumn;
 
+// Ugly: an internal representation of reference sources, required for fetching
+// "tag-along" data
+class InternalRefSources;
+
+typedef CONST_PTR(InternalRefSources) InternalRefSourcesCPtr;
+
 struct ReferenceSources_s {
     lsst::afw::detection::SourceSet refsources;
-    int indexid;
-    std::vector<int> inds;
+    InternalRefSourcesCPtr intrefsources;
 };
 typedef struct ReferenceSources_s ReferenceSources;
 
@@ -148,16 +154,23 @@ public:
     getCatalogue(lsst::afw::geom::Angle ra, lsst::afw::geom::Angle dec,
                  lsst::afw::geom::Angle radius,
                  std::string filterName, std::string idName,
-                 int indexId = -1);
+                 int indexId = -1,
+                 bool useIndexHealpix = true,
+                 bool resolveDuplicates = true,
+                 bool resolveUsingId = true);
 
-    std::vector<double> getTagAlongDouble(int indexId, std::string columnName,
-                                          std::vector<int> inds);
-    std::vector<int> getTagAlongInt(int indexId, std::string columnName,
-                                    std::vector<int> inds);
-    std::vector<boost::int64_t> getTagAlongInt64(int indexId, std::string columnName,
-                                                 std::vector<int> inds);
-    std::vector<bool> getTagAlongBool(int indexId, std::string columnName,
-                                      std::vector<int> inds);
+    // These are spelled out largely for the benefit of use from python.
+    std::vector<double> getTagAlongDouble(InternalRefSourcesCPtr irefs,
+                                          std::string columnName);
+
+    std::vector<int> getTagAlongInt(InternalRefSourcesCPtr irefs,
+                                    std::string columnName);
+
+    std::vector<boost::int64_t> getTagAlongInt64(InternalRefSourcesCPtr irefs,
+                                                 std::string columnName);
+
+    std::vector<bool> getTagAlongBool(InternalRefSourcesCPtr irefs,
+                                      std::string columnName);
 
     std::vector<TagAlongColumn> getTagAlongColumns(int indexId = -1);
 
@@ -183,6 +196,9 @@ public:
     //Call this before performing a new match
     void reset();
 
+
+
+    class RefSourceFilter;
 private:
     lsst::pex::logging::Log _mylog;
 
@@ -214,10 +230,21 @@ private:
                                     lsst::afw::geom::Angle dec=lsst::afw::geom::NullAngle);
 
     template <typename T>
-    std::vector<T> _getTagAlongData(int indexId, std::string columnName,
-                                    tfits_type ctype, std::vector<int> inds);
+    std::vector<T> _getTagAlongData(InternalRefSourcesCPtr irefs,
+                                    std::string columnName,
+                                    tfits_type ctype);
 
     index_t* _getIndex(int indexId);
+
+    ReferenceSources
+    searchCatalogue(const double* xyzcenter, double r2,
+                    std::string filterName, std::string idName,
+                    int indexId = -1,
+                    bool useIndexHealpix = true,
+                    bool resolveDuplicates = true,
+                    bool resolveUsingId = true,
+                    RefSourceFilter* filt = NULL);
+
 
 };
 

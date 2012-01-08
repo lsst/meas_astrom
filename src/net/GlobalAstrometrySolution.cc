@@ -59,6 +59,39 @@ static afwCoord::Coord::Ptr xyztocoord(afwCoord::CoordSystem coordsys, const dou
     return radec;
 }
 
+static afwCoord::Coord::Ptr radectocoord(afwCoord::CoordSystem coordsys,
+                                         const double* radec) {
+    afwCoord::Coord::Ptr rd = afwCoord::makeCoord(coordsys,
+                                                  radec[0] * afwGeom::degrees,
+                                                  radec[1] * afwGeom::degrees);
+    return rd;
+}
+
+
+class InternalRefSources {
+public:
+    InternalRefSources() {}
+    // add a new indexid and vector of indices, returning a reference to the
+    // vector's new position.
+    std::vector<int>& add(int indexid, const std::vector<int> & inds=std::vector<int>()) {
+        _indexids.push_back(indexid);
+        _indices.push_back(inds);
+        return _indices[_indices.size()-1];
+    }
+    size_t size() const {
+        return _indexids.size();
+    }
+    int getIndexId(int i) const {
+        return _indexids[i];
+    }
+    const std::vector<int> & getIndices(int i) const {
+        return _indices[i];
+    }
+private:
+    std::vector<int> _indexids;
+    std::vector<std::vector<int> > _indices;
+};
+
 //
 //Constructors, Destructors
 //
@@ -98,9 +131,9 @@ static afwCoord::Coord::Ptr xyztocoord(afwCoord::CoordSystem coordsys, const dou
             if (meta->indexid == other->indexid &&
                 meta->healpix == other->healpix &&
                 meta->hpnside == other->hpnside) {
-                string msg = boost::str(boost::format("Index file \"%s\" is a duplicate (has same index id, healpix and healpix nside) as index file \"%s\"")
-                                        % meta->indexname % other->indexname);
-                _mylog.log(pexLog::Log::WARN, msg);
+                _mylog.format(pexLog::Log::WARN,
+                              "Index file \"%s\" is a duplicate (has same index id, healpix and healpix nside) as index file \"%s\"",
+                              meta->indexname, other->indexname);
                 duplicate = true;
                 break;
             }
@@ -239,9 +272,7 @@ void GlobalAstrometrySolution::setStarlist(afwDet::SourceSet vec ///<List of Sou
 
     int nwarn = 15;
     if (i < nwarn) {
-        string msg = boost::str(boost::format("Source list only has %i valid objects; probably need %i or more\n") % i % nwarn);
-        msg += "Valid objects have positive, finite values for x, y and psfFlux";
-        _mylog.log(pexLog::Log::WARN, msg);
+        _mylog.format(pexLog::Log::WARN, "Source list only has %i valid objects; probably need %i or more.  Valid objects have positive, finite values for x, y and psfFlux", i, nwarn);
     }
 
     // Step 2. Copy these elements into a new starxy structure of the correct
@@ -361,16 +392,15 @@ bool GlobalAstrometrySolution::solve(const lsst::afw::image::Wcs::Ptr wcsPtr,
     afwCoord::Coord::ConstPtr raDec = wcsPtr->pixelToSky(xc, yc);
     afwGeom::Angle ra  = raDec->getLongitude();
     afwGeom::Angle dec = raDec->getLatitude();
-    _mylog.log(pexLog::Log::DEBUG,
-               boost::format("Solving using initial guess at position of\n %.7f %.7f deg\n") % ra.asDegrees() % dec.asDegrees());
+    _mylog.format(pexLog::Log::DEBUG, "Solving using initial guess at position of RA,Dec (%.7f, %.7f) deg", ra.asDegrees(), dec.asDegrees());
 
     afwGeom::Angle pixelScale = wcsPtr->pixelScale();
     afwGeom::Angle lwr = pixelScale*(1 - unc);
     afwGeom::Angle upr = pixelScale*(1 + unc);
     setMinimumImageScale(lwr);
     setMaximumImageScale(upr);
-    _mylog.log(pexLog::Log::DEBUG, boost::format("Exposure's WCS scale: %g arcsec/pix; setting scale range %.3f - %.3f arcsec/pixel\n") %
-               pixelScale.asArcseconds() % lwr.asArcseconds() % upr.asArcseconds());
+    _mylog.format(pexLog::Log::DEBUG, "Exposure's WCS scale: %g arcsec/pix; setting scale range %.3f - %.3f arcsec/pixel",
+                  pixelScale.asArcseconds(), lwr.asArcseconds(), upr.asArcseconds());
 
     if ( wcsPtr->isFlipped()) {
         setParity(FLIPPED_PARITY);
@@ -397,8 +427,7 @@ bool GlobalAstrometrySolution::solve(afwGeom::Angle ra,   ///<Right ascension
     // Tell the solver to only consider matches within the image size of the supposed RA,Dec.
     // The magic number 2.0 out front says to accept matches within 2 radii of the given *center* position.
     afwGeom::Angle maxRadius = (2.0 * solver_get_max_radius_arcsec(_solver)) * afwGeom::arcseconds;
-    msg = boost::str(boost::format("Setting RA,Dec = (%g, %g), radius = %g deg") % ra.asDegrees() % dec.asDegrees() % maxRadius.asDegrees());
-    _mylog.log(pexLog::Log::DEBUG, msg);
+    _mylog.format(pexLog::Log::DEBUG, "Setting RA,Dec = (%g, %g), radius = %g deg", ra.asDegrees(), dec.asDegrees(), maxRadius.asDegrees());
     solver_set_radec(_solver, ra.asDegrees(), dec.asDegrees(), maxRadius.asDegrees());
 
     _mylog.log(pexLog::Log::DEBUG, "Doing solve step");
@@ -406,11 +435,11 @@ bool GlobalAstrometrySolution::solve(afwGeom::Angle ra,   ///<Right ascension
 
     if (_isSolved){
         const char* indexname = solver_get_best_match_index_name(_solver);
-        msg = boost::str(boost::format("Solved index is %s") % indexname);
+        _mylog.format(pexLog::Log::DEBUG, "Solved index is %s",  indexname);
     } else {
-        msg = boost::str(boost::format("Failed to verify position (%.7f %.7f)\n") % ra.asDegrees() % dec.asDegrees());
+        _mylog.format(pexLog::Log::DEBUG, "Failed to verify position RA,Dec = (%.7f %.7f) deg",
+                      ra.asDegrees(), dec.asDegrees());
     }
-    _mylog.log(pexLog::Log::DEBUG, msg);            
 
     return _isSolved;
 }
@@ -425,10 +454,9 @@ bool GlobalAstrometrySolution::solve()  {
 
     if (_isSolved){
         const char* indexname = solver_get_best_match_index_name(_solver);
-        string msg = boost::str(boost::format("Astrometric solution found with index %s") % indexname);
-        _mylog.log(pexLog::Log::DEBUG, msg);
+        _mylog.format(pexLog::Log::DEBUG, "Astrometric solution found with index %s", indexname);
     } else {
-        _mylog.log(pexLog::Log::DEBUG, "Failed to find astrometric solution");
+        _mylog.format(pexLog::Log::DEBUG, "Failed to find astrometric solution");
     }
 
     return _isSolved;
@@ -480,7 +508,7 @@ bool GlobalAstrometrySolution::_callSolver(afwGeom::Angle ra, afwGeom::Angle dec
 
     double qlo, qhi;
     solver_get_quad_size_range_arcsec(_solver, &qlo, &qhi);
-    _mylog.format(pexLog::Log::DEBUG, "Using indices with quads in the range %.2f to %.2f arcmin\n",
+    _mylog.format(pexLog::Log::DEBUG, "Using indices with quads in the range %.2f to %.2f arcmin",
                   arcsec2arcmin(qlo), arcsec2arcmin(qhi));
 
     _mylog.log(pexLog::Log::DEBUG, "Setting indices");
@@ -493,8 +521,7 @@ bool GlobalAstrometrySolution::_callSolver(afwGeom::Angle ra, afwGeom::Angle dec
         MatchObj* match = solver_get_best_match(_solver);
         _mylog.format(pexLog::Log::DEBUG, "Solved: %i matches, %i conflicts, %i unmatched",
                       (int)match->nmatch, (int)match->nconflict, (int)match->ndistractor);
-        _mylog.log(pexLog::Log::DEBUG, "Calling tweak2() to tune up match...");
-        _mylog.format(pexLog::Log::DEBUG, "Starting log-odds: %g", match->logodds);
+        _mylog.format(pexLog::Log::DEBUG, "Calling tweak2() to tune up match.  Starting log-odds: %g", match->logodds);
         // Use "tweak2" to tune up this match, resulting in a better WCS and more catalog matches.
         // magic 1: only go to linear order (no SIP distortions).
 
@@ -558,9 +585,7 @@ int GlobalAstrometrySolution::_addSuitableIndicesToSolver(afwGeom::Angle quadSiz
 
         // Load the data (not just metadata), if it hasn't been already...
         index_reload(index);
-
-        string msg = boost::str(boost::format("Adding index %s") % index->indexname);
-    	_mylog.log(pexLog::Log::DEBUG, msg);
+        _mylog.format(pexLog::Log::DEBUG, "Adding index %s", index->indexname);
 
         solver_add_index(_solver, index);
         nSuitable++;
@@ -568,9 +593,8 @@ int GlobalAstrometrySolution::_addSuitableIndicesToSolver(afwGeom::Angle quadSiz
     
     if(nSuitable == 0) {
         string msg = "No suitable indices found for given input parameters:";
-        
         if(hasAtLeastOneIndexOfSuitableScale) {
-            msg += "Probably the ra/dec range isn't covered";
+            msg += "Probably the RA,Dec range isn't covered";
         } else {
             msg += "No indices of a suitable scale were found";
         }
@@ -871,84 +895,6 @@ vector<string> GlobalAstrometrySolution::getCatalogueMetadataFields() {
     return output;
 }
 
-///Returns a sourceSet of objects that are nearby in an raDec sense to the best match solution
-ReferenceSources
-GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string idName, double margin) {
-    if (! _isSolved) {
-        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
-    }
-    MatchObj* match = solver_get_best_match(_solver);
-    double* xyz;
-    int* starinds;
-    int nstars;
-    double scale;
-    double r2;
-    int i, W, H;
-    int outi;
-    
-    ReferenceSources refs;
-    afwDet::SourceSet ss;
-
-    // arcsec/pix
-    scale = tan_pixel_scale(&(match->wcstan));
-    // add margin
-    r2 = deg2distsq(match->radius_deg + arcsec2deg(scale * margin));
-
-    refs.indexid = match->index->indexid;
-    
-    startree_search_for(match->index->starkd, match->center, r2, &xyz, NULL, &starinds, &nstars);
-    if (nstars == 0)
-        return refs;
-
-    afwCoord::CoordSystem coordsys = _getCoordSys();
-
-    W = (int)(match->wcstan.imagew);
-    H = (int)(match->wcstan.imageh);
-    outi = 0;
-    for (i=0; i<nstars; i++) {
-        double* xyzi;
-        double px, py;
-        xyzi = xyz + 3*i;
-        if (!tan_xyzarr2pixelxy(&(match->wcstan), xyzi, &px, &py))
-            continue;
-        // in bounds (+ margin) ?
-        if (px < -margin || px > W+margin || py < -margin || py > H+margin)
-            continue;
-
-        afwDet::Source::Ptr src(new afwDet::Source());
-        src->setRaDec(xyztocoord(coordsys, xyzi));
-        ss.push_back(src);
-        starinds[outi] = starinds[i];
-        outi++;
-    }
-
-    vector<double> mag = getTagAlongFromIndex(match->index, filterName, starinds, outi);
-    if (mag.size()) {
-        for (unsigned int i=0; i<ss.size(); i++) {
-            // It seems crazy to convert back to flux...
-            ss[i]->setPsfFlux(pow(10.0, -mag[i]/2.5));
-        }
-    }
-
-    vector<boost::int64_t> ids = getIds(idName, match->index, starinds, outi);
-    if (ids.size()) {
-        for (unsigned int i=0; i<ss.size(); i++) {
-            ss[i]->setSourceId(ids[i]);
-        }
-    }
-
-    vector<int> inds(starinds, starinds + ss.size());
-
-    free(starinds);
-    free(xyz);
-
-    refs.refsources = ss;
-    refs.inds = inds;
-
-    return refs;
-}
-    
-
 ///Returns a sourceSet of objects that are nearby in an RA,Dec sense to the best match solution
 afwDet::SourceSet 
 GlobalAstrometrySolution::getCatalogue(afwGeom::Angle radius, string filterName, string idName) {
@@ -978,87 +924,92 @@ index_t* GlobalAstrometrySolution::_getIndex(int indexId) {
 }
 
 template <typename T>
-std::vector<T> GlobalAstrometrySolution::_getTagAlongData(int indexId, std::string columnName,
-                                                          tfits_type ctype, std::vector<int> inds) {
-
-    index_t* index = _getIndex(indexId);
-    if (!index)
-        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
-                          boost::str(boost::format("Astrometry.net index with ID %i was not found") % indexId)));
-
-    fitstable_t* tag = startree_get_tagalong(index->starkd);
-    if (!tag)
-        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
-                          boost::str(boost::format("Astrometry.net index with ID %i: no tag-along table was found") % indexId)));
-
-    int* cinds = new int[inds.size()];
-    for (size_t i=0; i<inds.size(); i++)
-        cinds[i] = inds[i];
-    
-    int arraysize = -1;
-    void* vdata = fitstable_read_column_array_inds(tag, columnName.c_str(), ctype, cinds, inds.size(), &arraysize);
-    delete[] cinds;
+std::vector<T> GlobalAstrometrySolution::_getTagAlongData(InternalRefSourcesCPtr irefs,
+                                                          std::string columnName,
+                                                          tfits_type ctype) {
     std::vector<T> vals;
 
-    if (ctype != fitscolumn_boolean_type()) {
-        T* x = static_cast<T*>(vdata);
-        vals = std::vector<T>(x + 0, x + inds.size() * arraysize);
-    } else {
-        // Workaround a bug in Astrometry.net 0.30: for boolean type, the "vdata"
-        // values are 'T' and 'F' -- can't just cast them to 'bool'!!
-        unsigned char* cdata = static_cast<unsigned char*>(vdata);
-        T* x = new T[inds.size()];
-        for (int i=0, N=inds.size(); i<N*arraysize; i++) {
-            if (cdata[i] == 'T')
-                x[i] = true;
-            else if (cdata[i] == 'F')
-                x[i] = false;
-            else
-                throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
-                                  boost::str(boost::format("Error retrieving boolean column \"%s\" from FITS file: entry %i has value 0x%x")
-                                             % columnName.c_str() % i % (int)cdata[i])));
+    for (size_t j=0; j<irefs->size(); ++j) {
+        int indexId = irefs->getIndexId(j);
+        std::vector<int> inds = irefs->getIndices(j);
+
+        index_t* index = _getIndex(indexId);
+        if (!index)
+            throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
+                              boost::str(boost::format("Astrometry.net index with ID %i was not found") % indexId)));
+
+        fitstable_t* tag = startree_get_tagalong(index->starkd);
+        if (!tag)
+            throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
+                              boost::str(boost::format("Astrometry.net index with ID %i: no tag-along table was found") % indexId)));
+
+        int* cinds = &(inds[0]);
+        int arraysize = -1;
+        void* vdata = fitstable_read_column_array_inds(tag, columnName.c_str(), ctype, cinds, inds.size(), &arraysize);
+        size_t N = inds.size() * arraysize;
+        vals.reserve(vals.size() + N);
+        if (ctype == fitscolumn_boolean_type()) {
+            // Workaround a bug in Astrometry.net 0.30: for boolean type, the "vdata"
+            // values are 'T' and 'F' -- can't just cast them to 'bool'!!
+            unsigned char* cdata = static_cast<unsigned char*>(vdata);
+            for (size_t i=0; i<N; ++i) {
+                if (cdata[i] == 'T')
+                    vals.push_back(true);
+                else if (cdata[i] == 'F')
+                    vals.push_back(false);
+                else
+                    throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
+                                      boost::str(boost::format("Error retrieving boolean column \"%s\" from FITS file: entry %i has value 0x%x")
+                                                 % columnName.c_str() % i % (int)cdata[i])));
+            }
+        } else {
+            T* x = static_cast<T*>(vdata);
+            if (vals.size() == 0) {
+                vals = std::vector<T>(x + 0, x + N);
+            } else {
+                for (size_t k=0; k<N; ++k)
+                    vals.push_back(x[k]);
+            }
         }
-        vals = std::vector<T>(x + 0, x + inds.size() * arraysize);
-        delete[] x;
+        free(vdata);
     }
-    free(vdata);
     return vals;
 }
 
-std::vector<double> GlobalAstrometrySolution::getTagAlongDouble(int indexId, std::string columnName,
-                                                                std::vector<int> inds) {
-    std::vector<double> vals = _getTagAlongData<double>(indexId, columnName, fitscolumn_double_type(), inds);
+std::vector<double> GlobalAstrometrySolution::getTagAlongDouble(InternalRefSourcesCPtr irefs,
+                                                                std::string columnName) {
+    std::vector<double> vals = _getTagAlongData<double>(irefs, columnName, fitscolumn_double_type());
     return vals;
 }
 
-std::vector<int> GlobalAstrometrySolution::getTagAlongInt(int indexId, std::string columnName,
-                                                          std::vector<int> inds) {
-    std::vector<int> vals = _getTagAlongData<int>(indexId, columnName, fitscolumn_int_type(), inds);
+std::vector<int> GlobalAstrometrySolution::getTagAlongInt(InternalRefSourcesCPtr irefs, std::string columnName) {
+    std::vector<int> vals = _getTagAlongData<int>(irefs, columnName, fitscolumn_int_type());
     return vals;
 }
 
-std::vector<boost::int64_t> GlobalAstrometrySolution::getTagAlongInt64(int indexId, std::string columnName,
-                                                                       std::vector<int> inds) {
-    std::vector<boost::int64_t> vals = _getTagAlongData<boost::int64_t>(indexId, columnName, fitscolumn_i64_type(), inds);
+std::vector<boost::int64_t> GlobalAstrometrySolution::getTagAlongInt64(InternalRefSourcesCPtr irefs, std::string columnName) {
+    std::vector<boost::int64_t> vals = _getTagAlongData<boost::int64_t>(irefs, columnName, fitscolumn_i64_type());
     return vals;
 }
-
-std::vector<bool> GlobalAstrometrySolution::getTagAlongBool(int indexId, std::string columnName,
-                                  std::vector<int> inds) {
-    std::vector<bool> vals = _getTagAlongData<bool>(indexId, columnName, fitscolumn_boolean_type(), inds);
+    
+std::vector<bool> GlobalAstrometrySolution::getTagAlongBool(InternalRefSourcesCPtr irefs, std::string columnName) {
+    std::vector<bool> vals = _getTagAlongData<bool>(irefs, columnName, fitscolumn_boolean_type());
     return vals;
 }
 
 std::vector<TagAlongColumn> GlobalAstrometrySolution::getTagAlongColumns(int indexId) {
     index_t* index;
-    if (indexId == -1)
+    if (indexId == -1) {
         index = _indexList[0];
+    }
+
     else {
         index = _getIndex(indexId);
         if (!index)
             throw(LSST_EXCEPT(pexExcept::RuntimeErrorException,
                               boost::str(boost::format("Astrometry.net index with ID %i was not found") % indexId)));
     }
+    index_reload(index);
 
     fitstable_t* tag = startree_get_tagalong(index->starkd);
     if (!tag)
@@ -1156,6 +1107,145 @@ std::vector<std::vector<double> > GlobalAstrometrySolution::getCatalogueExtra(af
     return x;
 }
 
+class GlobalAstrometrySolution::RefSourceFilter {
+public:
+    RefSourceFilter() {}
+    virtual ~RefSourceFilter() = 0;
+    virtual bool check(double ra, double dec, boost::int64_t id) { return true; }
+};
+// grumble grumble
+GlobalAstrometrySolution::RefSourceFilter::~RefSourceFilter() {}
+
+
+class RefSourceInBoundsFilter : public GlobalAstrometrySolution::RefSourceFilter {
+public:
+    RefSourceInBoundsFilter(const tan_t* wcs, double margin) : _wcs(wcs), _margin(margin) {}
+    virtual ~RefSourceInBoundsFilter() {}
+    virtual bool check(double ra, double dec, boost::int64_t id) {
+        double px, py;
+        if (!tan_radec2pixelxy(_wcs, ra, dec, &px, &py))
+            return false;
+        // in bounds (+ margin) ?
+        if (px < -_margin || px > _wcs->imagew + _margin ||
+            py < -_margin || py > _wcs->imageh + _margin)
+            return false;
+        return true;
+    }
+private:
+    const tan_t* _wcs;
+    double _margin;
+};
+
+ReferenceSources
+GlobalAstrometrySolution::searchCatalogue(const double* xyzcenter, double r2,
+                                          std::string filterName, std::string idName,
+                                          int indexId,
+                                          bool useIndexHealpix,
+                                          bool resolveDuplicates,
+                                          bool resolveUsingId,
+                                          RefSourceFilter* filt) {
+    ReferenceSources refs;
+    afwCoord::CoordSystem coordsys = _getCoordSys();
+    double ra, dec, radiusdeg;
+    xyzarr2radecdeg(xyzcenter, &ra, &dec);
+    radiusdeg = distsq2deg(r2);
+
+    std::set<boost::int64_t> refids;
+    std::set<std::pair<double,double> > refradecs;
+
+    PTR(InternalRefSources) irefs(new InternalRefSources());
+
+    for (unsigned int i=0; i<_indexList.size(); i++) {
+        index_t* index = _indexList[i];
+        if (indexId != -1 && index->indexid != indexId) {
+            _mylog.format(pexLog::Log::DEBUG, "Skipping index %i != desired indexid %i", index->indexid, indexId);
+            continue;
+        }
+        if (useIndexHealpix &&
+            !index_is_within_range(index, ra, dec, radiusdeg)) {
+            double dist = healpix_distance_to_radec(index->healpix, index->hpnside, ra, dec, NULL);
+            _mylog.format(pexLog::Log::DEBUG, "Index %i not within range (minimum distance: %g deg > %g deg)", index->indexid, dist, radiusdeg);
+            continue;
+        }
+
+        // Ensure the index is loaded...
+        index_reload(index);
+
+        // Find nearby stars
+        double *radecs = NULL;
+        int *starinds = NULL;
+        int nstars = 0;
+        startree_search_for(index->starkd, xyzcenter, r2, NULL, &radecs, &starinds, &nstars);
+
+        if (nstars == 0)
+            continue;
+
+        _mylog.format(pexLog::Log::DEBUG, "Index %i: found %i reference sources", index->indexid, nstars);
+
+        // we may need the IDs in the resolving step below...
+        vector<boost::int64_t> ids = getIds(idName, index, starinds, nstars);
+
+        // For fields that straddle index boundaries, we will get multiple
+        // matching reference source sets.  We will also get multiple matches
+        // due to indices at multiple scales.
+        //
+        // Here we resolve those duplicates.
+        if (resolveDuplicates) {
+            int k=0;
+            if (resolveUsingId) {
+                assert(ids.size());
+            }
+            for (int j=0; j<nstars; ++j) {
+                bool keep;
+                if (resolveUsingId) {
+                    // Try inserting "ids[j]"; returns true if it was inserted (ie, didn't already exist)
+                    keep = refids.insert(ids[j]).second;
+                } else {
+                    // Try inserting the RA,Dec pair.
+                    std::pair<double,double> rd(radecs[2*j+0],radecs[2*j+1]);
+                    keep = refradecs.insert(rd).second;
+                }
+                if (!keep)
+                    continue;
+                if (j != k) {
+                    memcpy(radecs + k*2, radecs + j*2, sizeof(double)*2);
+                    starinds[k] = starinds[j];
+                    ids[k] = ids[j];
+                }
+                ++k;
+            }
+            _mylog.format(pexLog::Log::DEBUG, "Index %i: keeping %i of %i reference sources", index->indexid, k, nstars);
+            nstars = k;
+            if (nstars == 0)
+                continue;
+        }
+
+        vector<double> mag = getTagAlongFromIndex(index, filterName, starinds, nstars);
+
+        std::vector<int>& inds = irefs->add(index->indexid);
+
+        // Create a source for every position stored
+        for (int j = 0; j<nstars; ++j) {
+            afwDet::Source::Ptr src(new afwDet::Source());
+            src->setAllRaDecFields(radectocoord(coordsys, radecs + j*2));
+            inds.push_back(starinds[j]);
+            if (mag.size()) {
+                // convert mag to flux
+                src->setPsfFlux( pow(10.0, -mag[j]/2.5) );
+            }
+            if (ids.size()) {
+                src->setSourceId(ids[j]);
+            }
+            refs.refsources.push_back(src);
+        }
+        free(radecs);
+        free(starinds);
+    }
+    refs.intrefsources = irefs;
+    return refs;
+}
+
+
 
 ///Returns a sourceSet of objects that are nearby in an raDec sense to the requested position. If
 ///filterName is not blank, we also extract out the magnitude information for that filter and 
@@ -1168,75 +1258,52 @@ GlobalAstrometrySolution::getCatalogue(afwGeom::Angle ra,
                                        afwGeom::Angle radius,
                                        string filterName,
                                        string idName,
-                                       int indexId) {
+                                       int indexId,
+                                       bool useIndexHealpix,
+                                       bool resolveDuplicates,
+                                       bool resolveUsingId
+    ) {
 
     double center[3];
     // degrees
     radecdeg2xyzarr(ra.asDegrees(), dec.asDegrees(), center);
     double radius2 = radius.toUnitSphereDistanceSquared();
-    string msg;
 
-    ReferenceSources refs;
-    refs.indexid = -1;
+    return searchCatalogue(center, radius2, filterName, idName,
+                           indexId, useIndexHealpix, resolveDuplicates,
+                           resolveUsingId, NULL);
+}
 
-    afwCoord::CoordSystem coordsys = _getCoordSys();
 
-    for (unsigned int i=0; i<_indexList.size(); i++) {
-        index_t* index = _indexList[i];
-        if (indexId != -1 && index->indexid != indexId)
-            continue;
-        if (!index_is_within_range(index, ra.asDegrees(), dec.asDegrees(), radius.asDegrees()))
-            continue;
-
-        // Ensure the index is loaded...
-        index_reload(index);
-
-        //Find nearby stars
-        double *xyz = NULL;
-        int *starinds = NULL;
-        int nstars = 0;
-        startree_search_for(index->starkd, center, radius2, &xyz, NULL, &starinds, &nstars);
-
-        if (nstars == 0)
-            continue;
-
-        vector<double> mag = getTagAlongFromIndex(index, filterName, starinds, nstars);
-        vector<boost::int64_t> ids = getIds(idName, index, starinds, nstars);
-
-        afwDet::SourceSet sources;
-        std::vector<int> inds;
-
-        // Create a source for every position stored
-        for (int j = 0; j<nstars; ++j) {
-            afwDet::Source::Ptr src(new afwDet::Source());
-            src->setAllRaDecFields(xyztocoord(coordsys, xyz + j*3));
-            inds.push_back(starinds[j]);
-            if (mag.size()) {
-                // convert mag to flux
-                src->setPsfFlux( pow(10.0, -mag[j]/2.5) );
-            }
-            if (ids.size()) {
-                src->setSourceId(ids[j]);
-            }
-            sources.push_back(src);
-        }
-        free(xyz);
-        free(starinds);
-
-        refs.indexid = index->indexid;
-        refs.refsources = sources;
-        refs.inds = inds;
-
-        // NOTE change in behavior -- return only sources from first catalog...
-        break;
+///Returns a sourceSet of objects that are nearby in an raDec sense to the best match solution
+ReferenceSources
+GlobalAstrometrySolution::getCatalogueForSolvedField(string filterName, string idName, double margin) {
+    if (! _isSolved) {
+        throw(LSST_EXCEPT(pexExcept::RuntimeErrorException, "No solution found yet. Did you run solve()?"));
     }
+    MatchObj* match = solver_get_best_match(_solver);
+    double scale;
+    double r2;
+
+    // arcsec/pix
+    scale = tan_pixel_scale(&(match->wcstan));
+    // add margin
+    r2 = deg2distsq(match->radius_deg + arcsec2deg(scale * margin));
+
+    
+    bool resolve = (idName.size() > 0);
+    RefSourceInBoundsFilter filt(&(match->wcstan), margin);
+    ReferenceSources refs = searchCatalogue(match->center, r2, filterName, idName,
+                                            -1, true, resolve, resolve, &filt);
     return refs;
 }
+    
+
 
 
 ///A convenient interface to astrometry.net's startree_get_data_column. 
 ///Checks that the fieldName exists, and that something is returned.
-///Returns an vector of length numIds
+///Returns a vector of length numIds
 ///
 ///\param index Astrometry.net index field to extract tagalong data from
 ///\param fieldName Name of tagalong column to extract. If this is empty (i.e ""), nothing is

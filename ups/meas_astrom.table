@@ -5,7 +5,7 @@ setupRequired(pex_logging >= 4.7.3.0)
 setupRequired(wcslib >= 4.4.4)
 setupRequired(astrometry_net == 0.30)
 
-setupOptional(astrometry_net_data)
+#setupOptional(astrometry_net_data)
 
 envPrepend(PYTHONPATH, ${PRODUCT_DIR}/python)
 envPrepend(LD_LIBRARY_PATH, ${PRODUCT_DIR}/lib)

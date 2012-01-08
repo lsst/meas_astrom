@@ -39,7 +39,6 @@ import sip.cleanBadPoints as cleanBadPoints
 import lsst.afw.display.ds9 as ds9
 import numpy
 
-# XXX This whole module should be made a lot more object-oriented -- PAP
 
 def createSolver(policy, log):
     adn_dir = os.environ.get('ASTROMETRY_NET_DATA_DIR')
@@ -55,19 +54,32 @@ def createSolver(policy, log):
     solver.setLogLevel(2)
     return solver
 
-def getIdColumn(policy):
-    '''Returns the column name of the ID field in the reference catalog'''
-    idName = ''
-    colname = 'defaultIdColumnName'
-    if policy.exists(colname):
-        idName = policy.get(colname)
-    return idName
+def joinMatchList(matchlist, sources, first=True, log=None,
+                  mask=0, offset=0):
+    '''
+    In database terms: this function joins the IDs in "matchlist" to
+    the IDs in "sources", and denormalizes the "matchlist".
 
-def joinMatchList(matchlist, sources, first=True, log=None, mask=0, offset=0):
-    # build map of reference id to reference object.
+    In non-DB terms: sets either the "matchlist[*].first" or
+    "matchlist[*].second" values to point to entries in "sources".
 
+    On input, "matchlist[*].first/second" are placeholder Source
+    objects that only have the IDs set.  On return, these values are
+    replaced by real entries in "sources".
+
+    Example: if:
+      first == True,
+      matchlist[0].first.getSourceId() == 42, and
+      sources[4].getSourceId() == 42
+    then, on return,
+      matchlist[0].first == sources[4]
+
+    Used by "generateMatchesFromMatchList"; see there for more
+    documentation.
+    '''
     srcstr = ('reference objects' if first else 'sources')
 
+    # build map of ID to source
     idtoref = {}
     for s in sources:
         sid = s.getSourceId()
@@ -114,6 +126,14 @@ def joinMatchList(matchlist, sources, first=True, log=None, mask=0, offset=0):
         log.log(Log.DEBUG, 'Joined %i of %i matchlist IDs to %s' %
                 (nmatched, len(matchlist), srcstr))
 
+def _getIdColumn(policy):
+    '''Returns the column name of the ID field in the reference catalog'''
+    idName = ''
+    colname = 'defaultIdColumnName'
+    if policy.exists(colname):
+        idName = policy.get(colname)
+    return idName
+
 
 def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None,
                              filterName=None, idName=None):
@@ -125,7 +145,7 @@ def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None
 
     filterName = chooseFilterName(None, policy, solver, log, filterName)
     if idName is None:
-        idName = getIdColumn(policy)
+        idName = _getIdColumn(policy)
 
     version = matchmeta.getInt('SMATCHV')
     if version != 1:
@@ -138,7 +158,6 @@ def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None
     #    raise ValueError('Need ASTROMETRY_NET_DATA_DIR = "%s"' % 
     log.log(Log.DEBUG, 'Astrometry.net dir was "%s", now "%s"' %
             (os.path.basename(myandata), os.path.basename(andata)))
-
     anid = matchmeta.getInt('ANINDID')
     anhp = matchmeta.getInt('ANINDHP')
     anindexname = os.path.basename(matchmeta.getString('ANINDNM'))
@@ -149,11 +168,10 @@ def joinMatchListWithCatalog(matchlist, matchmeta, policy, log=None, solver=None
     ra = matchmeta.getDouble('RA') * afwGeom.degrees
     dec = matchmeta.getDouble('DEC') * afwGeom.degrees
     rad = matchmeta.getDouble('RADIUS') * afwGeom.degrees
-    log.log(Log.DEBUG, 'Searching RA,Dec %.3f,%.3f, radius %.1f arcsec, filter "%s", id column "%s", indexid %i' %
-            (ra.asDegrees(), dec.asDegrees(), rad.asArcseconds(), filterName, idName, anid))
+    log.log(Log.DEBUG, 'Searching RA,Dec %.3f,%.3f, radius %.1f arcsec, filter "%s", id column "%s"' %
+            (ra.asDegrees(), dec.asDegrees(), rad.asArcseconds(), filterName, idName))
 
-    # FIXME -- need anid?  Not necessarily... ref ids are supposed to be unique!
-    X = solver.getCatalogue(ra, dec, rad, filterName, idName, anid)
+    X = solver.getCatalogue(ra, dec, rad, filterName, idName)
     cat = X.refsources
     log.log(Log.DEBUG, 'Found %i reference catalog sources in range' % len(cat))
 
@@ -273,13 +291,11 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
 
     # Generate a list of catalogue objects in the field.
     filterName = chooseFilterName(exposure, policy, solver, log, filterName)
-    idName = getIdColumn(policy)
+    idName = _getIdColumn(policy)
     try:
         margin = 50 # pixels
-        X = solver.getCatalogueForSolvedField(filterName, idName, margin)
-        cat = X.refsources
-        indexid = X.indexid
-        inds = X.inds
+        refcat = solver.getCatalogueForSolvedField(filterName, idName, margin)
+
     except LsstCppException, e:
         log.log(Log.WARN, str(e))
         log.log(Log.WARN, "Attempting to access catalogue positions and fluxes")
@@ -291,8 +307,11 @@ def determineWcs(policy, exposure, sourceSet, log=None, solver=None, doTrim=Fals
         raise
 
     stargalName, variableName, magerrName = getTagAlongNamesFromPolicy(policy, filterName)
-    addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
-                                        log, cat, indexid, inds, filterName)
+    _addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
+                                        log, refcat, filterName)
+
+    cat = refcat.refsources
+    del refcat
     
     if True:
         # Now generate a list of matching objects
@@ -391,49 +410,73 @@ def createMetadata(width, height, wcs, filterName, stargalName, variableName, ma
     meta.add('MAGERR', magerrName, 'magnitude error name for tagalong data')
     return meta
 
-def generateMatchesFromMatchList(matchList, sources, wcs, width, height, log=Log.getDefaultLog()):
-    """Generate actual matches from a matchlist and the original source list
+def generateMatchesFromMatchList(matchList, sources, wcs, width, height,
+                                 log=Log.getDefaultLog(),
+                                 returnRefs=False,
+                                 sourceIdOffset=None,
+                                 sourceIdMask=None):
+    '''
+    This function is required to reconstitute a matchlist after being
+    unpersisted.  The persisted form of a matchlist is simply a list
+    of integers: the ID numbers of the matched image sources and
+    reference sources.  For you database types, this is a "normal
+    form" representation.  The "live" form of a matchlist has links to
+    the real Source objects that are matched; it is "denormalized".
+    This function takes a normalized matchlist, along with the list of
+    sources to which the matchlist refers.  It fetches the reference
+    sources that are within range, and then denormalizes the matchlist
+    -- sets the "matchList[*].first" and "matchList[*].second" entries
+    to point to the sources in the "sources" argument, and to the
+    reference sources fetched from the astrometry_net_data files.
 
-    Matches are persisted as a join table, with identifiers from the catalog
-    and the original source list.  This function glues them together.
-
-    @param matchList Unpersisted matchList
+    @param matchList Unpersisted matchList (an lsst.afw.detection.PersistableSourceMatchVector)
     @param sources Original source list used in matching
     @param wcs World Coordinate System
-    @param width Width of image (pixels)
-    @param height Height of image (pixels)
-    @return matches
-    """
+    @param width Width of image (integer, pixels)
+    @param height Height of image (integer, pixels)
+    @return matches  or  matches,refs (if returnRefs=True)
+    '''
 
     meta = matchList.getSourceMatchMetadata()
     matches = matchList.getSourceMatches()
 
-    ref = readReferenceSourcesFromMetadata(meta, log=log)
+    refs = readReferenceSourcesFromMetadata(meta, log=log)
 
-    keepref = []
-    for i in xrange(len(ref)):
-        x, y = wcs.skyToPixel(ref[i].getRaDec())
+    keeprefs = []
+    for ref in refs:
+        x, y = wcs.skyToPixel(ref.getRaDec())
         if x < 0 or y < 0 or x > width or y > height:
             continue
-        ref[i].setXAstrom(x)
-        ref[i].setYAstrom(y)
-        keepref.append(ref[i])
-    log.log(log.INFO, "Read %d catalogue sources; %d in image" % (len(ref), len(keepref)))
-    ref = keepref
+        ref.setXAstrom(x)
+        ref.setYAstrom(y)
+        keeprefs.append(ref)
+    log.log(log.INFO, "Read %d catalogue sources; %d in image" % (len(refs), len(keeprefs)))
+    refs = keeprefs
 
-    #log.setThreshold(log.DEBUG)
-    joinMatchList(matches, ref, first=True, log=log)
-    joinMatchList(matches, sources, first=False, log=log)
-    #log.setThreshold(log.INFO)
+    joinMatchList(matches, refs, first=True, log=log)
+    kwargs = {}
+    if sourceIdOffset is not None:
+        kwargs['offset'] = sourceIdOffset
+    if sourceIdMask is not None:
+        kwargs['mask'] = sourceIdMask
+    joinMatchList(matches, sources, first=False, log=log, **kwargs)
 
-    cleanList = [m for m in matches if m.first is not None and m.second is not None]
+    cleanList = [m for m in matches
+                 if m.first is not None and m.second is not None]
     if len(cleanList) != len(matches):
         log.log(log.WARN, "Missing entries after joining match list: %d of %d joined" % 
                 (len(cleanList), len(matches)))
+    if returnRefs:
+        return cleanList,refs
     return cleanList
 
-def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None, filterName=None):
-    """Read the catalog based on the provided metadata"""
+def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None, filterName=None, useIndexHealpix=True, wcs=None):
+    '''
+    Read the catalog based on the provided metadata
+
+    wcs: if not None, use this WCS to set the XAstrom,YAstrom fields from
+         the RA,Dec values.
+    '''
     # all these are in degrees
     ra  = meta.getDouble('RA') * afwGeom.degrees
     dec = meta.getDouble('DEC') * afwGeom.degrees
@@ -444,7 +487,6 @@ def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None,
     policy.set('matchThreshold', 30)
     solver = createSolver(policy, log)
     idName = 'id'
-    anid = meta.getInt('ANINDID') if meta.exists('ANINDID') else -1
 
     if filterName is None:
         try:
@@ -455,20 +497,25 @@ def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None,
     filterName = filterName.strip()
     log.log(log.DEBUG, "Reading catalogue at %f,%f (deg) +/- %f (arcsec) in filter %s" %
             (ra.asDegrees(), dec.asDegrees(), radius.asArcseconds(), filterName))
-    cat = solver.getCatalogue(ra, dec, radius, filterName, idName, anid)
+    cat = solver.getCatalogue(ra, dec, radius, filterName, idName, -1,
+                              useIndexHealpix)
     log.log(log.DEBUG, "%d catalogue sources found" % len(cat.refsources))
 
-    if anid == -1:
-        meta.add('ANINDID', cat.indexid, 'Astrometry.net index id')
-
     try:
-        stargalName, variableName, magerrName = getTagAlongNamesFromMetadata(meta)
+        stargalName, variableName, magerrName = _getTagAlongNamesFromMetadata(meta)
     except:
         log.log(log.WARN, "Tag-along names not set in match metadata; using policy/defaults")
         
     stargalName, variableName, magerrName = getTagAlongNamesFromPolicy(policy, filterName)
-    addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
-                                        log, cat, anid, cat.inds, filterName)
+    _addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
+                                        log, cat, filterName)
+
+    if wcs is not None:
+        for src in cat.refsources:
+            p = wcsIn.skyToPixel(src.getRaDec())
+            src.setXAstrom(p.getX())
+            src.setYAstrom(p.getY())
+
     return cat.refsources
 
 
@@ -500,7 +547,7 @@ def getTagAlongNamesFromPolicy(policy, filterName):
 
     return stargalName, variableName, magerrName
 
-def getTagAlongNamesFromMetadata(meta):
+def _getTagAlongNamesFromMetadata(meta):
     """Get the column names for the tagalong data from match metadata
 
     @return star/galaxy column name, variability column name, magnitude error column name
@@ -508,59 +555,61 @@ def getTagAlongNamesFromMetadata(meta):
     return meta.get('STARGAL').strip(), meta.get('VARIABLE').strip(), meta.get('MAGERR').strip()
 
 
-def addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
-                                        log, refcat, indexid, inds, filterName):
+def _addTagAlongValuesToReferenceSources(solver, stargalName, variableName, magerrName,
+                                         log, refcat, filterName):
     # Now add the photometric errors, star/galaxy, and variability flags.
-    cols = solver.getTagAlongColumns(indexid)
+    cols = solver.getTagAlongColumns()
     colnames = [c.name for c in cols]
 
+    irefs = refcat.intrefsources
+    cat = refcat.refsources
 
     stargal = None
     if not stargalName in colnames:
-        log.log(Log.WARN, ('Star/galaxy column was not found in Astrometry.net index file (index id=%i): expected \"%s\", but available columns are: [ %s ]' %
-                           (indexid, stargalName, ', '.join(['"%s"' % c for c in colnames]))))
+        log.log(Log.WARN, ('Star/galaxy column was not found in Astrometry.net index files: expected \"%s\", but available columns are: [ %s ]' %
+                           (stargalName, ', '.join(['"%s"' % c for c in colnames]))))
     else:
         log.log(Log.INFO, 'Using reference star/galaxy column \"%s\"' % stargalName)
-        stargal = solver.getTagAlongBool(indexid, stargalName, inds)
+        stargal = solver.getTagAlongBool(irefs, stargalName)
 
     variable = None
     if not variableName in colnames:
-        log.log(Log.WARN, ('Variability flag column was not found in Astrometry.net index file (index id=%i): expected \"%s\", but available columns are: [ %s ]' %
-                           (indexid, variableName, ', '.join(['"%s"' % c for c in colnames]))))
+        log.log(Log.WARN, ('Variability flag column was not found in Astrometry.net index files: expected \"%s\", but available columns are: [ %s ]' %
+                           (variableName, ', '.join(['"%s"' % c for c in colnames]))))
     else:
         log.log(Log.INFO, 'Using reference variability column \"%s\"' % variableName)
-        variable = solver.getTagAlongBool(indexid, variableName, inds)
+        variable = solver.getTagAlongBool(irefs, variableName)
 
     magerr = None
     if not magerrName in colnames:
-        log.log(Log.WARN, ('Magnitude error column was not found in Astrometry.net index file (index id=%i): expected \"%s\", but available columns are: [ %s ]' %
-                           (indexid, magerrName, ', '.join(['"%s"' % c for c in colnames]))))
+        log.log(Log.WARN, ('Magnitude error column was not found in Astrometry.net index file: expected \"%s\", but available columns are: [ %s ]' %
+                           (magerrName, ', '.join(['"%s"' % c for c in colnames]))))
     else:
         log.log(Log.INFO, 'Using reference magnitude error column \"%s\"' % magerrName)
-        magerr = solver.getTagAlongDouble(indexid, magerrName, inds)
+        magerr = solver.getTagAlongDouble(irefs, magerrName)
 
     # set STAR flag
     fdict = maUtils.getDetectionFlags()
     starflag = fdict["STAR"]
     if stargal is not None:
-        assert(len(stargal) == len(refcat))
+        assert(len(stargal) == len(cat))
     if variable is not None:
-        assert(len(variable) == len(refcat))
+        assert(len(variable) == len(cat))
 
-    for i in xrange(len(refcat)):
+    for i in xrange(len(cat)):
         isstar = True
         if stargal is not None:
             isstar &= stargal[i]
         if variable is not None:
             isstar &= not(variable[i])
         if isstar:
-            refcat[i].setFlagForDetection(refcat[i].getFlagForDetection() | starflag)
+            cat[i].setFlagForDetection(cat[i].getFlagForDetection() | starflag)
 
     # set flux error based on magnitude error
     if magerr is not None:
-        assert(len(magerr) == len(refcat))
-        for i in xrange(len(refcat)):
-            refcat[i].setPsfFluxErr(magerr[i] * refcat[i].getPsfFlux() * -numpy.log(10.)/2.5)
+        assert(len(magerr) == len(cat))
+        for i in xrange(len(cat)):
+            cat[i].setPsfFluxErr(magerr[i] * cat[i].getPsfFlux() * -numpy.log(10.)/2.5)
 
 def trimBadPoints(exposure, sourceSet):
     """Remove elements from sourceSet whose xy positions aren't within the boundaries of exposure

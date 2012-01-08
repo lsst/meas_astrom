@@ -67,8 +67,8 @@ def plotsForField(inButler, keys, fixup, plots=None, prefix=''):
         
     pmatches = inButler.get('icMatch', **keys)
     #print 'Got matches', pmatches
-    matchmeta = pmatches.getSourceMatchMetadata()
-    matches = pmatches.getSourceMatches()
+    #matchmeta = pmatches.getSourceMatchMetadata()
+    #matches = pmatches.getSourceMatches()
     #print 'Match metadata:', matchmeta
     sources = psources.getSources()
     
@@ -86,114 +86,31 @@ def plotsForField(inButler, keys, fixup, plots=None, prefix=''):
 
     # ref sources
     W,H = calexp.getWidth(), calexp.getHeight()
-    xc,yc = W/2., H/2.
-    radec = wcs.pixelToSky(xc, yc)
-    ra = radec.getLongitude(DEGREES)
-    dec = radec.getLatitude(DEGREES)
-    radius = wcs.pixelScale() * hypot(xc, yc) * 1.1
-    print 'Image W,H', W,H
-    print 'Image center RA,Dec', ra, dec
-    print 'Searching radius', radius.asArcseconds(), 'arcsec'
+
     log = Log.getDefaultLog()
     log.setThreshold(Log.DEBUG);
-    pol = policy.Policy()
-    pol.set('matchThreshold', 30)
-    solver = measAstrom.createSolver(pol, log)
-    idName = 'id'
-    # could get this from matchlist meta...
-    anid = matchmeta.getInt('ANINDID')
-    print 'Searching index with ID', anid
-    print 'Using ID column name', idName
-    print 'Using filter column name', filterName
-    X = solver.getCatalogue(ra, dec, radius, filterName, idName, anid)
-    #print 'X:', X
-    ref = X.refsources
-    inds = X.inds
-    indexid = X.indexid
-    assert(anid == indexid)
-    print 'Got', len(ref), 'reference catalog sources'
 
-    measAstrom.addTagAlongValuesToReferenceSources(solver, pol, log, ref, indexid, inds, filterName)
-
-    if True:
-        # pull 'stargal' and 'referrs' arrays out of the reference sources
-        fdict = maUtils.getDetectionFlags()
-        starflag = int(fdict["STAR"])
-
-        stargal = [bool((r.getFlagForDetection() & starflag) > 0)
-                   for r in ref]
-        referrs = [float(r.getPsfFluxErr() / r.getPsfFlux() * 2.5 / -np.log(10))
-                   for r in ref]
-        nstars = sum([1 for s in stargal if s])
-        print 'Number of sources with STAR set:', nstars
-        #print 'reference errs:', referrs
-        #print 'star/gals:', stargal
-
-    else:
-        print 'Tag-along columns:'
-        cols = solver.getTagAlongColumns(anid)
-        print cols
-        for c in cols:
-            print 'column: ', c.name, c.fitstype, c.ctype, c.units, c.arraysize
-        colnames = [c.name for c in cols]
-        col = filterName + '_err'
-        if col in colnames:
-            referrs = solver.getTagAlongDouble(anid, col, inds)
-        else:
-            referrs = None
-        col = 'starnotgal'
-        if col in colnames:
-            stargal1 = solver.getTagAlongBool(anid, col, inds)
-            # This nutty-looking stanza converts stargal to a real Python list;
-            # for reasons I now don't remember, leaving it as a vector<bool> caused
-            # problems when we make cuts below...
-            stargal = []
-            for i in range(len(stargal1)):
-                stargal.append(stargal1[i])
-        else:
-            stargal = None
-
-
-    keepref = []
-    keepi = []
-    for i in xrange(len(ref)):
-        #print ref[i].getXAstrom(), ref[i].getYAstrom(), ref[i].getRa(), ref[i].getDec()
-        x,y = wcs.skyToPixel(ref[i].getRaDec())
-        if x < 0 or y < 0 or x > W or y > H:
-            continue
-        ref[i].setXAstrom(x)
-        ref[i].setYAstrom(y)
-        keepref.append(ref[i])
-        keepi.append(i)
-    print 'Kept', len(keepref), 'reference sources'
-    ref = keepref
-
-    if referrs is not None:
-        referrs = [referrs[i] for i in keepi]
-    if stargal is not None:
-        stargal = [stargal[i] for i in keepi]
-
-    #print 'reference errs:', referrs
-    #print 'star/gals:', stargal
-
-    if False:
-        m0 = matches[0]
-        f,s = m0.first, m0.second
-        print 'match 0: ref %i, source %i' % (f.getSourceId(), s.getSourceId())
-        print '  ref x,y,flux = (%.1f, %.1f, %.1f)' % (f.getXAstrom(), f.getYAstrom(), f.getPsfFlux())
-        print '  src x,y,flux = (%.1f, %.1f, %.1f)' % (s.getXAstrom(), s.getYAstrom(), s.getPsfFlux())
-
-    measAstrom.joinMatchList(matches, ref, first=True, log=log)
-
-    args = {}
+    kwargs = {}
     if fixup:
         # ugh, mask and offset req'd because source ids are assigned at write-time
         # and match list code made a deep copy before that.
         # (see svn+ssh://svn.lsstcorp.org/DMS/meas/astrom/tickets/1491-b r18027)
-        args['mask'] = 0xffff
-        args['offset'] = -1
+        kwargs['sourceIdMask'] = 0xffff
+        kwargs['sourceIdOffset'] = -1
 
-    measAstrom.joinMatchList(matches, sources, first=False, log=log, **args)
+    (matches,ref) = measAstrom.generateMatchesFromMatchList(
+        pmatches, sources, wcs, W, H, returnRefs=True, log=log, **kwargs)
+    print 'Got', len(ref), 'reference catalog sources'
+
+    # pull 'stargal' and 'referrs' arrays out of the reference sources
+    fdict = maUtils.getDetectionFlags()
+    starflag = int(fdict["STAR"])
+    stargal = [bool((r.getFlagForDetection() & starflag) > 0)
+               for r in ref]
+    referrs = [float(r.getPsfFluxErr() / r.getPsfFlux() * 2.5 / -np.log(10))
+               for r in ref]
+    nstars = sum([1 for s in stargal if s])
+    print 'Number of sources with STAR set:', nstars
 
     visit = keys['visit']
     raft = keys['raft']

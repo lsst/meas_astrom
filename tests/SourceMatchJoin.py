@@ -74,9 +74,7 @@ class matchlistTestCase(unittest.TestCase):
         solver = measAstrom.createSolver(pol, log)
         X = solver.getCatalogue(ra * afwGeom.degrees, dec * afwGeom.degrees, rad * afwGeom.degrees, filtername, idname, anindid)
         ss = X.refsources
-        inds = X.inds
         print 'got', len(ss), 'catalog sources'
-        print 'and', len(inds), 'catalog indices'
 
         smv = afwDet.SourceMatchVector()
         for i,s1 in enumerate(ss):
