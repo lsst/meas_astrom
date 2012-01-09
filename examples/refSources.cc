@@ -28,8 +28,12 @@ namespace math = lsst::afw::math;
 namespace measAstrom = lsst::meas::astrom;
 
 int main() {
-    //string andata = string(getenv("MEAS_ASTROM_DIR"))
-    string andata = string(getenv("ASTROMETRY_NET_DATA_DIR"));
+    const char* candata = getenv("ASTROMETRY_NET_DATA_DIR");
+    if (!candata) {
+        printf("astrometry_net_data must be setup.\n");
+        exit(-1);
+    }
+    string andata = string(candata);
     cout << "ANDATA: " << andata << endl;
     andata += "/metadata.paf";
     //pexPolicy::Policy pol(andata);
