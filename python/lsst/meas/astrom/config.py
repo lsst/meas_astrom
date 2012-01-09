@@ -11,9 +11,9 @@ class AstromNetDataConfig(pexConfig.Config):
         '''Column name of the ID number''',
         default='id')
 
-    defaultFilterColumn = Field(
+    defaultMagColumn = Field(
         str,
-        '''Column name of the default filter''',
+        '''Default mag column name''',
         default='mag')
 
     starGalaxyColumn = Field(
@@ -26,9 +26,14 @@ class AstromNetDataConfig(pexConfig.Config):
         '''Column name of the star variability flag''',
         default=None)
 
-    magErrorMap = Field(
+    magErrorColumnMap = Field(
         dict,
-        '''Mapping from mag to mag error column names''',
+        '''Mapping from LSST filter name to mag error column name''',
+        default=None)
+
+    magColumnMap = Field(
+        dict,
+        '''Mapping from LSST filter name to mag column name''',
         default=None)
 
     # ?
