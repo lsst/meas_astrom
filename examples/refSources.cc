@@ -39,9 +39,9 @@ int main() {
 
     ref = gas.getCatalogue(1.62002199864 * afwGeom::degrees, -3.84209636408 * afwGeom::degrees, 627.541610333 * afwGeom::arcseconds,
                            "g", "id", 101217104);
-    cout << "Get refs: " << ref.refsources.size() << " with indexid " << ref.indexid << " and # inds: " << ref.inds.size() << endl;
+    cout << "Get refs: " << ref.refsources.size() << endl;
 
-    vector<bool> stargal = gas.getTagAlongBool(ref.indexid, "starnotgal", ref.inds);
+    vector<bool> stargal = gas.getTagAlongBool(ref.intrefsources, "starnotgal");
     cout << "Got stargals: " << stargal.size() << endl;
 
     for (unsigned int i = 0; i < stargal.size(); i++) {
@@ -49,7 +49,7 @@ int main() {
     }
     cout << endl;
 
-    vector<bool> vars = gas.getTagAlongBool(ref.indexid, "variable", ref.inds);
+    vector<bool> vars = gas.getTagAlongBool(ref.intrefsources, "variable");
     cout << "Got variability: " << vars.size() << endl;
 
     for (unsigned int i = 0; i < vars.size(); i++) {
@@ -57,7 +57,7 @@ int main() {
     }
     cout << endl;
 
-    vector<double> magerrs = gas.getTagAlongDouble(ref.indexid, "g_err", ref.inds);
+    vector<double> magerrs = gas.getTagAlongDouble(ref.intrefsources, "g_err");
     cout << "Got mag errs: " << magerrs.size() << endl;
 
     for (unsigned int i = 0; i < magerrs.size(); i++) {
