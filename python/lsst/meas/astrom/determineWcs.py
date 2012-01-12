@@ -43,7 +43,7 @@ import numpy
 def createSolver(policy, log):
     adn_dir = os.environ.get('ASTROMETRY_NET_DATA_DIR')
     if not adn_dir:
-        return None
+        raise RuntimeErorr("ASTROMETRY_NET_DATA_DIR is not set; try 'setup astrometry_net_data'")
 
     path = os.path.join(adn_dir, "metadata.paf")
     solver = astromNet.GlobalAstrometrySolution(path, log)
