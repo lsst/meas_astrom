@@ -365,7 +365,11 @@ class Astrometry(object):
     def _solve(self, sources, wcs, imageSize, pixelScale, radecCenter,
                searchRadius):
         solver = self._getSolver()
-        solver.setStarlist(sources)
+
+        # FIXME -- select sources with valid x,y,flux?
+        print 'Sources:', sources
+        solver.setStars(sources)
+
         solver.setNumBrightObjects(min(len(sources),
                                        self.config.numBrightStars))
         solver.setImageSize(*imageSize)
@@ -383,13 +387,13 @@ class Astrometry(object):
 
         return wcs,None
 
-        
     def _getSolver(self):
         #solver = astromNet.GlobalAstrometrySolution(path, log)
         import astrometry_net as an
         _solver = an.solver_new()
         print 'Solver:', _solver
-
+        #print 'dir:', dir(_solver)
+        return _solver
 
     @staticmethod
     def _trimBadPoints(sources, bbox):

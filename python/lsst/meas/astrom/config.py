@@ -90,7 +90,10 @@ class AstromConfig(pexConfig.Config):
     useWcsRaDecCenter = Field(
         bool, default=True,
         doc='''Use the RA,Dec center information from the input exposure\'s WCS headers?''')
-        
+
+    useWcsParity = Field(
+        bool, default=True,
+        doc='''Use the parity (flip / handedness) of the image from the input exposure\'s WCS headers?''')
 
     raDecSearchRadius = Field(
         float,
@@ -102,6 +105,7 @@ class AstromConfig(pexConfig.Config):
         '''Range of pixel scales, around the value in the WCS header, to search''',
         default = 1.1, check=lambda x: x>1.)
 
+    # forceParity?
     # pixelScale?
     # pixelScaleRange?
     # forceRaDecCenter?
