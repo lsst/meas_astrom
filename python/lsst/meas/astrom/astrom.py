@@ -7,8 +7,23 @@ import lsst.afw.geom as afwGeom
 import lsst.meas.algorithms.utils as maUtils
 #import lsst.meas.astrom as measAst
 import sip as astromSip
-from astromSip import cleanBadPoints
-import lsst.meas.astrom.determineWcs as detwcs
+import net as astromNet
+#import lsst.meas.astrom.sip as astromSip
+#from astromSip import cleanBadPoints
+#import lsst.meas.astrom.determineWcs as detwcs
+
+
+# Object returned by determineWcs.
+class InitialAstrometry(object):
+    def __init__(self):
+        self.matches = None
+        self.wcs = None
+    def getMatches(self):
+        return self.matches
+    def getWcs(self):
+        return self.wcs
+    def getMatchMetadata(self):
+        return getattr(self, 'matchMetadata', None)
 
 class Astrometry(object):
     import config
@@ -57,18 +72,37 @@ class Astrometry(object):
 
     def determineWcs(self,
                      sources,
-                     exposure=None,
-                     wcs=None,
-                     imageSize=None,
-                     radecCenter=None,
-                     searchRadius=None,
-                     pixelScale=None,
-                     filterName=None,
-                     doTrim=False,
-                     useWcs=None,
-                     usePixelScale=True,
-                     useRaDecCenter=True,
-                     searchRadiusScale=2.0):
+                     exposure):
+        '''
+        Version of determineWcs(), meant for pipeline use, that gets
+        almost all its parameters from config or reasonable defaults.
+        '''
+        assert(exposure is not None)
+        rdrad = self.config.raDecSearchRadius * afwGeom.degrees
+        #filterName = exposure.getFilter().getName()
+        #if filterName is None:
+        #   filterName = self.andConfig.defaultMagColumn
+
+        return self.determineWcs2(sources, exposure,
+                                  searchRadius=rdrad,
+                                  #filterName=filterName,
+                                  usePixelScale = self.config.useWcsPixelScale,
+                                  useRaDecCenter = self.config.useWcsRaDecCenter)
+        
+
+    def determineWcs2(self,
+                      sources,
+                      exposure=None,
+                      wcs=None,
+                      imageSize=None,
+                      radecCenter=None,
+                      searchRadius=None,
+                      pixelScale=None,
+                      filterName=None,
+                      doTrim=False,
+                      usePixelScale=True,
+                      useRaDecCenter=True,
+                      searchRadiusScale=2.):
         '''
         We dont really need an Exposure; we need:
           -an initial Wcs estimate;
@@ -88,19 +122,12 @@ class Astrometry(object):
         radecCenter: afwCoord::Coord
         '''
 
-        ### FIXME -- how does config.forceBlindSolve interact?
-        # default for useWcs?
-        if useWcs is None:
-            useWcs = self.config.forceBlindSolve
-
         if not useRaDecCenter and radecCenter is not None:
             raise RuntimeError('radecCenter is set, but useRaDecCenter is False.  Make up your mind!')
-        if not useRaDecCenter and searchRadius is not None:
-            raise RuntimeError('searchRadius is set, but useRaDecCenter is False.  Make up your mind!')
+        #if not useRaDecCenter and searchRadius is not None:
+        #    raise RuntimeError('searchRadius is set, but useRaDecCenter is False.  Make up your mind!')
         if not usePixelScale and pixelScale is not None:
             raise RuntimeError('pixelScale is set, but usePixelScale is False.  Make up your mind!')
-        if not useWcs and wcs is not None:
-            raise RuntimeError('wcs is set, but useWcs is False.  Make up your mind!')
         
         # return value:
         astrom = InitialAstrometry()
@@ -119,9 +146,6 @@ class Astrometry(object):
         W,H = imageSize
         xc, yc = W/2. + 0.5, H/2. + 0.5
         
-        if not useWcs:
-            wcs = None
-
         if wcs is not None:
             if pixelScale is None:
                 if usePixelScale:
@@ -361,8 +385,11 @@ class Astrometry(object):
 
         
     def _getSolver(self):
-        ## FIXME
-        return None
+        #solver = astromNet.GlobalAstrometrySolution(path, log)
+        import astrometry_net as an
+        _solver = an.solver_new()
+        print 'Solver:', _solver
+
 
     @staticmethod
     def _trimBadPoints(sources, bbox):
