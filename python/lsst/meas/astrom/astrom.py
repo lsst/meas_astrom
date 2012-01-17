@@ -369,11 +369,74 @@ class Astrometry(object):
         # FIXME -- select sources with valid x,y,flux?
         print 'Sources:', sources
         solver.setStars(sources)
-
-        solver.setNumBrightObjects(min(len(sources),
-                                       self.config.numBrightStars))
+        solver.setMaxStars(self.config.maxStars)
         solver.setImageSize(*imageSize)
+        if radecCenter is not None:
+            ra = radecCenter.getRa().asDegrees()
+            dec = radecCenter.getDec().asDegrees()
+            solver.setRaDecRadius(ra, dec, searchRadius.asDegrees())
 
+        # FIXME
+        # matchThreshold
+        # parity
+
+        import astrometry_net as an
+        an.an_log_set_level(3)
+
+        print 'pixelScale:', pixelScale
+        if pixelScale is not None:
+            dscale = self.config.pixelScaleUncertainty
+            scale = pixelScale.asArcseconds()
+            lo = scale / dscale
+            hi = scale * dscale
+            #solver.setPixelScaleRange(lo, hi)
+            print 'Setting pixel scale range', lo, hi
+            solver.funits_lower = lo
+            solver.funits_upper = hi
+        else:
+            solver.funits_lower = 0.01
+            solver.funits_upper = 3600.
+
+        (W,H) = imageSize
+        hi = math.hypot(W,H)
+        lo = 0.1 * min(W,H)
+        print 'Setting quad size range:', lo, hi
+        an.solver_set_quad_size_range(solver, lo, hi)
+
+        ## AN 0.30
+        if True:
+            solver.logratio_record_threshold = self.config.matchThreshold
+        else:
+            # an.solver_set_keep_logodds(solver, self.config.matchThreshold)
+            # solver.logratio_tokeep = self.config.matchThreshold
+            pass
+        '''
+        _mylog.format(pexLog::Log::DEBUG, "Exposure\'s WCS scale: %g arcsec/pix; setting scale range %.3f - %.3f arcsec/pixel",
+        pixelScale.asArcseconds(), lwr.asArcseconds(), upr.asArcseconds());
+        '''
+        #if ( wcsPtr->isFlipped()) {
+        #setParity(FLIPPED_PARITY);
+        #setParity(NORMAL_PARITY);
+
+        for fn in self.andConfig.indexFiles:
+            print 'Adding index file', fn
+            fn = self._getIndexPath(fn)
+            print 'Path', fn
+            #ind = an.index_load(fn)
+            solver.addIndex(fn)
+
+        an.solver_log_params(solver)
+        #an.solver_print_to(solver, 
+        
+        solver.run()
+        if solver.didSolve():
+            print 'Solved!'
+            wcs = solver.getWcs()
+            print 'Got wcs:', wcs
+            
+        else:
+            print 'Did not solve.'
+            wcs = None
         ### FIXME!
         #args = []
         #if wcs is not None:
@@ -382,10 +445,20 @@ class Astrometry(object):
         #        args.append
 
         #...
-        assert(0)
-        wcs = solver.solve()
-
         return wcs,None
+
+    def _getIndexPath(self, fn):
+        if os.path.isabs(fn):
+            return fn
+        andir = os.getenv('ASTROMETRY_NET_DATA_DIR')
+        if andir is not None:
+            fn2 = os.path.join(andir, fn)
+            if os.path.exists(fn2):
+                return fn2
+        fn2 = os.path.abspath(fn)
+        return fn2
+                    
+
 
     def _getSolver(self):
         #solver = astromNet.GlobalAstrometrySolution(path, log)

@@ -60,9 +60,9 @@ class AstromConfig(pexConfig.Config):
         float,
         '''Matching threshold for Astrometry.net solver (log-odds)''',
         default=math.log(1e12), check=lambda x: x > math.log(1e6))
-    numBrightStars = Field(
+    maxStars = Field(
         int,
-        '''Number of stars to use in Astrometry.net solving''',
+        '''Maximum number of stars to use in Astrometry.net solving''',
         default=50, check = lambda x: x>=10)
 
     #forceBlindSolve = Field(
