@@ -5,6 +5,7 @@ import lsst.pex.logging as pexLog
 import lsst.pex.config as pexConfig
 import lsst.afw.geom as afwGeom
 import lsst.meas.algorithms.utils as maUtils
+import lsst.daf.base as dafBase
 #import lsst.meas.astrom as measAst
 import sip as astromSip
 import net as astromNet
@@ -61,6 +62,27 @@ class Astrometry(object):
             else:
                 fn = os.path.join(dirnm, 'metadata.paf')
                 self.andConfig = pexConfig.Config.load(fn)
+
+        self.solver = None
+
+        self.inds = []
+        self._readIndexFiles()
+        
+    def _readIndexFiles(self):
+        import astrometry_net as an
+        for fn in self.andConfig.indexFiles:
+            print 'Adding index file', fn
+            fn = self._getIndexPath(fn)
+            print 'Path', fn
+            ind = an.index_load(fn, an.INDEX_ONLY_LOAD_METADATA, None);
+            if ind:
+                self.inds.append(ind)
+                print ('  index %i, hp %i (nside %i), nstars %i, nquads %i' %
+                       (ind.indexid, ind.healpix, ind.hpnside,
+                        ind.nstars, ind.nquads))
+            else:
+                print 'Failed to read index file', fn
+                raise RuntimeError('Failed to read index file: "%s"' % fn)
 
     def _debug(self, s):
         self.log.log(self.log.DEBUG, s)
@@ -180,7 +202,7 @@ class Astrometry(object):
 
         wcs,qa = self._solve(sources, wcs, imageSize, pixelScale, radecCenter, searchRadius)
         pixelMargin = 50.
-        cat = self.getReferenceSourcesForWcs(self, wcs, imageSize, filterName,
+        cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName,
                                              pixelMargin)
 
         matchList = self._getMatchList(sources, cat, wcs)
@@ -204,7 +226,7 @@ class Astrometry(object):
             assert(m.second in sources)
 
         if self.config.calculateSip:
-            wcs,matchList = self._calculateSipTerms(wcs, cat, sources)
+            wcs,matchList = self._calculateSipTerms(wcs, cat, sources, matchList)
             astrom.sipWcs = wcs
             astrom.sipMatches = matchList
 
@@ -212,7 +234,7 @@ class Astrometry(object):
         if exposure is not None:
             exposure.setWcs(wcs)
 
-        meta = createMetadata(W, H, wcs, filterName)
+        meta = _createMetadata(W, H, wcs, filterName)
         #matchListMeta = solver.getMatchedIndexMetadata()
         #moreMeta.combine(matchListMeta)
 
@@ -258,8 +280,8 @@ class Astrometry(object):
 
     def _getMatchList(self, sources, cat, wcs):
         dist = self.config.catalogMatchDist * afwGeom.arcseconds
-        clean = self.cleaningParameter
-        matcher = astromSip.MatchSrcToCatalogue(cat, img, wcs, dist)
+        clean = self.config.cleaningParameter
+        matcher = astromSip.MatchSrcToCatalogue(cat, sources, wcs, dist)
         matchList = matcher.getMatches()
         if matchList is None:
             raise RuntimeError('No matches found between image and catalogue')
@@ -270,15 +292,19 @@ class Astrometry(object):
 
     def _mapFilterName(self, filterName, default=None):
         ## Warn if default is used?
-        return self.andConfig.mapColumnMap.get(filterName, default)
+        return self.andConfig.magColumnMap.get(filterName, default)
 
     def getReferenceSourcesForWcs(self, wcs, imageSize, filterName, pixelMargin,
                                   trim=True):
+        W,H = imageSize
+        xc, yc = W/2. + 0.5, H/2. + 0.5
         rdc = wcs.pixelToSky(xc, yc)
+        print 'RA,Dec', rdc
+        #rdc = rdc.toIcrs()
+        ra,dec = rdc.getLongitude(), rdc.getLatitude()
         pixelScale = wcs.pixelScale()
         rad = pixelScale * (math.hypot(W,H)/2. + pixelMargin)
-        cat = self.getReferenceSources(rdc.getRa(), rdc.getDec(),
-                                       rad, filterName)
+        cat = self.getReferenceSources(ra, dec, rad, filterName)
         # apply WCS to set x,y positions
         for s in cat:
             s.setAllXyFromRaDec(wcs)
@@ -286,7 +312,7 @@ class Astrometry(object):
             # cut to image bounds + margin.
             bbox = afwGeom.Box2D(afwGeom.Point2D(0.,0.), afwGeom.Point2D(W, H))
             bbox.grow(pixelMargin)
-            cat = _trimBadPoints(cat, bbox)
+            cat = self._trimBadPoints(cat, bbox)
         return cat
         
 
@@ -296,6 +322,27 @@ class Astrometry(object):
         '''
         solver = self._getSolver()
         magcolumn = self._mapFilterName(filterName, self.andConfig.defaultMagColumn)
+
+        sgCol = self.andConfig.starGalaxyColumn
+        varCol = self.andConfig.variableColumn
+        magerrCol = self.andConfig.magErrorColumnMap.get(filterName, None)
+
+        fdict = maUtils.getDetectionFlags()
+        starflag = fdict["STAR"]
+
+        cat = solver.getCatalog(self.inds,
+                                ra.asDegrees(), dec.asDegrees(),
+                                radius.asDegrees(),
+                                magcolumn, magerrCol, sgCol, varCol,
+                                starflag)
+
+        return cat
+
+
+
+
+
+    def XXX():
         refcat = solver.getCatalogue(ra, dec, radius, filterName,
                                      magcolumn,
                                      self.andConfig.idColumn,
@@ -384,32 +431,24 @@ class Astrometry(object):
         an.an_log_set_level(3)
 
         print 'pixelScale:', pixelScale
+        lo,hi = 0.01, 3600.
         if pixelScale is not None:
             dscale = self.config.pixelScaleUncertainty
             scale = pixelScale.asArcseconds()
             lo = scale / dscale
             hi = scale * dscale
-            #solver.setPixelScaleRange(lo, hi)
+            solver.setPixelScaleRange(lo, hi)
             print 'Setting pixel scale range', lo, hi
-            solver.funits_lower = lo
-            solver.funits_upper = hi
-        else:
-            solver.funits_lower = 0.01
-            solver.funits_upper = 3600.
 
-        (W,H) = imageSize
-        hi = math.hypot(W,H)
-        lo = 0.1 * min(W,H)
-        print 'Setting quad size range:', lo, hi
-        an.solver_set_quad_size_range(solver, lo, hi)
+        # (W,H) = imageSize
+        # hi = math.hypot(W,H)
+        # lo = 0.1 * min(W,H)
+        # print 'Setting quad size range:', lo, hi
+        # solver.setQuadSizeRange(lo, hi)
+        # an.solver_set_quad_size_range(solver, lo, hi)
 
-        ## AN 0.30
-        if True:
-            solver.logratio_record_threshold = self.config.matchThreshold
-        else:
-            # an.solver_set_keep_logodds(solver, self.config.matchThreshold)
-            # solver.logratio_tokeep = self.config.matchThreshold
-            pass
+        solver.setMatchThreshold(self.config.matchThreshold)
+
         '''
         _mylog.format(pexLog::Log::DEBUG, "Exposure\'s WCS scale: %g arcsec/pix; setting scale range %.3f - %.3f arcsec/pixel",
         pixelScale.asArcseconds(), lwr.asArcseconds(), upr.asArcseconds());
@@ -418,12 +457,14 @@ class Astrometry(object):
         #setParity(FLIPPED_PARITY);
         #setParity(NORMAL_PARITY);
 
-        for fn in self.andConfig.indexFiles:
-            print 'Adding index file', fn
-            fn = self._getIndexPath(fn)
-            print 'Path', fn
-            #ind = an.index_load(fn)
-            solver.addIndex(fn)
+        # for fn in self.andConfig.indexFiles:
+        #     print 'Adding index file', fn
+        #     fn = self._getIndexPath(fn)
+        #     print 'Path', fn
+        #     #ind = an.index_load(fn)
+        #     solver.addIndex(fn)
+
+        solver.addIndices(self.inds)
 
         an.solver_log_params(solver)
         #an.solver_print_to(solver, 
@@ -433,19 +474,17 @@ class Astrometry(object):
             print 'Solved!'
             wcs = solver.getWcs()
             print 'Got wcs:', wcs
-            
+            print 'WCS:', wcs.getFitsMetadata().toString()
         else:
             print 'Did not solve.'
             wcs = None
-        ### FIXME!
-        #args = []
-        #if wcs is not None:
-        #    args.append(wcs)
-        #    if pixelScale is not None:
-        #        args.append
 
-        #...
-        return wcs,None
+        # FIXME
+        qa = solver.getSolveStats()
+        print 'qa:', qa
+        #print 'qa:', qa.toString()
+
+        return wcs, qa
 
     def _getIndexPath(self, fn):
         if os.path.isabs(fn):
@@ -461,12 +500,18 @@ class Astrometry(object):
 
 
     def _getSolver(self):
+        if self.solver is not None:
+            return self.solver
         #solver = astromNet.GlobalAstrometrySolution(path, log)
         import astrometry_net as an
-        _solver = an.solver_new()
-        print 'Solver:', _solver
+        solver = an.solver_new()
+        # HACK, set huge default pixel scale range.
+        lo,hi = 0.01, 3600.
+        solver.setPixelScaleRange(lo, hi)
+        print 'Solver:', solver
         #print 'dir:', dir(_solver)
-        return _solver
+        self.solver = solver
+        return solver
 
     @staticmethod
     def _trimBadPoints(sources, bbox):
@@ -508,7 +553,7 @@ def _createMetadata(width, height, wcs, filterName):
     radec = wcs.pixelToSky(cx, cy).toIcrs()
     meta.add('RA', radec.getRa().asDegrees(), 'field center in degrees')
     meta.add('DEC', radec.getDec().asDegrees(), 'field center in degrees')
-    imgSize = wcs.pixelScale() * hypot(width, height)/2.
+    imgSize = wcs.pixelScale() * math.hypot(width, height)/2.
     meta.add('RADIUS', imgSize.asDegrees(),
              'field radius in degrees, approximate')
     meta.add('SMATCHV', 1, 'SourceMatchVector version number')

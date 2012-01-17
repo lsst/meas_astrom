@@ -56,6 +56,8 @@ class AstromConfig(pexConfig.Config):
     # sipOrder
     from lsst.pex.config import Field
 
+    # maxCpuTime
+
     matchThreshold = Field(
         float,
         '''Matching threshold for Astrometry.net solver (log-odds)''',
