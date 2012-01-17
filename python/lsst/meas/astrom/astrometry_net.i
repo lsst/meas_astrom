@@ -16,34 +16,48 @@ Python interface to Astrometry.net
 #undef TRUE
 	}
 #include <vector>
+#include "boost/shared_ptr.hpp"
+
 #include "lsst/base.h"
+#include "lsst/pex/logging.h"
+#include "lsst/daf/persistence.h"
+#include "lsst/daf/base.h"
+#include "lsst/daf/base/Persistable.h"
 //#include "lsst/afw/detection/Source.h"
 //#include "lsst/afw/image.h"
 #include "lsst/afw.h"
 #include "lsst/afw/detection.h"
 #include "lsst/afw/detection/Source.h"
 #include "lsst/afw/detection/AperturePhotometry.h"
-#include "lsst/pex/logging.h"
-//#include "boost/shared_ptr.hpp"
+
 
 	//namespace afwDet = lsst::afw::detection;
 
 	%}
 
 %include "std_string.i"
+%include "std_vector.i"
 %include "lsst/p_lsstSwig.i"
-%include "lsst/base.h"
-
+%import  "lsst/afw/utils.i" 
 %include "lsst/daf/base/persistenceMacros.i"
+%include "lsst/base.h"
+ //%import "lsst/daf/base/baseLib.i"
+%import "lsst/daf/base/Persistable.h"
 
 %lsst_exceptions();
 
 //%shared_ptr(lsst::afw::detection::Source);
 //%template(SourceSet) std::vector<boost::shared_ptr<lsst::afw::detection::Source> >;
 
-%import "lsst/afw/detection/detectionLib.i"
+//%import "lsst/afw/detection/detectionLib.i"
 //%import "lsst/afw/image/imageLib.i"
-//%import "lsst/afw/detection/source.i"
+
+//%import "detlib.i"
+
+//%import "lsst/afw/detection/Source.h"
+
+//%ignore PersistableSourceVector;
+%import "lsst/afw/detection/source.i"
  //%import "lsst/afw/detection/detectionLib.i"
  //%import "lsst/afw/detection/Source.h"
 
