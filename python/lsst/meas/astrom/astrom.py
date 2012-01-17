@@ -482,7 +482,7 @@ class Astrometry(object):
         # FIXME
         qa = solver.getSolveStats()
         print 'qa:', qa
-        #print 'qa:', qa.toString()
+        print 'qa:', qa.toString()
 
         return wcs, qa
 
