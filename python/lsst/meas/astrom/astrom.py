@@ -1,18 +1,14 @@
 import os
 import math
 
+import lsst.daf.base as dafBase
 import lsst.pex.logging as pexLog
 import lsst.pex.config as pexConfig
 import lsst.afw.geom as afwGeom
 import lsst.meas.algorithms.utils as maUtils
-import lsst.daf.base as dafBase
-#import lsst.meas.astrom as measAst
+
 import sip as astromSip
 import net as astromNet
-#import lsst.meas.astrom.sip as astromSip
-#from astromSip import cleanBadPoints
-#import lsst.meas.astrom.determineWcs as detwcs
-
 
 # Object returned by determineWcs.
 class InitialAstrometry(object):
@@ -32,7 +28,6 @@ class Astrometry(object):
 
     def __init__(self,
                  config,
-                 #andDir=None,
                  andConfig=None,
                  log=None,
                  logLevel=pexLog.Log.INFO):
@@ -53,8 +48,6 @@ class Astrometry(object):
         if andConfig is not None:
             self.andConfig = andConfig
         else:
-            #dirnm = andDir
-            #if dirnm is None:
             # ASSUME SETUP IN EUPS
             dirnm = os.environ.get('ASTROMETRY_NET_DATA_DIR')
             if dirnm is None:
@@ -101,13 +94,9 @@ class Astrometry(object):
         '''
         assert(exposure is not None)
         rdrad = self.config.raDecSearchRadius * afwGeom.degrees
-        #filterName = exposure.getFilter().getName()
-        #if filterName is None:
-        #   filterName = self.andConfig.defaultMagColumn
 
         return self.determineWcs2(sources, exposure,
                                   searchRadius=rdrad,
-                                  #filterName=filterName,
                                   usePixelScale = self.config.useWcsPixelScale,
                                   useRaDecCenter = self.config.useWcsRaDecCenter)
         
@@ -146,8 +135,6 @@ class Astrometry(object):
 
         if not useRaDecCenter and radecCenter is not None:
             raise RuntimeError('radecCenter is set, but useRaDecCenter is False.  Make up your mind!')
-        #if not useRaDecCenter and searchRadius is not None:
-        #    raise RuntimeError('searchRadius is set, but useRaDecCenter is False.  Make up your mind!')
         if not usePixelScale and pixelScale is not None:
             raise RuntimeError('pixelScale is set, but usePixelScale is False.  Make up your mind!')
         
@@ -335,79 +322,7 @@ class Astrometry(object):
                                 radius.asDegrees(),
                                 magcolumn, magerrCol, sgCol, varCol,
                                 starflag)
-
         return cat
-
-
-
-
-
-    def XXX():
-        refcat = solver.getCatalogue(ra, dec, radius, filterName,
-                                     magcolumn,
-                                     self.andConfig.idColumn,
-                                     -1, False, True, True);
-        # magic values:
-        # int indexId = -1,
-        # bool useIndexHealpix = true,
-        # bool resolveDuplicates = true,
-        # bool resolveUsingId = true
-
-        # Now add the photometric errors, star/galaxy, and variability flags.
-        sgCol = self.andConfig.starGalaxyColumn
-        varCol = self.andConfig.variableColumn
-        magerrCol = self.andConfig.magErrorColumnMap.get(filterName, None)
-
-        cols = solver.getTagAlongColumns()
-        colnames = [c.name for c in cols]
-        irefs = refcat.intrefsources
-        cat = refcat.refsources
-
-        if sgCol is None:
-            stargal = None
-        else:
-            assert(sgCol in colnames)
-            stargal = solver.getTagAlongBool(irefs, sgCol)
-
-        if varCol is None:
-            variable = None
-        else:
-            assert(varCol in colnames)
-            variable = solver.getTagAlongBool(irefs, varCol)
-
-        if magerrCol is None:
-            magerr = None
-        else:
-            assert(magerrCol in colnames)
-            magerr = solver.getTagAlongDouble(irefs, magerrCol)
-
-        # set STAR flag
-        fdict = maUtils.getDetectionFlags()
-        starflag = fdict["STAR"]
-        if stargal is not None:
-            assert(len(stargal) == len(cat))
-        if variable is not None:
-            assert(len(variable) == len(cat))
-
-        for i in xrange(len(cat)):
-            isstar = True
-            if stargal is not None:
-                isstar &= stargal[i]
-            if variable is not None:
-                isstar &= not(variable[i])
-            if isstar:
-                cat[i].setFlagForDetection(cat[i].getFlagForDetection() | starflag)
-
-        # set flux error based on magnitude error
-        if magerr is not None:
-            assert(len(magerr) == len(cat))
-            for i in xrange(len(cat)):
-                cat[i].setPsfFluxErr(magerr[i] * cat[i].getPsfFlux() * -numpy.log(10.)/2.5)
-
-        return cat
-                                          
-        
-
 
     def _solve(self, sources, wcs, imageSize, pixelScale, radecCenter,
                searchRadius):
@@ -423,15 +338,10 @@ class Astrometry(object):
             dec = radecCenter.getDec().asDegrees()
             solver.setRaDecRadius(ra, dec, searchRadius.asDegrees())
 
-        # FIXME
-        # matchThreshold
-        # parity
-
         import astrometry_net as an
         an.an_log_set_level(3)
 
         print 'pixelScale:', pixelScale
-        lo,hi = 0.01, 3600.
         if pixelScale is not None:
             dscale = self.config.pixelScaleUncertainty
             scale = pixelScale.asArcseconds()
@@ -440,34 +350,22 @@ class Astrometry(object):
             solver.setPixelScaleRange(lo, hi)
             print 'Setting pixel scale range', lo, hi
 
-        # (W,H) = imageSize
-        # hi = math.hypot(W,H)
-        # lo = 0.1 * min(W,H)
-        # print 'Setting quad size range:', lo, hi
-        # solver.setQuadSizeRange(lo, hi)
-        # an.solver_set_quad_size_range(solver, lo, hi)
-
         solver.setMatchThreshold(self.config.matchThreshold)
 
         '''
         _mylog.format(pexLog::Log::DEBUG, "Exposure\'s WCS scale: %g arcsec/pix; setting scale range %.3f - %.3f arcsec/pixel",
         pixelScale.asArcseconds(), lwr.asArcseconds(), upr.asArcseconds());
         '''
+        # FIXME
+        # parity
+
         #if ( wcsPtr->isFlipped()) {
         #setParity(FLIPPED_PARITY);
         #setParity(NORMAL_PARITY);
 
-        # for fn in self.andConfig.indexFiles:
-        #     print 'Adding index file', fn
-        #     fn = self._getIndexPath(fn)
-        #     print 'Path', fn
-        #     #ind = an.index_load(fn)
-        #     solver.addIndex(fn)
-
         solver.addIndices(self.inds)
 
         an.solver_log_params(solver)
-        #an.solver_print_to(solver, 
         
         solver.run()
         if solver.didSolve():
@@ -502,14 +400,12 @@ class Astrometry(object):
     def _getSolver(self):
         if self.solver is not None:
             return self.solver
-        #solver = astromNet.GlobalAstrometrySolution(path, log)
         import astrometry_net as an
         solver = an.solver_new()
         # HACK, set huge default pixel scale range.
         lo,hi = 0.01, 3600.
         solver.setPixelScaleRange(lo, hi)
         print 'Solver:', solver
-        #print 'dir:', dir(_solver)
         self.solver = solver
         return solver
 

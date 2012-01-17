@@ -62,10 +62,6 @@ Python interface to Astrometry.net
 %include "std_vector.i"
 %include "lsst/p_lsstSwig.i"
 %include "lsst/base.h"
-
- //%shared_ptr(lsst::daf::base::Persistable);
- //%import "lsst/daf/base/Persistable.h"
- //%import "lsst/daf/base/PropertyList.h"
 %import "lsst/daf/base/baseLib.i"
 
 %lsst_exceptions();
@@ -77,16 +73,8 @@ Python interface to Astrometry.net
 %import "lsst/afw/image/Wcs.h"
 
 %template(VectorOfIndexPtr) std::vector<index_t*>;
-
 %include "solver.h"
 %include "index.h"
- //%include "log.h"
-
- /*
-  namespace std {
-  %template(VectorOfIndexPtr) vector<index_t*>;
-  }
-  */
 
 %inline %{
 	void an_log_init(int level) {
@@ -98,23 +86,10 @@ Python interface to Astrometry.net
 	void an_log_set_level(int lvl) {
 		log_set_level((log_level)lvl);
 	}
-
-	/*
-	 struct CatalogPlus {
-	 lsst::afw::detection::SourceSet srcs;
-	 std::vector<double> magerr;
-	 std::vector<bool> stargal;
-	 std::vector<bool> variable;
-	 };
-	 %shared_ptr(CatalogPlus);
-	 */
-
 	%}
 
 %extend solver_t {
 
-	//PTR(CatalogPlus)
-	//std::vector<Source::Ptr> SourceSet;
 	lsst::afw::detection::SourceSet
 		getCatalog(std::vector<index_t*> inds,
 				   double ra, double dec, double radius,
@@ -123,8 +98,7 @@ Python interface to Astrometry.net
 				   const char* stargalcol,
 				   const char* varcol,
 				   boost::int64_t starflag) {
-		//PTR(CatalogPlus) cat(new CatalogPlus());
-		lsst::afw::detection::SourceSet cat; //();
+		lsst::afw::detection::SourceSet cat;
 
         // FIXME -- cut on indexid?
 		// FIXME -- cut on healpix?
@@ -228,8 +202,9 @@ Python interface to Astrometry.net
 
 	PTR(lsst::daf::base::PropertyList) getSolveStats() {
 		// Gather solve stats...
-		PTR(dafBase::PropertyList) qa(new dafBase::PropertyList());
-		//qa();
+		PTR(dafBase::PropertyList) qa(new dafBase::PropertyList);
+		std::string s = qa->toString();
+		printf("empty QA: %s\n", s.c_str());
 		qa->set("meas_astrom.an.n_tried", $self->numtries);
 		qa->set("meas_astrom.an.n_matched", $self->nummatches);
 		qa->set("meas_astrom.an.n_scaleok", $self->numscaleok);
@@ -247,6 +222,8 @@ Python interface to Astrometry.net
 			qa->set("meas_astrom.an.best_index.nside", ind->hpnside);
 			qa->set("meas_astrom.an.best_index.name", std::string(ind->indexname));
 		}
+		s = qa->toString();
+		printf("returning QA: %s\n", s.c_str());
 		return qa;
 	}
 
@@ -275,8 +252,7 @@ Python interface to Astrometry.net
 		printf("solver_run returned.\n");
 	}
 
-	//void addIndices(const std::vector<index_t*> & inds) {
-	void addIndices(std::vector<index_t*> inds) {
+	void addIndices(const std::vector<index_t*> & inds) {
 		for (std::vector<index_t*>::iterator pind = inds.begin();
 			 pind != inds.end(); ++pind) {
 			index_t* ind = *pind;
@@ -287,8 +263,6 @@ Python interface to Astrometry.net
 				radius = distsq2deg($self->r2);
 				if (!index_is_within_range(ind, ra, dec, radius)) {
 					printf("Not within RA,Dec range\n");
-					//index_free(ind);
-					//return;
 					continue;
 				}
 			}
@@ -297,8 +271,6 @@ Python interface to Astrometry.net
 			solver_get_quad_size_range_arcsec($self, &qlo, &qhi);
 			if (!index_overlaps_scale_range(ind, qlo, qhi)) {
 				printf("Not within quad scale range\n");
-				//index_free(ind);
-				//return;
 				continue;
 			}
 			printf("Adding index.\n");
