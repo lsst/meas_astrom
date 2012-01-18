@@ -134,7 +134,7 @@ static time_t timer_callback(void* baton) {
 
 %extend index_s {
 	~index_s() {
-        printf("Deleting index_s %s\n", $self->indexname);
+        //printf("Deleting index_s %s\n", $self->indexname);
 		index_free($self);
 	}
  }

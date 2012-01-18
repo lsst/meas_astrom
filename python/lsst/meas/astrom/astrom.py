@@ -70,20 +70,11 @@ class Astrometry(object):
                 fn = os.path.join(dirnm, 'metadata.paf')
                 self.andConfig = pexConfig.Config.load(fn)
 
-        self.inds = []
         self._readIndexFiles()
 
-    # def __del__(self):
-    #     print 'Deleting Astrometry object.'
-    #     for i in self.inds:
-    #         print 'Deleting index', i, i.indexname
-    #         del i
-    #     del self.config
-    #     del self.log
-    #     del self.andConfig
-        
     def _readIndexFiles(self):
         import astrometry_net as an
+        self.inds = []
         for fn in self.andConfig.indexFiles:
             print 'Adding index file', fn
             fn = self._getIndexPath(fn)
@@ -358,9 +349,7 @@ class Astrometry(object):
 
     def _solve(self, sources, wcs, imageSize, pixelScale, radecCenter,
                searchRadius, parity):
-        print '_solve: calling _getSolver'
         solver = self._getSolver()
-        print '_solve: got solver', solver
 
         # FIXME -- select sources with valid x,y,flux?
         solver.setStars(sources)
@@ -396,20 +385,15 @@ class Astrometry(object):
         if solver.didSolve():
             print 'Solved!'
             wcs = solver.getWcs()
-            #print 'Got wcs:', wcs
             print 'WCS:', wcs.getFitsMetadata().toString()
         else:
             print 'Did not solve.'
             wcs = None
 
         qa = solver.getSolveStats()
-        #print 'qa:', qa
         print 'qa:', qa.toString()
 
-        print '_solve finishing.'
-        print 'del solver...'
-        del solver
-        print 'done del solver'
+        #del solver
 
         return wcs, qa
 
@@ -431,7 +415,6 @@ class Astrometry(object):
         # HACK, set huge default pixel scale range.
         lo,hi = 0.01, 3600.
         solver.setPixelScaleRange(lo, hi)
-        print '_getSolver: returning:', solver
         return solver
 
     @staticmethod
