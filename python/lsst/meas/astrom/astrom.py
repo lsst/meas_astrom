@@ -378,6 +378,25 @@ class Astrometry(object):
             wcs = None
 
         # FIXME
+
+        X = an.pl1()
+        print 'pl1:', X.toString()
+        X = an.pl1b()
+        print 'pl1b:', X.toString()
+        X = an.pl2()
+        print 'pl2:', X.toString()
+        X = an.pl2b()
+        print 'pl2b:', X.toString()
+
+        print 'starting pl1c...'
+        X = an.pl1c()
+        print 'pl1c:', X.toString()
+
+        print 'solver.pl1c()...'
+        qa = solver.pl1c()
+        print 'qa:', qa
+
+        print 'solver.getSolveStats()...'
         qa = solver.getSolveStats()
         print 'qa:', qa
         print 'qa:', qa.toString()
