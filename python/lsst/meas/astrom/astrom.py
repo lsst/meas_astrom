@@ -98,7 +98,8 @@ class Astrometry(object):
         return self.determineWcs2(sources, exposure,
                                   searchRadius=rdrad,
                                   usePixelScale = self.config.useWcsPixelScale,
-                                  useRaDecCenter = self.config.useWcsRaDecCenter)
+                                  useRaDecCenter = self.config.useWcsRaDecCenter,
+                                  useParity = self.config.useWcsParity)
         
 
     def determineWcs2(self,
@@ -113,6 +114,7 @@ class Astrometry(object):
                       doTrim=False,
                       usePixelScale=True,
                       useRaDecCenter=True,
+                      useParity=True,
                       searchRadiusScale=2.):
         '''
         We dont really need an Exposure; we need:
@@ -154,6 +156,8 @@ class Astrometry(object):
             raise RuntimeError('Image size must be specified by passing "exposure" or "imageSize"')
         W,H = imageSize
         xc, yc = W/2. + 0.5, H/2. + 0.5
+
+        parity = None
         
         if wcs is not None:
             if pixelScale is None:
@@ -170,6 +174,8 @@ class Astrometry(object):
                     searchRadius = (pixelScale * math.hypot(W,H)/2. *
                                     searchRadiusScale)
                 
+            if useParity:
+                parity = wcs.isFlipped()
 
         if doTrim:
             n = len(sources)
@@ -186,7 +192,7 @@ class Astrometry(object):
         isSolved, wcs, matchList = runMatch(sourceSet, catSet, min(policy.get('numBrightStars'), len(sourceSet)), log=log)
         '''
 
-        wcs,qa = self._solve(sources, wcs, imageSize, pixelScale, radecCenter, searchRadius)
+        wcs,qa = self._solve(sources, wcs, imageSize, pixelScale, radecCenter, searchRadius, parity)
 
         pixelMargin = 50.
         cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName, pixelMargin)
@@ -327,13 +333,14 @@ class Astrometry(object):
         return cat
 
     def _solve(self, sources, wcs, imageSize, pixelScale, radecCenter,
-               searchRadius):
+               searchRadius, parity):
         solver = self._getSolver()
 
         # FIXME -- select sources with valid x,y,flux?
         solver.setStars(sources)
         solver.setMaxStars(self.config.maxStars)
         solver.setImageSize(*imageSize)
+        solver.setMatchThreshold(self.config.matchThreshold)
         if radecCenter is not None:
             ra = radecCenter.getRa().asDegrees()
             dec = radecCenter.getDec().asDegrees()
@@ -347,22 +354,19 @@ class Astrometry(object):
             solver.setPixelScaleRange(lo, hi)
             #print 'Setting pixel scale range', lo, hi
 
-        solver.setMatchThreshold(self.config.matchThreshold)
+        if parity is not None:
+            solver.setParity(parity)
 
         '''
         _mylog.format(pexLog::Log::DEBUG, "Exposure\'s WCS scale: %g arcsec/pix; setting scale range %.3f - %.3f arcsec/pixel",
         pixelScale.asArcseconds(), lwr.asArcseconds(), upr.asArcseconds());
         '''
-        # FIXME
-        # parity
-
-        #if ( wcsPtr->isFlipped()) {
-        #setParity(FLIPPED_PARITY);
-        #setParity(NORMAL_PARITY);
 
         solver.addIndices(self.inds)
 
-        solver.run()
+        cpulimit = self.config.maxCpuTime
+
+        solver.run(cpulimit)
         if solver.didSolve():
             print 'Solved!'
             wcs = solver.getWcs()

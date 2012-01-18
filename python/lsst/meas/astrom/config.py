@@ -46,17 +46,12 @@ class AstromNetDataConfig(pexConfig.Config):
                            doc='''Astrometry.net index filenames''')
 
 class AstromConfig(pexConfig.Config):
-    # matchThreshold
-    # numBrightStars (?)
-    # pixelScaleUncertainty
-    # [force]blindSolve
-    # distanceForCatalogueMatchinArcsec
-    # cleaningParameter [ugh]
-    # calculateSip
-    # sipOrder
     from lsst.pex.config import Field
 
-    # maxCpuTime
+    maxCpuTime = Field(
+        float,
+        '''Maximum CPU time to spend solving, in seconds''',
+        default=0., check=lambda x: x>=0.)
 
     matchThreshold = Field(
         float,
@@ -108,9 +103,9 @@ class AstromConfig(pexConfig.Config):
         default = 1.1, check=lambda x: x>1.)
 
     # forceParity?
-    # pixelScale?
-    # pixelScaleRange?
+    # forcePixelScale?
     # forceRaDecCenter?
+    # pixelScaleRange?
     # doTrim ?
 
     # forceImageSize = Field(
@@ -121,7 +116,6 @@ class AstromConfig(pexConfig.Config):
     #     check=lambda x: (len(x) == 2 and
     #                      type(x[0]) is int and type(x[1]) is int))
 
-
     catalogMatchDist = Field(
         #afwGeom.Angle,
         float,
@@ -129,24 +123,19 @@ class AstromConfig(pexConfig.Config):
         the matching radius be?''',
         default=1.,#* afwGeom.arcseconds,
         check=lambda x: x>0)
+
     cleaningParameter = Field(
         float,
         '''Sigma-clipping parameter in sip/cleanBadPoints.py''',
         default=3., check=lambda x: x>0)
+
     calculateSip = Field(
         bool,
         '''Compute polynomial SIP distortion terms?''',
         default=True)
+
     sipOrder = Field(
         int,
         '''Polynomial order of SIP distortion terms''',
         default=4, check=lambda x: x>=2)
-    
-    # defaultFilterName = Field(
-    #     str,
-    #     '''Default column name for mag in astrometry_net_data files'''
-    #     default='mag')
-    # defaultIdName = Field(
-    #     str,
-    #     '''Default column name for ID num in astrometry_net_data files'''
-    #     default='id')
+

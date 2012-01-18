@@ -18,6 +18,7 @@ Python interface to Astrometry.net
 #include "fitsioutils.h"
 #include "fitstable.h"
 #include "log.h"
+#include "tic.h"
 #undef FALSE
 #undef TRUE
 	}
@@ -39,19 +40,41 @@ Python interface to Astrometry.net
 #include "lsst/afw/image/Wcs.h"
 #include "lsst/afw/geom.h"
 
-	namespace afwCoord = lsst::afw::coord;
-	namespace afwDet   = lsst::afw::detection;
-	namespace afwGeom  = lsst::afw::geom;
-	namespace afwImage = lsst::afw::image;
-	namespace dafBase  = lsst::daf::base;
+namespace afwCoord = lsst::afw::coord;
+namespace afwDet   = lsst::afw::detection;
+namespace afwGeom  = lsst::afw::geom;
+namespace afwImage = lsst::afw::image;
+namespace dafBase  = lsst::daf::base;
 
-	static afwCoord::Coord::Ptr radectocoord(afwCoord::CoordSystem coordsys,
-											 const double* radec) {
-		afwCoord::Coord::Ptr rd = afwCoord::makeCoord(coordsys,
-													  radec[0] * afwGeom::degrees,
-													  radec[1] * afwGeom::degrees);
-		return rd;
-	}
+static afwCoord::Coord::Ptr radectocoord(afwCoord::CoordSystem coordsys,
+										 const double* radec) {
+	afwCoord::Coord::Ptr rd = afwCoord::makeCoord(coordsys,
+												  radec[0] * afwGeom::degrees,
+												  radec[1] * afwGeom::degrees);
+	return rd;
+}
+
+struct timer_baton {
+	solver_t* s;
+	double timelimit;
+};
+
+static time_t timer_callback(void* baton) {
+	struct timer_baton* tt = static_cast<struct timer_baton*>(baton);
+	solver_t* solver = tt->s;
+
+	// Unfortunately, a bug in Astrometry.net 0.30 means the timeused is not updated before
+	// calling the timer callback.  Doh!
+
+	// solver.c : update_timeused (which is static) does:
+	double usertime, systime;
+	get_resource_stats(&usertime, &systime, NULL);
+	solver->timeused = std::max(0, (usertime + systime) - solver->starttime);
+	//printf("Timer callback; time used %f, limit %f\n", solver->timeused, tt->timelimit);
+	if (solver->timeused > tt->timelimit)
+		solver->quit_now = 1;
+	return 1;
+}
 
 
 	%}
@@ -273,10 +296,21 @@ Python interface to Astrometry.net
 		return solver_did_solve($self);
 	}
 
-	void run() {
+	void run(double cpulimit) {
 		printf("Solver run...\n");
 		solver_log_params($self);
+		struct timer_baton tt;
+		if (cpulimit > 0.) {
+			tt.s = $self;
+			tt.timelimit = cpulimit;
+			$self->userdata = &tt;
+			$self->timer_callback = timer_callback;
+		}
 		solver_run($self);
+		if (cpulimit > 0.) {
+			$self->timer_callback = NULL;
+			$self->userdata = NULL;
+		}
 		printf("solver_run returned.\n");
 	}
 
@@ -307,6 +341,13 @@ Python interface to Astrometry.net
 			}
 			solver_add_index($self, ind);
 		}
+	}
+
+	void setParity(bool p) {
+		if (p)
+			$self->parity = PARITY_FLIP;
+		else
+			$self->parity = PARITY_NORMAL;
 	}
 
 	void setMatchThreshold(double t) {
