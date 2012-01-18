@@ -10,6 +10,7 @@ Python interface to Astrometry.net
 
 
 %{
+	// Astrometry.net include files...
 	extern "C" {
 #include "solver.h"
 #include "index.h"
@@ -20,9 +21,11 @@ Python interface to Astrometry.net
 #undef FALSE
 #undef TRUE
 	}
+
 #include <vector>
 #include "boost/cstdint.hpp"
 #include "boost/shared_ptr.hpp"
+#include "boost/format.hpp"
 
 #include "lsst/base.h"
 #include "lsst/pex/logging.h"
@@ -54,17 +57,16 @@ Python interface to Astrometry.net
 	%}
 
 %init %{
+	// Astrometry.net logging
 	fits_use_error_system();
 	log_init(LOG_MSG);
 	%}
 
 %include "std_string.i"
 %include "std_vector.i"
-%include <boost_shared_ptr.i>
+%include "boost_shared_ptr.i"
 %include "lsst/p_lsstSwig.i"
 %include "lsst/base.h"
- // this already exists in baseLib.i...
-%shared_ptr(lsst::daf::base::PropertyList);
 %import "lsst/daf/base/baseLib.i"
 
 %lsst_exceptions();
@@ -89,69 +91,14 @@ Python interface to Astrometry.net
 	void an_log_set_level(int lvl) {
 		log_set_level((log_level)lvl);
 	}
-
-    PTR(lsst::daf::base::PropertyList) pl1() {
-        PTR(dafBase::PropertyList) qa = boost::make_shared<dafBase::PropertyList>();
-        return qa;
-    }
-
-    boost::shared_ptr<lsst::daf::base::PropertyList> pl2() {
-        PTR(dafBase::PropertyList) qa = boost::make_shared<dafBase::PropertyList>();
-        return qa;
-    }
-
-
-    PTR(lsst::daf::base::PropertyList) pl1b() {
-        PTR(dafBase::PropertyList) qa = boost::make_shared<dafBase::PropertyList>();
-		std::string s = qa->toString();
-		printf("empty QA: %s\n", s.c_str());
-        return qa;
-    }
-
-    boost::shared_ptr<lsst::daf::base::PropertyList> pl2b() {
-        PTR(dafBase::PropertyList) qa = boost::make_shared<dafBase::PropertyList>();
-		std::string s = qa->toString();
-		printf("empty QA: %s\n", s.c_str());
-        return qa;
-    }
-
-    PTR(lsst::daf::base::PropertyList) pl1c() {
-        PTR(dafBase::PropertyList) qa = boost::make_shared<dafBase::PropertyList>();
-		std::string s = qa->toString();
-		printf("pl1c empty QA: %s\n", s.c_str());
-        qa->set("test1", 42);
-		s = qa->toString();
-		printf("pl1c: %s\n", s.c_str());
-        return qa;
-    }
-
-
-
-
-
 	%}
 
 %extend solver_t {
 
-    PTR(lsst::daf::base::PropertyList) pl1c() {
-        PTR(dafBase::PropertyList) qa = boost::make_shared<dafBase::PropertyList>();
-		std::string s = qa->toString();
-		printf("pl1c empty QA: %s\n", s.c_str());
-        int nt = 1093;
-        qa->set("test1", nt);
-		s = qa->toString();
-		printf("pl1c: %s\n", s.c_str());
-        const char* SS = "XYZ";
-        qa->set("test2", SS);
-		s = qa->toString();
-		printf("pl1c: %s\n", s.c_str());
-        return qa;
-    }
-
-
 	lsst::afw::detection::SourceSet
 		getCatalog(std::vector<index_t*> inds,
 				   double ra, double dec, double radius,
+				   const char* idcol,
 				   const char* magcol,
 				   const char* magerrcol,
 				   const char* stargalcol,
@@ -193,20 +140,25 @@ Python interface to Astrometry.net
 
 			float* mag = NULL;
 			float* magerr = NULL;
+			boost::int64_t* id = NULL;
 			bool* stargal = NULL;
 			bool* var = NULL;
-			if (magcol || magerrcol || stargalcol || varcol) {
+			if (idcol || magcol || magerrcol || stargalcol || varcol) {
 				fitstable_t* tag = startree_get_tagalong(ind->starkd);
 				tfits_type flt = fitscolumn_float_type();
 				tfits_type boo = fitscolumn_boolean_type();
+				tfits_type i64 = fitscolumn_i64_type();
+
+				if (idcol) {
+					id = static_cast<boost::int64_t*>(fitstable_read_column_inds(tag, idcol, i64, starinds, nstars));
+					assert(id);
+				}
 
 				if (magcol) {
-					//mag = startree_get_data_column(ind->starkd, magcol, starinds, nstars);
 					mag = static_cast<float*>(fitstable_read_column_inds(tag, magcol, flt, starinds, nstars));
 					assert(mag);
 				}
 				if (magerrcol) {
-					//mag = startree_get_data_column(ind->starkd, magerrcol, starinds, nstars);
 					magerr = static_cast<float*>(fitstable_read_column_inds(tag, magerrcol, flt, starinds, nstars));
 					assert(magerr);
 				}
@@ -226,6 +178,8 @@ Python interface to Astrometry.net
 			for (int i=0; i<nstars; i++) {
 				afwDet::Source::Ptr src(new afwDet::Source());
 				src->setAllRaDecFields(radectocoord(coordsys, radecs + i*2));
+				if (id)
+					src->setSourceId(id[i]);
 
 				if (mag) {
 					// LAME!
@@ -261,26 +215,9 @@ Python interface to Astrometry.net
 
 	PTR(lsst::daf::base::PropertyList) getSolveStats() {
 		// Gather solve stats...
-		//PTR(dafBase::PropertyList) qa(new dafBase::PropertyList());
         PTR(dafBase::PropertyList) qa = boost::make_shared<dafBase::PropertyList>();
-		std::string s = qa->toString();
-		printf("empty QA: %s\n", s.c_str());
-        printf("ok\n");
-        printf("ntries: %i\n", $self->numtries);
-        int nt = $self->numtries;
-        printf("set 1\n");
         // FIXME -- Ticket #1875 prevents dotted-names from working with toString().
-		qa->set("meas_astrom*an*n_tried", nt);
-        printf("ok\n");
-        s = qa->toString();
-		printf("QA: %s\n", s.c_str());
-        printf("ok\n");
-        printf("set 2\n");
 		qa->set("meas_astrom*an*n_tried", $self->numtries);
-        printf("ok\n");
-        s = qa->toString();
-		printf("QA: %s\n", s.c_str());
-        printf("ok\n");
 		qa->set("meas_astrom*an*n_matched", $self->nummatches);
 		qa->set("meas_astrom*an*n_scaleok", $self->numscaleok);
 		qa->set("meas_astrom*an*n_cxdxcut", $self->num_cxdx_skipped);
@@ -290,20 +227,30 @@ Python interface to Astrometry.net
 		qa->set("meas_astrom*an*n_verified", $self->num_verified);
 		qa->set("meas_astrom*an*time_used", $self->timeused);
 		qa->set("meas_astrom*an*best_logodds", $self->best_logodds);
-        s = qa->toString();
-		printf("QA: %s\n", s.c_str());
-        printf("ok\n");
 		if ($self->best_index) {
 			index_t* ind = $self->best_index;
 			qa->set("meas_astrom*an*best_index*id", ind->indexid);
 			qa->set("meas_astrom*an*best_index*hp", ind->healpix);
 			qa->set("meas_astrom*an*best_index*nside", ind->hpnside);
-            std::string iname(ind->indexname);
-            qa->set("meas_astrom*an*best_index*name", iname);
+            qa->set("meas_astrom*an*best_index*name", std::string(ind->indexname));
 		}
-		s = qa->toString();
-		printf("returning QA: %s\n", s.c_str());
-        printf("ok\n");
+		if ($self->have_best_match) {
+			MatchObj* mo = &($self->best_match);
+			std::string s = boost::str(boost::format("%i") % mo->star[0]);
+			for (int i=1; i<mo->dimquads; i++)
+				s = s + boost::str(boost::format(", %i") % mo->star[i]);
+			qa->set("meas_astrom*an*best_match*starinds", s);
+			qa->set("meas_astrom*an*best_match*coderr", std::sqrt(mo->code_err));
+			qa->set("meas_astrom*an*best_match*nmatch", mo->nmatch);
+			qa->set("meas_astrom*an*best_match*ndistract", mo->ndistractor);
+			qa->set("meas_astrom*an*best_match*nconflict", mo->nconflict);
+			qa->set("meas_astrom*an*best_match*nfield", mo->nfield);
+			qa->set("meas_astrom*an*best_match*nindex", mo->nindex);
+			qa->set("meas_astrom*an*best_match*nbest", mo->nbest);
+			qa->set("meas_astrom*an*best_match*logodds", mo->logodds);
+			qa->set("meas_astrom*an*best_match*parity", mo->parity ? 0 : 1);
+			qa->set("meas_astrom*an*best_match*nobjs", mo->objs_tried);
+		}
 		return qa;
 	}
 
@@ -328,6 +275,7 @@ Python interface to Astrometry.net
 
 	void run() {
 		printf("Solver run...\n");
+		solver_log_params($self);
 		solver_run($self);
 		printf("solver_run returned.\n");
 	}
@@ -360,42 +308,6 @@ Python interface to Astrometry.net
 			solver_add_index($self, ind);
 		}
 	}
-
-	/*
-	void addIndex(const char* fn) {
-		printf("Loading index file...\n");
-		index_t* ind = index_load(fn, INDEX_ONLY_LOAD_METADATA, NULL);
-		if (!ind) {
-			assert(0);
-		}
-		printf("  index %i, hp %i (nside %i), nstars %i, nquads %i\n",
-			   ind->indexid, ind->healpix, ind->hpnside,
-			   ind->nstars, ind->nquads);
-		if ($self->use_radec) {
-			double ra,dec,radius;
-			xyzarr2radecdeg($self->centerxyz, &ra, &dec);
-			radius = distsq2deg($self->r2);
-			if (!index_is_within_range(ind, ra, dec, radius)) {
-				printf("Not within RA,Dec range\n");
-				index_free(ind);
-				return;
-			}
-		}
-		// qlo,qhi in arcsec
-		double qlo, qhi;
-		solver_get_quad_size_range_arcsec($self, &qlo, &qhi);
-		if (!index_overlaps_scale_range(ind, qlo, qhi)) {
-			printf("Not within quad scale range\n");
-			index_free(ind);
-			return;
-		}
-		printf("Added index.\n");
-		if (index_reload(ind)) {
-			assert(0);
-		}
-		solver_add_index($self, ind);
-	}
-	 */
 
 	void setMatchThreshold(double t) {
         // AN 0.30:
@@ -445,6 +357,5 @@ Python interface to Astrometry.net
 		// Find field boundaries and precompute kdtree
 		solver_preprocess_field($self);
 	}
-
 
  }

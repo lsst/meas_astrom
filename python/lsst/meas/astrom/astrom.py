@@ -186,11 +186,14 @@ class Astrometry(object):
         isSolved, wcs, matchList = runMatch(sourceSet, catSet, min(policy.get('numBrightStars'), len(sourceSet)), log=log)
         '''
 
-
         wcs,qa = self._solve(sources, wcs, imageSize, pixelScale, radecCenter, searchRadius)
+
         pixelMargin = 50.
-        cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName,
-                                             pixelMargin)
+        cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName, pixelMargin)
+
+        catids = [src.getSourceId() for src in cat]
+        uids = set(catids)
+        print '%i reference sources; %i unique IDs' % (len(catids), len(uids))
 
         matchList = self._getMatchList(sources, cat, wcs)
 
@@ -230,8 +233,6 @@ class Astrometry(object):
         astrom.matches = matchList
 
         return astrom
-
-
 
 
     #### FIXME!
@@ -276,7 +277,6 @@ class Astrometry(object):
         return matchList
 
 
-
     def _mapFilterName(self, filterName, default=None):
         ## Warn if default is used?
         return self.andConfig.magColumnMap.get(filterName, default)
@@ -286,7 +286,7 @@ class Astrometry(object):
         W,H = imageSize
         xc, yc = W/2. + 0.5, H/2. + 0.5
         rdc = wcs.pixelToSky(xc, yc)
-        print 'RA,Dec', rdc
+        #print 'RA,Dec', rdc
         #rdc = rdc.toIcrs()
         ra,dec = rdc.getLongitude(), rdc.getLatitude()
         pixelScale = wcs.pixelScale()
@@ -301,7 +301,7 @@ class Astrometry(object):
             bbox.grow(pixelMargin)
             cat = self._trimBadPoints(cat, bbox)
         return cat
-        
+
 
     def getReferenceSources(self, ra, dec, radius, filterName):
         '''
@@ -312,6 +312,7 @@ class Astrometry(object):
 
         sgCol = self.andConfig.starGalaxyColumn
         varCol = self.andConfig.variableColumn
+        idcolumn = self.andConfig.idColumn
         magerrCol = self.andConfig.magErrorColumnMap.get(filterName, None)
 
         fdict = maUtils.getDetectionFlags()
@@ -320,7 +321,8 @@ class Astrometry(object):
         cat = solver.getCatalog(self.inds,
                                 ra.asDegrees(), dec.asDegrees(),
                                 radius.asDegrees(),
-                                magcolumn, magerrCol, sgCol, varCol,
+                                idcolumn, magcolumn,
+                                magerrCol, sgCol, varCol,
                                 starflag)
         return cat
 
@@ -329,7 +331,6 @@ class Astrometry(object):
         solver = self._getSolver()
 
         # FIXME -- select sources with valid x,y,flux?
-        print 'Sources:', sources
         solver.setStars(sources)
         solver.setMaxStars(self.config.maxStars)
         solver.setImageSize(*imageSize)
@@ -338,17 +339,13 @@ class Astrometry(object):
             dec = radecCenter.getDec().asDegrees()
             solver.setRaDecRadius(ra, dec, searchRadius.asDegrees())
 
-        import astrometry_net as an
-        an.an_log_set_level(3)
-
-        print 'pixelScale:', pixelScale
         if pixelScale is not None:
             dscale = self.config.pixelScaleUncertainty
             scale = pixelScale.asArcseconds()
             lo = scale / dscale
             hi = scale * dscale
             solver.setPixelScaleRange(lo, hi)
-            print 'Setting pixel scale range', lo, hi
+            #print 'Setting pixel scale range', lo, hi
 
         solver.setMatchThreshold(self.config.matchThreshold)
 
@@ -365,40 +362,18 @@ class Astrometry(object):
 
         solver.addIndices(self.inds)
 
-        an.solver_log_params(solver)
-        
         solver.run()
         if solver.didSolve():
             print 'Solved!'
             wcs = solver.getWcs()
-            print 'Got wcs:', wcs
+            #print 'Got wcs:', wcs
             print 'WCS:', wcs.getFitsMetadata().toString()
         else:
             print 'Did not solve.'
             wcs = None
 
-        # FIXME
-
-        X = an.pl1()
-        print 'pl1:', X.toString()
-        X = an.pl1b()
-        print 'pl1b:', X.toString()
-        X = an.pl2()
-        print 'pl2:', X.toString()
-        X = an.pl2b()
-        print 'pl2b:', X.toString()
-
-        print 'starting pl1c...'
-        X = an.pl1c()
-        print 'pl1c:', X.toString()
-
-        print 'solver.pl1c()...'
-        qa = solver.pl1c()
-        print 'qa:', qa
-
-        print 'solver.getSolveStats()...'
         qa = solver.getSolveStats()
-        print 'qa:', qa
+        #print 'qa:', qa
         print 'qa:', qa.toString()
 
         return wcs, qa
@@ -414,7 +389,6 @@ class Astrometry(object):
         fn2 = os.path.abspath(fn)
         return fn2
                     
-
 
     def _getSolver(self):
         if self.solver is not None:

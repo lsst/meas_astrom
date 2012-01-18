@@ -37,10 +37,10 @@ class AstromNetDataConfig(pexConfig.Config):
         default=None)
 
     # ?
-    availableFilters = Field(
-        list,
-        '''Filter column names''',
-        default=[])
+    # availableFilters = Field(
+    #     list,
+    #     '''Filter column names''',
+    #     default=[])
 
     indexFiles = ListField(str, default=[],
                            doc='''Astrometry.net index filenames''')
