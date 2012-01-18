@@ -70,10 +70,17 @@ class Astrometry(object):
                 fn = os.path.join(dirnm, 'metadata.paf')
                 self.andConfig = pexConfig.Config.load(fn)
 
-        self.solver = None
-
         self.inds = []
         self._readIndexFiles()
+
+    # def __del__(self):
+    #     print 'Deleting Astrometry object.'
+    #     for i in self.inds:
+    #         print 'Deleting index', i, i.indexname
+    #         del i
+    #     del self.config
+    #     del self.log
+    #     del self.andConfig
         
     def _readIndexFiles(self):
         import astrometry_net as an
@@ -345,6 +352,8 @@ class Astrometry(object):
                                 idcolumn, magcolumn,
                                 magerrCol, sgCol, varCol,
                                 starflag)
+        del solver
+        
         return cat
 
     def _solve(self, sources, wcs, imageSize, pixelScale, radecCenter,
@@ -417,15 +426,12 @@ class Astrometry(object):
                     
 
     def _getSolver(self):
-        #if self.solver is not None:
-        #    return self.solver
         import astrometry_net as an
         solver = an.solver_new()
         # HACK, set huge default pixel scale range.
         lo,hi = 0.01, 3600.
         solver.setPixelScaleRange(lo, hi)
         print '_getSolver: returning:', solver
-        #self.solver = solver
         return solver
 
     @staticmethod

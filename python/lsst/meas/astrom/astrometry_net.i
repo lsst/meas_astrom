@@ -123,8 +123,18 @@ static time_t timer_callback(void* baton) {
 	}
 	%}
 
-%extend index_t {
-	~index_t() {
+/* swig doesn't notice the typedef? grumble grumble.
+ %extend index_t {
+ ~index_t() {
+ printf("Deleting index_t %s\n", $self->indexname);
+ index_free($self);
+ }
+ }
+ */
+
+%extend index_s {
+	~index_s() {
+        printf("Deleting index_s %s\n", $self->indexname);
 		index_free($self);
 	}
  }
@@ -132,6 +142,11 @@ static time_t timer_callback(void* baton) {
 %extend solver_t {
 
 	~solver_t() {
+        // Working around a bug in Astrometry.net: doesn't take ownership of the
+        // field.
+        // unseemly familiarity with the innards... but valgrind-clean.
+        starxy_free($self->fieldxy);
+        $self->fieldxy = NULL;
 		solver_free($self);
 	}
 
@@ -241,6 +256,7 @@ static time_t timer_callback(void* baton) {
 				cat.push_back(src);
 			}
 
+            free(id);
 			free(mag);
 			free(magerr);
 			free(stargal);
@@ -396,6 +412,7 @@ static time_t timer_callback(void* baton) {
 
 	void setStars(lsst::afw::detection::SourceSet srcs) {
 		// convert to Astrometry.net "starxy_t"
+        starxy_free($self->fieldxy);
 		const size_t N = srcs.size();
 		starxy_t *starxy = starxy_new(N, true, false);
 		for (size_t i=0; i<N; ++i) {
