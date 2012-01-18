@@ -57,6 +57,7 @@ class AstromConfig(pexConfig.Config):
         float,
         '''Matching threshold for Astrometry.net solver (log-odds)''',
         default=math.log(1e12), check=lambda x: x > math.log(1e6))
+
     maxStars = Field(
         int,
         '''Maximum number of stars to use in Astrometry.net solving''',
@@ -105,7 +106,7 @@ class AstromConfig(pexConfig.Config):
     # forceParity?
     # forcePixelScale?
     # forceRaDecCenter?
-    # pixelScaleRange?
+    # forcePixelScaleRange?
     # doTrim ?
 
     # forceImageSize = Field(

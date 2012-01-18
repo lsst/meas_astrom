@@ -12,6 +12,20 @@ import net as astromNet
 
 # Object returned by determineWcs.
 class InitialAstrometry(object):
+    '''
+    Fields set by determineWcs():
+
+    solveQa (PropertyList)
+    tanWcs (Wcs)
+    tanMatches (MatchList)
+    if sip:
+       sipWcs (Wcs)
+       sipMatches (MatchList)
+    astrom.matchMetadata (PropertyList)
+    astrom.wcs (= sipWcs, if available, or tanWcs)
+    astrom.matches (= sipMatches if available, else tanMatches)
+    
+    '''
     def __init__(self):
         self.matches = None
         self.wcs = None
@@ -213,6 +227,7 @@ class Astrometry(object):
 
         self._debug('%i reference objects match input sources using linear WCS' % (len(matchList)))
 
+        astrom.solveQa = qa
         astrom.tanWcs = wcs
         astrom.tanMatches = matchList
 
@@ -334,7 +349,9 @@ class Astrometry(object):
 
     def _solve(self, sources, wcs, imageSize, pixelScale, radecCenter,
                searchRadius, parity):
+        print '_solve: calling _getSolver'
         solver = self._getSolver()
+        print '_solve: got solver', solver
 
         # FIXME -- select sources with valid x,y,flux?
         solver.setStars(sources)
@@ -380,6 +397,11 @@ class Astrometry(object):
         #print 'qa:', qa
         print 'qa:', qa.toString()
 
+        print '_solve finishing.'
+        print 'del solver...'
+        del solver
+        print 'done del solver'
+
         return wcs, qa
 
     def _getIndexPath(self, fn):
@@ -395,15 +417,15 @@ class Astrometry(object):
                     
 
     def _getSolver(self):
-        if self.solver is not None:
-            return self.solver
+        #if self.solver is not None:
+        #    return self.solver
         import astrometry_net as an
         solver = an.solver_new()
         # HACK, set huge default pixel scale range.
         lo,hi = 0.01, 3600.
         solver.setPixelScaleRange(lo, hi)
-        print 'Solver:', solver
-        self.solver = solver
+        print '_getSolver: returning:', solver
+        #self.solver = solver
         return solver
 
     @staticmethod

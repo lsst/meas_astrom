@@ -69,7 +69,7 @@ static time_t timer_callback(void* baton) {
 	// solver.c : update_timeused (which is static) does:
 	double usertime, systime;
 	get_resource_stats(&usertime, &systime, NULL);
-	solver->timeused = std::max(0, (usertime + systime) - solver->starttime);
+	solver->timeused = std::max(0., (usertime + systime) - solver->starttime);
 	//printf("Timer callback; time used %f, limit %f\n", solver->timeused, tt->timelimit);
 	if (solver->timeused > tt->timelimit)
 		solver->quit_now = 1;
@@ -101,6 +101,13 @@ static time_t timer_callback(void* baton) {
 %import "lsst/afw/image/Wcs.h"
 
 %template(VectorOfIndexPtr) std::vector<index_t*>;
+%newobject solver_new;
+%newobject index_load;
+/*
+ %typemap(newfree) solver_t* {
+ printf("I'm the newfree typemap for solver_t\n");
+ };
+ */
 %include "solver.h"
 %include "index.h"
 
@@ -116,7 +123,17 @@ static time_t timer_callback(void* baton) {
 	}
 	%}
 
+%extend index_t {
+	~index_t() {
+		index_free($self);
+	}
+ }
+
 %extend solver_t {
+
+	~solver_t() {
+		solver_free($self);
+	}
 
 	lsst::afw::detection::SourceSet
 		getCatalog(std::vector<index_t*> inds,
