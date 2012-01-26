@@ -23,7 +23,15 @@
  */
  
 
+#include "Eigen/SVD"
+#include "Eigen/Cholesky"
+#include "Eigen/LU"
+
+#include "lsst/pex/exceptions/Runtime.h"
 #include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
+#include "lsst/afw/detection/Source.h"
+#include "lsst/afw/math/Statistics.h"
+#include "lsst/afw/image/TanWcs.h"
 
 namespace lsst { 
 namespace meas { 
@@ -33,28 +41,84 @@ namespace sip {
 using namespace std;
 
 namespace except = lsst::pex::exceptions;
-namespace pexLog = lsst::pex::logging;
 namespace afwCoord = lsst::afw::coord;
 namespace afwGeom = lsst::afw::geom;
 namespace afwImg = lsst::afw::image;
-namespace det = lsst::afw::detection;
-namespace math = lsst::afw::math;
+namespace afwDet = lsst::afw::detection;
+namespace afwMath = lsst::afw::math;
 
+namespace {
+/*
+ * Given an index and a SIP order, calculate p and q for the index'th term u^p v^q
+ * (Cf. Eqn 2 in http://fits.gsfc.nasa.gov/registry/sip/SIP_distortion_v1_0.pdf)
+ */
+std::pair<int, int>
+indexToPQ(int const index, int const order)
+{
+    int p = 0, q = index;
+    
+    for (int decrement = order; q >= decrement && decrement > 0; --decrement) {
+        q -= decrement;
+        p++;
+    }
+    
+    return std::make_pair(p, q);
+}
+
+Eigen::MatrixXd
+calculateCMatrix(Eigen::VectorXd const& axis1, Eigen::VectorXd const& axis2, int const order)
+{
+    int nTerms = 0;
+    for (int i = 1; i <= order; ++i) {
+        nTerms += i;
+    }
+
+    int const n = axis1.size();
+    Eigen::MatrixXd C = Eigen::MatrixXd::Zero(n, nTerms);
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < nTerms; ++j) {
+            std::pair<int, int> pq = indexToPQ(j, order);
+            int p = pq.first, q = pq.second;
+
+            assert(p + q < order);
+            C(i, j) = ::pow(axis1[i], p)*::pow(axis2[i], q);
+        }
+    }
+    
+    return C;
+}
+    
+
+
+///Given a vector b and a matrix A, solve b - Ax = 0
+/// b is an m x 1 vector, A is an n x m matrix, and x, the output is a 
+///\param b An m x 1 vector, where m is the number of parameters in the fit
+///\param A An n x m vecotr, where n is the number of equations in the solution
+///
+///\returns x, an m x 1 vector of best fit params
+Eigen::VectorXd
+leastSquaresSolve(Eigen::VectorXd b, Eigen::MatrixXd A) {
+    if (A.rows() != b.rows()) {
+        throw LSST_EXCEPT(except::RuntimeErrorException, "vector b of wrong size");        
+    }
+    Eigen::VectorXd par = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+    return par;
+}
+}
 
 ///Constructor
-CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::SourceMatch> match,
+CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::SourceMatch> matchList,
                                    CONST_PTR(lsst::afw::image::Wcs) linearWcs,
                                    int const order,
                                    lsst::afw::geom::Box2I const& bbox,
                                    int const ngrid
                                   ):
-                     _matchList(match),
+                     _matchList(matchList),
                      _bbox(bbox),
                      _ngrid(ngrid),
                      _linearWcs(linearWcs->clone()),
                      _sipOrder(order+1),
                      _reverseSipOrder(order+2), //Higher order for reverse transform
-                     _nPoints(match.size()),
                      _sipA(Eigen::MatrixXd::Zero(_sipOrder, _sipOrder)),
                      _sipB(Eigen::MatrixXd::Zero(_sipOrder, _sipOrder)),
                      _sipAp(Eigen::MatrixXd::Zero(_reverseSipOrder, _reverseSipOrder)),
@@ -64,8 +128,18 @@ CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::Sourc
     if  (order < 2) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "Sip matrices are at least 2nd order");        
     }
+
+    if (_sipOrder > 9) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::LengthErrorException,
+                          str(boost::format("SIP forward order %d exceeds the IAU limit of 9") % _sipOrder));
+    }
+    if (_reverseSipOrder > 9) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::LengthErrorException,
+                          str(boost::format("SIP reverse order %d exceeds the IAU limit of 9") %
+                              _reverseSipOrder));
+    }
     
-    if (_nPoints < _sipOrder) {
+    if (matchList.size() < _sipOrder) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "Number of matches less than requested sip order");
     }
 
@@ -80,12 +154,13 @@ CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::Sourc
      * If no BBox is provided, guess one from the input points (extrapolated a bit to allow for fact
      * that a finite number of points won't reach to the edge of the image)
      */
-    if (_bbox.isEmpty() and _nPoints > 0) {
-        for(int i = 0; i < _nPoints; ++i) {
-            _bbox.include(afwGeom::PointI(_matchList[i].second->getXAstrom(),
-                                          _matchList[i].second->getYAstrom()));
+    if (_bbox.isEmpty() and !_matchList.empty() > 0) {
+        for (std::vector<lsst::afw::detection::SourceMatch>::const_iterator ptr = _matchList.begin(),
+                 end = _matchList.end(); ptr != end; ++ptr) {
+            lsst::afw::detection::Source const& src = *ptr->second;
+            _bbox.include(afwGeom::PointI(src.getXAstrom(), src.getYAstrom()));
         }
-        float const borderFrac = 1/::sqrt(_nPoints); // fractional border to add to exact BBox
+        float const borderFrac = 1/::sqrt(_matchList.size()); // fractional border to add to exact BBox
         afwGeom::Extent2I border(borderFrac*_bbox.getWidth(), borderFrac*_bbox.getHeight());
 
         _bbox.grow(border);
@@ -108,8 +183,8 @@ CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::Sourc
     /*
      printf("CreateWcsWithSip: output WCS:\n");
      for (size_t i=0; i<_matchList.size(); i++) {
-     det::Source::Ptr cat = _matchList[i].first;
-     det::Source::Ptr img = _matchList[i].second;
+     afwDet::Source::Ptr cat = _matchList[i].first;
+     afwDet::Source::Ptr img = _matchList[i].second;
      afwGeom::Point2D catxy = _newWcs->skyToPixel(cat->getRaDecAstrom());
      afwCoord::Coord::Ptr imgrd = _newWcs->pixelToSky(img->getXAstrom(), img->getYAstrom());
      printf("  % 3i:  cat RA,Dec (%.3f, %.3f) --Wcs--> X,Y (%.1f, %.1f)\n", (int)i,
@@ -122,73 +197,48 @@ CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::Sourc
      */
 }
 
-
-afwImg::TanWcs::Ptr CreateWcsWithSip::getNewWcs() {
-    return _newWcs;
-}
-
-
-int CreateWcsWithSip::getUIndex(int j, int order) {
-    int decrement = order;
-    int k=0;
-    
-    while ((j>= decrement) && (decrement > 0)) {
-        j -= decrement;
-        decrement--;
-        k++;
-    }
-    
-    return k;
-}
-
-int CreateWcsWithSip::getVIndex(int j, int order) {
-    int decrement = order;
-    
-    while ((j>= decrement) && (decrement > 0)) {
-        j -= decrement;
-        decrement--;
-    }
-    return j;
-    
-}
-
-
-void CreateWcsWithSip::_calculateForwardMatrices() {
+void
+CreateWcsWithSip::_calculateForwardMatrices()
+{
     // Assumes FITS (1-indexed) coordinates.
     afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
 
     // Calculate u, v and intermediate world coordinates
-    Eigen::VectorXd u(_nPoints), v(_nPoints), iwc1(_nPoints), iwc2(_nPoints);
-    
-    for(int i=0; i < _nPoints; ++i) {
+    int const nPoints = _matchList.size();
+    Eigen::VectorXd u(nPoints), v(nPoints), iwc1(nPoints), iwc2(nPoints);
+
+    int i = 0;
+    for (std::vector<lsst::afw::detection::SourceMatch>::const_iterator ptr = _matchList.begin(),
+             end = _matchList.end(); ptr != end; ++ptr, ++i) {
+        lsst::afw::detection::SourceMatch const& match = *ptr;
+
         // iwc's store the intermediate world coordinate positions of catalogue objects
-        afwCoord::Coord::Ptr c = _matchList[i].first->getRaDec();
+        afwCoord::Coord::Ptr c = match.first->getRaDec();
         //printf("i=%i,  ra,dec = (%.3f, %.3f)\n", i, c->getLongitude().asDegrees(), c->getLatitude().asDegrees());
         afwGeom::Point2D p = _linearWcs->skyToIntermediateWorldCoord(c);
         iwc1[i] = p[0];
         iwc2[i] = p[1];
         // u and v are intermediate pixel coordinates of observed (distorted) positions
-        u[i] = _matchList[i].second->getXAstrom() - crpix[0];
-        v[i] = _matchList[i].second->getYAstrom() - crpix[1];
-        //printf("i=%i, iwc (%.3f, %.3f), uv (%.3f, %.3f)\n", i, iwc1[i], iwc2[i], u[i], v[i]);
+        u[i] = match.second->getXAstrom() - crpix[0];
+        v[i] = match.second->getYAstrom() - crpix[1];
     }
     
    
     // Forward transform
     int ord = _sipOrder;
-    Eigen::MatrixXd forwardC = _calculateCMatrix(u, v, ord);
-    Eigen::VectorXd mu = _leastSquaresSolve(iwc1, forwardC);
-    Eigen::VectorXd nu = _leastSquaresSolve(iwc2, forwardC);
+    Eigen::MatrixXd forwardC = calculateCMatrix(u, v, ord);
+    Eigen::VectorXd mu = leastSquaresSolve(iwc1, forwardC);
+    Eigen::VectorXd nu = leastSquaresSolve(iwc2, forwardC);
 
     // Use mu and nu to refine CD
 
-    // Given the implementation of getUIndex() and getVIndex(), the refined values
+    // Given the implementation of indexToPQ(), the refined values
     // of the elements of the CD matrices are in elements 1 and "_sipOrder" of mu and nu.
-    // If the implementation of getUIndex() and getVIndex() change, these assertions
+    // If the implementation of indexToPQ() changes, these assertions
     // will catch that change.
-    assert(getUIndex(0, ord) == 0 && getVIndex(0, ord) == 0);
-    assert(getUIndex(1, ord) == 0 && getVIndex(1, ord) == 1);
-    assert(getUIndex(ord, ord) == 1 && getVIndex(ord, ord) == 0);
+    assert ((indexToPQ(0,   ord) == std::pair<int, int>(0, 0)));
+    assert ((indexToPQ(1,   ord) == std::pair<int, int>(0, 1)));
+    assert ((indexToPQ(ord, ord) == std::pair<int, int>(1, 0)));
 
     Eigen::Matrix2d CD;
     CD(1,0) = nu[ord];
@@ -216,13 +266,14 @@ void CreateWcsWithSip::_calculateForwardMatrices() {
     // (Bpq)    (CD21 CD22)      (nu[i])
     
     for(int i=1; i< mu.rows(); ++i) {
-        int p = getUIndex(i, ord);
-        int q = getVIndex(i, ord);
-        if( (p+q > 1) && (p+q < ord)) {    
+        std::pair<int, int> pq = indexToPQ(i, ord);
+        int p = pq.first, q = pq.second;
+
+        if(p + q > 1 && p + q < ord) {    
             Eigen::Vector2d munu(2,1);
             munu(0) = mu(i);
             munu(1) = nu(i);
-            Eigen::Vector2d AB = CDinv * munu;
+            Eigen::Vector2d AB = CDinv*munu;
             _sipA(p,q) = AB[0];
             _sipB(p,q) = AB[1];
         }
@@ -264,29 +315,31 @@ void CreateWcsWithSip::_calculateReverseMatrices() {
 
     // Reverse transform
     int const ord = _reverseSipOrder;
-    Eigen::MatrixXd reverseC = _calculateCMatrix(U, V, ord); 
-    Eigen::VectorXd tmpA = _leastSquaresSolve(delta1, reverseC);
-    Eigen::VectorXd tmpB = _leastSquaresSolve(delta2, reverseC);
+    Eigen::MatrixXd reverseC = calculateCMatrix(U, V, ord); 
+    Eigen::VectorXd tmpA = leastSquaresSolve(delta1, reverseC);
+    Eigen::VectorXd tmpB = leastSquaresSolve(delta2, reverseC);
     
     assert(tmpA.rows() == tmpB.rows());
     for(int j=0; j< tmpA.rows(); ++j) {
-        int p = getUIndex(j, ord);
-        int q = getVIndex(j, ord);
-        _sipAp(p,q) = tmpA[j];
-        _sipBp(p,q) = tmpB[j];   
+        std::pair<int, int> pq = indexToPQ(j, ord);
+        int p = pq.first, q = pq.second;
+
+        _sipAp(p, q) = tmpA[j];
+        _sipBp(p, q) = tmpB[j];   
     } 
 }
 
 ///Get the scatter in position in pixel space 
 double CreateWcsWithSip::getScatterInPixels() {
-    unsigned int size = _matchList.size();
-    
     vector<double> val;
-    val.reserve(size);
+    val.reserve(_matchList.size());
     
-    for (unsigned int i = 0; i< size; ++i) {
-        det::Source::Ptr catSrc = _matchList[i].first;
-        det::Source::Ptr imgSrc = _matchList[i].second;
+    for (std::vector<lsst::afw::detection::SourceMatch>::const_iterator ptr = _matchList.begin(),
+             end = _matchList.end(); ptr != end; ++ptr) {
+        lsst::afw::detection::SourceMatch const& match = *ptr;
+
+        afwDet::Source::Ptr catSrc = match.first;
+        afwDet::Source::Ptr imgSrc = match.second;
         
         double imgX = imgSrc->getXAstrom();
         double imgY = imgSrc->getYAstrom();
@@ -295,24 +348,24 @@ double CreateWcsWithSip::getScatterInPixels() {
         double catX = xy[0];
         double catY = xy[1];
         
-        val.push_back(hypot(imgX - catX, imgY - catY));
+        val.push_back(::hypot(imgX - catX, imgY - catY));
    }
     
-    math::Statistics stat = math::makeStatistics(val, math::MEDIAN);
-    double scatter = stat.getValue(math::MEDIAN);
-    
-    return scatter;
+    return afwMath::makeStatistics(val, afwMath::MEDIAN).getValue();
 }
     
 
 ///Get the scatter in (celestial) position
 afwGeom::Angle CreateWcsWithSip::getScatterOnSky() {
-    unsigned int size = _matchList.size();
     vector<double> val;
-    val.reserve(size);
-    for (unsigned int i = 0; i < size; ++i) {
-        det::Source::Ptr catSrc = _matchList[i].first;
-        det::Source::Ptr imgSrc = _matchList[i].second;
+    val.reserve(_matchList.size());
+
+    for (std::vector<lsst::afw::detection::SourceMatch>::const_iterator ptr = _matchList.begin(),
+             end = _matchList.end(); ptr != end; ++ptr) {
+        lsst::afw::detection::SourceMatch const& match = *ptr;
+
+        afwDet::Source::Ptr catSrc = match.first;
+        afwDet::Source::Ptr imgSrc = match.second;
         afwCoord::Coord::ConstPtr catRadec = catSrc->getRaDec();
         afwCoord::Coord::ConstPtr imgRadec = _newWcs->pixelToSky(imgSrc->getXAstrom(), imgSrc->getYAstrom());
         afwGeom::Angle sep = catRadec->angularSeparation(*imgRadec);
@@ -329,50 +382,9 @@ afwGeom::Angle CreateWcsWithSip::getScatterOnSky() {
          */
     }
     assert(val.size() > 0);
-    math::Statistics stat = math::makeStatistics(val, math::MEDIAN);
-    double scatter = stat.getValue(math::MEDIAN);
-    //printf("Scatter: %g degrees\n", scatter);
-    return scatter * afwGeom::degrees;
+
+    return afwMath::makeStatistics(val, afwMath::MEDIAN).getValue()*afwGeom::degrees;
 }
-
-
-Eigen::MatrixXd CreateWcsWithSip::_calculateCMatrix(Eigen::VectorXd axis1, Eigen::VectorXd axis2, int order)
-{
-    int nTerms = 0;
-    for (int i = 1; i <= order; ++i) {
-        nTerms += i;
-    }
-
-    int const n = axis1.size();
-    Eigen::MatrixXd C = Eigen::MatrixXd::Zero(n, nTerms);
-    for (int i = 0; i < n; ++i) {
-        for (int j = 0; j < nTerms; ++j) {
-            int p = getUIndex(j, order);
-            int q = getVIndex(j, order);
-            assert(p+q < order);
-            C(i,j) = ::pow(axis1[i], p)*::pow(axis2[i], q);
-        }
-    }
-    
-    return C;
-}
-    
-
-
-///Given a vector b and a matrix A, solve b - Ax = 0
-/// b is an m x 1 vector, A is an n x m matrix, and x, the output is a 
-///\param b An m x 1 vector, where m is the number of parameters in the fit
-///\param A An n x m vecotr, where n is the number of equations in the solution
-///
-///\returns x, an m x 1 vector of best fit params
-Eigen::VectorXd CreateWcsWithSip::_leastSquaresSolve(Eigen::VectorXd b, Eigen::MatrixXd A) {
-    if  (A.rows() != b.rows()) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "vector b of wrong size");        
-    }
-    Eigen::VectorXd par = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
-    return par;
-}
-
 
 
 afwGeom::Point2D CreateWcsWithSip::_getCrvalAsGeomPoint() {

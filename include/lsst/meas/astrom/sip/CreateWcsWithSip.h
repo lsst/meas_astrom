@@ -26,31 +26,16 @@
 #ifndef CREATE_WCS_WITH_SIP
 #define CREATE_WCS_WITH_SIP
 
-#include <cstdio>
 #include <vector>
-#include <algorithm>
 
 #include "boost/shared_ptr.hpp"
 #include "lsst/base.h"
 #include "Eigen/Core"
-#include "Eigen/SVD"
-#include "Eigen/Cholesky"
-#include "Eigen/LU"
 
-
-#include "lsst/pex/logging/Log.h"
-#include "lsst/pex/exceptions/Runtime.h"
-#include "lsst/pex/logging/Trace.h"
-#include "lsst/afw/math/FunctionLibrary.h"
-#include "lsst/afw/math/Statistics.h"
 #include "lsst/afw/detection/SourceMatch.h"
-#include "lsst/afw/detection/Source.h"
 #include "lsst/afw/geom/Box.h"
 #include "lsst/afw/geom/Point.h"
 #include "lsst/afw/geom/Angle.h"
-#include "lsst/afw/image/TanWcs.h"
-
-
 
 namespace lsst { 
     namespace afw {
@@ -107,14 +92,14 @@ public:
                      int const ngrid=0
                     );
 
-    PTR(lsst::afw::image::TanWcs) getNewWcs();
+    PTR(lsst::afw::image::TanWcs) getNewWcs() { return _newWcs; }
     double getScatterInPixels();
     lsst::afw::geom::Angle getScatterOnSky();
 
     /// Get the number of terms in the SIP matrix
     int getOrder() const { return  _sipA.rows(); }
     /// Return the number of points in the catalogue
-    int getNPoints() const { return _nPoints; }
+    int getNPoints() const { return _matchList.size(); }
     /// Return the number of grid points (on each axis) used in inverse SIP transform
     int getNGrid() const { return _ngrid; }
 
@@ -127,7 +112,7 @@ private:
     CONST_PTR(lsst::afw::image::Wcs) _origWcs;
     //size is number of input points. _sipOrder is polynomial order for forward transform.
     //_reverseSipOrder is order for reverse transform, not necessarily the same.
-    int const _sipOrder, _reverseSipOrder, _nPoints;      
+    int const _sipOrder, _reverseSipOrder;      
 
     Eigen::MatrixXd _sipA, _sipB;
     Eigen::MatrixXd _sipAp, _sipBp;
@@ -137,13 +122,7 @@ private:
     void _calculateForwardMatrices();
     void _calculateReverseMatrices();
     
-    Eigen::MatrixXd _calculateCMatrix(Eigen::VectorXd axis1, Eigen::VectorXd axis2, int order);
-    Eigen::VectorXd _leastSquaresSolve(Eigen::VectorXd b, Eigen::MatrixXd A);
-    
     lsst::afw::geom::Point2D _getCrvalAsGeomPoint();
-    
-    int getUIndex(int j, int order);
-    int getVIndex(int j, int order);
 };    
     
 
