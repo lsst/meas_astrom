@@ -231,7 +231,6 @@ void CreateWcsWithSip::_calculateForwardMatrices() {
 
 void CreateWcsWithSip::_calculateReverseMatrices() {
     // Assumes FITS (1-indexed) coordinates.
-#if 1
     int const ngrid2 = _ngrid*_ngrid;
 
     Eigen::VectorXd u(ngrid2), v(ngrid2);
@@ -249,11 +248,11 @@ void CreateWcsWithSip::_calculateReverseMatrices() {
         float const y = y0 + i*dy;
         for (int j = 0; j < _ngrid; ++j, ++k) {
             float const x = x0 + j*dx;
-            // u and v are intermediate pixel coordinates of observed (distorted) positions
+            // u and v are intermediate pixel coordinates on a grid of positions
             u[k] = x - crpix[0];
             v[k] = y - crpix[1];
             // U and V are the true, undistorted intermediate pixel positions as calculated
-            // from the catalogue ra and decs and the (updated) linear wcs
+            // using the new Tan-Sip forward coefficients (to sky) and the linear Wcs (back to pixels)
             afwCoord::Coord::ConstPtr c = _newWcs->pixelToSky(x, y);
             afwGeom::Point2D p = _linearWcs->skyToPixel(c);
             U[k] = p[0] - crpix[0];
@@ -262,26 +261,7 @@ void CreateWcsWithSip::_calculateReverseMatrices() {
             delta2[k] = v[k] - V[k];
         }
     }
-#else
-    Eigen::VectorXd u(_nPoints), v(_nPoints);
-    Eigen::VectorXd U(_nPoints), V(_nPoints);
-    Eigen::VectorXd delta1(_nPoints), delta2(_nPoints);
-    
-    afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
-    for(int i=0; i < _nPoints; ++i) {
-        // u and v are intermediate pixel coordinates of observed (distorted) positions
-        u[i] = _matchList[i].second->getXAstrom() - crpix[0];
-        v[i] = _matchList[i].second->getYAstrom() - crpix[1];
-        // U and V are the true, undistorted intermediate pixel positions as calculated
-        // from the catalogue ra and decs and the (updated) linear wcs
-        afwCoord::Coord::Ptr c = _matchList[i].first->getRaDec();
-        afwGeom::Point2D p = _linearWcs->skyToPixel(c);
-        U[i] = p[0] - crpix[0];
-        V[i] = p[1] - crpix[1];
-        delta1[i] = u[i] - U[i];
-        delta2[i] = v[i] - V[i];
-    }
-#endif
+
     // Reverse transform
     int const ord = _reverseSipOrder;
     Eigen::MatrixXd reverseC = _calculateCMatrix(U, V, ord); 
