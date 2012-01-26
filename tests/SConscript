@@ -2,7 +2,7 @@
 from lsst.sconsUtils import scripts
 import eups, sys
 
-eupsObj = eups.Eups()
+eupsObj = eups.Eups(max_depth=1)        # don't resetup e.g. numpy
 
 ignoreList = []
 for vers in ("cfhtlsDeep", "cfhttemplate",):
