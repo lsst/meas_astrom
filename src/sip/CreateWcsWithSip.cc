@@ -44,11 +44,13 @@ namespace math = lsst::afw::math;
 ///Constructor
 CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::SourceMatch> match,
                                    CONST_PTR(lsst::afw::image::Wcs) linearWcs,
-                                   int order,
-                                   lsst::afw::geom::Box2I const& bbox
+                                   int const order,
+                                   lsst::afw::geom::Box2I const& bbox,
+                                   int const ngrid
                                   ):
                      _matchList(match),
                      _bbox(bbox),
+                     _ngrid(ngrid),
                      _linearWcs(linearWcs->clone()),
                      _sipOrder(order+1),
                      _reverseSipOrder(order+2), //Higher order for reverse transform
@@ -57,8 +59,8 @@ CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::Sourc
                      _sipB(Eigen::MatrixXd::Zero(_sipOrder, _sipOrder)),
                      _sipAp(Eigen::MatrixXd::Zero(_reverseSipOrder, _reverseSipOrder)),
                      _sipBp(Eigen::MatrixXd::Zero(_reverseSipOrder, _reverseSipOrder)),
-                     _newWcs() {
-
+                     _newWcs()
+{
     if  (order < 2) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "Sip matrices are at least 2nd order");        
     }
@@ -66,6 +68,11 @@ CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::Sourc
     if (_nPoints < _sipOrder) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "Number of matches less than requested sip order");
     }
+
+    if (_ngrid <= 0) {
+        _ngrid = 3*_sipOrder;           // should be plenty
+    }
+
     /*
      * We need a bounding box to define the region over which:
      *    The forward transformation should be valid
@@ -83,17 +90,20 @@ CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::Sourc
 
         _bbox.grow(border);
     }
-    std::cout << _bbox.toString() << std::endl;
-
+    // Calculate the forward part of the SIP distortion
     _calculateForwardMatrices();
-    _calculateReverseMatrices();
 
-    //Build a new wcs incorporating the sip matrices
+    //Build a new wcs incorporating the forward sip matrix, it's all we know so far
     afwGeom::Point2D crval = _getCrvalAsGeomPoint();
     afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
     Eigen::MatrixXd CD = _linearWcs->getCDMatrix();
     
-    _newWcs = afwImg::TanWcs::Ptr(new afwImg::TanWcs(crval, crpix, CD, _sipA, _sipB, _sipAp, _sipBp));
+    _newWcs = PTR(afwImg::TanWcs)(new afwImg::TanWcs(crval, crpix, CD, _sipA, _sipB, _sipAp, _sipBp));
+    // Use _newWcs to calculate the forward transformation on a grid, and derive the back transformation
+    _calculateReverseMatrices();
+
+    //Build a new wcs incorporating both of the sip matrices
+    _newWcs = PTR(afwImg::TanWcs)(new afwImg::TanWcs(crval, crpix, CD, _sipA, _sipB, _sipAp, _sipBp));
 
     /*
      printf("CreateWcsWithSip: output WCS:\n");
@@ -221,7 +231,38 @@ void CreateWcsWithSip::_calculateForwardMatrices() {
 
 void CreateWcsWithSip::_calculateReverseMatrices() {
     // Assumes FITS (1-indexed) coordinates.
+#if 1
+    int const ngrid2 = _ngrid*_ngrid;
 
+    Eigen::VectorXd u(ngrid2), v(ngrid2);
+    Eigen::VectorXd U(ngrid2), V(ngrid2);
+    Eigen::VectorXd delta1(ngrid2), delta2(ngrid2);
+    
+    int const x0 = _bbox.getMinX();
+    float const dx = _bbox.getWidth()/(_ngrid - 1);
+    int const y0 = _bbox.getMinY();
+    float const dy = _bbox.getHeight()/(_ngrid - 1);
+
+    afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
+    int k = 0;
+    for (int i = 0; i < _ngrid; ++i) {
+        float const y = y0 + i*dy;
+        for (int j = 0; j < _ngrid; ++j, ++k) {
+            float const x = x0 + j*dx;
+            // u and v are intermediate pixel coordinates of observed (distorted) positions
+            u[k] = x - crpix[0];
+            v[k] = y - crpix[1];
+            // U and V are the true, undistorted intermediate pixel positions as calculated
+            // from the catalogue ra and decs and the (updated) linear wcs
+            afwCoord::Coord::ConstPtr c = _newWcs->pixelToSky(x, y);
+            afwGeom::Point2D p = _linearWcs->skyToPixel(c);
+            U[k] = p[0] - crpix[0];
+            V[k] = p[1] - crpix[1];
+            delta1[k] = u[k] - U[k];
+            delta2[k] = v[k] - V[k];
+        }
+    }
+#else
     Eigen::VectorXd u(_nPoints), v(_nPoints);
     Eigen::VectorXd U(_nPoints), V(_nPoints);
     Eigen::VectorXd delta1(_nPoints), delta2(_nPoints);
@@ -240,9 +281,9 @@ void CreateWcsWithSip::_calculateReverseMatrices() {
         delta1[i] = u[i] - U[i];
         delta2[i] = v[i] - V[i];
     }
-    
+#endif
     // Reverse transform
-    int ord = _reverseSipOrder;
+    int const ord = _reverseSipOrder;
     Eigen::MatrixXd reverseC = _calculateCMatrix(U, V, ord); 
     Eigen::VectorXd tmpA = _leastSquaresSolve(delta1, reverseC);
     Eigen::VectorXd tmpB = _leastSquaresSolve(delta2, reverseC);
@@ -318,17 +359,18 @@ afwGeom::Angle CreateWcsWithSip::getScatterOnSky() {
 Eigen::MatrixXd CreateWcsWithSip::_calculateCMatrix(Eigen::VectorXd axis1, Eigen::VectorXd axis2, int order)
 {
     int nTerms = 0;
-    for (int i = 1; i<= order; ++i) {
+    for (int i = 1; i <= order; ++i) {
         nTerms += i;
     }
-    
-    Eigen::MatrixXd C = Eigen::MatrixXd::Zero(_nPoints, nTerms);
-    for (int i = 0; i < _nPoints; ++i) {
+
+    int const n = axis1.size();
+    Eigen::MatrixXd C = Eigen::MatrixXd::Zero(n, nTerms);
+    for (int i = 0; i < n; ++i) {
         for (int j = 0; j < nTerms; ++j) {
             int p = getUIndex(j, order);
             int q = getVIndex(j, order);
             assert(p+q < order);
-            C(i,j) = pow(axis1[i], p) * pow(axis2[i], q);
+            C(i,j) = ::pow(axis1[i], p)*::pow(axis2[i], q);
         }
     }
     

@@ -102,23 +102,27 @@ public:
 
     CreateWcsWithSip(const std::vector<lsst::afw::detection::SourceMatch> match,
                      CONST_PTR(lsst::afw::image::Wcs) linearWcs,
-                     int order,
-                     lsst::afw::geom::Box2I const& bbox = lsst::afw::geom::Box2I()
+                     int const order,
+                     lsst::afw::geom::Box2I const& bbox = lsst::afw::geom::Box2I(),
+                     int const ngrid=0
                     );
 
     PTR(lsst::afw::image::TanWcs) getNewWcs();
     double getScatterInPixels();
     lsst::afw::geom::Angle getScatterOnSky();
 
-    ///Get the number of terms in the SIP matrix
+    /// Get the number of terms in the SIP matrix
     int getOrder() const { return  _sipA.rows(); }
-
+    /// Return the number of points in the catalogue
     int getNPoints() const { return _nPoints; }
+    /// Return the number of grid points (on each axis) used in inverse SIP transform
+    int getNGrid() const { return _ngrid; }
 
 private:
     
     std::vector<lsst::afw::detection::SourceMatch> const _matchList;
     lsst::afw::geom::Box2I mutable _bbox;
+    int _ngrid;                         // grid size to calculate inverse SIP coefficients (1-D)
     CONST_PTR(lsst::afw::image::Wcs) _linearWcs;
     CONST_PTR(lsst::afw::image::Wcs) _origWcs;
     //size is number of input points. _sipOrder is polynomial order for forward transform.
@@ -128,7 +132,7 @@ private:
     Eigen::MatrixXd _sipA, _sipB;
     Eigen::MatrixXd _sipAp, _sipBp;
 
-    PTR(lsst::afw::image::TanWcs) _newWcs;    
+    PTR(lsst::afw::image::TanWcs) _newWcs;
     
     void _calculateForwardMatrices();
     void _calculateReverseMatrices();
