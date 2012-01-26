@@ -45,9 +45,9 @@
 #include "lsst/afw/math/Statistics.h"
 #include "lsst/afw/detection/SourceMatch.h"
 #include "lsst/afw/detection/Source.h"
+#include "lsst/afw/geom/Box.h"
 #include "lsst/afw/geom/Point.h"
 #include "lsst/afw/geom/Angle.h"
-#include "lsst/afw/image/Wcs.h"
 #include "lsst/afw/image/TanWcs.h"
 
 
@@ -101,27 +101,29 @@ public:
     typedef boost::shared_ptr<CreateWcsWithSip const> ConstPtr;
 
     CreateWcsWithSip(const std::vector<lsst::afw::detection::SourceMatch> match,
-                     const lsst::afw::image::Wcs::Ptr linearWcs,
-                     int order);
-
+                     CONST_PTR(lsst::afw::image::Wcs) linearWcs,
+                     int order,
+                     lsst::afw::geom::Box2I const& bbox = lsst::afw::geom::Box2I()
+                    );
 
     PTR(lsst::afw::image::TanWcs) getNewWcs();
     double getScatterInPixels();
     lsst::afw::geom::Angle getScatterOnSky();
 
     ///Get the number of terms in the SIP matrix
-    inline int getOrder() { return  _sipA.rows(); }
+    int getOrder() const { return  _sipA.rows(); }
 
-    inline int getNPoints() { return _size; }
+    int getNPoints() const { return _nPoints; }
 
 private:
     
-    const std::vector<lsst::afw::detection::SourceMatch> _matchList;
+    std::vector<lsst::afw::detection::SourceMatch> const _matchList;
+    lsst::afw::geom::Box2I mutable _bbox;
     CONST_PTR(lsst::afw::image::Wcs) _linearWcs;
     CONST_PTR(lsst::afw::image::Wcs) _origWcs;
     //size is number of input points. _sipOrder is polynomial order for forward transform.
     //_reverseSipOrder is order for reverse transform, not necessarily the same.
-    const int _sipOrder, _reverseSipOrder, _size;      
+    int const _sipOrder, _reverseSipOrder, _nPoints;      
 
     Eigen::MatrixXd _sipA, _sipB;
     Eigen::MatrixXd _sipAp, _sipBp;
@@ -138,9 +140,6 @@ private:
     
     int getUIndex(int j, int order);
     int getVIndex(int j, int order);
-    
-    void debug();
-    
 };    
     
 

@@ -43,13 +43,16 @@ namespace math = lsst::afw::math;
 
 ///Constructor
 CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::SourceMatch> match,
-                     const lsst::afw::image::Wcs::Ptr linearWcs,
-                     int order):
-                     _matchList(match), 
+                                   CONST_PTR(lsst::afw::image::Wcs) linearWcs,
+                                   int order,
+                                   lsst::afw::geom::Box2I const& bbox
+                                  ):
+                     _matchList(match),
+                     _bbox(bbox),
                      _linearWcs(linearWcs->clone()),
                      _sipOrder(order+1),
                      _reverseSipOrder(order+2), //Higher order for reverse transform
-                     _size(match.size()),
+                     _nPoints(match.size()),
                      _sipA(Eigen::MatrixXd::Zero(_sipOrder, _sipOrder)),
                      _sipB(Eigen::MatrixXd::Zero(_sipOrder, _sipOrder)),
                      _sipAp(Eigen::MatrixXd::Zero(_reverseSipOrder, _reverseSipOrder)),
@@ -60,23 +63,27 @@ CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::Sourc
         throw LSST_EXCEPT(except::RuntimeErrorException, "Sip matrices are at least 2nd order");        
     }
     
-    if (_size < _sipOrder) {
+    if (_nPoints < _sipOrder) {
         throw LSST_EXCEPT(except::RuntimeErrorException, "Number of matches less than requested sip order");
     }
-
     /*
-     printf("CreateWcsWithSip: input match list:\n");
-     for (size_t i=0; i<_matchList.size(); i++) {
-     det::Source::Ptr cat = _matchList[i].first;
-     det::Source::Ptr img = _matchList[i].second;
-     printf("  % 3i:  cat RA,Dec (%.3f, %.3f); X,Y (%.1f, %.1f)\n", (int)i,
-     cat->getRaAstrom().asDegrees(), cat->getDecAstrom().asDegrees(),
-     cat->getXAstrom(), cat->getYAstrom());
-     printf("     :  img RA,Dec (%.3f, %.3f); X,Y (%.1f, %.1f)\n",
-     img->getRaAstrom().asDegrees(), img->getDecAstrom().asDegrees(),
-     img->getXAstrom(), img->getYAstrom());
-     }
+     * We need a bounding box to define the region over which:
+     *    The forward transformation should be valid
+     *    We calculate the reverse transformartion
+     * If no BBox is provided, guess one from the input points (extrapolated a bit to allow for fact
+     * that a finite number of points won't reach to the edge of the image)
      */
+    if (_bbox.isEmpty() and _nPoints > 0) {
+        for(int i = 0; i < _nPoints; ++i) {
+            _bbox.include(afwGeom::PointI(_matchList[i].second->getXAstrom(),
+                                          _matchList[i].second->getYAstrom()));
+        }
+        float const borderFrac = 1/::sqrt(_nPoints); // fractional border to add to exact BBox
+        afwGeom::Extent2I border(borderFrac*_bbox.getWidth(), borderFrac*_bbox.getHeight());
+
+        _bbox.grow(border);
+    }
+    std::cout << _bbox.toString() << std::endl;
 
     _calculateForwardMatrices();
     _calculateReverseMatrices();
@@ -141,9 +148,9 @@ void CreateWcsWithSip::_calculateForwardMatrices() {
     afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
 
     // Calculate u, v and intermediate world coordinates
-    Eigen::VectorXd u(_size), v(_size), iwc1(_size), iwc2(_size);
+    Eigen::VectorXd u(_nPoints), v(_nPoints), iwc1(_nPoints), iwc2(_nPoints);
     
-    for(int i=0; i < _size; ++i) {
+    for(int i=0; i < _nPoints; ++i) {
         // iwc's store the intermediate world coordinate positions of catalogue objects
         afwCoord::Coord::Ptr c = _matchList[i].first->getRaDec();
         //printf("i=%i,  ra,dec = (%.3f, %.3f)\n", i, c->getLongitude().asDegrees(), c->getLatitude().asDegrees());
@@ -214,13 +221,13 @@ void CreateWcsWithSip::_calculateForwardMatrices() {
 
 void CreateWcsWithSip::_calculateReverseMatrices() {
     // Assumes FITS (1-indexed) coordinates.
-    afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
 
-    Eigen::VectorXd u(_size), v(_size);
-    Eigen::VectorXd U(_size), V(_size);
-    Eigen::VectorXd delta1(_size), delta2(_size);
+    Eigen::VectorXd u(_nPoints), v(_nPoints);
+    Eigen::VectorXd U(_nPoints), V(_nPoints);
+    Eigen::VectorXd delta1(_nPoints), delta2(_nPoints);
     
-    for(int i=0; i < _size; ++i) {
+    afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
+    for(int i=0; i < _nPoints; ++i) {
         // u and v are intermediate pixel coordinates of observed (distorted) positions
         u[i] = _matchList[i].second->getXAstrom() - crpix[0];
         v[i] = _matchList[i].second->getYAstrom() - crpix[1];
@@ -308,23 +315,23 @@ afwGeom::Angle CreateWcsWithSip::getScatterOnSky() {
 }
 
 
-Eigen::MatrixXd CreateWcsWithSip::_calculateCMatrix(Eigen::VectorXd axis1, Eigen::VectorXd axis2, int order) {
-
+Eigen::MatrixXd CreateWcsWithSip::_calculateCMatrix(Eigen::VectorXd axis1, Eigen::VectorXd axis2, int order)
+{
     int nTerms = 0;
-    for(int i =1; i<= order; ++i) {
+    for (int i = 1; i<= order; ++i) {
         nTerms += i;
     }
     
-    Eigen::MatrixXd C = Eigen::MatrixXd::Zero(_size, nTerms);
-    for(int i=0; i< _size; ++i) {
-        for(int j=0; j < nTerms; ++j) {
+    Eigen::MatrixXd C = Eigen::MatrixXd::Zero(_nPoints, nTerms);
+    for (int i = 0; i < _nPoints; ++i) {
+        for (int j = 0; j < nTerms; ++j) {
             int p = getUIndex(j, order);
             int q = getVIndex(j, order);
             assert(p+q < order);
             C(i,j) = pow(axis1[i], p) * pow(axis2[i], q);
         }
-        
     }
+    
     return C;
 }
     
