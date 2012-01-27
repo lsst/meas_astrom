@@ -38,24 +38,10 @@ using namespace std;
 
 #include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
 
-
-using namespace std;
-namespace except = lsst::pex::exceptions;
-namespace pexLog = lsst::pex::logging;
 namespace afwCoord = lsst::afw::coord;
 namespace afwGeom = lsst::afw::geom;
 namespace afwImg = lsst::afw::image;
 namespace afwDet = lsst::afw::detection;
-namespace det = lsst::afw::detection;
-namespace math = lsst::afw::math;
-
-
-afwImg::TanWcs::Ptr createWcsPtr(afwGeom::Point2D crval, afwGeom::Point2D crpix, Eigen::Matrix2d CD)
-{
-    afwImg::TanWcs::Ptr wcs = afwImg::TanWcs::Ptr(new  afwImg::TanWcs(crval, crpix, CD));
-    return wcs;
-}
-
 
 afwImg::TanWcs::Ptr createDefaultWcsPtr()
 {
@@ -70,7 +56,7 @@ afwImg::TanWcs::Ptr createDefaultWcsPtr()
     CD(1,0) = 0;
     CD(1,1) = arcsecPerPixel;
 
-    return createWcsPtr(crval, crpix, CD);
+    return afwImg::TanWcs::Ptr(new  afwImg::TanWcs(crval, crpix, CD));
 }
 
 
@@ -81,10 +67,8 @@ vector<afwDet::SourceMatch> generateSourceSet(afwImg::TanWcs::Ptr wcsPtr)
     int step= 1000;
     vector<afwDet::SourceMatch> sourceMatchSet;
 
-    for(int i=0; i<=num; i+=step)
-    {
-        for(int j=0; j<=num; j+=step)
-        {
+    for(int i=0; i<=num; i+=step) {
+        for(int j=0; j<=num; j+=step) {
             afwDet::Source::Ptr src = afwDet::Source::Ptr(new afwDet::Source());
             afwDet::Source::Ptr cat = afwDet::Source::Ptr(new afwDet::Source());
 
@@ -95,9 +79,9 @@ vector<afwDet::SourceMatch> generateSourceSet(afwImg::TanWcs::Ptr wcsPtr)
             src->setYAstrom(j);
 
             afwCoord::Coord::Ptr c = wcsPtr->pixelToSky(i, j);
-			cat->setRaDec(c);
-			cat->setRaDecAstrom(c);
-			printf("RA,Dec = (%.3f, %.3f) deg\n", c->toFk5().getRa().asDegrees(), c->toFk5().getDec().asDegrees());
+            cat->setRaDec(c);
+            cat->setRaDecAstrom(c);
+            printf("RA,Dec = (%.3f, %.3f) deg\n", c->toFk5().getRa().asDegrees(), c->toFk5().getDec().asDegrees());
 
             double dist = hypot(src->getXAstrom()-cat->getXAstrom(), src->getYAstrom() - cat->getYAstrom());
             sourceMatchSet.push_back(afwDet::SourceMatch(cat, src, dist));
@@ -106,16 +90,13 @@ vector<afwDet::SourceMatch> generateSourceSet(afwImg::TanWcs::Ptr wcsPtr)
     }
 
     return sourceMatchSet;
-
-
 }
 
 
 void checkResults(afwImg::Wcs::Ptr wcsPtr, afwImg::TanWcs::Ptr sipWcsPtr, vector<afwDet::SourceMatch> sourceMatchSet)
 {
 	//printf("sourceMatchSet size: %i\n", (int)sourceMatchSet.size());
-    for(unsigned int i=0; i< sourceMatchSet.size(); ++i)
-    {
+    for(unsigned int i=0; i< sourceMatchSet.size(); ++i) {
 		afwDet::Source::Ptr cat = sourceMatchSet[i].first;
 		afwDet::Source::Ptr src = sourceMatchSet[i].second;
         double srcX = src->getXAstrom();
@@ -180,13 +161,11 @@ BOOST_AUTO_TEST_CASE(offset)
 
 BOOST_AUTO_TEST_CASE(linearX)
 {
-
     afwImg::TanWcs::Ptr wcsPtr = createDefaultWcsPtr();
     vector<afwDet::SourceMatch> sourceMatchSet = generateSourceSet(wcsPtr);
     
     //Add an offset to each point
-    for(unsigned int i = 0; i<sourceMatchSet.size(); ++i)
-    {
+    for(size_t i = 0; i != sourceMatchSet.size(); ++i) {
         double x = sourceMatchSet[i].second->getXAstrom();
         double y = sourceMatchSet[i].second->getYAstrom();
         
@@ -208,8 +187,7 @@ BOOST_AUTO_TEST_CASE(linearXY)
     vector<afwDet::SourceMatch> sourceMatchSet = generateSourceSet(wcsPtr);
     
     //Add an offset to each point
-    for(unsigned int i = 0; i<sourceMatchSet.size(); ++i)
-    {
+    for(size_t i = 0; i != sourceMatchSet.size(); ++i) {
         double x = sourceMatchSet[i].second->getXAstrom();
         double y = sourceMatchSet[i].second->getYAstrom();
         
@@ -231,7 +209,7 @@ BOOST_AUTO_TEST_CASE(linearYX)
     vector<afwDet::SourceMatch> sourceMatchSet = generateSourceSet(wcsPtr);
     
     //Add an offset to each point
-    for(unsigned int i = 0; i<sourceMatchSet.size(); ++i)
+    for(size_t i = 0; i != sourceMatchSet.size(); ++i)
     {
         double x = sourceMatchSet[i].second->getXAstrom();
         double y = sourceMatchSet[i].second->getYAstrom();
@@ -247,13 +225,12 @@ BOOST_AUTO_TEST_CASE(linearYX)
 }
 
 
-
 BOOST_AUTO_TEST_CASE(quadraticX) {
     afwImg::TanWcs::Ptr wcsPtr = createDefaultWcsPtr();
     vector<afwDet::SourceMatch> sourceMatchSet = generateSourceSet(wcsPtr);
     
     //Add an offset to each point
-    for (size_t i = 0; i<sourceMatchSet.size(); ++i) {
+    for (size_t i = 0; i != sourceMatchSet.size(); ++i) {
         double x = sourceMatchSet[i].second->getXAstrom();
         double y = sourceMatchSet[i].second->getYAstrom();
         sourceMatchSet[i].second->setXAstrom(x + 1e-5*x*x);
