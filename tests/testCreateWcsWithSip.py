@@ -87,7 +87,7 @@ class CreateWcsWithSipTestCase(unittest.TestCase):
         del self.sipObject
         
     def assertAlmostEqualAngle(self, a1, a2):
-        self.assertAlmostEqual(a1.asDegrees(), a2.asDegrees())
+        self.assertAlmostEqual(a1.asArcseconds(), a2.asArcseconds(), 3) # 1 mas tolerance
 
     def checkResults(self, sipWcs):
         for cat, src, d in self.sourceMatchSet:
@@ -107,8 +107,8 @@ class CreateWcsWithSipTestCase(unittest.TestCase):
             if False:
                 print "cat X,Y = (%.3f, %.3f)" % (catxy[0], catxy[1])
                 print "src X,Y = (%.3f, %.3f)" % (srcX, srcY);
-            self.assertAlmostEqual(srcX, catxy[0])
-            self.assertAlmostEqual(srcY, catxy[1])
+            self.assertAlmostEqual(srcX, catxy[0], 3) # within a milli-pixel
+            self.assertAlmostEqual(srcY, catxy[1], 3)
 
     def doTest(self, name, func, order=2):
         """Apply func(x, y) to each point"""
@@ -169,4 +169,3 @@ def run(shouldExit=False):
 
 if __name__ == "__main__":
     run(True)
-        
