@@ -16,7 +16,6 @@ python/lsst/meas/astrom/sip/sipLib_wrap.*
 tests/.tests
 tests/data
 tests/testConvertCheby
-tests/testCreateWcsWithSip
 tests/testlsf1d
 tests/testlsf2d
 *.cfgc
