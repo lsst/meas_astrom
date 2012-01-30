@@ -23,3 +23,5 @@ tests/testlsf2d
 doc/html/
 doc/*.tag
 version.py
+python/lsst/meas/astrom/astrometry_net.py
+python/lsst/meas/astrom/astrometry_net_wrap.cc
