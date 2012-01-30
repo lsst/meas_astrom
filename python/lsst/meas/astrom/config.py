@@ -42,26 +42,26 @@ class AstrometryNetDataConfig(pexConfig.Config):
     #     '''Filter column names''',
     #     default=[])
 
-    indexFiles = ListField(dtype=str, default=[],
+    indexFiles = ListField(itemType=str, default=[],
                            doc='''Astrometry.net index filenames''')
 
-class AstrometryConfig(pexConfig.Config):
-    from lsst.pex.config import Field
+class MeasAstromConfig(pexConfig.Config):
+    from lsst.pex.config import Field, RangeField
 
-    maxCpuTime = Field(
+    maxCpuTime = RangeField(
         '''Maximum CPU time to spend solving, in seconds''',
         float,
-        default=0., check=lambda x: x>=0.)
+        default=0., min=0.)
 
-    matchThreshold = Field(
+    matchThreshold = RangeField(
         '''Matching threshold for Astrometry.net solver (log-odds)''',
         float,
-        default=math.log(1e12), check=lambda x: x > math.log(1e6))
+        default=math.log(1e12), min=math.log(1e6))
 
-    maxStars = Field(
+    maxStars = RangeField(
         '''Maximum number of stars to use in Astrometry.net solving''',
         int,
-        default=50, check = lambda x: x>=10)
+        default=50, min=10)
 
     #forceBlindSolve = Field(
     #    bool,
@@ -93,15 +93,15 @@ class AstrometryConfig(pexConfig.Config):
         dtype=bool, default=True,
         doc='''Use the parity (flip / handedness) of the image from the input exposure\'s WCS headers?''')
 
-    raDecSearchRadius = Field(
+    raDecSearchRadius = RangeField(
         '''When useWcsRaDecCenter=True, this is the radius, in degrees, around the RA,Dec center specified in the input exposure\'s WCS to search for a solution.''',
         float,
-        default=1.)
+        default=1., min=0.)
 
-    pixelScaleUncertainty = Field(
-        '''Range of pixel scales, around the value in the WCS header, to search''',
+    pixelScaleUncertainty = RangeField(
+        '''Range of pixel scales, around the value in the WCS header, to search.  If the value of this field is X and the nominal scale is S, the range searched will be  S/X to S*X''',
         float,
-        default = 1.1, check=lambda x: x>1.)
+        default = 1.1, min=1.001)
 
     # forceParity?
     # forcePixelScale?
@@ -117,26 +117,26 @@ class AstrometryConfig(pexConfig.Config):
     #     check=lambda x: (len(x) == 2 and
     #                      type(x[0]) is int and type(x[1]) is int))
 
-    catalogMatchDist = Field(
+    catalogMatchDist = RangeField(
         #afwGeom.Angle,
         '''When matching image to reference catalog stars, how big should
         the matching radius be?''',
         float,
         default=1.,#* afwGeom.arcseconds,
-        check=lambda x: x>0)
+        min=0.)
 
-    cleaningParameter = Field(
+    cleaningParameter = RangeField(
         '''Sigma-clipping parameter in sip/cleanBadPoints.py''',
         float,
-        default=3., check=lambda x: x>0)
+        default=3., min=0.)
 
     calculateSip = Field(
         '''Compute polynomial SIP distortion terms?''',
         bool,
         default=True)
 
-    sipOrder = Field(
+    sipOrder = RangeField(
         '''Polynomial order of SIP distortion terms''',
         int,
-        default=4, check=lambda x: x>=2)
+        default=4, min=2)
 

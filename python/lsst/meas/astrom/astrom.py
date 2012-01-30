@@ -38,7 +38,7 @@ class InitialAstrometry(object):
 
 class Astrometry(object):
     import config
-    ConfigClass = config.AstromConfig
+    ConfigClass = config.MeasAstromConfig
 
     def __init__(self,
                  config,
