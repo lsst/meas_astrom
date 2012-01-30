@@ -3,7 +3,7 @@ import lsst.pex.config as pexConfig
 import lsst.afw.geom as afwGeom
 
 
-class AstromNetDataConfig(pexConfig.Config):
+class AstrometryNetDataConfig(pexConfig.Config):
     from lsst.pex.config import Field, ListField
 
     idColumn = Field(
@@ -45,7 +45,7 @@ class AstromNetDataConfig(pexConfig.Config):
     indexFiles = ListField(str, default=[],
                            doc='''Astrometry.net index filenames''')
 
-class AstromConfig(pexConfig.Config):
+class AstrometryConfig(pexConfig.Config):
     from lsst.pex.config import Field
 
     maxCpuTime = Field(
@@ -68,7 +68,7 @@ class AstromConfig(pexConfig.Config):
     #    '''Ignore any input WCS and do a blind solve?''',
     #    default=False)
 
-    # useImageWcs = ChoiceField(
+    #useInputWcs = Field(bool, ...)
     #     str,
     #     '''Use the WCS header information in the input exposure?  We
     #     can take advantage of the pixel scale and RA,Dec center to
