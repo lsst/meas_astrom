@@ -4,7 +4,7 @@ import lsst.afw.geom as afwGeom
 
 
 class AstrometryNetDataConfig(pexConfig.Config):
-    from lsst.pex.config import Field, ListField
+    from lsst.pex.config import Field, ListField, DictField
 
     idColumn = Field(
         '''Column name of the ID number''',
@@ -26,14 +26,12 @@ class AstrometryNetDataConfig(pexConfig.Config):
         str,
         default=None)
 
-    magErrorColumnMap = Field(
+    magErrorColumnMap = DictField(
         '''Mapping from LSST filter name to mag error column name''',
-        dict,
         default=None)
 
-    magColumnMap = Field(
+    magColumnMap = DictField(
         '''Mapping from LSST filter name to mag column name''',
-        dict,
         default=None)
 
     # ?
@@ -42,7 +40,7 @@ class AstrometryNetDataConfig(pexConfig.Config):
     #     '''Filter column names''',
     #     default=[])
 
-    indexFiles = ListField(itemType=str, default=[],
+    indexFiles = ListField(dtype=str, default=[],
                            doc='''Astrometry.net index filenames''')
 
 class MeasAstromConfig(pexConfig.Config):
