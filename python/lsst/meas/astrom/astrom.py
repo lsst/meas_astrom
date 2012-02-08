@@ -203,6 +203,8 @@ class Astrometry(object):
         '''
 
         wcs,qa = self._solve(sources, wcs, imageSize, pixelScale, radecCenter, searchRadius, parity)
+        if wcs is None:
+            raise RuntimeError("Unable to match sources with catalog.")
 
         pixelMargin = 50.
         cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName, pixelMargin)
