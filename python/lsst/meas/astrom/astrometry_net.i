@@ -174,10 +174,10 @@ static time_t timer_callback(void* baton) {
 		for (std::vector<index_t*>::iterator pind = inds.begin();
 			 pind != inds.end(); ++pind) {
 			index_t* ind = (*pind);
-			printf("checking index \"%s\"\n", ind->indexname);
+			//printf("checking index \"%s\"\n", ind->indexname);
 			if (!index_is_within_range(ind, ra, dec, radius + margin)) {
-				printf(" skipping: not within range\n");
-				continue;
+                             //printf(" skipping: not within range\n");
+                             continue;
 			}
 			// Ensure the index is loaded...
 			index_reload(ind);
@@ -188,7 +188,7 @@ static time_t timer_callback(void* baton) {
 			int nstars = 0;
 			startree_search_for(ind->starkd, xyz, r2, NULL,
 								&radecs, &starinds, &nstars);
-			printf("found %i\n", nstars);
+			//printf("found %i\n", nstars);
 			if (nstars == 0)
 				continue;
 			// FIXME -- handle duplicates here, or in python?
@@ -330,7 +330,7 @@ static time_t timer_callback(void* baton) {
 	}
 
 	void run(double cpulimit) {
-		printf("Solver run...\n");
+//		printf("Solver run...\n");
 		solver_log_params($self);
 		struct timer_baton tt;
 		if (cpulimit > 0.) {
@@ -344,14 +344,14 @@ static time_t timer_callback(void* baton) {
 			$self->timer_callback = NULL;
 			$self->userdata = NULL;
 		}
-		printf("solver_run returned.\n");
+//		printf("solver_run returned.\n");
 	}
 
 	void addIndices(std::vector<index_t*> inds) {
 		for (std::vector<index_t*>::iterator pind = inds.begin();
 			 pind != inds.end(); ++pind) {
 			index_t* ind = *pind;
-			printf("Checking index \"%s\"\n", ind->indexname);
+//			printf("Checking index \"%s\"\n", ind->indexname);
 			if ($self->use_radec) {
 				double ra,dec,radius;
 				xyzarr2radecdeg($self->centerxyz, &ra, &dec);
@@ -365,10 +365,10 @@ static time_t timer_callback(void* baton) {
 			double qlo, qhi;
 			solver_get_quad_size_range_arcsec($self, &qlo, &qhi);
 			if (!index_overlaps_scale_range(ind, qlo, qhi)) {
-				printf("Not within quad scale range\n");
+//				printf("Not within quad scale range\n");
 				continue;
 			}
-			printf("Adding index.\n");
+//			printf("Adding index.\n");
 			if (index_reload(ind)) {
 				assert(0);
 			}
