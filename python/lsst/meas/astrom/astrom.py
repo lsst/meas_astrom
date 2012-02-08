@@ -5,8 +5,10 @@ import lsst.daf.base as dafBase
 import lsst.pex.logging as pexLog
 import lsst.pex.config as pexConfig
 import lsst.afw.geom as afwGeom
+import lsst.afw.detection as afwDet
 import lsst.meas.algorithms.utils as maUtils
 
+from .config import MeasAstromConfig, AstrometryNetDataConfig
 import sip as astromSip
 import net as astromNet
 
@@ -37,8 +39,7 @@ class InitialAstrometry(object):
         return getattr(self, 'matchMetadata', None)
 
 class Astrometry(object):
-    import config
-    ConfigClass = config.MeasAstromConfig
+    ConfigClass = MeasAstromConfig
 
     def __init__(self,
                  config,
@@ -59,34 +60,31 @@ class Astrometry(object):
                                   'meas.astrom',
                                   logLevel)
 
-        if andConfig is not None:
-            self.andConfig = andConfig
-        else:
+        if andConfig is None:
             # ASSUME SETUP IN EUPS
             dirnm = os.environ.get('ASTROMETRY_NET_DATA_DIR')
             if dirnm is None:
-                self.log.log(pexLog.Log.WARN, 'astrometry_net_data is not setup')
-            else:
-                fn = os.path.join(dirnm, 'metadata.paf')
-                self.andConfig = pexConfig.Config.load(fn)
+                raise RuntimeError("astrometry_net_data is not setup")
+            andConfig = AstrometryNetDataConfig()
+            fn = os.path.join(dirnm, 'andConfig.py')
+            andConfig.load(fn)
 
+        self.andConfig = andConfig
         self._readIndexFiles()
 
     def _readIndexFiles(self):
         import astrometry_net as an
         self.inds = []
         for fn in self.andConfig.indexFiles:
-            print 'Adding index file', fn
+            self.log.log(self.log.DEBUG, 'Adding index file %s' % fn)
             fn = self._getIndexPath(fn)
-            print 'Path', fn
+            self.log.log(self.log.DEBUG, 'Path: %s' % fn)
             ind = an.index_load(fn, an.INDEX_ONLY_LOAD_METADATA, None);
             if ind:
                 self.inds.append(ind)
-                print ('  index %i, hp %i (nside %i), nstars %i, nquads %i' %
-                       (ind.indexid, ind.healpix, ind.hpnside,
-                        ind.nstars, ind.nquads))
+                self.log.log(self.log.DEBUG, '  index %i, hp %i (nside %i), nstars %i, nquads %i' %
+                             (ind.indexid, ind.healpix, ind.hpnside, ind.nstars, ind.nquads))
             else:
-                print 'Failed to read index file', fn
                 raise RuntimeError('Failed to read index file: "%s"' % fn)
 
     def _debug(self, s):
@@ -211,7 +209,7 @@ class Astrometry(object):
 
         catids = [src.getSourceId() for src in cat]
         uids = set(catids)
-        print '%i reference sources; %i unique IDs' % (len(catids), len(uids))
+        self.log.log(self.log.DEBUG, '%i reference sources; %i unique IDs' % (len(catids), len(uids)))
 
         matchList = self._getMatchList(sources, cat, wcs)
 
@@ -249,7 +247,10 @@ class Astrometry(object):
 
         astrom.matchMetadata = meta
         astrom.wcs = wcs
-        astrom.matches = matchList
+
+        astrom.matches = afwDet.SourceMatchVector()
+        for m in matchList:
+            astrom.matches.push_back(m)
 
         return astrom
 
@@ -357,8 +358,8 @@ class Astrometry(object):
         solver.setImageSize(*imageSize)
         solver.setMatchThreshold(self.config.matchThreshold)
         if radecCenter is not None:
-            ra = radecCenter.getRa().asDegrees()
-            dec = radecCenter.getDec().asDegrees()
+            ra = radecCenter.getLongitude().asDegrees()
+            dec = radecCenter.getLatitude().asDegrees()
             solver.setRaDecRadius(ra, dec, searchRadius.asDegrees())
 
         if pixelScale is not None:
@@ -383,15 +384,15 @@ class Astrometry(object):
 
         solver.run(cpulimit)
         if solver.didSolve():
-            print 'Solved!'
+            self.log.log(self.log.DEBUG, 'Solved!')
             wcs = solver.getWcs()
-            print 'WCS:', wcs.getFitsMetadata().toString()
+            self.log.log(self.log.DEBUG, 'WCS: %s' % wcs.getFitsMetadata().toString())
         else:
-            print 'Did not solve.'
+            self.log.log(self.log.DEBUG, 'Did not solve.')
             wcs = None
 
         qa = solver.getSolveStats()
-        print 'qa:', qa.toString()
+        self.log.log(self.log.DEBUG, 'qa: %s' % qa.toString())
 
         #del solver
 
