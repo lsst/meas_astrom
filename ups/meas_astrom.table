@@ -2,6 +2,8 @@ setupRequired(afw >= 4.7.3.0)
 setupRequired(meas_algorithms >= 4.7.3.0)
 setupRequired(pex_logging >= 4.7.3.0)
 
+#setupRequired(pex_config)
+
 setupRequired(wcslib >= 4.4.4)
 setupRequired(astrometry_net == 0.30)
 
