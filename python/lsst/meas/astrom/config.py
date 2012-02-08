@@ -27,11 +27,15 @@ class AstrometryNetDataConfig(pexConfig.Config):
         default=None)
 
     magErrorColumnMap = DictField(
-        '''Mapping from LSST filter name to mag error column name''',
+        doc='''Mapping from LSST filter name to mag error column name''',
+        keytype=str,
+        itemtype=str,
         default=None)
 
     magColumnMap = DictField(
-        '''Mapping from LSST filter name to mag column name''',
+        doc='''Mapping from LSST filter name to mag column name''',
+        keytype=str,
+        itemtype=str,
         default=None)
 
     # ?
