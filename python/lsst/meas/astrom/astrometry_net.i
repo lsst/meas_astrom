@@ -357,7 +357,7 @@ static time_t timer_callback(void* baton) {
 				xyzarr2radecdeg($self->centerxyz, &ra, &dec);
 				radius = distsq2deg($self->r2);
 				if (!index_is_within_range(ind, ra, dec, radius)) {
-					printf("Not within RA,Dec range\n");
+                                     //printf("Not within RA,Dec range\n");
 					continue;
 				}
 			}
