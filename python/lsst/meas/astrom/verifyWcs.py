@@ -82,7 +82,7 @@ def checkMatches(srcMatchSet, exposure, log=None):
         j = 0
         for cand in cell:
             #
-            # Swig doesn't know that we're a SpatialCellImageCandidate;  all it knows is that we have
+            # Swig doesn't know that we're a SpatialCellMaskedImageCandidate;  all it knows is that we have
             # a SpatialCellCandidate so we need an explicit (dynamic) cast
             #
             cand = measAlg.cast_PsfCandidateF(cand)
