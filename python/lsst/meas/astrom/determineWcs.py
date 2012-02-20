@@ -470,6 +470,25 @@ def generateMatchesFromMatchList(matchList, sources, wcs, width, height,
         return cleanList,refs
     return cleanList
 
+def readMatches(butler, dataId, sourcesName='icSrc', matchesName='icMatch', headerName='calexp_md'):
+    """Read matches, sources and catalogue; combine.
+
+    @param butler Data butler
+    @param dataId Data identifier for butler
+    @param sourcesName Name for sources from butler
+    @param matchesName Name for matches from butler
+    @param headersName Name for headers from butler
+    @returns Matches
+    """
+    sources = butler.get(sourcesName, dataId)
+    matches = butler.get(matchesName, dataId)
+    header = butler.get(headerName, dataId)
+    
+    wcs = afwImage.makeWcs(header)
+    width, height = header.get('NAXIS1'), header.get('NAXIS2')
+    matches = measAstrom.generateMatchesFromMatchList(matches, sources.getSources(), wcs, width, height)
+    return matches
+
 def readReferenceSourcesFromMetadata(meta, log=Log.getDefaultLog(), policy=None, filterName=None, useIndexHealpix=True, wcs=None):
     '''
     Read the catalog based on the provided metadata
