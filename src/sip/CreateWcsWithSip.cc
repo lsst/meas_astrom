@@ -185,7 +185,7 @@ CreateWcsWithSip::CreateWcsWithSip(const std::vector<lsst::afw::detection::Sourc
      for (size_t i=0; i<_matchList.size(); i++) {
      afwDet::Source::Ptr cat = _matchList[i].first;
      afwDet::Source::Ptr img = _matchList[i].second;
-     afwGeom::Point2D catxy = _newWcs->skyToPixel(cat->getRaDecAstrom());
+     afwGeom::Point2D catxy = _newWcs->skyToPixel(*cat->getRaDecAstrom());
      afwCoord::Coord::Ptr imgrd = _newWcs->pixelToSky(img->getXAstrom(), img->getYAstrom());
      printf("  % 3i:  cat RA,Dec (%.3f, %.3f) --Wcs--> X,Y (%.1f, %.1f)\n", (int)i,
      cat->getRaAstrom().asDegrees(), cat->getDecAstrom().asDegrees(),
@@ -215,7 +215,7 @@ CreateWcsWithSip::_calculateForwardMatrices()
         // iwc's store the intermediate world coordinate positions of catalogue objects
         afwCoord::Coord::Ptr c = match.first->getRaDec();
         //printf("i=%i,  ra,dec = (%.3f, %.3f)\n", i, c->getLongitude().asDegrees(), c->getLatitude().asDegrees());
-        afwGeom::Point2D p = _linearWcs->skyToIntermediateWorldCoord(c);
+        afwGeom::Point2D p = _linearWcs->skyToIntermediateWorldCoord(*c);
         iwc1[i] = p[0];
         iwc2[i] = p[1];
         // u and v are intermediate pixel coordinates of observed (distorted) positions
@@ -305,7 +305,7 @@ void CreateWcsWithSip::_calculateReverseMatrices() {
             // U and V are the true, undistorted intermediate pixel positions as calculated
             // using the new Tan-Sip forward coefficients (to sky) and the linear Wcs (back to pixels)
             afwCoord::Coord::ConstPtr c = _newWcs->pixelToSky(x, y);
-            afwGeom::Point2D p = _linearWcs->skyToPixel(c);
+            afwGeom::Point2D p = _linearWcs->skyToPixel(*c);
             U[k] = p[0] - crpix[0];
             V[k] = p[1] - crpix[1];
             delta1[k] = u[k] - U[k];
@@ -344,7 +344,7 @@ double CreateWcsWithSip::getScatterInPixels() {
         double imgX = imgSrc->getXAstrom();
         double imgY = imgSrc->getYAstrom();
         
-        afwGeom::Point2D xy = _newWcs->skyToPixel(catSrc->getRaDec());
+        afwGeom::Point2D xy = _newWcs->skyToPixel(*catSrc->getRaDec());
         double catX = xy[0];
         double catY = xy[1];
         
