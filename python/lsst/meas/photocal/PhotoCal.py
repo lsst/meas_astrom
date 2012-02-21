@@ -96,6 +96,8 @@ use the value from the measured sources (specifically, the STAR bit in the detec
     #Convert fluxes to magnitudes
     out = getMagnitudes(sourceMatch)
 
+    print out
+
     if magLimit is not None:
         bright = out["cat"] < magLimit
         for k in out.keys():
@@ -118,9 +120,8 @@ use the value from the measured sources (specifically, the STAR bit in the detec
     return PhotometricMagnitude(zeroFlux=1.0, zeroMag=zp)
 
 def getMagnitudes(sourceMatch):
-
-    #Extract the fluxes as numpy arrays. Catalogues don't always come with errors
-    #so we may need to make an estimate using sqrt(counts)
+    # Extract the fluxes as numpy arrays. Catalogues don't always come with errors
+    # so we may need to make an estimate using sqrt(counts)
     fluxCat =    np.array([m.first.getPsfFlux() for m in sourceMatch])
     fluxCatErr = np.array([m.first.getPsfFluxErr() for m in sourceMatch])
     if False:

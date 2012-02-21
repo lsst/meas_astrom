@@ -10,7 +10,6 @@ import lsst.meas.algorithms.utils as maUtils
 
 from .config import MeasAstromConfig, AstrometryNetDataConfig
 import sip as astromSip
-import net as astromNet
 
 # Object returned by determineWcs.
 class InitialAstrometry(object):
@@ -97,19 +96,25 @@ class Astrometry(object):
 
     def determineWcs(self,
                      sources,
-                     exposure):
+                     exposure,
+                     **kwargs):
         '''
         Version of determineWcs(), meant for pipeline use, that gets
         almost all its parameters from config or reasonable defaults.
         '''
         assert(exposure is not None)
-        rdrad = self.config.raDecSearchRadius * afwGeom.degrees
 
-        return self.determineWcs2(sources, exposure,
-                                  searchRadius=rdrad,
-                                  usePixelScale = self.config.useWcsPixelScale,
-                                  useRaDecCenter = self.config.useWcsRaDecCenter,
-                                  useParity = self.config.useWcsParity)
+        margs = kwargs.copy()
+        if not 'searchRadius' in margs:
+            margs.update(searchRadius = self.config.raDecSearchRadius * afwGeom.degrees)
+        if not 'usePixelScale' in margs:
+            margs.update(usePixelScale = self.config.useWcsPixelScale)
+        if not 'useRaDecCenter' in margs:
+            margs.update(useRaDecCenter = self.config.useWcsRaDecCenter)
+        if not 'useParity' in margs:
+            margs.update(useParity = self.config.useWcsParity)
+
+        return self.determineWcs2(sources, exposure, **margs)
         
 
     def determineWcs2(self,

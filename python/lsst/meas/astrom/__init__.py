@@ -21,12 +21,9 @@
 #
 import lsst.utils
 
-import net
 import sip
 from config import MeasAstromConfig, AstrometryNetDataConfig
 import astrom
 from lsst.meas.astrom.astrom import Astrometry
-
-from determineWcs import *
 
 from .version import *

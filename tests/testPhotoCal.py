@@ -29,12 +29,15 @@ import glob
 import math
 import unittest
 
+import matplotlib
+matplotlib.use('Agg')
+import pylab as plt
+
 import numpy as np
 
 import eups
 import lsst.meas.astrom            as measAstrom
 import lsst.meas.algorithms.utils  as measAlgUtil
-import lsst.meas.astrom.net        as net
 import lsst.afw.detection          as afwDet
 import lsst.afw.math               as afwMath
 import lsst.afw.image              as afwImg
@@ -51,38 +54,18 @@ import sourceSetIO                 as ssi
 class PhotoCalTest(unittest.TestCase):
 
     def setUp(self):
-        self.defaultPolicy = pexPolicy.Policy.createPolicy(pexPolicy.PolicyString(
-        """#<?cfg paf policy?>     
-        inputExposureKey: visitExposure
-        inputSourceSetKey: sourceSet
-        allowDistortion: true
-        matchThreshold: 22
-        blindSolve: false
-        outputWcsKey: measuredWcs
-        outputMatchListKey: matchList
-        distanceForCatalogueMatchinArcsec: 1.0
-        cleaningParameter: 3
-        calculateSip: false
-        numBrightStars: 75
-        defaultFilterName: mag
-        sipOrder: 4
-        """
-        ))
+        self.conf = measAstrom.MeasAstromConfig()
         
         #Load sample input from disk
         mypath = eups.productDir("meas_astrom")
         path = os.path.join(mypath, "examples")
-        self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci"))
         self.srcSet = ssi.read(os.path.join(path, "v695833-e0-c000.xy.txt"))
         for s in self.srcSet:
             s.setApFlux(s.getPsfFlux())
         
-        # The .xy.txt file has sources in the range ~ [0,2000],[0,4500], but
-        # the exposure is only one amp -- 1024x1153.  Work around.
-        print 'Exposure image size: %i x %i' % (self.exposure.getWidth(), self.exposure.getHeight())
-        self.forceImageSize = (2048, 4612) # approximately; 2x4 x (1024 x 1153)
-        print 'Forcing image size to %i x %i to match source list.' % (self.forceImageSize[0],
-                                                                       self.forceImageSize[1])
+        # The .xy.txt file has sources in the range ~ [0,2000],[0,4500]
+        self.imageSize = (2048, 4612) # approximate
+        self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci"))
 
         # Set up local astrometry_net_data
         datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
@@ -93,37 +76,60 @@ class PhotoCalTest(unittest.TestCase):
                              (datapath, reason))
 
     def tearDown(self):
-        del self.defaultPolicy
-        del self.exposure
         del self.srcSet
+        del self.conf
+        del self.exposure
+
+    def getAstrometrySolution(self, loglvl = Log.INFO):
+        astrom = measAstrom.Astrometry(self.conf, logLevel=loglvl)
+        print 'Calling determineWcs...'
+        res = astrom.determineWcs(self.srcSet, self.exposure, imageSize=self.imageSize)
+        return res
 
     def testGetSourceMatch(self):
-        log = Log.getDefaultLog()
-        #log.setThreshold(Log.DEBUG)
-        solver = measAstrom.createSolver(self.defaultPolicy, log)
-        solver.setStarlist(self.srcSet)
-        solver.setImageSize(*self.forceImageSize)
-        key = 'pixelScaleUncertainty'
-        policy = self.defaultPolicy
-        if policy.exists(key):
-            dscale = float(policy.get(key))
-            solver.solve(self.exposure.getWcs(), dscale)
-        else:
-            solver.solve(self.exposure.getWcs())
+        res = self.getAstrometrySolution(loglvl=Log.DEBUG)
+        print 'Result:', res
+        M = res.getMatches()
+        print 'Matches:', M
+        print 'N matches:', len(M)
+        assert(len(M) > 50)
 
-        m = solver.getMatchedSources()
-        #print 'Got matched sources:', m
-                        
+        refflux = np.array([m.first.getPsfFlux() for m in M])
+        srcflux = np.array([m.second.getPsfFlux() for m in M])
+        I = np.logical_and(refflux > 0, srcflux > 0)
+        refflux = refflux[I]
+        srcflux = srcflux[I]
+        refmag = -2.5 * np.log10(refflux)
+        srcmag = -2.5 * np.log10(srcflux)
+        plt.clf()
+        plt.plot(srcmag, refmag, 'r.')
+        plt.xlabel('src mag')
+        plt.ylabel('ref mag')
+        plt.savefig('mags1.png')
+
+        plt.clf()
+        plt.plot(refmag, srcmag - refmag, 'r.')
+        plt.xlabel('ref mag')
+        plt.ylabel('src mag - ref mag')
+        plt.savefig('mags2.png')
+
+
+
     def test1(self):
-        log = Log.getDefaultLog()
-        #log.setThreshold(Log.DEBUG)
-        astrom = measAstrom.determineWcs(self.defaultPolicy, self.exposure, self.srcSet,
-                                         log=log, forceImageSize=self.forceImageSize)
-        matches = astrom.getMatches()
+        res = self.getAstrometrySolution()
+        matches = res.getMatches()
            
-        pCal = photocal.calcPhotoCal(matches)
-        print pCal
+        print 'Test1'
+        #for m in matches:
+        #    print '  ', m
 
+        logLevel = Log.DEBUG
+        log = Log(Log.getDefaultLog(),
+                  'meas.astrom',
+                  logLevel)
+
+        pCal = photocal.calcPhotoCal(matches, log=log)
+        print pCal
 
         diff=[]
         for m in matches:
@@ -132,7 +138,6 @@ class PhotoCalTest(unittest.TestCase):
             instFlux = m[1].getPsfFlux()    #Instrumental Flux
             mag = pCal.getMag(instFlux)     #Instrumental mag
             diff.append(mag-catMag)
-
 
         #A very loose test, but the input data has a lot of scatter
 
@@ -254,8 +259,5 @@ def run(exit=False):
     """Run the tests"""
     utilsTests.run(suite(), exit)
 
-
-
- 
 if __name__ == "__main__":
     run(True)
