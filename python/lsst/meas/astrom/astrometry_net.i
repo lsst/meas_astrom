@@ -320,7 +320,7 @@ static time_t timer_callback(void* baton) {
 		afwCoord::Coord::ConstPtr crval
 			(new afwCoord::Coord(wcs->crval[0] * afwGeom::degrees,
 								 wcs->crval[1] * afwGeom::degrees));
-		return afwImage::makeWcs(crval, crpix,
+		return afwImage::makeWcs(*crval, crpix,
 								 wcs->cd[0][0], wcs->cd[0][1],
 								 wcs->cd[1][0], wcs->cd[1][1]);
 	}
