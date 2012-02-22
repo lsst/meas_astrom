@@ -304,6 +304,12 @@ class Astrometry(object):
         return matchList
 
 
+    def getCatalogFilterName(self, filterName):
+        '''
+        Returns the column name in the astrometry_net_data index file that will be used
+        for the given filter name.
+        '''
+        return self._mapFilterName(filterName, self.andConfig.defaultMagColumn)
     def _mapFilterName(self, filterName, default=None):
         ## Warn if default is used?
         return self.andConfig.magColumnMap.get(filterName, default)
@@ -335,7 +341,7 @@ class Astrometry(object):
         Returns: list of Source objects.
         '''
         solver = self._getSolver()
-        magcolumn = self._mapFilterName(filterName, self.andConfig.defaultMagColumn)
+        magcolumn = self.getCatalogFilterName(filterName)
 
         sgCol = self.andConfig.starGalaxyColumn
         varCol = self.andConfig.variableColumn
@@ -353,10 +359,10 @@ class Astrometry(object):
                                 starflag)
         del solver
 
-        # print 'STAR flag', starflag
-        # print len(cat), 'reference sources'
-        # print sum([src.getFlagForDetection() & starflag > 0
-        #            for src in cat]), 'have STAR set'
+        print 'STAR flag', starflag
+        print len(cat), 'reference sources'
+        print sum([src.getFlagForDetection() & starflag > 0
+                   for src in cat]), 'have STAR set'
         
         return cat
 

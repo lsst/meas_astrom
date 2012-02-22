@@ -85,7 +85,7 @@ class PhotoCalTest(unittest.TestCase):
 
     def getAstrometrySolution(self, loglvl = Log.INFO):
         astrom = measAstrom.Astrometry(self.conf, logLevel=loglvl)
-        print 'Calling determineWcs...'
+        #print 'Calling determineWcs...'
         res = astrom.determineWcs(self.srcSet, self.exposure, imageSize=self.imageSize)
         return res
 

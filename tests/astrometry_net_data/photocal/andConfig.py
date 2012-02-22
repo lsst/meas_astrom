@@ -8,6 +8,7 @@ COL NAME             FORMAT
 5 variable         1L
 '''
 
+root.defaultMagColumn = 'r'
 root.starGalaxyColumn = 'star'
 #root.variableColumn = 'variable'
 filters = ('u','g','r','i','z')
