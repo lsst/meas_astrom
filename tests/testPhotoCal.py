@@ -67,6 +67,9 @@ class PhotoCalTest(unittest.TestCase):
         self.imageSize = (2048, 4612) # approximate
         self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci"))
 
+        print 'Exposure filtername:', self.exposure.getFilter().getName()
+        # "i"
+
         # Set up local astrometry_net_data
         datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
         eupsObj = eups.Eups(root=datapath)
@@ -90,25 +93,99 @@ class PhotoCalTest(unittest.TestCase):
         res = self.getAstrometrySolution(loglvl=Log.DEBUG)
         print 'Result:', res
         M = res.getMatches()
-        print 'Matches:', M
+        #print 'Matches:', M
         print 'N matches:', len(M)
         assert(len(M) > 50)
 
-        refflux = np.array([m.first.getPsfFlux() for m in M])
+        logLevel = Log.DEBUG
+        log = Log(Log.getDefaultLog(),
+                  'meas.astrom',
+                  logLevel)
+        pcal = photocal.calcPhotoCal(M, log=log)
+        print 'PhotoCal:', pcal
+        zp = pcal.getMag(1.)
+        print 'zeropoint:', zp
+
+        refflux = np.array([m.first .getPsfFlux() for m in M])
         srcflux = np.array([m.second.getPsfFlux() for m in M])
-        I = np.logical_and(refflux > 0, srcflux > 0)
-        refflux = refflux[I]
-        srcflux = srcflux[I]
+        refferr = np.array([m.first .getPsfFluxErr() for m in M])
+        srcferr = np.array([m.second.getPsfFluxErr() for m in M])
+
+        # I = np.logical_and(refflux > 0, srcflux > 0)
+        # refflux = refflux[I]
+        # srcflux = srcflux[I]
+        # refmag = -2.5 * np.log10(refflux)
+        # srcmag = -2.5 * np.log10(srcflux)
+        # refmagerr = refferr[I] / refflux / np.log(10.)
+        # srcmagerr = srcferr[I] / srcflux / np.log(10.)
         refmag = -2.5 * np.log10(refflux)
         srcmag = -2.5 * np.log10(srcflux)
+        refmagerr = refferr / refflux / np.log(10.)
+        srcmagerr = srcferr / srcflux / np.log(10.)
+
         plt.clf()
-        plt.plot(srcmag, refmag, 'r.')
+        #plt.plot(srcmag, refmag, 'r.')
+        plt.errorbar(srcmag, refmag, xerr=srcmagerr, yerr=refmagerr, fmt='.',
+                     ecolor='r', mec='r', mfc='r')
+        ax = plt.axis()
+        plt.plot([ax[0], ax[1]], [ax[0]+zp, ax[1]+zp], 'r-', lw=3, alpha=0.3)
+        plt.axis(ax)
         plt.xlabel('src mag')
         plt.ylabel('ref mag')
         plt.savefig('mags1.png')
 
+        def myerrbars(I, c):
+            return plt.errorbar(XX[I], YY[I], xerr=XE[I], yerr=YE[I],
+                                fmt='.', ecolor=c, mec=c, mfc=c)
+
         plt.clf()
-        plt.plot(refmag, srcmag - refmag, 'r.')
+        XX = refmag
+        YY = srcmag-refmag
+        XE = refmagerr
+        YE = srcmagerr
+        p1 = plt.errorbar(XX, YY, xerr=XE, yerr=YE, fmt='.',
+                          ecolor='k', mec='k', mfc='k')
+        LP = [p1[0]]
+        LT = ['all']
+
+        print 'Initial match list:', len(M)
+        print 'Iflags:', len(pcal.Iflags)
+        print 'Istar:', len(pcal.Istar)
+        print 'Iflux:', len(pcal.Iflux)
+        print 'Ibright:', len(pcal.Ibright)
+
+        Ibadflags = np.ones(len(M), bool)
+        Ibadflags[pcal.Iflags] = False
+        p2 = myerrbars(Ibadflags, 'm')
+        LP.append(p2[0])
+        LT.append('bad flags')
+
+        Inotstars = np.zeros(len(M), bool)
+        Inotstars[pcal.Iflags] = True
+        Inotstars[pcal.Istar] = False
+        if sum(Inotstars):
+            p2 = myerrbars(Inotstars, 'g')
+            LP.append(p2[0])
+            LT.append('not STARs')
+
+        Ifaint = np.zeros(len(M), bool)
+        Ifaint[pcal.Iflux] = True
+        Ifaint[pcal.Ibright] = False
+        if sum(Ifaint):
+            p2 = myerrbars(Ifaint, 'y')
+            LP.append(p2[0])
+            LT.append('too faint')
+
+        Igood = np.zeros(len(M), bool)
+        Igood[pcal.Ibright] = True
+        if sum(Igood):
+            p2 = myerrbars(Igood, 'r')
+            LP.append(p2[0])
+            LT.append('good')
+
+        plt.legend(LP, LT)
+        #plt.plot(refmag, srcmag - refmag, 'r.')
+        plt.axhline(-zp, color='r', lw=3, alpha=0.3)
         plt.xlabel('ref mag')
         plt.ylabel('src mag - ref mag')
         plt.savefig('mags2.png')
@@ -134,10 +211,19 @@ class PhotoCalTest(unittest.TestCase):
         diff=[]
         for m in matches:
             catFlux = m[0].getPsfFlux()     #Catalogue flux
+            if catFlux <= 0:
+                continue
             catMag = -2.5*np.log10(catFlux) #Cat mag
             instFlux = m[1].getPsfFlux()    #Instrumental Flux
+            if instFlux <= 0:
+                continue
             mag = pCal.getMag(instFlux)     #Instrumental mag
             diff.append(mag-catMag)
+
+        self.assertTrue(len(diff) > 50)
+
+
+
 
         #A very loose test, but the input data has a lot of scatter
 

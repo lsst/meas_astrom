@@ -8,9 +8,9 @@ COL NAME             FORMAT
 5 variable         1L
 '''
 
-root.starGalaxyColumn = 'starnotgal'
-root.variableColumn = 'variable'
-filters = ('mag')
+root.starGalaxyColumn = 'star'
+#root.variableColumn = 'variable'
+filters = ('u','g','r','i','z')
 root.magColumnMap = dict([(f,f) for f in filters])
 root.magErrorColumnMap = dict([(f, f + '_err') for f in filters])
-root.indexFiles = ['index-2033.fits',]
+root.indexFiles = ['index-photocal-test.fits',] #'index-2033.fits',]
