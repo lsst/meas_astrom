@@ -89,7 +89,12 @@ class PhotoCalTest(unittest.TestCase):
         res = astrom.determineWcs(self.srcSet, self.exposure, imageSize=self.imageSize)
         return res
 
-    def testGetSourceMatch(self):
+    def testGetSolution(self):
+        res = self.getAstrometrySolution(loglvl=Log.DEBUG)
+        self.assertTrue(res is not None)
+        self.assertTrue(len(res.getMatches()) > 50)
+
+    def plotPhotoCal(self):
         res = self.getAstrometrySolution(loglvl=Log.DEBUG)
         print 'Result:', res
         M = res.getMatches()
@@ -111,20 +116,12 @@ class PhotoCalTest(unittest.TestCase):
         refferr = np.array([m.first .getPsfFluxErr() for m in M])
         srcferr = np.array([m.second.getPsfFluxErr() for m in M])
 
-        # I = np.logical_and(refflux > 0, srcflux > 0)
-        # refflux = refflux[I]
-        # srcflux = srcflux[I]
-        # refmag = -2.5 * np.log10(refflux)
-        # srcmag = -2.5 * np.log10(srcflux)
-        # refmagerr = refferr[I] / refflux / np.log(10.)
-        # srcmagerr = srcferr[I] / srcflux / np.log(10.)
         refmag = -2.5 * np.log10(refflux)
         srcmag = -2.5 * np.log10(srcflux)
         refmagerr = refferr / refflux / np.log(10.)
         srcmagerr = srcferr / srcflux / np.log(10.)
 
         plt.clf()
-        #plt.plot(srcmag, refmag, 'r.')
         plt.errorbar(srcmag, refmag, xerr=srcmagerr, yerr=refmagerr, fmt='.',
                      ecolor='r', mec='r', mfc='r')
         ax = plt.axis()
@@ -195,10 +192,8 @@ class PhotoCalTest(unittest.TestCase):
     def test1(self):
         res = self.getAstrometrySolution()
         matches = res.getMatches()
-           
+
         print 'Test1'
-        #for m in matches:
-        #    print '  ', m
 
         logLevel = Log.DEBUG
         log = Log(Log.getDefaultLog(),
@@ -221,8 +216,6 @@ class PhotoCalTest(unittest.TestCase):
             diff.append(mag-catMag)
 
         self.assertTrue(len(diff) > 50)
-
-
 
 
         #A very loose test, but the input data has a lot of scatter
