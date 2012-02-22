@@ -67,7 +67,7 @@ class PhotoCalTest(unittest.TestCase):
         self.imageSize = (2048, 4612) # approximate
         self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci"))
 
-        print 'Exposure filtername:', self.exposure.getFilter().getName()
+        #print 'Exposure filtername:', self.exposure.getFilter().getName()
         # "i"
 
         # Set up local astrometry_net_data
@@ -203,6 +203,7 @@ class PhotoCalTest(unittest.TestCase):
         pCal = photocal.calcPhotoCal(matches, log=log)
         print pCal
 
+        # These are all matches; we don't really expect to do that well.
         diff=[]
         for m in matches:
             catFlux = m[0].getPsfFlux()     #Catalogue flux
@@ -214,22 +215,47 @@ class PhotoCalTest(unittest.TestCase):
                 continue
             mag = pCal.getMag(instFlux)     #Instrumental mag
             diff.append(mag-catMag)
+        diff = np.array(diff)
 
         self.assertTrue(len(diff) > 50)
-
-
-        #A very loose test, but the input data has a lot of scatter
-
-        diff = np.array(diff)
+        log.info('%i magnitude differences; mean difference %g; mean abs diff %g' %
+                 (len(diff), np.mean(diff), np.mean(np.abs(diff))))
         self.assertAlmostEqual(np.mean(diff), 0, 0)
+
+        # Differences of matched objects that were used in the fit.
+        zp = pCal.getMag(1.)
+        log.logdebug('zeropoint: %g' % zp)
+        fitdiff = pCal.srcMag + zp - pCal.refMag
+        log.logdebug('number of sources used in fit: %i' % len(fitdiff))
+        log.logdebug('median diff: %g' % np.median(fitdiff))
+        log.logdebug('mean diff: %g' % np.mean(fitdiff))
+        log.logdebug('median abs(diff): %g' % np.median(np.abs(fitdiff)))
+        log.logdebug('mean abs(diff): %g' % np.mean(np.abs(fitdiff)))
+
+        # zeropoint: 31.3118134645
+        # number of sources used in fit: 66
+        # median diff: -0.0122945961139
+        # mean diff: 0.00117635038164
+        # median abs(diff): 0.0366950654158
+        # mean abs(diff): 0.0518826601639
+
+        self.assertTrue(abs(zp - 31.31) < 0.05)
+
+        self.assertTrue(len(fitdiff) > 50)
+        # These are kind of arbitrary
+        self.assertTrue(abs(np.median(fitdiff)) < 0.02)
+        self.assertTrue(abs(np.mean(fitdiff)) < 0.002)
+        #
+        self.assertTrue(np.median(np.abs(fitdiff)) < 0.04)
+        self.assertTrue(np.mean(np.abs(fitdiff)) < 0.06)
+        
+
         
         
     def test2(self):
         """Check that negative fluxes dealt with properly"""
-        
-        astrom = measAstrom.determineWcs(self.defaultPolicy, self.exposure,
-                                         self.srcSet, forceImageSize=self.forceImageSize)
-        matches = astrom.getMatches()
+        res = self.getAstrometrySolution()
+        matches = res.getMatches()
         
         matches[0].first.setPsfFlux(0)
         matches[1].first.setPsfFlux(-1)
@@ -237,7 +263,6 @@ class PhotoCalTest(unittest.TestCase):
         
         pCal = photocal.calcPhotoCal(matches)
         print pCal
-
 
         diff=[]
         for m in matches:

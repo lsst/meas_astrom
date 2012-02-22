@@ -218,8 +218,19 @@ static time_t timer_callback(void* baton) {
 					assert(magerr);
 				}
 				if (stargalcol) {
-					stargal = static_cast<bool*>(fitstable_read_column_inds(tag, stargalcol, boo, starinds, nstars));
+					/*  There is something weird going on with handling of bools; maybe "T" vs "F"?
+						stargal = static_cast<bool*>(fitstable_read_column_inds(tag, stargalcol, boo, starinds, nstars));
+						for (int j=0; j<nstars; j++) {
+							printf("  sg %i = %i, vs %i\n", j, (int)sg[j], stargal[j] ? 1:0);
+						}
+					*/
+					uint8_t* sg = static_cast<uint8_t*>(fitstable_read_column_inds(tag, stargalcol, fitscolumn_u8_type(), starinds, nstars));
+					stargal = static_cast<bool*>(malloc(nstars));
 					assert(stargal);
+					for (int j=0; j<nstars; j++) {
+						stargal[j] = (sg[j] > 0);
+					}
+					free(sg);
 				}
 				if (varcol) {
 					var = static_cast<bool*>(fitstable_read_column_inds(tag, varcol, boo, starinds, nstars));
@@ -252,6 +263,10 @@ static time_t timer_callback(void* baton) {
 					if (ok)
 						src->setFlagForDetection(src->getFlagForDetection() | starflag);
 				}
+
+				/*if (id && stargal) {
+					printf("  id %li,  stargal %s\n", (long)id[i], stargal[i] ? "T":"F");
+				}*/
 
 				cat.push_back(src);
 			}

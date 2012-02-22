@@ -352,6 +352,11 @@ class Astrometry(object):
                                 magerrCol, sgCol, varCol,
                                 starflag)
         del solver
+
+        # print 'STAR flag', starflag
+        # print len(cat), 'reference sources'
+        # print sum([src.getFlagForDetection() & starflag > 0
+        #            for src in cat]), 'have STAR set'
         
         return cat
 
