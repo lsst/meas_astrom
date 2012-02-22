@@ -217,28 +217,6 @@ class Astrometry(object):
         catids = [src.getSourceId() for src in cat]
         uids = set(catids)
         self.log.logdebug('%i reference sources; %i unique IDs' % (len(catids), len(uids)))
-        for uid in uids:
-            i1 = catids.index(uid)
-            print 'i1', i1
-            try:
-                i2 = catids.index(uid, i1+1)
-                print 'i2', i2
-            except ValueError:
-                continue
-            self.log.logdebug('  id %i repeated' % uid)
-
-        catids.sort()
-        print 'Cat ids:'
-        for i,cid in enumerate(catids):
-            print '  ', i, cid
-        print 'Unique cat ids:'
-        luids = list(uids)
-        luids.sort()
-        for i,cid in enumerate(luids):
-            print '  ', i, cid
-            
-        
-
 
         matchList = self._getMatchList(sources, cat, wcs)
 
