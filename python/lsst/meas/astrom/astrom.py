@@ -480,7 +480,8 @@ def _createMetadata(width, height, wcs, filterName):
     meta.add('RADIUS', imgSize.asDegrees(),
              'field radius in degrees, approximate')
     meta.add('SMATCHV', 1, 'SourceMatchVector version number')
-    meta.add('FILTER', filterName, 'LSST filter name for tagalong data')
+    if filterName is not None:
+        meta.add('FILTER', filterName, 'LSST filter name for tagalong data')
     #meta.add('STARGAL', stargalName, 'star/galaxy name for tagalong data')
     #meta.add('VARIABLE', variableName, 'variability name for tagalong data')
     #meta.add('MAGERR', magerrName, 'magnitude error name for tagalong data')

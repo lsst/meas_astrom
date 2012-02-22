@@ -30,13 +30,15 @@ import math
 import unittest
 
 import eups
-import lsst.meas.astrom.net as net
 import lsst.afw.detection as det
 import lsst.afw.math as afwMath
 import lsst.utils.tests as utilsTests
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 
+import lsst.pex.logging as pexLog
+
+import lsst.meas.astrom as measAst
 import lsst.meas.astrom.sip as sip
 import lsst.meas.astrom.sip.genDistortedImage as distort
 import lsst.meas.astrom.sip.cleanBadPoints as cleanBadPoints
@@ -48,54 +50,44 @@ import sourceSetIO
 meas_astrom_dir = eups.productDir("meas_astrom")
 datapath = os.path.join(meas_astrom_dir, 'tests', 'astrometry_net_data', 'cfhttemplate')
 eupsObj = eups.Eups(root=datapath)
-
 ok, version, reason = eupsObj.setup('astrometry_net_data')
-
 if not ok:
     raise ValueError("Can't find astrometry_net_data version cfhttemplate (from path: %s): %s" %
                      (datapath, reason))
 
-#Create a globally accessible instance of a GAS. This takes a few seconds
-#to load, so we don't want to do it everytime we setup a test case
-policyFile=eups.productDir("astrometry_net_data")
-policyFile=os.path.join(policyFile, "metadata.paf")
-print "GLOBALGAS"
-GLOBALGAS = net.GlobalAstrometrySolution(policyFile)
-print "...done"
-
-
 class CreateWcsWithSipCase(unittest.TestCase):
     def setUp(self):
+
+        self.conf = measAst.MeasAstromConfig()
+        self.astrom = measAst.Astrometry(self.conf) #, logLevel=pexLog.Log.DEBUG)
+
         path=eups.productDir("meas_astrom")
         self.filename=os.path.join(path, "tests", "cat.xy.list")
         self.tolArcsec = .4 
         self.tolPixel = .1
 
     def tearDown(self):
-        pass
+        del self.conf
+        del self.astrom
         
     def testLinearXDistort(self):
         print "linearXDistort"
-        self.singleTestInstance(self.filename, distort.linearXDistort, GLOBALGAS)
+        self.singleTestInstance(self.filename, distort.linearXDistort)
 
     def testLinearYDistort(self):
         print "linearYDistort"
-        self.singleTestInstance(self.filename, distort.linearYDistort, GLOBALGAS)
+        self.singleTestInstance(self.filename, distort.linearYDistort)
 
     def testQuadraticDistort(self):
         print "linearQuadraticDistort"
-        self.singleTestInstance(self.filename, distort.linearYDistort, GLOBALGAS)
+        self.singleTestInstance(self.filename, distort.linearYDistort)
     
-    def singleTestInstance(self, filename, distortFunc, gas):
-        cat = self.loadCatalogue(self.filename, GLOBALGAS)
+    def singleTestInstance(self, filename, distortFunc):
+        cat = self.loadCatalogue(self.filename)
         img = distort.distortList(cat, distortFunc)
 
-        #Get a wcs
-        gas.setStarlist(img)
-        flag = gas.solve()
-        self.assertTrue(flag, "Failed to solve distorted image. Too much distortion?")
-        imgWcs = gas.getWcs()
-        gas.reset()
+        res = self.astrom.determineWcs2(img, imageSize=(1000,1000))
+        imgWcs = res.getWcs()
 
         #Create a wcs with sip
         matchList = self.matchSrcAndCatalogue(cat, img, imgWcs)
@@ -122,20 +114,19 @@ class CreateWcsWithSipCase(unittest.TestCase):
             self.assertTrue(scatter < self.tolPixel, "Scatter exceeds tolerance in pixels: %g" %(scatter))
         
 
-    def loadCatalogue(self, filename, gas):
+    def loadCatalogue(self, filename):
         """Load a list of xy points from a file, solve for position, and
         return a SourceSet of points"""
 
         cat = sourceSetIO.read(filename)
 
-        gas.setStarlist(cat)
-        flag = gas.solve()
-        if flag == True:
-            catWcs = gas.getWcs()
-            gas.reset()        
-        else:
-            gas.reset()
-            raise "Failed to solve catalogue"
+        # Source x,y positions are ~ (500,1500) x (500,1500)
+        for src in cat:
+            src.setXAstrom(src.getXAstrom()-500)
+            src.setYAstrom(src.getYAstrom()-500)
+            
+        res = self.astrom.determineWcs2(cat, imageSize=(1000,1000))
+        catWcs = res.getWcs()
 
         #Set catalogue ra and decs
         for src in cat:
