@@ -332,6 +332,12 @@ class Astrometry(object):
 
     def getReferenceSources(self, ra, dec, radius, filterName):
         '''
+        Searches for reference-catalog sources (in the
+        astrometry_net_data files) in the requested RA,Dec region
+        (afwGeom::Angle objects), with the requested radius (also an
+        Angle).  The flux values will be set based on the requested
+        filter (None => default filter).
+        
         Returns: list of Source objects.
         '''
         solver = self._getSolver()
@@ -362,15 +368,15 @@ class Astrometry(object):
                searchRadius, parity):
         solver = self._getSolver()
 
-        # FIXME -- select sources with valid x,y,flux?
+        # select sources with valid x,y, flux
         goodsources = []
         for s in sources:
-            if np.isfinite(s.getXAstrom()) and np.isfinite(s.getYAstrom()):
+            if np.isfinite(s.getXAstrom()) and np.isfinite(s.getYAstrom()) and np.isfinite(s.getPsfFlux()):
                 goodsources.append(s)
         if len(goodsources) < len(sources):
-            self.log.logdebug('Keeping %i of %i sources with finite X,Y positions' %
+            self.log.logdebug('Keeping %i of %i sources with finite X,Y positions and PSF flux' %
                               (len(goodsources), len(sources)))
-
+        # setStars sorts them by PSF flux.
         solver.setStars(goodsources)
         solver.setMaxStars(self.config.maxStars)
         solver.setImageSize(*imageSize)
@@ -409,9 +415,17 @@ class Astrometry(object):
             self.log.logdebug('WCS: %s' % wcs.getFitsMetadata().toString())
             
         else:
-            self.log.logdebug('Did not solve.')
+            self.log.warn('Did not got an astrometric solution from Astrometry.net')
             wcs = None
             # Gather debugging info...
+
+            # -are there any reference stars in the proposed search area?
+            if radecCenter is not None:
+                ra = radecCenter.getLongitude()
+                dec = radecCenter.getLatitude()
+                refs = self.getReferenceSources(ra, dec, searchRadius, None)
+                self.log.info('Searching around RA,Dec = (%g,%g) with radius %g deg yields %i reference-catalog sources' %
+                              (ra.asDegrees(), dec.asDegrees(), searchRadius.asDegrees(), len(refs)))
 
         qa = solver.getSolveStats()
         self.log.logdebug('qa: %s' % qa.toString())
