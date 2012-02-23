@@ -16,8 +16,8 @@ HISTORY   -x 4 -y 4 -r 8 -L 20 -I 666 -n 1760
 
 # 2012-02-22, num 1-4, scale 00
 build-index -i D1.fits -s 2 -H 18 -n 10 -P 0 -E -o D1.index -r 1 -S r -I 120222100
-build-index -i D2.fits -s 2 -H 25 -n 10 -P 0 -E -o D1.index -r 1 -S r -I 120222200
-build-index -i D3.fits -s 2 -H 11 -n 10 -P 0 -E -o D1.index -r 1 -S r -I 120222300
-build-index -i D4.fits -s 2 -H 47 -n 10 -P 0 -E -o D1.index -r 1 -S r -I 120222400
+build-index -i D2.fits -s 2 -H 25 -n 10 -P 0 -E -o D2.index -r 1 -S r -I 120222200
+build-index -i D3.fits -s 2 -H 11 -n 10 -P 0 -E -o D3.index -r 1 -S r -I 120222300
+build-index -i D4.fits -s 2 -H 47 -n 10 -P 0 -E -o D4.index -r 1 -S r -I 120222400
 
 

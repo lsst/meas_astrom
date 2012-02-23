@@ -362,6 +362,15 @@ static time_t timer_callback(void* baton) {
 //		printf("solver_run returned.\n");
 	}
 
+	std::vector<index_t*> getActiveIndexFiles() {
+		std::vector<index_t*> inds;
+		int N = solver_n_indices($self);
+		for (int i=0; i<N; i++) {
+			inds.push_back(solver_get_index($self, i));
+		}
+		return inds;
+	}
+
 	void addIndices(std::vector<index_t*> inds) {
 		for (std::vector<index_t*>::iterator pind = inds.begin();
 			 pind != inds.end(); ++pind) {

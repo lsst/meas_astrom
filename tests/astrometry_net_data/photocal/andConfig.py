@@ -1,13 +1,3 @@
-'''
-HDU #14  Binary Table:  5 columns x 14193 rows
-COL NAME             FORMAT
-1 mag              1E
-2 id               1K
-3 mag_err          1E
-4 starnotgal       1L
-5 variable         1L
-'''
-
 root.defaultMagColumn = 'r'
 root.starGalaxyColumn = 'star'
 #root.variableColumn = 'variable'

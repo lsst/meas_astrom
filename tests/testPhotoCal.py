@@ -56,7 +56,7 @@ class PhotoCalTest(unittest.TestCase):
     def setUp(self):
         self.conf = measAstrom.MeasAstromConfig()
         
-        #Load sample input from disk
+        # Load sample input from disk
         mypath = eups.productDir("meas_astrom")
         path = os.path.join(mypath, "examples")
         self.srcSet = ssi.read(os.path.join(path, "v695833-e0-c000.xy.txt"))

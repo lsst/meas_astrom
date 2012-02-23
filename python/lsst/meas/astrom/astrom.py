@@ -11,6 +11,8 @@ import lsst.meas.algorithms.utils as maUtils
 from .config import MeasAstromConfig, AstrometryNetDataConfig
 import sip as astromSip
 
+import numpy as np # for isfinite()
+
 # Object returned by determineWcs.
 class InitialAstrometry(object):
     '''
@@ -244,10 +246,6 @@ class Astrometry(object):
             astrom.sipWcs = wcs
             astrom.sipMatches = matchList
 
-        # REALLY?
-        if exposure is not None:
-            exposure.setWcs(wcs)
-
         meta = _createMetadata(W, H, wcs, filterName)
         #matchListMeta = solver.getMatchedIndexMetadata()
         #moreMeta.combine(matchListMeta)
@@ -260,7 +258,6 @@ class Astrometry(object):
             astrom.matches.push_back(m)
 
         return astrom
-
 
     #### FIXME!
     def _calculateSipTerms(self, origWcs, cat, sources, matchList):
@@ -292,7 +289,6 @@ class Astrometry(object):
 
         return wcs, matchList
 
-
     def _getMatchList(self, sources, cat, wcs):
         dist = self.config.catalogMatchDist * afwGeom.arcseconds
         clean = self.config.cleaningParameter
@@ -303,13 +299,13 @@ class Astrometry(object):
         matchList = astromSip.cleanBadPoints.clean(matchList, wcs, nsigma=clean)
         return matchList
 
-
     def getCatalogFilterName(self, filterName):
         '''
         Returns the column name in the astrometry_net_data index file that will be used
         for the given filter name.
         '''
         return self._mapFilterName(filterName, self.andConfig.defaultMagColumn)
+
     def _mapFilterName(self, filterName, default=None):
         ## Warn if default is used?
         return self.andConfig.magColumnMap.get(filterName, default)
@@ -319,8 +315,6 @@ class Astrometry(object):
         W,H = imageSize
         xc, yc = W/2. + 0.5, H/2. + 0.5
         rdc = wcs.pixelToSky(xc, yc)
-        #print 'RA,Dec', rdc
-        #rdc = rdc.toIcrs()
         ra,dec = rdc.getLongitude(), rdc.getLatitude()
         pixelScale = wcs.pixelScale()
         rad = pixelScale * (math.hypot(W,H)/2. + pixelMargin)
@@ -369,7 +363,15 @@ class Astrometry(object):
         solver = self._getSolver()
 
         # FIXME -- select sources with valid x,y,flux?
-        solver.setStars(sources)
+        goodsources = []
+        for s in sources:
+            if np.isfinite(s.getXAstrom()) and np.isfinite(s.getYAstrom()):
+                goodsources.append(s)
+        if len(goodsources) < len(sources):
+            self.log.logdebug('Keeping %i of %i sources with finite X,Y positions' %
+                              (len(goodsources), len(sources)))
+
+        solver.setStars(goodsources)
         solver.setMaxStars(self.config.maxStars)
         solver.setImageSize(*imageSize)
         solver.setMatchThreshold(self.config.matchThreshold)
@@ -377,6 +379,8 @@ class Astrometry(object):
             ra = radecCenter.getLongitude().asDegrees()
             dec = radecCenter.getLatitude().asDegrees()
             solver.setRaDecRadius(ra, dec, searchRadius.asDegrees())
+            self.log.logdebug('Searching for match around RA,Dec = (%g, %g) with radius %g deg' %
+                              (ra, dec, searchRadius.asDegrees()))
 
         if pixelScale is not None:
             dscale = self.config.pixelScaleUncertainty
@@ -384,17 +388,17 @@ class Astrometry(object):
             lo = scale / dscale
             hi = scale * dscale
             solver.setPixelScaleRange(lo, hi)
-            #print 'Setting pixel scale range', lo, hi
+            self.log.logdebug('Searching for matches with pixel scale = %g +- %g %% -> range [%g, %g] arcsec/pix' %
+                              (scale, 100.*(dscale-1.), lo, hi))
 
         if parity is not None:
             solver.setParity(parity)
-
-        '''
-        _mylog.format(pexLog::Log::DEBUG, "Exposure\'s WCS scale: %g arcsec/pix; setting scale range %.3f - %.3f arcsec/pixel",
-        pixelScale.asArcseconds(), lwr.asArcseconds(), upr.asArcseconds());
-        '''
+            self.log.logdebug('Searching for match with parity = ' + str(parity))
 
         solver.addIndices(self.inds)
+        active = solver.getActiveIndexFiles()
+        self.log.logdebug('Searching for match in %i of %i index files: [ ' % (len(active), len(self.inds)) +
+                          ', '.join(ind.indexname for ind in active) + ' ]')
 
         cpulimit = self.config.maxCpuTime
 
@@ -403,9 +407,11 @@ class Astrometry(object):
             self.log.logdebug('Solved!')
             wcs = solver.getWcs()
             self.log.logdebug('WCS: %s' % wcs.getFitsMetadata().toString())
+            
         else:
             self.log.logdebug('Did not solve.')
             wcs = None
+            # Gather debugging info...
 
         qa = solver.getSolveStats()
         self.log.logdebug('qa: %s' % qa.toString())
@@ -448,6 +454,7 @@ class Astrometry(object):
         return keep
 
     #@staticmethod
+    # FIXME -- replace with afw Match.h unpackMatches()
     def joinMatchList(self, matchlist, sources, first=True,
                       mask=0, offset=0):
         '''
@@ -521,6 +528,23 @@ class Astrometry(object):
 
 
     def joinMatchListWithCatalog(self, matchlist, matchmeta):
+        '''
+        This function is required to reconstitute a matchlist after being
+        unpersisted.  The persisted form of a matchlist is simply a list
+        of integers: the ID numbers of the matched image sources and
+        reference sources.  For you database types, this is a "normal
+        form" representation.  The "live" form of a matchlist has links to
+        the real Source objects that are matched; it is "denormalized".
+        This function takes a normalized matchlist, along with the list of
+        sources to which the matchlist refers.  It fetches the reference
+        sources that are within range, and then denormalizes the matchlist
+        -- sets the "matchList[*].first" and "matchList[*].second" entries
+        to point to the sources in the "sources" argument, and to the
+        reference sources fetched from the astrometry_net_data files.
+    
+        @param matchList Unpersisted matchList (an lsst.afw.detection.PersistableSourceMatchVector)
+        @param matchmeta: Unpersisted matchList metadata (PropertySet/List)
+        '''
         version = matchmeta.getInt('SMATCHV')
         if version != 1:
             raise ValueError('SourceMatchVector version number is %i, not 1.' % version)
