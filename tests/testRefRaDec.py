@@ -31,11 +31,6 @@ import lsst.afw.geom  as afwGeom
 class XYAstromTest(unittest.TestCase):
 
     def setUp(self):
-        self.defaultPolicy = pexPolicy.Policy.createPolicy(pexPolicy.PolicyString(
-            """#<?cfg paf policy?>     
-            matchThreshold: 22
-            """
-        ))
         # Set up local astrometry_net_data
         mypath = eups.productDir("meas_astrom")
         datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
@@ -44,30 +39,30 @@ class XYAstromTest(unittest.TestCase):
         if not ok:
             raise ValueError("Need photocal version of astrometry_net_data (from path: %s): %s" %
                              (datapath, reason))
+        conf = measAstrom.MeasAstromConfig()
+        loglvl = Log.INFO
+        #loglvl = Log.DEBUG
+        self.astrom = measAstrom.Astrometry(conf, logLevel=loglvl)
 
     def tearDown(self):
-        del self.defaultPolicy
+        del self.astrom
 
     def testXYAstrom(self):
-        log = Log.getDefaultLog()
-        solver = measAstrom.createSolver(self.defaultPolicy, log)
         ra,dec = 215.505616846, 53.1874283624
         print 'ra,dec', ra,dec
         radius = 300.
-        filterName = 'mag'
-        idName = 'id'
-        anid = 2033
+        filterName = 'r'
 
-        X = solver.getCatalogue(ra * afwGeom.degrees, dec * afwGeom.degrees, radius * afwGeom.arcseconds, filterName, idName, anid)
-        ref = X.refsources
+        ref = self.astrom.getReferenceSources(ra * afwGeom.degrees, dec * afwGeom.degrees,
+                                              radius * afwGeom.arcseconds, filterName)
         print 'Got', len(ref), 'ref sources'
         # Number of sources within the search radius.
-        self.assertEqual(len(ref), 143)
+        self.assertEqual(len(ref), 245)
         allzero = True
-        for i in range(10):
-            print ref[i]
-            print 'r,d', i, ':', ref[i].getRa().asDegrees(), ref[i].getDec().asDegrees()
-            #print 'r,d', i, ':', ref[i].getRaAstrom(), ref[i].getDecAstrom()
+        for i in range(len(ref)):
+            if i < 10:
+                print ref[i]
+                print 'r,d', i, ':', ref[i].getRa().asDegrees(), ref[i].getDec().asDegrees()
             ra = ref[i].getRa().asRadians()
             dec = ref[i].getDec().asRadians()
             if ra != 0 or dec != 0:
