@@ -23,7 +23,7 @@
 
 import numpy as np
 
-class PhotometricMagnitude():
+class PhotometricMagnitude(object):
     """ Convert between photometric fluxes and magnitudes 
     
     Simplify the conversion. Create an object with a zero point 

@@ -31,7 +31,6 @@ import unittest
 
 import eups
 import lsst.meas.astrom as measAstrom
-import lsst.meas.astrom.net as net
 import lsst.afw.detection as det
 import lsst.afw.math as afwMath
 import lsst.afw.image as afwImg
@@ -49,63 +48,45 @@ class chooseFilterNameTest(unittest.TestCase):
 
     def setUp(self):
         #Load sample input from disk
-        path = os.path.join(eups.productDir("meas_astrom"), "examples")
+        mypath = eups.productDir("meas_astrom")
+        path = os.path.join(mypath, "examples")
         self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci"))
         
-        #Set the filter properties.
+        # Set the filter properties.
         afwImg.Filter.reset()
         afwImg.FilterProperty.reset() #Both of these are required to reset
         
-        fp = afwImg.FilterProperty("mag")
-        afwImg.Filter.define(fp)
-        filt = afwImg.Filter("mag")
-        self.exposure.setFilter(filt)
-        
-        #Setup up astrometry_net_data
-        print "Setting up meas_astrom cfhtlsDeep"
-        eupsObj = eups.Eups()
+        #fp = afwImg.FilterProperty("mag")
+        #afwImg.Filter.define(fp)
+        #filt = afwImg.Filter("mag")
+        #self.exposure.setFilter(filt)
 
-        ok, version, reason = eupsObj.setup("astrometry_net_data", versionName="cfhtlsDeep")
+        # Set up local astrometry_net_data
+        datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
+        eupsObj = eups.Eups(root=datapath)
+        ok, version, reason = eupsObj.setup('astrometry_net_data')
         if not ok:
-            raise ValueError("Couldn't set up cfhtlsDeep version of astrometry_net_data: %s" %(reason))
+            raise ValueError("Need photocal version of astrometry_net_data (from path: %s): %s" %
+                             (datapath, reason))
+        # This "photocal" index has ugriz columns.
 
-        #
-        ##Load a solver
-        metaFile = os.path.join(eups.productDir("astrometry_net_data"), "metadata.paf")
-        self.solver = net.GlobalAstrometrySolution(metaFile)
-        #
-        self.defaultPolicy = pexPolicy.Policy.createPolicy(pexPolicy.PolicyString(
-        """#<?cfg paf policy?>     
-        inputExposureKey: visitExposure
-        inputSourceSetKey: sourceSet
-        allowDistortion: true
-        matchThreshold: 22
-        blindSolve: false
-        outputWcsKey: measuredWcs
-        outputMatchListKey: matchList
-        distanceForCatalogueMatchinArcsec: 1.0
-        cleaningParameter: 3
-        calculateSip: true
-        numBrightStars: 75
-        defaultFilterName: mag
-        wcsToleranceInArcsec: .3
-        maxSipOrder: 9
-        """
-        ))
-        
+        self.conf = measAstrom.MeasAstromConfig()
+        self.astrom = measAstrom.Astrometry(self.conf)
                     
     def tearDown(self):
         del self.exposure
-        del self.solver
-        del self.defaultPolicy
-        pass
+        del self.astrom
                         
     def test1(self):
         """The exposures filtername is one of the filters stored in the catalogue"""
-        log=None
-        filt = measAstrom.chooseFilterName(self.exposure, self.defaultPolicy, self.solver, log)
-        self.assertEqual(filt, "mag")
-        
+
+        print 'filter map:', self.astrom.andConfig.magColumnMap
+
+        filterName = self.exposure.getFilter().getName()
+        print 'filter name:', filterName
+        print type(filterName)
+        filt = self.astrom.getCatalogFilterName(filterName)
+        self.assertEqual(filt, 'i')
 
     def test2(self):
         """The exposures filtername is not one of the filters stored in the catalogue, so a default
@@ -118,11 +99,9 @@ class chooseFilterNameTest(unittest.TestCase):
         filt = afwImg.Filter("strangelyNamedFilter")
         self.exposure.setFilter(filt)
 
-        
-        log=None
-        filt = measAstrom.chooseFilterName(self.exposure, self.defaultPolicy, self.solver, log)
-        self.assertEqual(filt, "mag")
-        
+        filterName = self.exposure.getFilter().getName()
+        filt = self.astrom.getCatalogFilterName(filterName)
+        self.assertEqual(filt, 'r')
         
     def test3(self):
         """Test that we can override the default with another policy"""
@@ -132,32 +111,13 @@ class chooseFilterNameTest(unittest.TestCase):
         filt = afwImg.Filter("strangelyNamedFilter")
         self.exposure.setFilter(filt)
 
-        newPolicy = pexPolicy.Policy()
-        newPolicy.set("defaultFilterName", "V")
-        
-        #self.defaultPolicy.mergeDefaults(newPolicy.getDictionary())
-        newPolicy.mergeDefaults(self.defaultPolicy)
-        
-        self.assertEqual( newPolicy.get("defaultFilterName"), "V")
+        # Update config.
+        self.astrom.andConfig.magColumnMap['strangelyNamedFilter'] = 'z'
 
-        log=None
-        self.assertRaises(ValueError, measAstrom.chooseFilterName, self.exposure, 
-                newPolicy, self.solver, log)
+        filterName = self.exposure.getFilter().getName()
+        filt = self.astrom.getCatalogFilterName(filterName)
+        self.assertEqual(filt, 'z')
                 
-                
-    def test4(self):
-        """Test what happens when defaultFilterName isn't defined"""
-
-        #Set the filter properties.
-        fp = afwImg.FilterProperty("strangelyNamedFilter")
-        afwImg.Filter.define(fp)
-        filt = afwImg.Filter("strangelyNamedFilter")
-        self.exposure.setFilter(filt)
-        
-        self.defaultPolicy.remove("defaultFilterName")
-        log=None
-        filt = measAstrom.chooseFilterName(self.exposure, self.defaultPolicy, self.solver, log)
-        self.assertEqual(filt, '')
         
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 

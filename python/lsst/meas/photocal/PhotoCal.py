@@ -34,15 +34,15 @@ try:
 except ImportError:
     pyplot = None
 
-
 def calcPhotoCal(sourceMatch, log=None, magLimit=22, useCatalogClassification=True,
                  goodFlagValue=malgUtil.getDetectionFlags()['BINNED1'],
                  badFlagValue=malgUtil.getDetectionFlags()['BAD'],
+                 usePsfFlux=True
                  ):
     """Calculate photometric calibration, i.e the zero point magnitude
 
-If useCatalogClassification is true, use the star/galaxy classification from the reference catalogue, otherwise
-use the value from the measured sources (specifically, the STAR bit in the detection flags)
+    If useCatalogClassification is true, use the star/galaxy classification from the reference catalogue, otherwise
+    use the value from the measured sources (specifically, the STAR bit in the detection flags)
     """
 
     if log is None:
@@ -60,14 +60,17 @@ use the value from the measured sources (specifically, the STAR bit in the detec
     if len(sourceMatch) == 0:
         raise ValueError("sourceMatch contains no elements")
 
+    origSourceMatch = sourceMatch
+
     # Only use stars for which the flags indicate the photometry is good.
-    log.log(log.DEBUG, "Number of sources: %d" % (len(sourceMatch)))
+    log.logdebug("Number of sources: %d" % (len(sourceMatch)))
 
-    sourceMatch = [m for m in sourceMatch if
-                   (m.second.getFlagForDetection() & goodFlagValue) == goodFlagValue and
-                   not (m.second.getFlagForDetection() & badFlagValue)]
-    log.log(log.DEBUG, "Number of sources with good flag settings: %d" % (len(sourceMatch)))
-
+    Iflags = [i for i,m in enumerate(sourceMatch) if
+              (m.second.getFlagForDetection() & goodFlagValue) == goodFlagValue and
+              (m.second.getFlagForDetection() & badFlagValue ) == 0]
+    I = Iflags
+    sourceMatch = [origSourceMatch[i] for i in I]
+    log.logdebug("Number of sources with good flag settings: %d" % (len(sourceMatch)))
     if len(sourceMatch) == 0:
         raise ValueError("flags indicate all elements of sourceMatch have bad photometry")
 
@@ -76,33 +79,71 @@ use the value from the measured sources (specifically, the STAR bit in the detec
     # See if any catalogue objects are labelled as stars; if not use the measured object's classifier
     #
     if useCatalogClassification:
-        starMatch = [m for m in sourceMatch if (m.first.getFlagForDetection() & STAR)]
-        if len(starMatch) == 0:
-            log.log(log.WARN, "No catalogue objects are classified as stars; " +
-                    "using measured object S/G classifier")
+        Istar = [i for i,m in zip(I,sourceMatch)
+                 if (m.first.getFlagForDetection() & STAR)]
+        if len(Istar) == 0:
+            log.warn('No catalog sources are classified as stars; using measured source STAR flag')
             useCatalogClassification = False
         else:
-            sourceMatch = starMatch
+            I = Istar
+            sourceMatch = [origSourceMatch[i] for i in I]
+
     if not useCatalogClassification:
-        starMatch = [m for m in sourceMatch if (m.second.getFlagForDetection() & STAR)]
-        if len(starMatch) == 0:
-            log.log(log.WARN, "No image objects are classified as stars; using all sources")
+        Istar = [i for i,m in zip(I,sourceMatch)
+                 if (m.second.getFlagForDetection() & STAR)]
+        if len(Istar) == 0:
+            log.warn("No image objects are classified as stars; using all sources")
         else:
-            sourceMatch = starMatch
-    log.log(log.DEBUG, "Number of sources after stellar cuts: %d" % (len(sourceMatch)))
+            I = Istar
+            sourceMatch = [origSourceMatch[i] for i in I]
+
+    log.logdebug("Number of sources after stellar cuts: %d" % (len(sourceMatch)))
     if len(sourceMatch) == 0:
         raise RuntimeError("No sources remaining in match list after cuts")
  
-    #Convert fluxes to magnitudes
-    out = getMagnitudes(sourceMatch)
+    # Convert fluxes to magnitudes
+    fluxCat    = np.array([m.first.getPsfFlux()    for m in sourceMatch])
+    fluxCatErr = np.array([m.first.getPsfFluxErr() for m in sourceMatch])
+    if usePsfFlux:
+        fluxSrc =    np.array([m.second.getPsfFlux()    for m in sourceMatch])
+        fluxSrcErr = np.array([m.second.getPsfFluxErr() for m in sourceMatch])
+    else:
+        fluxSrc =    np.array([m.second.getApFlux()     for m in sourceMatch])
+        fluxSrcErr = np.array([m.second.getApFluxErr()  for m in sourceMatch])
 
+    keep = np.logical_and(fluxCat > 0, fluxSrc > 0)
+    Iflux = [I[k] for k in np.flatnonzero(keep)]
+    I = Iflux
+    sourceMatch = [origSourceMatch[i] for i in I]
+
+    # Catalogue may not have flux uncertainties; HACK
+    if sum(fluxCatErr) == 0.0:
+        fluxCatErr = np.sqrt(fluxCat)
+    magSrc = -2.5 * np.log10(fluxSrc[keep])
+    magCat = -2.5 * np.log10(fluxCat[keep])
+
+    # Fitting with error bars in both axes is hard, so transfer all
+    # the error to src, then convert to magnitude
+    fluxErr = np.hypot(fluxSrcErr[keep], fluxCatErr[keep])
+    magErr = fluxErr/fluxSrc[keep]/np.log(10)
+
+    magSrcErr = fluxSrcErr[keep]/fluxSrc[keep]/np.log(10)
+    magCatErr = fluxCatErr[keep]/fluxCat[keep]/np.log(10)
+
+    Ibright = None
     if magLimit is not None:
-        bright = out["cat"] < magLimit
-        for k in out.keys():
-            out[k] = out[k][bright]
-
-    # Fit for zeropoint.  We can run the code more than once, so as to give good stars that got clipped
-    # by a bad first guess a second chance.
+        keep = (magCat < magLimit)
+        Ibright = [I[k] for k in np.flatnonzero(keep)]
+        I = Ibright
+        magSrc = magSrc[keep]
+        magCat = magCat[keep]
+        magErr = magErr[keep]
+        magSrcErr = magSrcErr[keep]
+        magCatErr = magCatErr[keep]
+        
+    # Fit for zeropoint.  We can run the code more than once, so as to
+    # give good stars that got clipped by a bad first guess a second
+    # chance.
     sigma_max = [0.25]                  # maximum sigma to use when clipping
     nsigma = [3.0]                      # clip at nsigma
     useMedian = [True]
@@ -110,55 +151,23 @@ use the value from the measured sources (specifically, the STAR bit in the detec
 
     zp = None                           # initial guess
     for i in range(len(nsigma)):
-        zp, sigma, ngood = getZeroPoint(out["src"], out["cat"], srcErr=out["srcErr"], zp0=zp,
-                                        useMedian=useMedian[i],
-                                        sigma_max=sigma_max[i], nsigma=nsigma[i], niter=niter[i], log=log)
-    log.log(log.INFO, "Magnitude zero point: %f +/- %f from %d stars" % (zp, sigma, ngood))
-    
-    return PhotometricMagnitude(zeroFlux=1.0, zeroMag=zp)
+        zp, sigma, ngood = getZeroPoint(magSrc, magCat, magErr, zp0=zp,
+                                        useMedian=useMedian[i], sigma_max=sigma_max[i],
+                                        nsigma=nsigma[i], niter=niter[i], log=log)
+        log.info("Magnitude zero point: %f +/- %f from %d stars" % (zp, sigma, ngood))
 
-def getMagnitudes(sourceMatch):
+    photocal = PhotometricMagnitude(zeroFlux=1.0, zeroMag=zp)
+    # add debugging data
+    photocal.srcMag = magSrc
+    photocal.srcMagErr = magSrcErr
+    photocal.refMag = magCat
+    photocal.refMagErr = magCatErr
+    photocal.Iflags = Iflags
+    photocal.Istar = Istar
+    photocal.Iflux = Iflux
+    photocal.Ibright = Ibright
 
-    #Extract the fluxes as numpy arrays. Catalogues don't always come with errors
-    #so we may need to make an estimate using sqrt(counts)
-    fluxCat =    np.array([m.first.getPsfFlux() for m in sourceMatch])
-    fluxCatErr = np.array([m.first.getPsfFluxErr() for m in sourceMatch])
-    if False:
-        fluxSrc =    np.array([m.second.getPsfFlux()    for m in sourceMatch])
-        fluxSrcErr = np.array([m.second.getPsfFluxErr() for m in sourceMatch])
-    else:
-        fluxSrc =    np.array([m.second.getApFlux()     for m in sourceMatch])
-        fluxSrcErr = np.array([m.second.getApFluxErr()  for m in sourceMatch])
-
-    #Remove objects where the source or catalogue flux is bad
-    idx = np.where(np.logical_and(fluxSrc > 0, fluxCat > 0))
-
-    fluxSrc = fluxSrc[idx]
-    fluxCat = fluxCat[idx]
-    fluxSrcErr = fluxSrcErr[idx]
-    fluxCatErr = fluxCatErr[idx]
-
-    #Catalogue may not have flux uncertainties
-    if sum(fluxCatErr) == 0.0:
-        fluxCatErr = np.sqrt(fluxCat)
-
-    #Convert to mags
-    magSrc = -2.5*np.log10(fluxSrc)
-    magCat = -2.5*np.log10(fluxCat)
-
-    #Fitting with error bars in both axes is hard, so transfer all the error to
-    #src, then convert to magnitude
-    fluxSrcErr = np.hypot(fluxSrcErr, fluxCatErr)
-    magSrcErr = fluxSrcErr/fluxSrc/np.log(10)
-
-    #I need to return three arrays, but am bound to get the order
-    #confused at some point, so use a dictionary instead
-    out = dict()
-    out["src"] = magSrc
-    out["cat"] = magCat
-    out["srcErr"] = magSrcErr
-
-    return out
+    return photocal
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -235,8 +244,7 @@ We perform niter iterations of a simple sigma-clipping algorithm with a a couple
                     sigma_max = 2*sig   # upper bound on st. dev. for clipping. multiplier is a heuristic
 
                 if log:
-                    log.log(log.DEBUG,
-                            "Photo calibration histogram: center = %.2f, sig = %.2f" % (center, sig))
+                    log.logdebug("Photo calibration histogram: center = %.2f, sig = %.2f" % (center, sig))
 
             else:
                 if sigma_max is None:

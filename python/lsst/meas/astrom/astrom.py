@@ -10,7 +10,8 @@ import lsst.meas.algorithms.utils as maUtils
 
 from .config import MeasAstromConfig, AstrometryNetDataConfig
 import sip as astromSip
-import net as astromNet
+
+import numpy as np # for isfinite()
 
 # Object returned by determineWcs.
 class InitialAstrometry(object):
@@ -97,19 +98,25 @@ class Astrometry(object):
 
     def determineWcs(self,
                      sources,
-                     exposure):
+                     exposure,
+                     **kwargs):
         '''
         Version of determineWcs(), meant for pipeline use, that gets
         almost all its parameters from config or reasonable defaults.
         '''
         assert(exposure is not None)
-        rdrad = self.config.raDecSearchRadius * afwGeom.degrees
 
-        return self.determineWcs2(sources, exposure,
-                                  searchRadius=rdrad,
-                                  usePixelScale = self.config.useWcsPixelScale,
-                                  useRaDecCenter = self.config.useWcsRaDecCenter,
-                                  useParity = self.config.useWcsParity)
+        margs = kwargs.copy()
+        if not 'searchRadius' in margs:
+            margs.update(searchRadius = self.config.raDecSearchRadius * afwGeom.degrees)
+        if not 'usePixelScale' in margs:
+            margs.update(usePixelScale = self.config.useWcsPixelScale)
+        if not 'useRaDecCenter' in margs:
+            margs.update(useRaDecCenter = self.config.useWcsRaDecCenter)
+        if not 'useParity' in margs:
+            margs.update(useParity = self.config.useWcsParity)
+
+        return self.determineWcs2(sources, exposure, **margs)
         
 
     def determineWcs2(self,
@@ -211,7 +218,7 @@ class Astrometry(object):
 
         catids = [src.getSourceId() for src in cat]
         uids = set(catids)
-        self.log.log(self.log.DEBUG, '%i reference sources; %i unique IDs' % (len(catids), len(uids)))
+        self.log.logdebug('%i reference sources; %i unique IDs' % (len(catids), len(uids)))
 
         matchList = self._getMatchList(sources, cat, wcs)
 
@@ -239,10 +246,6 @@ class Astrometry(object):
             astrom.sipWcs = wcs
             astrom.sipMatches = matchList
 
-        # REALLY?
-        if exposure is not None:
-            exposure.setWcs(wcs)
-
         meta = _createMetadata(W, H, wcs, filterName)
         #matchListMeta = solver.getMatchedIndexMetadata()
         #moreMeta.combine(matchListMeta)
@@ -255,7 +258,6 @@ class Astrometry(object):
             astrom.matches.push_back(m)
 
         return astrom
-
 
     #### FIXME!
     def _calculateSipTerms(self, origWcs, cat, sources, matchList):
@@ -287,7 +289,6 @@ class Astrometry(object):
 
         return wcs, matchList
 
-
     def _getMatchList(self, sources, cat, wcs):
         dist = self.config.catalogMatchDist * afwGeom.arcseconds
         clean = self.config.cleaningParameter
@@ -298,6 +299,12 @@ class Astrometry(object):
         matchList = astromSip.cleanBadPoints.clean(matchList, wcs, nsigma=clean)
         return matchList
 
+    def getCatalogFilterName(self, filterName):
+        '''
+        Returns the column name in the astrometry_net_data index file that will be used
+        for the given filter name.
+        '''
+        return self._mapFilterName(filterName, self.andConfig.defaultMagColumn)
 
     def _mapFilterName(self, filterName, default=None):
         ## Warn if default is used?
@@ -308,8 +315,6 @@ class Astrometry(object):
         W,H = imageSize
         xc, yc = W/2. + 0.5, H/2. + 0.5
         rdc = wcs.pixelToSky(xc, yc)
-        #print 'RA,Dec', rdc
-        #rdc = rdc.toIcrs()
         ra,dec = rdc.getLongitude(), rdc.getLatitude()
         pixelScale = wcs.pixelScale()
         rad = pixelScale * (math.hypot(W,H)/2. + pixelMargin)
@@ -327,10 +332,16 @@ class Astrometry(object):
 
     def getReferenceSources(self, ra, dec, radius, filterName):
         '''
+        Searches for reference-catalog sources (in the
+        astrometry_net_data files) in the requested RA,Dec region
+        (afwGeom::Angle objects), with the requested radius (also an
+        Angle).  The flux values will be set based on the requested
+        filter (None => default filter).
+        
         Returns: list of Source objects.
         '''
         solver = self._getSolver()
-        magcolumn = self._mapFilterName(filterName, self.andConfig.defaultMagColumn)
+        magcolumn = self.getCatalogFilterName(filterName)
 
         sgCol = self.andConfig.starGalaxyColumn
         varCol = self.andConfig.variableColumn
@@ -347,15 +358,26 @@ class Astrometry(object):
                                 magerrCol, sgCol, varCol,
                                 starflag)
         del solver
-        
+        #print 'STAR flag', starflag
+        #print len(cat), 'reference sources'
+        #print sum([src.getFlagForDetection() & starflag > 0
+        #           for src in cat]), 'have STAR set'
         return cat
 
     def _solve(self, sources, wcs, imageSize, pixelScale, radecCenter,
                searchRadius, parity):
         solver = self._getSolver()
 
-        # FIXME -- select sources with valid x,y,flux?
-        solver.setStars(sources)
+        # select sources with valid x,y, flux
+        goodsources = []
+        for s in sources:
+            if np.isfinite(s.getXAstrom()) and np.isfinite(s.getYAstrom()) and np.isfinite(s.getPsfFlux()):
+                goodsources.append(s)
+        if len(goodsources) < len(sources):
+            self.log.logdebug('Keeping %i of %i sources with finite X,Y positions and PSF flux' %
+                              (len(goodsources), len(sources)))
+        # setStars sorts them by PSF flux.
+        solver.setStars(goodsources)
         solver.setMaxStars(self.config.maxStars)
         solver.setImageSize(*imageSize)
         solver.setMatchThreshold(self.config.matchThreshold)
@@ -363,6 +385,8 @@ class Astrometry(object):
             ra = radecCenter.getLongitude().asDegrees()
             dec = radecCenter.getLatitude().asDegrees()
             solver.setRaDecRadius(ra, dec, searchRadius.asDegrees())
+            self.log.logdebug('Searching for match around RA,Dec = (%g, %g) with radius %g deg' %
+                              (ra, dec, searchRadius.asDegrees()))
 
         if pixelScale is not None:
             dscale = self.config.pixelScaleUncertainty
@@ -370,34 +394,41 @@ class Astrometry(object):
             lo = scale / dscale
             hi = scale * dscale
             solver.setPixelScaleRange(lo, hi)
-            #print 'Setting pixel scale range', lo, hi
+            self.log.logdebug('Searching for matches with pixel scale = %g +- %g %% -> range [%g, %g] arcsec/pix' %
+                              (scale, 100.*(dscale-1.), lo, hi))
 
         if parity is not None:
             solver.setParity(parity)
-
-        '''
-        _mylog.format(pexLog::Log::DEBUG, "Exposure\'s WCS scale: %g arcsec/pix; setting scale range %.3f - %.3f arcsec/pixel",
-        pixelScale.asArcseconds(), lwr.asArcseconds(), upr.asArcseconds());
-        '''
+            self.log.logdebug('Searching for match with parity = ' + str(parity))
 
         solver.addIndices(self.inds)
+        active = solver.getActiveIndexFiles()
+        self.log.logdebug('Searching for match in %i of %i index files: [ ' % (len(active), len(self.inds)) +
+                          ', '.join(ind.indexname for ind in active) + ' ]')
 
         cpulimit = self.config.maxCpuTime
 
         solver.run(cpulimit)
         if solver.didSolve():
-            self.log.log(self.log.DEBUG, 'Solved!')
+            self.log.logdebug('Solved!')
             wcs = solver.getWcs()
-            self.log.log(self.log.DEBUG, 'WCS: %s' % wcs.getFitsMetadata().toString())
+            self.log.logdebug('WCS: %s' % wcs.getFitsMetadata().toString())
+            
         else:
-            self.log.log(self.log.DEBUG, 'Did not solve.')
+            self.log.warn('Did not got an astrometric solution from Astrometry.net')
             wcs = None
+            # Gather debugging info...
+
+            # -are there any reference stars in the proposed search area?
+            if radecCenter is not None:
+                ra = radecCenter.getLongitude()
+                dec = radecCenter.getLatitude()
+                refs = self.getReferenceSources(ra, dec, searchRadius, None)
+                self.log.info('Searching around RA,Dec = (%g,%g) with radius %g deg yields %i reference-catalog sources' %
+                              (ra.asDegrees(), dec.asDegrees(), searchRadius.asDegrees(), len(refs)))
 
         qa = solver.getSolveStats()
-        self.log.log(self.log.DEBUG, 'qa: %s' % qa.toString())
-
-        #del solver
-
+        self.log.logdebug('qa: %s' % qa.toString())
         return wcs, qa
 
     def _getIndexPath(self, fn):
@@ -436,6 +467,112 @@ class Astrometry(object):
                 keep.append(s)
         return keep
 
+    #@staticmethod
+    # FIXME -- replace with afw Match.h unpackMatches()
+    def joinMatchList(self, matchlist, sources, first=True,
+                      mask=0, offset=0):
+        '''
+        In database terms: this function joins the IDs in "matchlist" to
+        the IDs in "sources", and denormalizes the "matchlist".
+    
+        In non-DB terms: sets either the "matchlist[*].first" or
+        "matchlist[*].second" values to point to entries in "sources".
+    
+        On input, "matchlist[*].first/second" are placeholder Source
+        objects that only have the IDs set.  On return, these values are
+        replaced by real entries in "sources".
+    
+        Example: if:
+          first == True,
+          matchlist[0].first.getSourceId() == 42, and
+          sources[4].getSourceId() == 42
+        then, on return,
+          matchlist[0].first == sources[4]
+    
+        Used by "generateMatchesFromMatchList"; see there for more
+        documentation.
+        '''
+        srcstr = ('reference objects' if first else 'sources')
+    
+        # build map of ID to source
+        idtoref = {}
+        for s in sources:
+            sid = s.getSourceId()
+            if offset:
+                sid += offset
+            if mask:
+                sid = sid & mask
+            if sid in idtoref:
+                self.log.logdebug('Duplicate ID %i in %s' % (sid, srcstr))
+                continue
+            idtoref[sid] = s
+        
+        # Join.
+        nmatched = 0
+        firstfail = True
+        for i in xrange(len(matchlist)):
+            if first:
+                mid = matchlist[i].first.getSourceId()
+            else:
+                mid = matchlist[i].second.getSourceId()
+    
+            if mask:
+                mmid = mid & mask
+            else:
+                mmid = mid
+    
+            try:
+                ref = idtoref[mmid]
+            except KeyError:
+                # throw? warn?
+                self.log.logdebug('Failed to join ID %i (0x%x) (masked to %i, 0x%x) from match list element %i of %i' % (mid, mid, mmid, mmid, i, len(matchlist)))
+                if firstfail:
+                    self.log.logdebug('IDs available: ' + ' '.join('%i' % k for k in idtoref.keys()))
+                    self.log.logdebug('IDs available: ' + ' '.join('0x%x' % k for k in idtoref.keys()))
+                    firstfail = False
+                ref = None
+    
+            if first:
+                matchlist[i].first = ref
+            else:
+                matchlist[i].second = ref
+            nmatched += 1
+        self.log.logdebug('Joined %i of %i matchlist IDs to %s' %
+                          (nmatched, len(matchlist), srcstr))
+
+
+    def joinMatchListWithCatalog(self, matchlist, matchmeta):
+        '''
+        This function is required to reconstitute a matchlist after being
+        unpersisted.  The persisted form of a matchlist is simply a list
+        of integers: the ID numbers of the matched image sources and
+        reference sources.  For you database types, this is a "normal
+        form" representation.  The "live" form of a matchlist has links to
+        the real Source objects that are matched; it is "denormalized".
+        This function takes a normalized matchlist, along with the list of
+        sources to which the matchlist refers.  It fetches the reference
+        sources that are within range, and then denormalizes the matchlist
+        -- sets the "matchList[*].first" and "matchList[*].second" entries
+        to point to the sources in the "sources" argument, and to the
+        reference sources fetched from the astrometry_net_data files.
+    
+        @param matchList Unpersisted matchList (an lsst.afw.detection.PersistableSourceMatchVector)
+        @param matchmeta: Unpersisted matchList metadata (PropertySet/List)
+        '''
+        version = matchmeta.getInt('SMATCHV')
+        if version != 1:
+            raise ValueError('SourceMatchVector version number is %i, not 1.' % version)
+        filterName = matchmeta.getString('FILTER').strip()
+        # all in deg.
+        ra = matchmeta.getDouble('RA') * afwGeom.degrees
+        dec = matchmeta.getDouble('DEC') * afwGeom.degrees
+        rad = matchmeta.getDouble('RADIUS') * afwGeom.degrees
+        self.log.logdebug('Searching RA,Dec %.3f,%.3f, radius %.1f arcsec, filter "%s"' %
+                          (ra.asDegrees(), dec.asDegrees(), rad.asArcseconds(), filterName))
+        cat = self.getReferenceSources(ra, dec, rad, filterName)
+        self.log.logdebug('Found %i reference catalog sources in range' % len(cat))
+        self.joinMatchList(matchlist, cat, first=True)
+
 
 def _createMetadata(width, height, wcs, filterName):
     """
@@ -464,7 +601,8 @@ def _createMetadata(width, height, wcs, filterName):
     meta.add('RADIUS', imgSize.asDegrees(),
              'field radius in degrees, approximate')
     meta.add('SMATCHV', 1, 'SourceMatchVector version number')
-    meta.add('FILTER', filterName, 'LSST filter name for tagalong data')
+    if filterName is not None:
+        meta.add('FILTER', filterName, 'LSST filter name for tagalong data')
     #meta.add('STARGAL', stargalName, 'star/galaxy name for tagalong data')
     #meta.add('VARIABLE', variableName, 'variability name for tagalong data')
     #meta.add('MAGERR', magerrName, 'magnitude error name for tagalong data')
