@@ -358,12 +358,10 @@ class Astrometry(object):
                                 magerrCol, sgCol, varCol,
                                 starflag)
         del solver
-
-        print 'STAR flag', starflag
-        print len(cat), 'reference sources'
-        print sum([src.getFlagForDetection() & starflag > 0
-                   for src in cat]), 'have STAR set'
-        
+        #print 'STAR flag', starflag
+        #print len(cat), 'reference sources'
+        #print sum([src.getFlagForDetection() & starflag > 0
+        #           for src in cat]), 'have STAR set'
         return cat
 
     def _solve(self, sources, wcs, imageSize, pixelScale, radecCenter,
@@ -402,18 +400,15 @@ class Astrometry(object):
 
         solver.run(cpulimit)
         if solver.didSolve():
-            self.log.log(self.log.DEBUG, 'Solved!')
+            self.log.logdebug('Solved!')
             wcs = solver.getWcs()
-            self.log.log(self.log.DEBUG, 'WCS: %s' % wcs.getFitsMetadata().toString())
+            self.log.logdebug('WCS: %s' % wcs.getFitsMetadata().toString())
         else:
-            self.log.log(self.log.DEBUG, 'Did not solve.')
+            self.log.logdebug('Did not solve.')
             wcs = None
 
         qa = solver.getSolveStats()
-        self.log.log(self.log.DEBUG, 'qa: %s' % qa.toString())
-
-        #del solver
-
+        self.log.logdebug('qa: %s' % qa.toString())
         return wcs, qa
 
     def _getIndexPath(self, fn):
@@ -451,6 +446,94 @@ class Astrometry(object):
             if bbox.contains(afwGeom.Point2D(s.getXAstrom(), s.getYAstrom())):
                 keep.append(s)
         return keep
+
+    #@staticmethod
+    def joinMatchList(self, matchlist, sources, first=True,
+                      mask=0, offset=0):
+        '''
+        In database terms: this function joins the IDs in "matchlist" to
+        the IDs in "sources", and denormalizes the "matchlist".
+    
+        In non-DB terms: sets either the "matchlist[*].first" or
+        "matchlist[*].second" values to point to entries in "sources".
+    
+        On input, "matchlist[*].first/second" are placeholder Source
+        objects that only have the IDs set.  On return, these values are
+        replaced by real entries in "sources".
+    
+        Example: if:
+          first == True,
+          matchlist[0].first.getSourceId() == 42, and
+          sources[4].getSourceId() == 42
+        then, on return,
+          matchlist[0].first == sources[4]
+    
+        Used by "generateMatchesFromMatchList"; see there for more
+        documentation.
+        '''
+        srcstr = ('reference objects' if first else 'sources')
+    
+        # build map of ID to source
+        idtoref = {}
+        for s in sources:
+            sid = s.getSourceId()
+            if offset:
+                sid += offset
+            if mask:
+                sid = sid & mask
+            if sid in idtoref:
+                self.log.logdebug('Duplicate ID %i in %s' % (sid, srcstr))
+                continue
+            idtoref[sid] = s
+        
+        # Join.
+        nmatched = 0
+        firstfail = True
+        for i in xrange(len(matchlist)):
+            if first:
+                mid = matchlist[i].first.getSourceId()
+            else:
+                mid = matchlist[i].second.getSourceId()
+    
+            if mask:
+                mmid = mid & mask
+            else:
+                mmid = mid
+    
+            try:
+                ref = idtoref[mmid]
+            except KeyError:
+                # throw? warn?
+                self.log.logdebug('Failed to join ID %i (0x%x) (masked to %i, 0x%x) from match list element %i of %i' % (mid, mid, mmid, mmid, i, len(matchlist)))
+                if firstfail:
+                    self.log.logdebug('IDs available: ' + ' '.join('%i' % k for k in idtoref.keys()))
+                    self.log.logdebug('IDs available: ' + ' '.join('0x%x' % k for k in idtoref.keys()))
+                    firstfail = False
+                ref = None
+    
+            if first:
+                matchlist[i].first = ref
+            else:
+                matchlist[i].second = ref
+            nmatched += 1
+        self.log.logdebug('Joined %i of %i matchlist IDs to %s' %
+                          (nmatched, len(matchlist), srcstr))
+
+
+    def joinMatchListWithCatalog(self, matchlist, matchmeta):
+        version = matchmeta.getInt('SMATCHV')
+        if version != 1:
+            raise ValueError('SourceMatchVector version number is %i, not 1.' % version)
+        filterName = matchmeta.getString('FILTER').strip()
+        # all in deg.
+        ra = matchmeta.getDouble('RA') * afwGeom.degrees
+        dec = matchmeta.getDouble('DEC') * afwGeom.degrees
+        rad = matchmeta.getDouble('RADIUS') * afwGeom.degrees
+        self.log.logdebug('Searching RA,Dec %.3f,%.3f, radius %.1f arcsec, filter "%s"' %
+                          (ra.asDegrees(), dec.asDegrees(), rad.asArcseconds(), filterName))
+        cat = self.getReferenceSources(ra, dec, rad, filterName)
+        self.log.logdebug('Found %i reference catalog sources in range' % len(cat))
+        self.joinMatchList(matchlist, cat, first=True)
 
 
 def _createMetadata(width, height, wcs, filterName):

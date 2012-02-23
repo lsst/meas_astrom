@@ -21,6 +21,11 @@ import lsst.meas.astrom as measAstrom
 from lsst.pex.logging import Log
 #from lsst.afw.geom import Angle
 import lsst.afw.geom as afwGeom
+import lsst.afw.image              as afwImg
+
+import sourceSetIO                 as ssi
+        
+        
 
 try:
     type(verbose)
@@ -49,7 +54,7 @@ def roundTripSourceMatch(storagetype, filename, matchlist):
 
 class matchlistTestCase(unittest.TestCase):
     def setUp(self):
-        #Load sample input from disk
+        # Load sample input from disk
         mypath = eups.productDir("meas_astrom")
         # Set up local astrometry_net_data
         datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
@@ -59,56 +64,36 @@ class matchlistTestCase(unittest.TestCase):
         if not ok:
             raise ValueError("Couldn't set up local photocal version of astrometry_net_data (from path: %s): %s" % (datapath, reason))
 
+        path = os.path.join(mypath, "examples")
+        self.srcSet = ssi.read(os.path.join(path, "v695833-e0-c000.xy.txt"))
+        self.imageSize = (2048, 4612) # approximate
+        self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci"))
+
+        conf = measAstrom.MeasAstromConfig()
+        loglvl = Log.INFO
+        #loglvl = Log.DEBUG
+        self.astrom = measAstrom.Astrometry(conf, logLevel=loglvl)
+
     def tearDown(self):
-        pass
+        del self.srcSet
+        del self.imageSize
+        del self.exposure
+        del self.astrom
+        
+    def getAstrometrySolution(self):
+        return self.astrom.determineWcs(self.srcSet, self.exposure, imageSize=self.imageSize)
 
     def testJoin(self):
-        pol = policy.Policy()
-        pol.set('matchThreshold', 30)
-        log = Log.getDefaultLog()
+        res = self.getAstrometrySolution()
 
-        ra,dec,rad = (-145., 53., 0.15)
-        filtername,idname = 'mag','id'
-        anindid = 2033
+        matches = res.getMatches()
+        print 'Matches:', matches
+        matchmeta = res.getMatchMetadata()
+        print 'match meta', matchmeta
 
-        solver = measAstrom.createSolver(pol, log)
-        X = solver.getCatalogue(ra * afwGeom.degrees, dec * afwGeom.degrees, rad * afwGeom.degrees, filtername, idname, anindid)
-        ss = X.refsources
-        print 'got', len(ss), 'catalog sources'
-
-        smv = afwDet.SourceMatchVector()
-        for i,s1 in enumerate(ss):
-            sm = afwDet.SourceMatch()
-            sm.first = s1
-            s2 = afwDet.Source()
-            s2.setSourceId(1000 + i)
-            sm.second = s2
-            sm.distance = 0
-            smv.push_back(sm)
-
-        psmv = afwDet.PersistableSourceMatchVector(smv)
-
-        extra = dafBase.PropertyList()
-        # as in meas_astrom : determineWcs.py
-        andata = os.environ.get('ASTROMETRY_NET_DATA_DIR')
-        if andata is None:
-            extra.add('ANEUPS', 'none', 'ASTROMETRY_NET_DATA_DIR')
-            anpath = ''
-        else:
-            anpath = andata
-            andata = os.path.basename(andata)
-            extra.add('ANEUPS', andata, 'ASTROMETRY_NET_DATA_DIR')
-        # This string is arbitrary
-        anindfn = os.path.join(anpath, 'photocal', 'index-2033.fits')
-        extra.add('RA', ra)
-        extra.add('DEC', dec)
-        extra.add('RADIUS', rad)
-        extra.add('ANINDNM', anindfn)
-        extra.add('ANINDID', anindid)
-        extra.add('ANINDHP', -1)
-        extra.add('SMATCHV', 1)
-
-        psmv.setSourceMatchMetadata(extra)
+        smv = matches
+        psmv = afwDet.PersistableSourceMatchVector(matches)
+        psmv.setSourceMatchMetadata(matchmeta)
 
         psmv2 = roundTripSourceMatch('FitsStorage', 'tests/data/matchlist.fits', psmv)
         smv2 = psmv2.getSourceMatches()
@@ -118,7 +103,7 @@ class matchlistTestCase(unittest.TestCase):
         print 'Got metadata:', extra2
         print extra2.toString()
 
-        measAstrom.joinMatchListWithCatalog(smv2, extra2, pol, filterName=filtername, idName=idname)
+        self.astrom.joinMatchListWithCatalog(smv2, extra2)
 
         self.assertEqual(len(smv2), len(smv))
         for i in xrange(len(smv)):
@@ -128,6 +113,7 @@ class matchlistTestCase(unittest.TestCase):
             self.assertEqual(smv2[i].first.getDec().asDegrees(), smv[i].first.getDec().asDegrees())
             self.assertEqual(smv2[i].first.getPsfFlux(), smv[i].first.getPsfFlux())
 
+        return
 
             
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= silly boilerplate -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
