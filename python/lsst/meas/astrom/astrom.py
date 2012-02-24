@@ -609,3 +609,21 @@ def _createMetadata(width, height, wcs, filterName):
     #meta.add('MAGERR', magerrName, 'magnitude error name for tagalong data')
     return meta
 
+def readMatches(butler, dataId, sourcesName='icSrc', matchesName='icMatch'):
+    """Read matches, sources and catalogue; combine.
+
+    @param butler Data butler
+    @param dataId Data identifier for butler
+    @param sourcesName Name for sources from butler
+    @param matchesName Name for matches from butler
+    @returns Matches
+    """
+    sources = butler.get(sourcesName, dataId)
+    matches = butler.get(matchesName, dataId)
+    matchList = matches.getSourceMatches()
+    matchMeta = matches.getSourceMatchMetadata()
+    
+    astrom = Astrometry(MeasAstromConfig())
+    astrom.joinMatchListWithCatalog(matchList, matchMeta)
+    astrom.joinMatchList(matchList, sources.getSources(), first=False)
+    return matchList
