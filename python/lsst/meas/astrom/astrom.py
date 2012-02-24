@@ -168,9 +168,6 @@ class Astrometry(object):
             if wcs is None:
                 wcs = exposure.getWcs()
 
-        if filterName in self.config.filterMap.keys():
-            filterName = self.config.filterMap[filterName]
-
         if imageSize is None:
             # Could guess from the extent of the Sources...
             raise RuntimeError('Image size must be specified by passing "exposure" or "imageSize"')
@@ -311,7 +308,8 @@ class Astrometry(object):
 
     def _mapFilterName(self, filterName, default=None):
         ## Warn if default is used?
-        return self.andConfig.magColumnMap.get(filterName, default)
+        filterName = self.config.filterMap.get(filterName, filterName) # Exposure filter --> desired filter
+        return self.andConfig.magColumnMap.get(filterName, default) # Desired filter --> a_n_d column name
 
     def getReferenceSourcesForWcs(self, wcs, imageSize, filterName, pixelMargin,
                                   trim=True):
