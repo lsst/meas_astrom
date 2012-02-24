@@ -33,7 +33,6 @@ Python interface to lsst::afw::meas::astrom::sip classes
 
 %{
 #include "lsst/pex/logging/FileDestination.h"
-#include "lsst/meas/astrom/sip/MatchSrcToCatalogue.h"
 #include "lsst/afw/math/FunctionLibrary.h"
 #include "lsst/meas/astrom/sip/LeastSqFitter1d.h"
 #include "lsst/meas/astrom/sip/LeastSqFitter2d.h"
@@ -42,8 +41,7 @@ Python interface to lsst::afw::meas::astrom::sip classes
 #include "lsst/afw/math.h"
 #include "lsst/afw/image.h"
 #include "lsst/afw/cameraGeom.h"
-#include "lsst/afw/detection.h"
-#include "lsst/afw/detection/AperturePhotometry.h"
+#include "lsst/afw/table.h"
 
 #define PY_ARRAY_UNIQUE_SYMBOL LSST_MEAS_ASTROM_NUMPY_API
 #include "numpy/arrayobject.h"
@@ -55,30 +53,19 @@ Python interface to lsst::afw::meas::astrom::sip classes
 %include "std_string.i"
 %include "lsst/ndarray/ndarray.i"
 
-%declareEigenMatrix(Eigen::Matrix2d);
-%declareEigenMatrix(Eigen::MatrixXd);
-
-%pythoncode %{
-import lsst.utils
-
-def version(HeadURL = r"$HeadURL: svn+ssh://svn.lsstcorp.org/DMS/afw/trunk/python/lsst/afw/sip/sipLib.i $"):
-    """Return a version given a HeadURL string. If a different version is setup, return that too"""
-
-    return HeadURL
-%}
+%declareNumPyConverters(Eigen::Matrix2d);
+%declareNumPyConverters(Eigen::MatrixXd);
 
 %import "lsst/afw/math/mathLib.i"
 %import "lsst/afw/image/imageLib.i"
-%import "lsst/afw/detection/detectionLib.i"
+%import "lsst/afw/table/tableLib.i"
 
 %lsst_exceptions();
 
 %include "lsst/base.h"
-%include "lsst/meas/astrom/sip/MatchSrcToCatalogue.h"
 %include "lsst/meas/astrom/sip/LeastSqFitter1d.h"
 %include "lsst/meas/astrom/sip/LeastSqFitter2d.h"
 %include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
-
 
 %template(LeastSqFitter1dPoly) lsst::meas::astrom::sip::LeastSqFitter1d< lsst::afw::math::PolynomialFunction1<double> >;
 

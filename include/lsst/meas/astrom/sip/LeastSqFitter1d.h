@@ -96,14 +96,8 @@ private:
 
     std::vector<boost::shared_ptr<FittingFunc> > _funcArray;
 };
-    
-
-
 
 //The .cc part
-namespace sip = lsst::meas::astrom::sip;
-namespace math = lsst::afw::math;
-
 
 ///Fit a 1d polynomial to a set of data points z(x, y)
 ///
@@ -260,7 +254,6 @@ template<class FittingFunc> void LeastSqFitter1d<FittingFunc>::initFunctions() {
 template<class FittingFunc> double LeastSqFitter1d<FittingFunc>::func1d(double value, int exponent) {
     return (*_funcArray[exponent])(value);
 }
-
 
 }}}}
 
