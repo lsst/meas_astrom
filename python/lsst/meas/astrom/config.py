@@ -142,3 +142,8 @@ class MeasAstromConfig(pexConfig.Config):
         int,
         default=4, min=2)
 
+    filterMap = DictField(
+        doc="Mapping from input filter to catalogue filter",
+        keytype=str, itemtype=str,
+        default={},
+        optional=True)

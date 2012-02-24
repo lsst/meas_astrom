@@ -168,6 +168,9 @@ class Astrometry(object):
             if wcs is None:
                 wcs = exposure.getWcs()
 
+        if filterName in self.config.filterMap.keys():
+            filterName = self.config.filterMap[filterName]
+
         if imageSize is None:
             # Could guess from the extent of the Sources...
             raise RuntimeError('Image size must be specified by passing "exposure" or "imageSize"')
