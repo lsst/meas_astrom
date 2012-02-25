@@ -31,8 +31,7 @@
 
 #include "lsst/base.h"
 #include "lsst/pex/exceptions/Runtime.h"
-#include "lsst/afw/detection/Source.h"
-#include "lsst/afw/detection/SourceMatch.h"
+#include "lsst/afw/table/Match.h"
 #include "lsst/afw/geom/Angle.h"
 
 namespace lsst {
@@ -53,38 +52,37 @@ namespace sip {
 /// getMatchedImgSet() and getMatchedCatSet(). Creating the object automatically calculates the sets
 /// of corresponences for you. If you are unhappy with these matches, you can change one or more of your
 /// input arguments and redo the match with findMatches()
+///
+/// Using this class has the side effect of updating the coord field of the input SourceCatalog (which
+/// may be desirable).
 class MatchSrcToCatalogue{
 public:
 
     typedef boost::shared_ptr<MatchSrcToCatalogue> Ptr;
     typedef boost::shared_ptr<MatchSrcToCatalogue const> ConstPtr;
     
-    MatchSrcToCatalogue(lsst::afw::detection::SourceSet const& catSet,
-                        lsst::afw::detection::SourceSet const& imgSet,       
-                        CONST_PTR(lsst::afw::image::Wcs) wcs,   
-                        lsst::afw::geom::Angle dist
+    MatchSrcToCatalogue(afw::table::SimpleCatalog const& catSet,
+                        afw::table::SourceCatalog const& imgSet,       
+                        CONST_PTR(afw::image::Wcs) wcs,   
+                        afw::geom::Angle dist
                        );
 
-    //Don't need a Copy constructor
-    
-    //Destructor
-    ~MatchSrcToCatalogue();
-
     //Mutators
-    void setDist(lsst::afw::geom::Angle dist);
-    void setWcs(CONST_PTR(lsst::afw::image::Wcs) wcs);
-    void setCatSrcSet(const lsst::afw::detection::SourceSet &srcSet);
-    void setImgSrcSet(const lsst::afw::detection::SourceSet &srcSet);
+    void setDist(afw::geom::Angle dist);
+    void setWcs(CONST_PTR(afw::image::Wcs) wcs);
+    void setCatSrcSet(afw::table::SimpleCatalog const & catSet);
+    void setImgSrcSet(afw::table::SourceCatalog const & srcSet);
 
     void findMatches();
 
     //Accessors
-    std::vector<lsst::afw::detection::SourceMatch> getMatches();
+    afw::table::ReferenceMatchVector getMatches();
     
 
 private:
-    lsst::afw::detection::SourceSet _imgSet, _catSet;      ///< Copies of input sets
-    std::vector<lsst::afw::detection::SourceMatch> _match; ///List of tuples of matching indices
+    afw::table::SimpleCatalog _catSet;       ///< Copy of input catalog
+    afw::table::SourceCatalog _imgSet;       ///< Copy of input catalog
+    afw::table::ReferenceMatchVector _match;    ///List of tuples of matching indices
     CONST_PTR(lsst::afw::image::Wcs) _wcs;
     lsst::afw::geom::Angle _dist;              ///< How close must two objects be to match 
 

@@ -37,6 +37,7 @@ Python interface to lsst::afw::meas::astrom::sip classes
 #include "lsst/meas/astrom/sip/LeastSqFitter1d.h"
 #include "lsst/meas/astrom/sip/LeastSqFitter2d.h"
 #include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
+#include "lsst/meas/astrom/sip/MatchSrcToCatalogue.h"
 #include "lsst/afw/geom/ellipses.h"
 #include "lsst/afw/math.h"
 #include "lsst/afw/image.h"
@@ -66,6 +67,7 @@ Python interface to lsst::afw::meas::astrom::sip classes
 %include "lsst/meas/astrom/sip/LeastSqFitter1d.h"
 %include "lsst/meas/astrom/sip/LeastSqFitter2d.h"
 %include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
+%include "lsst/meas/astrom/sip/MatchSrcToCatalogue.h"
 
 %template(LeastSqFitter1dPoly) lsst::meas::astrom::sip::LeastSqFitter1d< lsst::afw::math::PolynomialFunction1<double> >;
 

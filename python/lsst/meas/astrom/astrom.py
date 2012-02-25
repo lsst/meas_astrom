@@ -5,7 +5,7 @@ import lsst.daf.base as dafBase
 import lsst.pex.logging as pexLog
 import lsst.pex.config as pexConfig
 import lsst.afw.geom as afwGeom
-import lsst.afw.detection as afwDet
+import lsst.afw.table as afwTable
 import lsst.meas.algorithms.utils as maUtils
 
 from .config import MeasAstromConfig, AstrometryNetDataConfig
@@ -253,7 +253,7 @@ class Astrometry(object):
         astrom.matchMetadata = meta
         astrom.wcs = wcs
 
-        astrom.matches = afwDet.SourceMatchVector()
+        astrom.matches = afwTable.SourceMatchVector()
         for m in matchList:
             astrom.matches.push_back(m)
 
