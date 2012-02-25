@@ -139,7 +139,7 @@ static time_t timer_callback(void* baton) {
 		solver_free($self);
 	}
 
-	afwTable::SimpleCatalog
+	lsst::afw::table::SimpleCatalog
 		getCatalog(std::vector<index_t*> inds,
 				   double ra, double dec, double radius,
 				   const char* idcol,

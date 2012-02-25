@@ -23,32 +23,30 @@
 import math
 
 import lsst.afw.image as afwImg
-import lsst.afw.detection as afwDet
+import lsst.afw.table as afwTable
 
 def noDistort(src):
     """Do no distortion. Used for sanity checking"""
     
-    out = afwDet.Source(src)
+    out = src.table.copyRecord(src)
     return out
 
 
 def linearXDistort(src, frac=.001):
-    """Increase the xAstrom value in a Source object by frac. E.g
-    src.xAstrom = 1000 --> 1001 if frac=.001
+    """Increase the x value in a Source object by frac. E.g
+    src.x = 1000 --> 1001 if frac=.001
     
     Input:
     src     A Source object
     frac    How much to change X by
     
     Output:
-    A deep copy of src, with the value of xAstrom changed
+    A deep copy of src, with the value of x changed
     """
     
 
-    out = afwDet.Source(src)
-
-       
-    out.setXAstrom( out.getXAstrom()*(1+frac) )
+    out = src.table.copyRecord(src)
+    out.set(out.table.getCentroidKey().getX(),  out.getX()*(1+frac) )
     return out
 
 
@@ -57,13 +55,13 @@ def quadraticDistortX(src, frac=1e-6):
     i.e y, y^2, x, xy, x^2
     """
     
-    out = afwDet.Source(src)
-    x = out.getXAstrom()
-    y = out.getYAstrom()
+    out = src.table.copyRecord(src)
+    x = out.getX()
+    y = out.getY()
     val = x**2
     
-    out.setXAstrom(x + val*frac)
-    out.setYAstrom(y)
+    out.set(out.table.getCentroidKey().getX(), x + val*frac)
+    out.set(out.table.getCentroidKey().getY(), y)
     return out
 
 
@@ -72,42 +70,42 @@ def cubicDistortX(src, frac=1e-9):
     i.e y, y^2, x, xy, x^2
     """
     
-    out = afwDet.Source(src)
-    x = out.getXAstrom()
-    y = out.getYAstrom()
+    out = src.table.copyRecord(src)
+    x = out.getX()
+    y = out.getY()
     val = x**3
     
-    out.setXAstrom(x + val*frac)
-    out.setYAstrom(y)
+    out.set(out.table.getCentroidKey().getX(), x + val*frac)
+    out.set(out.table.getCentroidKey().getY(), y)
     return out
 
 
 def manyTermX(src, frac=1e-9):
-    out = afwDet.Source(src)
-    x = out.getXAstrom()
-    y = out.getYAstrom()
+    out = src.table.copyRecord(src)
+    x = out.getX()
+    y = out.getY()
     val = x**3 - 2*x**2 + 4*x - 9
     
-    out.setXAstrom(x + val*frac)
-    out.setYAstrom(y)
+    out.set(out.table.getCentroidKey().getX(), x + val*frac)
+    out.set(out.table.getCentroidKey().getY(), y)
     return out
 
 
 
 def linearYDistort(src, frac=.001):
-    """Increase the yAstrom value in a Source object by frac. E.g
-    src.xAstrom = 1000 --> 1001 if frac=.001
+    """Increase the y value in a Source object by frac. E.g
+    src.x = 1000 --> 1001 if frac=.001
     
     Input:
     src     A Source object
     frac    How much to change Y by
     
     Output:
-    A deep copy of src, with the value of yAstrom changed
+    A deep copy of src, with the value of y changed
     """
 
-    out = afwDet.Source(src)
-    out.setYAstrom( out.getYAstrom()*(1+frac) )
+    out = src.table.copyRecord(src)
+    out.set(out.table.getCentroidKey().getY(),  out.getY()*(1+frac) )
     return out
 
 
@@ -116,13 +114,13 @@ def quadraticDistortY(src, frac=1e-6):
     i.e y, y^2, x, xy, x^2
     """
     
-    out = afwDet.Source(src)
-    x = out.getXAstrom()
-    y = out.getYAstrom()
+    out = src.table.copyRecord(src)
+    x = out.getX()
+    y = out.getY()
     val = y**2
     
-    out.setXAstrom(x)
-    out.setYAstrom(y + val*frac)
+    out.set(out.table.getCentroidKey().getX(), x)
+    out.set(out.table.getCentroidKey().getY(), y + val*frac)
     return out
 
 
@@ -131,58 +129,58 @@ def cubicDistortY(src, frac=1e-9):
     i.e y, y^2, x, xy, x^2
     """
     
-    out = afwDet.Source(src)
-    x = out.getXAstrom()
-    y = out.getYAstrom()
+    out = src.table.copyRecord(src)
+    x = out.getX()
+    y = out.getY()
     val = x**3
     
-    out.setXAstrom(x)
-    out.setYAstrom(y + val*frac)
+    out.set(out.table.getCentroidKey().getX(), x)
+    out.set(out.table.getCentroidKey().getY(), y + val*frac)
     return out
 
 
 def manyTermY(src, frac=1e-9):
-    out = afwDet.Source(src)
-    x = out.getXAstrom()
-    y = out.getYAstrom()
+    out = src.table.copyRecord(src)
+    x = out.getX()
+    y = out.getY()
     val = y**3 - 2*y**2 + 4*y - 9
     
-    out.setXAstrom(x)
-    out.setYAstrom(y + val*frac)
+    out.set(out.table.getCentroidKey().getX(), x)
+    out.set(out.table.getCentroidKey().getY(), y + val*frac)
     return out
 
 
 def crossTerms1(src, frac=1e-11):
-    out = afwDet.Source(src)
-    x = out.getXAstrom()
-    y = out.getYAstrom()
+    out = src.table.copyRecord(src)
+    x = out.getX()
+    y = out.getY()
     val = x**3 - 2*x**2 #+ 4*x - 9
     
-    out.setXAstrom(x)
-    out.setYAstrom(y + val*frac)
+    out.set(out.table.getCentroidKey().getX(), x)
+    out.set(out.table.getCentroidKey().getY(), y + val*frac)
     return out
 
 
 def crossTerms2(src, frac=1e-11):
-    out = afwDet.Source(src)
-    x = out.getXAstrom()
-    y = out.getYAstrom()
+    out = src.table.copyRecord(src)
+    x = out.getX()
+    y = out.getY()
     val = y**3 - 2*y**2 + 4*y - 9
     
-    out.setXAstrom(x+ val*frac)
-    out.setYAstrom(y)
+    out.set(out.table.getCentroidKey().getX(), x+ val*frac)
+    out.set(out.table.getCentroidKey().getY(), y)
     return out
 
 
 def crossTerms3(src, frac=1e-9):
-    out = afwDet.Source(src)
-    x = out.getXAstrom()
-    y = out.getYAstrom()
+    out = src.table.copyRecord(src)
+    x = out.getX()
+    y = out.getY()
     valx = x**3 - 2*x**2 + 4*x - 9
     valy = y**3 - 2*y**2 + 4*y - 9
     
-    out.setXAstrom(x + valy*frac)
-    out.setYAstrom(y + valx*frac)
+    out.set(out.table.getCentroidKey().getX(), x + valy*frac)
+    out.set(out.table.getCentroidKey().getY(), y + valx*frac)
     return out
 
 
@@ -191,48 +189,48 @@ def quadraticDistort(src, frac=1e-6):
     i.e y, y^2, x, xy, x^2
     """
     
-    out = afwDet.Source(src)
-    x = out.getXAstrom()
-    y = out.getYAstrom()
+    out = src.table.copyRecord(src)
+    x = out.getX()
+    y = out.getY()
     val =  y + 2*y**2
     val += 3*x + 4*x*y
     val += x**2
     
-    out.setXAstrom(x + val*frac)
-    out.setYAstrom(y)
+    out.set(out.table.getCentroidKey().getX(), x + val*frac)
+    out.set(out.table.getCentroidKey().getY(), y)
     return out
     
 def T2DistortX(src, frac=1e-6):
     """Distort image by a 2nd order Cheby polynomial"""
 
-    out = afwDet.Source(src)
-    x = src.getXAstrom()
+    out = src.table.copyRecord(src)
+    x = src.getX()
     val = 2*(x**2) -1
-    out.setXAstrom( x + frac*val)
+    out.set(out.table.getCentroidKey().getX(),  x + frac*val)
     return out
     
 
 def distortList(srcList, function):
     """Create a copy of srcList, and apply function to distort the 
-    values of xAstrom and yAstrom. 
+    values of x and y. 
     
     Input:
     srcList     a SourceSet object
     function:   A function that does a deep copy of a single Source
     """
     
-    out = afwDet.SourceSet()
+    out = afwTable.SourceCatalog(srcList.table)
     
     for src in srcList:
-        out.push_back( function(src) )
+        out.append( function(src) )
 
     maxDiff=0
     for i in range(len(srcList)):
         s = srcList[i]
         o = out[i]
         
-        x1, y1 = s.getXAstrom(), s.getYAstrom()
-        x2, y2 = o.getXAstrom(), o.getYAstrom()
+        x1, y1 = s.getX(), s.getY()
+        x2, y2 = o.getX(), o.getY()
         
         diff = math.hypot(x1-x2, y1-y2)
         maxDiff = max(diff, maxDiff)

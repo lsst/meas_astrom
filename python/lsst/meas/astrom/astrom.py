@@ -216,10 +216,11 @@ class Astrometry(object):
         pixelMargin = 50.
         cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName, pixelMargin)
 
-        catids = [src.getSourceId() for src in cat]
+        catids = [src.getId() for src in cat]
         uids = set(catids)
         self.log.logdebug('%i reference sources; %i unique IDs' % (len(catids), len(uids)))
 
+        print "type(sources)==", type(sources)
         matchList = self._getMatchList(sources, cat, wcs)
 
         uniq = set([sm.second.getId() for sm in matchList])
@@ -236,9 +237,9 @@ class Astrometry(object):
         astrom.tanWcs = wcs
         astrom.tanMatches = matchList
 
-        srcids = [s.getSourceId() for s in sources]
+        srcids = [s.getId() for s in sources]
         for m in matchList:
-            assert(m.second.getSourceId() in srcids)
+            assert(m.second.getId() in srcids)
             assert(m.second in sources)
 
         if self.config.calculateSip:
@@ -253,7 +254,7 @@ class Astrometry(object):
         astrom.matchMetadata = meta
         astrom.wcs = wcs
 
-        astrom.matches = afwTable.SourceMatchVector()
+        astrom.matches = afwTable.ReferenceMatchVector()
         for m in matchList:
             astrom.matches.push_back(m)
 
@@ -319,14 +320,12 @@ class Astrometry(object):
         pixelScale = wcs.pixelScale()
         rad = pixelScale * (math.hypot(W,H)/2. + pixelMargin)
         cat = self.getReferenceSources(ra, dec, rad, filterName)
-        # apply WCS to set x,y positions
-        for s in cat:
-            s.setAllXyFromRaDec(wcs)
+        # NOTE: reference objects don't have (x,y) anymore, so we can't apply WCS to set x,y positions
         if trim:
             # cut to image bounds + margin.
             bbox = afwGeom.Box2D(afwGeom.Point2D(0.,0.), afwGeom.Point2D(W, H))
             bbox.grow(pixelMargin)
-            cat = self._trimBadPoints(cat, bbox)
+            cat = self._trimBadPoints(cat, bbox, wcs=wcs) # passing wcs says to compute x,y on-the-fly
         return cat
 
 
@@ -348,15 +347,11 @@ class Astrometry(object):
         idcolumn = self.andConfig.idColumn
         magerrCol = self.andConfig.magErrorColumnMap.get(filterName, None)
 
-        fdict = maUtils.getDetectionFlags()
-        starflag = fdict["STAR"]
-
         cat = solver.getCatalog(self.inds,
                                 ra.asDegrees(), dec.asDegrees(),
                                 radius.asDegrees(),
                                 idcolumn, magcolumn,
-                                magerrCol, sgCol, varCol,
-                                starflag)
+                                magerrCol, sgCol, varCol)
         del solver
         #print 'STAR flag', starflag
         #print len(cat), 'reference sources'
@@ -369,9 +364,9 @@ class Astrometry(object):
         solver = self._getSolver()
 
         # select sources with valid x,y, flux
-        goodsources = []
+        goodsources = afwTable.SourceCatalog(sources.table)
         for s in sources:
-            if np.isfinite(s.getXAstrom()) and np.isfinite(s.getYAstrom()) and np.isfinite(s.getPsfFlux()):
+            if np.isfinite(s.getX()) and np.isfinite(s.getY()) and np.isfinite(s.getPsfFlux()):
                 goodsources.append(s)
         if len(goodsources) < len(sources):
             self.log.logdebug('Keeping %i of %i sources with finite X,Y positions and PSF flux' %
@@ -452,18 +447,21 @@ class Astrometry(object):
         return solver
 
     @staticmethod
-    def _trimBadPoints(sources, bbox):
-        '''Remove elements from sourceSet whose xy positions are not within the given bbox.
+    def _trimBadPoints(sources, bbox, wcs=None):
+        '''Remove elements from catalog whose xy positions are not within the given bbox.
 
-        sources:  an iterable of Source objects
+        sources:  a Catalog of SimpleRecord or SourceRecord objects
         bbox: an afwImage.Box2D
+        wcs:  if not None, will be used to compute the xy positions on-the-fly;
+              this is required when sources actually contains SimpleRecords.
         
         Returns:
         a list of Source objects with xAstrom,yAstrom within the bbox.
         '''
-        keep = []
+        keep = type(sources)(sources.table)
         for s in sources:
-            if bbox.contains(afwGeom.Point2D(s.getXAstrom(), s.getYAstrom())):
+            point = s.getCentroid() if wcs is None else wcs.skyToPixel(s.getCoord())
+            if bbox.contains(point):
                 keep.append(s)
         return keep
 
@@ -484,8 +482,8 @@ class Astrometry(object):
     
         Example: if:
           first == True,
-          matchlist[0].first.getSourceId() == 42, and
-          sources[4].getSourceId() == 42
+          matchlist[0].first.getId() == 42, and
+          sources[4].getId() == 42
         then, on return,
           matchlist[0].first == sources[4]
     
@@ -497,7 +495,7 @@ class Astrometry(object):
         # build map of ID to source
         idtoref = {}
         for s in sources:
-            sid = s.getSourceId()
+            sid = s.getId()
             if offset:
                 sid += offset
             if mask:
@@ -512,9 +510,9 @@ class Astrometry(object):
         firstfail = True
         for i in xrange(len(matchlist)):
             if first:
-                mid = matchlist[i].first.getSourceId()
+                mid = matchlist[i].first.getId()
             else:
-                mid = matchlist[i].second.getSourceId()
+                mid = matchlist[i].second.getId()
     
             if mask:
                 mmid = mid & mask

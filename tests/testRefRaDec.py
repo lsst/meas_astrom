@@ -61,7 +61,6 @@ class XYAstromTest(unittest.TestCase):
         allzero = True
         for i in range(len(ref)):
             if i < 10:
-                print ref[i]
                 print 'r,d', i, ':', ref[i].getRa().asDegrees(), ref[i].getDec().asDegrees()
             ra = ref[i].getRa().asRadians()
             dec = ref[i].getDec().asRadians()
@@ -71,14 +70,8 @@ class XYAstromTest(unittest.TestCase):
             self.assertTrue(ra < 2.*math.pi)
             self.assertTrue(dec >= -math.pi)
             self.assertTrue(dec <=  math.pi)
-            self.assertEqual(ra,  ref[i].getRaAstrom().asRadians())
-            self.assertEqual(dec, ref[i].getDecAstrom().asRadians())
-            self.assertEqual(ra,  ref[i].getRaFlux().asRadians())
-            self.assertEqual(dec, ref[i].getDecFlux().asRadians())
-            self.assertEqual(ra,  ref[i].getRaPeak().asRadians())
-            self.assertEqual(dec, ref[i].getDecPeak().asRadians())
-            self.assertEqual(ra,  ref[i].getRaObject().asRadians())
-            self.assertEqual(dec, ref[i].getDecObject().asRadians())
+            self.assertEqual(ra,  ref[i].getRa().asRadians())
+            self.assertEqual(dec, ref[i].getDec().asRadians())
         self.assertFalse(allzero)
 
 def suite():
