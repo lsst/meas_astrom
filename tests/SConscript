@@ -1,18 +1,4 @@
 # -*- python -*-
 from lsst.sconsUtils import scripts
-import eups, sys
-
-eupsObj = eups.Eups(max_depth=1)        # don't resetup e.g. numpy
-
-ignoreList = []
-for vers in ("cfhtlsDeep", "cfhttemplate",):
-    ok, version, reason = eupsObj.setup("astrometry_net_data", versionName=vers)
-    if not ok:
-        print >> sys.stderr, \
-            "Skipping tests as I couldn't set up astrometry_net_data %s" % vers
-        if vers == "cfhtlsDeep":
-            ignoreList.append("testDetermineWcs.py")
-        if vers == "cfhttemplate":
-            ignoreList.append("testGasGetSourceMatch.py")
         
-scripts.BasicSConscript.tests(ignoreList=ignoreList)
+scripts.BasicSConscript.tests()
