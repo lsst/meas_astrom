@@ -159,18 +159,18 @@ static time_t timer_callback(void* baton) {
 		double r2 = deg2distsq(radius);
 
         afwTable::Schema schema = afwTable::SimpleTable::makeMinimalSchema(); // contains ID, ra, dec.
-        afwTable::Key<float> magKey;
-        afwTable::Key<float> magErrKey;
+        afwTable::Key<float> fluxKey;
+        afwTable::Key<float> fluxErrKey;
         if (magcol) {
-            magKey = schema.addField<float>("mag", "magnitude");
+            fluxKey = schema.addField<float>("flux", "flux");
             if (magerrcol) {
-                magErrKey = schema.addField<float>("mag.err", "magnitude uncertainty");
+                fluxErrKey = schema.addField<float>("flux.err", "flux uncertainty");
             }
         }
         afwTable::Key<afwTable::Flag> stargalKey;
         if (stargalcol) {
             stargalKey = schema.addField<afwTable::Flag>(
-                "stargal", "set if the reference object is a start"
+                "stargal", "set if the reference object is a star"
             );
         }
         afwTable::Key<afwTable::Flag> varKey;
@@ -266,8 +266,13 @@ static time_t timer_callback(void* baton) {
 				if (id)	src->setId(id[i]);
 
 				if (mag) {
-                    src->set(magKey, mag[i]);
-					if (magerr)	src->set(magErrKey, magerr[i]);
+                    // Dustin things converting to flux is 'LAME!';
+                    // Jim thinks it's nice for consistency (and photocal wants fluxes
+                    // as inputs, so we'll continue to go with that for now) even though
+                    // we don't need to anymore.
+                    double flux = pow(10.0, -mag[i] / 2.5);
+                    src->set(fluxKey, flux);
+					if (magerr)	src->set(fluxErrKey, magerr[i] * flux * -std::log(10.0) / 2.5);
 				}
 
                 bool ok = true;
