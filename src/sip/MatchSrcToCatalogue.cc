@@ -43,9 +43,10 @@ namespace lsst { namespace meas { namespace astrom { namespace sip {
 /// \param dist    How close to objects need to be in order to be considered the same
 /// 
 MatchSrcToCatalogue::MatchSrcToCatalogue(afw::table::SimpleCatalog const& catSet,  
-                                              afw::table::SourceCatalog const& imgSet, 
-                                              CONST_PTR(lsst::afw::image::Wcs) wcs, 
-                                              afw::geom::Angle dist) {
+                                         afw::table::SourceCatalog const& imgSet, 
+                                         CONST_PTR(lsst::afw::image::Wcs) wcs, 
+                                         afw::geom::Angle dist)
+{
     setImgSrcSet(imgSet);
     setCatSrcSet(catSet);
     setDist(dist);

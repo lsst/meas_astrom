@@ -220,7 +220,6 @@ class Astrometry(object):
         uids = set(catids)
         self.log.logdebug('%i reference sources; %i unique IDs' % (len(catids), len(uids)))
 
-        print "type(sources)==", type(sources)
         matchList = self._getMatchList(sources, cat, wcs)
 
         uniq = set([sm.second.getId() for sm in matchList])
@@ -465,98 +464,32 @@ class Astrometry(object):
                 keep.append(s)
         return keep
 
-    #@staticmethod
-    # FIXME -- replace with afw Match.h unpackMatches()
-    def joinMatchList(self, matchlist, sources, first=True,
-                      mask=0, offset=0):
+    def joinMatchListWithCatalog(self, packedMatches, sourceCat):
         '''
-        In database terms: this function joins the IDs in "matchlist" to
-        the IDs in "sources", and denormalizes the "matchlist".
-    
-        In non-DB terms: sets either the "matchlist[*].first" or
-        "matchlist[*].second" values to point to entries in "sources".
-    
-        On input, "matchlist[*].first/second" are placeholder Source
-        objects that only have the IDs set.  On return, these values are
-        replaced by real entries in "sources".
-    
-        Example: if:
-          first == True,
-          matchlist[0].first.getId() == 42, and
-          sources[4].getId() == 42
-        then, on return,
-          matchlist[0].first == sources[4]
-    
-        Used by "generateMatchesFromMatchList"; see there for more
-        documentation.
-        '''
-        srcstr = ('reference objects' if first else 'sources')
-    
-        # build map of ID to source
-        idtoref = {}
-        for s in sources:
-            sid = s.getId()
-            if offset:
-                sid += offset
-            if mask:
-                sid = sid & mask
-            if sid in idtoref:
-                self.log.logdebug('Duplicate ID %i in %s' % (sid, srcstr))
-                continue
-            idtoref[sid] = s
-        
-        # Join.
-        nmatched = 0
-        firstfail = True
-        for i in xrange(len(matchlist)):
-            if first:
-                mid = matchlist[i].first.getId()
-            else:
-                mid = matchlist[i].second.getId()
-    
-            if mask:
-                mmid = mid & mask
-            else:
-                mmid = mid
-    
-            try:
-                ref = idtoref[mmid]
-            except KeyError:
-                # throw? warn?
-                self.log.logdebug('Failed to join ID %i (0x%x) (masked to %i, 0x%x) from match list element %i of %i' % (mid, mid, mmid, mmid, i, len(matchlist)))
-                if firstfail:
-                    self.log.logdebug('IDs available: ' + ' '.join('%i' % k for k in idtoref.keys()))
-                    self.log.logdebug('IDs available: ' + ' '.join('0x%x' % k for k in idtoref.keys()))
-                    firstfail = False
-                ref = None
-    
-            if first:
-                matchlist[i].first = ref
-            else:
-                matchlist[i].second = ref
-            nmatched += 1
-        self.log.logdebug('Joined %i of %i matchlist IDs to %s' %
-                          (nmatched, len(matchlist), srcstr))
+        This function is required to reconstitute a ReferenceMatchVector after being
+        unpersisted.  The persisted form of a ReferenceMatchVector is the 
+        normalized Catalog of IDs produced by afw.table.packMatches(), with the result of 
+        InitialAstrometry.getMatchMetadata() in the associated tables' metadata.
 
-
-    def joinMatchListWithCatalog(self, matchlist, matchmeta):
-        '''
-        This function is required to reconstitute a matchlist after being
-        unpersisted.  The persisted form of a matchlist is simply a list
-        of integers: the ID numbers of the matched image sources and
-        reference sources.  For you database types, this is a "normal
-        form" representation.  The "live" form of a matchlist has links to
-        the real Source objects that are matched; it is "denormalized".
-        This function takes a normalized matchlist, along with the list of
-        sources to which the matchlist refers.  It fetches the reference
-        sources that are within range, and then denormalizes the matchlist
+        The "live" form of a matchlist has links to
+        the real record objects that are matched; it is "denormalized".
+        This function takes a normalized match catalog, along with the catalog of
+        sources to which the match catalog refers.  It fetches the reference
+        sources that are within range, and then denormalizes the matches
         -- sets the "matchList[*].first" and "matchList[*].second" entries
         to point to the sources in the "sources" argument, and to the
         reference sources fetched from the astrometry_net_data files.
     
-        @param matchList Unpersisted matchList (an lsst.afw.detection.PersistableSourceMatchVector)
-        @param matchmeta: Unpersisted matchList metadata (PropertySet/List)
+        @param[in] packedMatches  Unpersisted match list (an lsst.afw.table.BaseCatalog).
+                                  packedMatches.table.getMetadata() must contain the
+                                  values from InitialAstrometry.getMatchMetadata()
+        @param[in,out] sourceCat  Source catalog used for the 'second' side of the matches
+                                  (an lsst.afw.table.SourceCatalog).  As a side effect,
+                                  the catalog will be sorted by ID.
+        
+        @return An lsst.afw.table.ReferenceMatchVector of denormalized matches.
         '''
+        matchmeta = packedMatches.table.getMetadata()
         version = matchmeta.getInt('SMATCHV')
         if version != 1:
             raise ValueError('SourceMatchVector version number is %i, not 1.' % version)
@@ -567,9 +500,11 @@ class Astrometry(object):
         rad = matchmeta.getDouble('RADIUS') * afwGeom.degrees
         self.log.logdebug('Searching RA,Dec %.3f,%.3f, radius %.1f arcsec, filter "%s"' %
                           (ra.asDegrees(), dec.asDegrees(), rad.asArcseconds(), filterName))
-        cat = self.getReferenceSources(ra, dec, rad, filterName)
-        self.log.logdebug('Found %i reference catalog sources in range' % len(cat))
-        self.joinMatchList(matchlist, cat, first=True)
+        refCat = self.getReferenceSources(ra, dec, rad, filterName)
+        self.log.logdebug('Found %i reference catalog sources in range' % len(refCat))
+        refCat.sort()
+        sourceCat.sort()
+        return afwTable.unpackMatches(packedMatches, refCat, sourceCat)
 
 
 def _createMetadata(width, height, wcs, filterName):

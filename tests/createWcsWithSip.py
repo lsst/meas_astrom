@@ -87,7 +87,7 @@ class CreateWcsWithSipCase(unittest.TestCase):
         imgWcs = res.getWcs()
 
         #Create a wcs with sip
-        cat = cat.cast(afwTable.SimpleCatalog)
+        cat = cat.cast(afwTable.SimpleCatalog, False)
         matchList = self.matchSrcAndCatalogue(cat, img, imgWcs)
         sipObject = sip.CreateWcsWithSip(matchList, imgWcs, 3)
 

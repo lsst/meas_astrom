@@ -58,8 +58,7 @@ def main(inputName, outputName):
     for name in ("unweightedbad", "unweighted", "shift", "maxiter"):
         schema.addField("shape.sdss.flags." + name, type="Flag")
     schema.addField("flags.badcentroid", type="Flag")
-    table = lsst.afw.table.SourceTable.make(schema, None)
-    outputCat = lsst.afw.table.SourceCatalog(table)
+    outputCat = lsst.afw.table.SourceCatalog(schema)
     outputCat.table.defineCentroid("centroid")
     outputCat.table.definePsfFlux("flux.psf")
     with open(inputName, 'r') as inputFile:
