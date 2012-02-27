@@ -23,10 +23,6 @@ from lsst.pex.logging import Log
 import lsst.afw.geom as afwGeom
 import lsst.afw.image              as afwImg
 
-import sourceSetIO                 as ssi
-        
-        
-
 try:
     type(verbose)
 except NameError:
@@ -65,7 +61,7 @@ class matchlistTestCase(unittest.TestCase):
             raise ValueError("Couldn't set up local photocal version of astrometry_net_data (from path: %s): %s" % (datapath, reason))
 
         path = os.path.join(mypath, "examples")
-        self.srcSet = ssi.read(os.path.join(path, "v695833-e0-c000.xy.txt"))
+        self.srcSet = afwTable.SourceCatalog.readFits(os.path.join(path, "v695833-e0-c000.xy.fits"))
         self.imageSize = (2048, 4612) # approximate
         self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci"))
 
