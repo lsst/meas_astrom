@@ -19,7 +19,6 @@ import unittest
 import math
 
 import eups
-import sourceSetIO                 as ssi
 import lsst.meas.astrom            as measAstrom
 import lsst.afw.image              as afwImg
 import lsst.afw.coord              as afwCoord
