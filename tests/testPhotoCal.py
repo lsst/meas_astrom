@@ -196,7 +196,7 @@ class PhotoCalTest(unittest.TestCase):
 
         config = photocal.PhotoCalConfig()
         config.outputField = None    # schema is fixed because we already loaded the data
-        task = photocal.PhotoCalTask(config, schema)
+        task = photocal.PhotoCalTask(config=config, schema=schema)
         pCal = task.run(matches)
         print pCal.photocal
 

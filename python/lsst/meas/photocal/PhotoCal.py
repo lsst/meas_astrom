@@ -65,12 +65,12 @@ class PhotoCalTask(pipeBase.Task):
     """
     ConfigClass = PhotoCalConfig
 
-    def __init__(self, config, schema, **kwds):
+    def __init__(self, schema, **kwds):
         """Create the task, pulling input keys from the schema and adding a flag field
         'classification.photometric' that will be set for sources used to determine the
         photometric calibration.
         """
-        pipeBase.Task.__init__(self, config=config, **kwds)
+        pipeBase.Task.__init__(self, **kwds)
         self.flux = schema.find(self.config.fluxField).key
         self.fluxErr = schema.find(self.config.fluxField + ".err").key
         self.goodFlags = [schema.find(name).key for name in self.config.goodFlags]
