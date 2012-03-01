@@ -48,7 +48,7 @@ class AstrometryNetDataConfig(pexConfig.Config):
                            doc='''Astrometry.net index filenames''')
 
 class MeasAstromConfig(pexConfig.Config):
-    from lsst.pex.config import Field, RangeField
+    from lsst.pex.config import Field, RangeField, DictField
 
     maxCpuTime = RangeField(
         '''Maximum CPU time to spend solving, in seconds''',
@@ -142,3 +142,8 @@ class MeasAstromConfig(pexConfig.Config):
         int,
         default=4, min=2)
 
+    filterMap = DictField(
+        doc="Mapping from input filter to catalogue filter",
+        keytype=str, itemtype=str,
+        default={},
+        optional=True)

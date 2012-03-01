@@ -39,7 +39,7 @@ except ImportError:
 
 class PhotoCalConfig(pexConf.Config):
 
-    magLimit = pexConf.Field(dtype=float, doc="Don't use objects fainter than this magnitude", default=22)
+    magLimit = pexConf.Field(dtype=float, doc="Don't use objects fainter than this magnitude", default=22.0)
     outputField = pexConf.Field(
         dtype=str, optional=True, default="classification.photometric",
         doc="Name of the flag field that is set for sources used in photometric calibration"
