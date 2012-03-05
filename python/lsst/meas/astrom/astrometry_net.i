@@ -159,12 +159,12 @@ static time_t timer_callback(void* baton) {
 		double r2 = deg2distsq(radius);
 
         afwTable::Schema schema = afwTable::SimpleTable::makeMinimalSchema(); // contains ID, ra, dec.
-        afwTable::Key<float> fluxKey;
-        afwTable::Key<float> fluxErrKey;
+        afwTable::Key<double> fluxKey;    // these are double for consistency with measured fluxes;
+        afwTable::Key<double> fluxErrKey; // may be unnecessary, but less surprising.
         if (magcol) {
-            fluxKey = schema.addField<float>("flux", "flux");
+            fluxKey = schema.addField<double>("flux", "flux");
             if (magerrcol) {
-                fluxErrKey = schema.addField<float>("flux.err", "flux uncertainty");
+                fluxErrKey = schema.addField<double>("flux.err", "flux uncertainty");
             }
         }
         afwTable::Key<afwTable::Flag> stargalKey;
