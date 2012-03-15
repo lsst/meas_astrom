@@ -553,11 +553,8 @@ def readMatches(butler, dataId, sourcesName='icSrc', matchesName='icMatch'):
     @returns Matches
     """
     sources = butler.get(sourcesName, dataId)
-    matches = butler.get(matchesName, dataId)
-    matchList = matches.getSourceMatches()
-    matchMeta = matches.getSourceMatchMetadata()
+    packedMatches = butler.get(matchesName, dataId)
     
     astrom = Astrometry(MeasAstromConfig())
-    astrom.joinMatchListWithCatalog(matchList, matchMeta)
-    astrom.joinMatchList(matchList, sources.getSources(), first=False)
-    return matchList
+    return astrom.joinMatchListWithCatalog(packedMatches, sources)
+
