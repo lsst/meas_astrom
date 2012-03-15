@@ -1,8 +1,8 @@
-setupRequired(afw >= 4.7.3.0)
-setupRequired(meas_algorithms >= 4.7.3.0)
+setupRequired(afw >= 5.0.1.0)
+setupRequired(meas_algorithms >= 5.0.1.0)
 setupRequired(pex_logging >= 4.7.3.0)
 setupRequired(pex_config)
-setupRequired(pipe_base)
+setupRequired(pipe_base >= 5.0.0.1)
 
 setupRequired(wcslib >= 4.4.4)
 setupRequired(astrometry_net == 0.30)
