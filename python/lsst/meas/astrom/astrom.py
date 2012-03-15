@@ -5,7 +5,7 @@ import lsst.daf.base as dafBase
 import lsst.pex.logging as pexLog
 import lsst.pex.config as pexConfig
 import lsst.afw.geom as afwGeom
-import lsst.afw.detection as afwDet
+import lsst.afw.table as afwTable
 import lsst.meas.algorithms.utils as maUtils
 
 from .config import MeasAstromConfig, AstrometryNetDataConfig
@@ -204,19 +204,15 @@ class Astrometry(object):
             sources = _trimBadPoints(sources, bbox)
             self._debug("Trimming: kept %i of %i sources" % (n, len(sources)))
 
-        '''
-        hscAstrom does:
-        isSolved, wcs, matchList = runMatch(sourceSet, catSet, min(policy.get('numBrightStars'), len(sourceSet)), log=log)
-        '''
-
-        wcs,qa = self._solve(sources, wcs, imageSize, pixelScale, radecCenter, searchRadius, parity)
+        wcs,qa = self._solve(sources, wcs, imageSize, pixelScale, radecCenter, searchRadius, parity,
+                             filterName)
         if wcs is None:
             raise RuntimeError("Unable to match sources with catalog.")
 
         pixelMargin = 50.
         cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName, pixelMargin)
 
-        catids = [src.getSourceId() for src in cat]
+        catids = [src.getId() for src in cat]
         uids = set(catids)
         self.log.logdebug('%i reference sources; %i unique IDs' % (len(catids), len(uids)))
 
@@ -236,9 +232,9 @@ class Astrometry(object):
         astrom.tanWcs = wcs
         astrom.tanMatches = matchList
 
-        srcids = [s.getSourceId() for s in sources]
+        srcids = [s.getId() for s in sources]
         for m in matchList:
-            assert(m.second.getSourceId() in srcids)
+            assert(m.second.getId() in srcids)
             assert(m.second in sources)
 
         if self.config.calculateSip:
@@ -253,7 +249,7 @@ class Astrometry(object):
         astrom.matchMetadata = meta
         astrom.wcs = wcs
 
-        astrom.matches = afwDet.SourceMatchVector()
+        astrom.matches = afwTable.ReferenceMatchVector()
         for m in matchList:
             astrom.matches.push_back(m)
 
@@ -307,9 +303,14 @@ class Astrometry(object):
         return self._mapFilterName(filterName, self.andConfig.defaultMagColumn)
 
     def _mapFilterName(self, filterName, default=None):
-        ## Warn if default is used?
         filterName = self.config.filterMap.get(filterName, filterName) # Exposure filter --> desired filter
-        return self.andConfig.magColumnMap.get(filterName, default) # Desired filter --> a_n_d column name
+        try:
+            return self.andConfig.magColumnMap[filterName] # Desired filter --> a_n_d column name
+        except KeyError:
+            self.log.warn("No mag column in configuration for filter '%s'; using default '%s'" %
+                          (filterName, default))
+            return default
+
 
     def getReferenceSourcesForWcs(self, wcs, imageSize, filterName, pixelMargin,
                                   trim=True):
@@ -320,14 +321,12 @@ class Astrometry(object):
         pixelScale = wcs.pixelScale()
         rad = pixelScale * (math.hypot(W,H)/2. + pixelMargin)
         cat = self.getReferenceSources(ra, dec, rad, filterName)
-        # apply WCS to set x,y positions
-        for s in cat:
-            s.setAllXyFromRaDec(wcs)
+        # NOTE: reference objects don't have (x,y) anymore, so we can't apply WCS to set x,y positions
         if trim:
             # cut to image bounds + margin.
             bbox = afwGeom.Box2D(afwGeom.Point2D(0.,0.), afwGeom.Point2D(W, H))
             bbox.grow(pixelMargin)
-            cat = self._trimBadPoints(cat, bbox)
+            cat = self._trimBadPoints(cat, bbox, wcs=wcs) # passing wcs says to compute x,y on-the-fly
         return cat
 
 
@@ -349,15 +348,11 @@ class Astrometry(object):
         idcolumn = self.andConfig.idColumn
         magerrCol = self.andConfig.magErrorColumnMap.get(filterName, None)
 
-        fdict = maUtils.getDetectionFlags()
-        starflag = fdict["STAR"]
-
         cat = solver.getCatalog(self.inds,
                                 ra.asDegrees(), dec.asDegrees(),
                                 radius.asDegrees(),
                                 idcolumn, magcolumn,
-                                magerrCol, sgCol, varCol,
-                                starflag)
+                                magerrCol, sgCol, varCol)
         del solver
         #print 'STAR flag', starflag
         #print len(cat), 'reference sources'
@@ -366,13 +361,13 @@ class Astrometry(object):
         return cat
 
     def _solve(self, sources, wcs, imageSize, pixelScale, radecCenter,
-               searchRadius, parity):
+               searchRadius, parity, filterName=None):
         solver = self._getSolver()
 
         # select sources with valid x,y, flux
-        goodsources = []
+        goodsources = afwTable.SourceCatalog(sources.table)
         for s in sources:
-            if np.isfinite(s.getXAstrom()) and np.isfinite(s.getYAstrom()) and np.isfinite(s.getPsfFlux()):
+            if np.isfinite(s.getX()) and np.isfinite(s.getY()) and np.isfinite(s.getPsfFlux()):
                 goodsources.append(s)
         if len(goodsources) < len(sources):
             self.log.logdebug('Keeping %i of %i sources with finite X,Y positions and PSF flux' %
@@ -416,7 +411,7 @@ class Astrometry(object):
             self.log.logdebug('WCS: %s' % wcs.getFitsMetadata().toString())
             
         else:
-            self.log.warn('Did not got an astrometric solution from Astrometry.net')
+            self.log.warn('Did not get an astrometric solution from Astrometry.net')
             wcs = None
             # Gather debugging info...
 
@@ -424,7 +419,7 @@ class Astrometry(object):
             if radecCenter is not None:
                 ra = radecCenter.getLongitude()
                 dec = radecCenter.getLatitude()
-                refs = self.getReferenceSources(ra, dec, searchRadius, None)
+                refs = self.getReferenceSources(ra, dec, searchRadius, filterName)
                 self.log.info('Searching around RA,Dec = (%g,%g) with radius %g deg yields %i reference-catalog sources' %
                               (ra.asDegrees(), dec.asDegrees(), searchRadius.asDegrees(), len(refs)))
 
@@ -453,113 +448,50 @@ class Astrometry(object):
         return solver
 
     @staticmethod
-    def _trimBadPoints(sources, bbox):
-        '''Remove elements from sourceSet whose xy positions are not within the given bbox.
+    def _trimBadPoints(sources, bbox, wcs=None):
+        '''Remove elements from catalog whose xy positions are not within the given bbox.
 
-        sources:  an iterable of Source objects
+        sources:  a Catalog of SimpleRecord or SourceRecord objects
         bbox: an afwImage.Box2D
+        wcs:  if not None, will be used to compute the xy positions on-the-fly;
+              this is required when sources actually contains SimpleRecords.
         
         Returns:
         a list of Source objects with xAstrom,yAstrom within the bbox.
         '''
-        keep = []
+        keep = type(sources)(sources.table)
         for s in sources:
-            if bbox.contains(afwGeom.Point2D(s.getXAstrom(), s.getYAstrom())):
+            point = s.getCentroid() if wcs is None else wcs.skyToPixel(s.getCoord())
+            if bbox.contains(point):
                 keep.append(s)
         return keep
 
-    #@staticmethod
-    # FIXME -- replace with afw Match.h unpackMatches()
-    def joinMatchList(self, matchlist, sources, first=True,
-                      mask=0, offset=0):
+    def joinMatchListWithCatalog(self, packedMatches, sourceCat):
         '''
-        In database terms: this function joins the IDs in "matchlist" to
-        the IDs in "sources", and denormalizes the "matchlist".
-    
-        In non-DB terms: sets either the "matchlist[*].first" or
-        "matchlist[*].second" values to point to entries in "sources".
-    
-        On input, "matchlist[*].first/second" are placeholder Source
-        objects that only have the IDs set.  On return, these values are
-        replaced by real entries in "sources".
-    
-        Example: if:
-          first == True,
-          matchlist[0].first.getSourceId() == 42, and
-          sources[4].getSourceId() == 42
-        then, on return,
-          matchlist[0].first == sources[4]
-    
-        Used by "generateMatchesFromMatchList"; see there for more
-        documentation.
-        '''
-        srcstr = ('reference objects' if first else 'sources')
-    
-        # build map of ID to source
-        idtoref = {}
-        for s in sources:
-            sid = s.getSourceId()
-            if offset:
-                sid += offset
-            if mask:
-                sid = sid & mask
-            if sid in idtoref:
-                self.log.logdebug('Duplicate ID %i in %s' % (sid, srcstr))
-                continue
-            idtoref[sid] = s
-        
-        # Join.
-        nmatched = 0
-        firstfail = True
-        for i in xrange(len(matchlist)):
-            if first:
-                mid = matchlist[i].first.getSourceId()
-            else:
-                mid = matchlist[i].second.getSourceId()
-    
-            if mask:
-                mmid = mid & mask
-            else:
-                mmid = mid
-    
-            try:
-                ref = idtoref[mmid]
-            except KeyError:
-                # throw? warn?
-                self.log.logdebug('Failed to join ID %i (0x%x) (masked to %i, 0x%x) from match list element %i of %i' % (mid, mid, mmid, mmid, i, len(matchlist)))
-                if firstfail:
-                    self.log.logdebug('IDs available: ' + ' '.join('%i' % k for k in idtoref.keys()))
-                    self.log.logdebug('IDs available: ' + ' '.join('0x%x' % k for k in idtoref.keys()))
-                    firstfail = False
-                ref = None
-    
-            if first:
-                matchlist[i].first = ref
-            else:
-                matchlist[i].second = ref
-            nmatched += 1
-        self.log.logdebug('Joined %i of %i matchlist IDs to %s' %
-                          (nmatched, len(matchlist), srcstr))
+        This function is required to reconstitute a ReferenceMatchVector after being
+        unpersisted.  The persisted form of a ReferenceMatchVector is the 
+        normalized Catalog of IDs produced by afw.table.packMatches(), with the result of 
+        InitialAstrometry.getMatchMetadata() in the associated tables' metadata.
 
-
-    def joinMatchListWithCatalog(self, matchlist, matchmeta):
-        '''
-        This function is required to reconstitute a matchlist after being
-        unpersisted.  The persisted form of a matchlist is simply a list
-        of integers: the ID numbers of the matched image sources and
-        reference sources.  For you database types, this is a "normal
-        form" representation.  The "live" form of a matchlist has links to
-        the real Source objects that are matched; it is "denormalized".
-        This function takes a normalized matchlist, along with the list of
-        sources to which the matchlist refers.  It fetches the reference
-        sources that are within range, and then denormalizes the matchlist
+        The "live" form of a matchlist has links to
+        the real record objects that are matched; it is "denormalized".
+        This function takes a normalized match catalog, along with the catalog of
+        sources to which the match catalog refers.  It fetches the reference
+        sources that are within range, and then denormalizes the matches
         -- sets the "matchList[*].first" and "matchList[*].second" entries
         to point to the sources in the "sources" argument, and to the
         reference sources fetched from the astrometry_net_data files.
     
-        @param matchList Unpersisted matchList (an lsst.afw.detection.PersistableSourceMatchVector)
-        @param matchmeta: Unpersisted matchList metadata (PropertySet/List)
+        @param[in] packedMatches  Unpersisted match list (an lsst.afw.table.BaseCatalog).
+                                  packedMatches.table.getMetadata() must contain the
+                                  values from InitialAstrometry.getMatchMetadata()
+        @param[in,out] sourceCat  Source catalog used for the 'second' side of the matches
+                                  (an lsst.afw.table.SourceCatalog).  As a side effect,
+                                  the catalog will be sorted by ID.
+        
+        @return An lsst.afw.table.ReferenceMatchVector of denormalized matches.
         '''
+        matchmeta = packedMatches.table.getMetadata()
         version = matchmeta.getInt('SMATCHV')
         if version != 1:
             raise ValueError('SourceMatchVector version number is %i, not 1.' % version)
@@ -570,9 +502,11 @@ class Astrometry(object):
         rad = matchmeta.getDouble('RADIUS') * afwGeom.degrees
         self.log.logdebug('Searching RA,Dec %.3f,%.3f, radius %.1f arcsec, filter "%s"' %
                           (ra.asDegrees(), dec.asDegrees(), rad.asArcseconds(), filterName))
-        cat = self.getReferenceSources(ra, dec, rad, filterName)
-        self.log.logdebug('Found %i reference catalog sources in range' % len(cat))
-        self.joinMatchList(matchlist, cat, first=True)
+        refCat = self.getReferenceSources(ra, dec, rad, filterName)
+        self.log.logdebug('Found %i reference catalog sources in range' % len(refCat))
+        refCat.sort()
+        sourceCat.sort()
+        return afwTable.unpackMatches(packedMatches, refCat, sourceCat)
 
 
 def _createMetadata(width, height, wcs, filterName):

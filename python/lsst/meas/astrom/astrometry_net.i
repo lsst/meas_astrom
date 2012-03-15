@@ -33,26 +33,16 @@ Python interface to Astrometry.net
 #include "lsst/daf/persistence.h"
 #include "lsst/daf/base/Persistable.h"
 #include "lsst/daf/base/PropertyList.h"
-#include "lsst/afw/detection/Source.h"
-#include "lsst/afw/detection/DiaSource.h"
-#include "lsst/afw/detection/AperturePhotometry.h"
-
+#include "lsst/afw/table/Source.h"
 #include "lsst/afw/image/Wcs.h"
+#include "lsst/afw/image/TanWcs.h"
 #include "lsst/afw/geom.h"
 
 namespace afwCoord = lsst::afw::coord;
-namespace afwDet   = lsst::afw::detection;
+namespace afwTable = lsst::afw::table;
 namespace afwGeom  = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
 namespace dafBase  = lsst::daf::base;
-
-static afwCoord::Coord::Ptr radectocoord(afwCoord::CoordSystem coordsys,
-										 const double* radec) {
-	afwCoord::Coord::Ptr rd = afwCoord::makeCoord(coordsys,
-												  radec[0] * afwGeom::degrees,
-												  radec[1] * afwGeom::degrees);
-	return rd;
-}
 
 struct timer_baton {
 	solver_t* s;
@@ -94,8 +84,7 @@ static time_t timer_callback(void* baton) {
 
 %lsst_exceptions();
 
-//%import "lsst/afw/detection/detectionLib.i"
-%import "lsst/afw/detection/source.i"
+%import "lsst/afw/table/tableLib.i"
 
 %shared_ptr(lsst::afw::image::Wcs);
 %import "lsst/afw/image/Wcs.h"
@@ -150,16 +139,14 @@ static time_t timer_callback(void* baton) {
 		solver_free($self);
 	}
 
-	lsst::afw::detection::SourceSet
+	lsst::afw::table::SimpleCatalog
 		getCatalog(std::vector<index_t*> inds,
 				   double ra, double dec, double radius,
 				   const char* idcol,
 				   const char* magcol,
 				   const char* magerrcol,
 				   const char* stargalcol,
-				   const char* varcol,
-				   boost::int64_t starflag) {
-		lsst::afw::detection::SourceSet cat;
+				   const char* varcol) {
 
         // FIXME -- cut on indexid?
 		// FIXME -- cut on healpix?
@@ -170,6 +157,32 @@ static time_t timer_callback(void* baton) {
 		double xyz[3];
 		radecdeg2xyzarr(ra, dec, xyz);
 		double r2 = deg2distsq(radius);
+
+        afwTable::Schema schema = afwTable::SimpleTable::makeMinimalSchema(); // contains ID, ra, dec.
+        afwTable::Key<double> fluxKey;    // these are double for consistency with measured fluxes;
+        afwTable::Key<double> fluxErrKey; // may be unnecessary, but less surprising.
+        if (magcol) {
+            fluxKey = schema.addField<double>("flux", "flux");
+            if (magerrcol) {
+                fluxErrKey = schema.addField<double>("flux.err", "flux uncertainty");
+            }
+        }
+        afwTable::Key<afwTable::Flag> stargalKey;
+        if (stargalcol) {
+            stargalKey = schema.addField<afwTable::Flag>(
+                "stargal", "set if the reference object is a star"
+            );
+        }
+        afwTable::Key<afwTable::Flag> varKey;
+        if (varcol) {
+            varKey = schema.addField<afwTable::Flag>("var", "set if the reference object is variable");
+        }
+        afwTable::Key<afwTable::Flag> photometricKey = schema.addField<afwTable::Flag>(
+            "photometric", "set if the reference object can be used in photometric calibration"
+        );
+            
+        // make catalog with no IdFactory, since IDs are external
+        afwTable::SimpleCatalog cat(afwTable::SimpleTable::make(schema, PTR(afwTable::IdFactory)()));
 
 		for (std::vector<index_t*>::iterator pind = inds.begin();
 			 pind != inds.end(); ++pind) {
@@ -238,37 +251,45 @@ static time_t timer_callback(void* baton) {
 				}
 			}
 
-			// FIXME -- allow this to be set?
-			afwCoord::CoordSystem coordsys = afwCoord::ICRS;
-
 			for (int i=0; i<nstars; i++) {
-				afwDet::Source::Ptr src(new afwDet::Source());
-				src->setAllRaDecFields(radectocoord(coordsys, radecs + i*2));
-				if (id)
-					src->setSourceId(id[i]);
+                PTR(afwTable::SimpleRecord) src = cat.addNew();
+
+                // Note that all coords in afwTable catalogs are ICRS; hopefully that's what the 
+                // reference catalogs are (and that's what the code assumed before JFB modified it).
+                src->setCoord(
+                    afwCoord::IcrsCoord(
+                        radecs[i * 2 + 0] * afwGeom::degrees,
+                        radecs[i * 2 + 1] * afwGeom::degrees
+                    )
+                );
+
+				if (id)	src->setId(id[i]);
 
 				if (mag) {
-					// LAME!
-					double flux = pow(10.0, -mag[i]/2.5);
-					src->setPsfFlux(flux);
-					if (magerr)
-						src->setPsfFluxErr(magerr[i] * flux * -std::log(10.)/2.5);
+                    // Dustin things converting to flux is 'LAME!';
+                    // Jim thinks it's nice for consistency (and photocal wants fluxes
+                    // as inputs, so we'll continue to go with that for now) even though
+                    // we don't need to anymore.
+                    double flux = pow(10.0, -mag[i] / 2.5);
+                    src->set(fluxKey, flux);
+					if (magerr)	src->set(fluxErrKey, magerr[i] * flux * -std::log(10.0) / 2.5);
 				}
-				if (starflag) {
-					bool ok = true;
-					if (stargal)
-						ok &= stargal[i];
-					if (var)
-						ok &= (!var[i]);
-					if (ok)
-						src->setFlagForDetection(src->getFlagForDetection() | starflag);
+
+                bool ok = true;
+                if (stargal) {
+                    src->set(stargalKey, stargal[i]);
+                    ok &= stargal[i];
+                }
+                if (var) {
+                    src->set(varKey, var[i]);
+                    ok &= (!var[i]);
 				}
+                src->set(photometricKey, ok);
 
 				/*if (id && stargal) {
 					printf("  id %li,  stargal %s\n", (long)id[i], stargal[i] ? "T":"F");
 				}*/
 
-				cat.push_back(src);
 			}
 
             free(id);
@@ -280,8 +301,7 @@ static time_t timer_callback(void* baton) {
 			free(radecs);
 			free(starinds);
 		}
-
-		return cat;
+        return cat;
 	}
 
 	PTR(lsst::daf::base::PropertyList) getSolveStats() {
@@ -434,15 +454,15 @@ static time_t timer_callback(void* baton) {
 		$self->endobj = N;
 	}
 
-	void setStars(lsst::afw::detection::SourceSet srcs) {
+	void setStars(lsst::afw::table::SourceCatalog const & srcs) {
 		// convert to Astrometry.net "starxy_t"
         starxy_free($self->fieldxy);
 		const size_t N = srcs.size();
 		starxy_t *starxy = starxy_new(N, true, false);
 		for (size_t i=0; i<N; ++i) {
-			double const x    = srcs[i]->getXAstrom();
-			double const y    = srcs[i]->getYAstrom();
-			double const flux = srcs[i]->getPsfFlux();
+			double const x    = srcs[i].getX();
+			double const y    = srcs[i].getY();
+			double const flux = srcs[i].getPsfFlux();
 			starxy_set(starxy, i, x, y);
 			starxy_set_flux(starxy, i, flux);
 		}

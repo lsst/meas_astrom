@@ -13,7 +13,7 @@ import lsst.pex.logging as logging
 import lsst.pex.policy as policy
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
-import lsst.afw.detection as afwDet
+import lsst.afw.table as afwTable
 import lsst.afw.math as afwMath
 import lsst.afw.display.ds9 as ds9
 import lsst.afw.display.utils as displayUtils
@@ -23,34 +23,11 @@ from lsst.pex.logging import Log
 import lsst.afw.geom as afwGeom
 import lsst.afw.image              as afwImg
 
-import sourceSetIO                 as ssi
-        
-        
-
 try:
     type(verbose)
 except NameError:
     display = False
     verbose = 0
-
-def roundTripSourceMatch(storagetype, filename, matchlist):
-    pol = policy.Policy()
-    additionalData = dafBase.PropertySet()
-
-    loc = dafPersist.LogicalLocation(filename)
-    persistence = dafPersist.Persistence.getPersistence(pol)
-    storageList = dafPersist.StorageList()
-    storage = persistence.getPersistStorage(storagetype, loc)
-    storageList.append(storage)
-    persistence.persist(matchlist, storageList, additionalData)
-
-    storageList2 = dafPersist.StorageList()
-    storage2 = persistence.getRetrieveStorage(storagetype, loc)
-    storageList2.append(storage2)
-    matchlistptr = persistence.unsafeRetrieve("PersistableSourceMatchVector", storageList2, additionalData)
-    matchlist2 = afwDet.PersistableSourceMatchVector.swigConvert(matchlistptr)
-
-    return matchlist2
 
 class matchlistTestCase(unittest.TestCase):
     def setUp(self):
@@ -65,7 +42,7 @@ class matchlistTestCase(unittest.TestCase):
             raise ValueError("Couldn't set up local photocal version of astrometry_net_data (from path: %s): %s" % (datapath, reason))
 
         path = os.path.join(mypath, "examples")
-        self.srcSet = ssi.read(os.path.join(path, "v695833-e0-c000.xy.txt"))
+        self.srcSet = afwTable.SourceCatalog.readFits(os.path.join(path, "v695833-e0-c000.xy.fits"))
         self.imageSize = (2048, 4612) # approximate
         self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci"))
 
@@ -87,33 +64,22 @@ class matchlistTestCase(unittest.TestCase):
         res = self.getAstrometrySolution()
 
         matches = res.getMatches()
-        print 'Matches:', matches
         matchmeta = res.getMatchMetadata()
-        print 'match meta', matchmeta
 
-        smv = matches
-        psmv = afwDet.PersistableSourceMatchVector(matches)
-        psmv.setSourceMatchMetadata(matchmeta)
+        normalized = afwTable.packMatches(matches)
+        normalized.table.setMetadata(matchmeta)
 
-        psmv2 = roundTripSourceMatch('FitsStorage', 'tests/data/matchlist.fits', psmv)
-        smv2 = psmv2.getSourceMatches()
-        extra2 = psmv2.getSourceMatchMetadata()
+        matches2 = self.astrom.joinMatchListWithCatalog(normalized, self.srcSet)
 
-        print 'Got SMV:', smv2
-        print 'Got metadata:', extra2
-        print extra2.toString()
-
-        self.astrom.joinMatchListWithCatalog(smv2, extra2)
-
-        self.assertEqual(len(smv2), len(smv))
-        for i in xrange(len(smv)):
-            self.assertEqual(smv2[i].first.getSourceId(), smv[i].first.getSourceId())
-            self.assertEqual(smv2[i].second.getSourceId(), smv[i].second.getSourceId())
-            self.assertEqual(smv2[i].first.getRa().asDegrees(), smv[i].first.getRa().asDegrees())
-            self.assertEqual(smv2[i].first.getDec().asDegrees(), smv[i].first.getDec().asDegrees())
-            self.assertEqual(smv2[i].first.getPsfFlux(), smv[i].first.getPsfFlux())
-
-        return
+        self.assertEqual(len(matches2), len(matches))
+        for i in xrange(len(matches)):
+            self.assertEqual(matches2[i].second.table, matches[i].second.table)
+            self.assertEqual(matches2[i].second.getId(), matches[i].second.getId())
+            self.assertEqual(matches2[i].second, matches[i].second) # no deep copying, so we can compare ptrs
+            self.assertEqual(matches2[i].first.getId(), matches[i].first.getId())
+            self.assertEqual(matches2[i].first.getRa().asDegrees(), matches[i].first.getRa().asDegrees())
+            self.assertEqual(matches2[i].first.getDec().asDegrees(), matches[i].first.getDec().asDegrees())
+            self.assertEqual(matches2[i].first.get("flux"), matches[i].first.get("flux"))
 
             
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= silly boilerplate -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-

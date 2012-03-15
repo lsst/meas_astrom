@@ -39,6 +39,7 @@ import eups
 import lsst.meas.astrom            as measAstrom
 import lsst.meas.algorithms.utils  as measAlgUtil
 import lsst.afw.detection          as afwDet
+import lsst.afw.table              as afwTable
 import lsst.afw.math               as afwMath
 import lsst.afw.image              as afwImg
 import lsst.utils.tests            as utilsTests
@@ -48,9 +49,6 @@ import lsst.meas.photocal          as photocal
 
 from lsst.pex.exceptions import LsstCppException
 
-import sourceSetIO                 as ssi
-
-
 class PhotoCalTest(unittest.TestCase):
 
     def setUp(self):
@@ -59,16 +57,12 @@ class PhotoCalTest(unittest.TestCase):
         # Load sample input from disk
         mypath = eups.productDir("meas_astrom")
         path = os.path.join(mypath, "examples")
-        self.srcSet = ssi.read(os.path.join(path, "v695833-e0-c000.xy.txt"))
-        for s in self.srcSet:
-            s.setApFlux(s.getPsfFlux())
+        self.srcCat = afwTable.SourceCatalog.readFits(os.path.join(path, "v695833-e0-c000.xy.fits"))
+        self.srcCat.table.defineApFlux("flux.psf")
         
-        # The .xy.txt file has sources in the range ~ [0,2000],[0,4500]
+        # The .xy.fits file has sources in the range ~ [0,2000],[0,4500]
         self.imageSize = (2048, 4612) # approximate
         self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci"))
-
-        #print 'Exposure filtername:', self.exposure.getFilter().getName()
-        # "i"
 
         # Set up local astrometry_net_data
         datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
@@ -79,14 +73,14 @@ class PhotoCalTest(unittest.TestCase):
                              (datapath, reason))
 
     def tearDown(self):
-        del self.srcSet
+        del self.srcCat
         del self.conf
         del self.exposure
 
     def getAstrometrySolution(self, loglvl = Log.INFO):
         astrom = measAstrom.Astrometry(self.conf, logLevel=loglvl)
         #print 'Calling determineWcs...'
-        res = astrom.determineWcs(self.srcSet, self.exposure, imageSize=self.imageSize)
+        res = astrom.determineWcs(self.srcCat, self.exposure, imageSize=self.imageSize)
         return res
 
     def testGetSolution(self):
@@ -103,9 +97,7 @@ class PhotoCalTest(unittest.TestCase):
         assert(len(M) > 50)
 
         logLevel = Log.DEBUG
-        log = Log(Log.getDefaultLog(),
-                  'meas.astrom',
-                  logLevel)
+        log = Log(Log.getDefaultLog(), 'meas.astrom', logLevel)
         pcal = photocal.calcPhotoCal(M, log=log)
         print 'PhotoCal:', pcal
         zp = pcal.getMag(1.)
@@ -200,21 +192,26 @@ class PhotoCalTest(unittest.TestCase):
                   'meas.astrom',
                   logLevel)
 
-        pCal = photocal.calcPhotoCal(matches, log=log)
-        print pCal
+        schema = matches[0].second.schema
+
+        config = photocal.PhotoCalConfig()
+        config.outputField = None    # schema is fixed because we already loaded the data
+        task = photocal.PhotoCalTask(config=config, schema=schema)
+        pCal = task.run(matches)
+        print pCal.photocal
 
         # These are all matches; we don't really expect to do that well.
         diff=[]
         for m in matches:
-            catFlux = m[0].getPsfFlux()     #Catalogue flux
+            catFlux = m[0].get("flux")     #Catalogue flux
             if catFlux <= 0:
                 continue
             catMag = -2.5*np.log10(catFlux) #Cat mag
-            instFlux = m[1].getPsfFlux()    #Instrumental Flux
+            instFlux = m[1].get(task.flux)    #Instrumental Flux
             if instFlux <= 0:
                 continue
-            mag = pCal.getMag(instFlux)     #Instrumental mag
-            diff.append(mag-catMag)
+            mag = pCal.photocal.getMag(instFlux)     #Instrumental mag
+            diff.append(mag - catMag)
         diff = np.array(diff)
 
         self.assertTrue(len(diff) > 50)
@@ -223,9 +220,9 @@ class PhotoCalTest(unittest.TestCase):
         self.assertAlmostEqual(np.mean(diff), 0, 0)
 
         # Differences of matched objects that were used in the fit.
-        zp = pCal.getMag(1.)
+        zp = pCal.photocal.getMag(1.)
         log.logdebug('zeropoint: %g' % zp)
-        fitdiff = pCal.srcMag + zp - pCal.refMag
+        fitdiff = pCal.arrays.srcMag + zp - pCal.arrays.refMag
         log.logdebug('number of sources used in fit: %i' % len(fitdiff))
         log.logdebug('median diff: %g' % np.median(fitdiff))
         log.logdebug('mean diff: %g' % np.mean(fitdiff))
@@ -244,110 +241,12 @@ class PhotoCalTest(unittest.TestCase):
         self.assertTrue(len(fitdiff) > 50)
         # These are kind of arbitrary
         self.assertTrue(abs(np.median(fitdiff)) < 0.02)
-        self.assertTrue(abs(np.mean(fitdiff)) < 0.002)
+        self.assertTrue(abs(np.mean(fitdiff)) < 0.004)
         #
         self.assertTrue(np.median(np.abs(fitdiff)) < 0.04)
         self.assertTrue(np.mean(np.abs(fitdiff)) < 0.06)
-        
-
-        
-        
-    def test2(self):
-        """Check that negative fluxes dealt with properly"""
-        res = self.getAstrometrySolution()
-        matches = res.getMatches()
-        
-        matches[0].first.setPsfFlux(0)
-        matches[1].first.setPsfFlux(-1)
-        matches[2].second.setPsfFlux(0)
-        
-        pCal = photocal.calcPhotoCal(matches)
-        print pCal
-
-        diff=[]
-        for m in matches:
-            catFlux = m[0].getPsfFlux()     #Catalogue flux
-            instFlux = m[1].getPsfFlux()    #Instrumental Flux
-
-            if catFlux > 0 and instFlux > 0:
-                catMag = -2.5*np.log10(catFlux) #Cat mag
-                mag = pCal.getMag(instFlux)     #Instrumental mag
-                diff.append(mag-catMag)
-
-
-        #A very loose test, but the input data has a lot of scatter
-
-        diff = np.array(diff)
-        self.assertAlmostEqual(np.mean(diff), 0, 0)
-
-
-    def testKnownZP(self):
-        """Verify we recover a known zeropoint
-
-        N.b. This is a very bad test as there's no scatter in the zeropoint measurements, but it does
-        test this edge case of the photo calibration code
-        """
-        
-        nS = 20
-        magLo = 10.0
-        magHi = 20.0
-        dmag = (magHi - magLo)/nS
-
-        # This test only works if zpCat == 0
-        # - calcPhotoCal() assumes the getPsfFlux() values for catalog Sources
-        #   were computed as f = 10**(-(mag-zp)/2.5), with zp=0, so we must do exactly that.
-        zpCat = 0
-        zpSrc = 20
-
-        flags = measAlgUtil.getDetectionFlags()
-        def fluxToMag(flux, zp=0):
-            return zp - 2.5*math.log10(flux)
-        def magToFlux(mag, zp=0):
-            return 10**(-(mag-zp)/2.5)
-
-        
-        matchList = []
-        for i in range(nS + 1):
-            s1 = afwDet.Source()
-            s2 = afwDet.Source()
-            s1.setFlagForDetection(flags["BINNED1"] | flags["STAR"])
-            s2.setFlagForDetection(flags["BINNED1"] | flags["STAR"])
-            
-            m1 = magLo + i*dmag
-            f1 = magToFlux(m1, zp=zpCat) # the catalog mag
-
-            # set the instrument flux for a different zeropoint
-            f2 = magToFlux(m1, zp=zpSrc) 
-            
-            s1.setPsfFlux(f1)
-            s2.setPsfFlux(f2)
-            s1.setApFlux(f1)
-            s2.setApFlux(f2)
-
-            if False:
-                print "flux1 =", f1, "flux2 =", f2
-            matchList.append(afwDet.SourceMatch(s1, s2, 0.0))
-
-        # do the cal
-        pCal = photocal.calcPhotoCal(matchList, goodFlagValue=flags["BINNED1"])
-
-        print "ZP_known = ", zpSrc, "ZP_cat", zpCat, "ZP = ", pCal.zeroMag, "Zflux = ", pCal.zeroFlux
-        self.assertAlmostEqual(zpSrc, pCal.zeroMag)
-
-        for m in matchList:
-            s1, s2 = m.first, m.second
-            mag1Known = fluxToMag(s1.getPsfFlux(), zpCat)  # catalog
-            mag2Known = fluxToMag(s2.getPsfFlux(), zpSrc)  # inst
-
-            # calibrate the fluxes and see if we get back the mags we put in.
-            mag2 = pCal(s2.getPsfFlux())                    # inst calib
-            
-            print mag1Known, mag2Known, mag2
-            self.assertAlmostEqual(mag2Known, mag2)
             
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-
 
 def suite():
     """Returns a suite containing all the test cases in this module."""

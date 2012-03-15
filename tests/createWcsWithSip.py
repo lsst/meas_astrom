@@ -30,7 +30,7 @@ import math
 import unittest
 
 import eups
-import lsst.afw.detection as det
+import lsst.afw.table as afwTable
 import lsst.afw.math as afwMath
 import lsst.utils.tests as utilsTests
 import lsst.afw.geom as afwGeom
@@ -42,8 +42,6 @@ import lsst.meas.astrom as measAst
 import lsst.meas.astrom.sip as sip
 import lsst.meas.astrom.sip.genDistortedImage as distort
 import lsst.meas.astrom.sip.cleanBadPoints as cleanBadPoints
-
-import sourceSetIO
 
 ############################
 # Set up local astrometry_net_data
@@ -62,7 +60,7 @@ class CreateWcsWithSipCase(unittest.TestCase):
         self.astrom = measAst.Astrometry(self.conf) #, logLevel=pexLog.Log.DEBUG)
 
         path=eups.productDir("meas_astrom")
-        self.filename=os.path.join(path, "tests", "cat.xy.list")
+        self.filename=os.path.join(path, "tests", "cat.xy.fits")
         self.tolArcsec = .4 
         self.tolPixel = .1
 
@@ -85,11 +83,11 @@ class CreateWcsWithSipCase(unittest.TestCase):
     def singleTestInstance(self, filename, distortFunc):
         cat = self.loadCatalogue(self.filename)
         img = distort.distortList(cat, distortFunc)
-
         res = self.astrom.determineWcs2(img, imageSize=(1000,1000))
         imgWcs = res.getWcs()
 
         #Create a wcs with sip
+        cat = cat.cast(afwTable.SimpleCatalog, False)
         matchList = self.matchSrcAndCatalogue(cat, img, imgWcs)
         sipObject = sip.CreateWcsWithSip(matchList, imgWcs, 3)
 
@@ -118,19 +116,21 @@ class CreateWcsWithSipCase(unittest.TestCase):
         """Load a list of xy points from a file, solve for position, and
         return a SourceSet of points"""
 
-        cat = sourceSetIO.read(filename)
+        cat = afwTable.SourceCatalog.readFits(filename)
 
         # Source x,y positions are ~ (500,1500) x (500,1500)
+        xKey = cat.table.getCentroidKey().getX()
+        yKey = cat.table.getCentroidKey().getY()
         for src in cat:
-            src.setXAstrom(src.getXAstrom()-500)
-            src.setYAstrom(src.getYAstrom()-500)
+            src.set(xKey, src.get(xKey) - 500)
+            src.set(yKey, src.get(yKey) - 500)
             
         res = self.astrom.determineWcs2(cat, imageSize=(1000,1000))
         catWcs = res.getWcs()
 
         #Set catalogue ra and decs
         for src in cat:
-            src.setRaDecFromXy(catWcs)
+            src.updateCoord(catWcs)
         return cat
 
     def matchSrcAndCatalogue(self, cat, img, imgWcs, dist=1.*afwGeom.arcseconds, cleanParam=3):

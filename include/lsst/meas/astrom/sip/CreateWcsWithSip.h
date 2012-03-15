@@ -32,7 +32,7 @@
 #include "lsst/base.h"
 #include "Eigen/Core"
 
-#include "lsst/afw/detection/SourceMatch.h"
+#include "lsst/afw/table/Match.h"
 #include "lsst/afw/geom/Box.h"
 #include "lsst/afw/geom/Point.h"
 #include "lsst/afw/geom/Angle.h"
@@ -49,14 +49,15 @@ namespace astrom {
 namespace sip {
 
 
-///\brief Measure the distortions in an image plane and express them a SIP polynomials 
+///
+/// \brief Measure the distortions in an image plane and express them a SIP polynomials 
 ///
 /// Given a list of matching sources between a catalogue and an image,
 /// and a linear Wcs that describes the mapping from pixel space in the image
 /// and ra/dec space in the catalogue, calculate discrepancies between the two
 /// and compute SIP distortion polynomials to describe the discrepancy
 ///
-///SIP polynomials are defined in Shupe at al. (2005) ASPC 347 491.
+/// SIP polynomials are defined in Shupe at al. (2005) ASPC 347 491.
 ///
 /// Note that the SIP standard insists (although it is only mentioned obliquly
 /// between Eqns 3 and 4) that the lowest three terms in the distortion
@@ -65,51 +66,53 @@ namespace sip {
 /// behaviour you expect.
 /// 
 /// A Wcs may be created in a variety of ways (e.g. lsst::meas::astrom::net::GlobalAstrometrySolution ), 
-/// and the
-/// list of matched sources (match) can be generated with MatchSrcToCatalogue)
+/// and the list of matched sources (matches) can be generated with the matchRaDec function.
 /// 
 /// \code
 /// #Example usage 
-/// match = MatchSrcToCatalogue(catSet, srcSet)
+/// matches = matchRaDec(catSet, srcSet, 1.0*afwGeom.arcseconds, true)
 /// wcs = getWcsFromSomewhere()
 /// 
 /// maxScatter=0.1
 /// maxOrder= 10
-/// sipObject = CreateWcsWithSip(match, wcs, maxScatter, maxOrder)
+/// sipObject = CreateWcsWithSip(matches, wcs, maxScatter, maxOrder)
 /// wcs = sipObject.getNewWcs()
 /// \endcode
 /// 
+/// Note that the matches must be one-to-one; this is ensured by passing closest=true to matchRaDec.
+///
 class CreateWcsWithSip {
 public:
 
     typedef boost::shared_ptr<CreateWcsWithSip> Ptr;
     typedef boost::shared_ptr<CreateWcsWithSip const> ConstPtr;
 
-    CreateWcsWithSip(const std::vector<lsst::afw::detection::SourceMatch> match,
-                     CONST_PTR(lsst::afw::image::Wcs) linearWcs,
-                     int const order,
-                     lsst::afw::geom::Box2I const& bbox = lsst::afw::geom::Box2I(),
-                     int const ngrid=0
-                    );
+    CreateWcsWithSip(
+        afw::table::ReferenceMatchVector const & matches,
+        CONST_PTR(afw::image::Wcs) linearWcs,
+        int const order,
+        afw::geom::Box2I const& bbox = afw::geom::Box2I(),
+        int const ngrid=0
+    );
 
-    PTR(lsst::afw::image::TanWcs) getNewWcs() { return _newWcs; }
+    PTR(afw::image::TanWcs) getNewWcs() { return _newWcs; }
     double getScatterInPixels();
-    lsst::afw::geom::Angle getScatterOnSky();
+    afw::geom::Angle getScatterOnSky();
 
     /// Get the number of terms in the SIP matrix
     int getOrder() const { return  _sipA.rows(); }
     /// Return the number of points in the catalogue
-    int getNPoints() const { return _matchList.size(); }
+    int getNPoints() const { return _matches.size(); }
     /// Return the number of grid points (on each axis) used in inverse SIP transform
     int getNGrid() const { return _ngrid; }
 
 private:
     
-    std::vector<lsst::afw::detection::SourceMatch> const _matchList;
-    lsst::afw::geom::Box2I mutable _bbox;
+    afw::table::ReferenceMatchVector const _matches;
+    afw::geom::Box2I mutable _bbox;
     int _ngrid;                         // grid size to calculate inverse SIP coefficients (1-D)
-    CONST_PTR(lsst::afw::image::Wcs) _linearWcs;
-    CONST_PTR(lsst::afw::image::Wcs) _origWcs;
+    CONST_PTR(afw::image::Wcs) _linearWcs;
+    CONST_PTR(afw::image::Wcs) _origWcs;
     //size is number of input points. _sipOrder is polynomial order for forward transform.
     //_reverseSipOrder is order for reverse transform, not necessarily the same.
     int const _sipOrder, _reverseSipOrder;      
@@ -117,12 +120,12 @@ private:
     Eigen::MatrixXd _sipA, _sipB;
     Eigen::MatrixXd _sipAp, _sipBp;
 
-    PTR(lsst::afw::image::TanWcs) _newWcs;
+    PTR(afw::image::TanWcs) _newWcs;
     
     void _calculateForwardMatrices();
     void _calculateReverseMatrices();
     
-    lsst::afw::geom::Point2D _getCrvalAsGeomPoint();
+    afw::geom::Point2D _getCrvalAsGeomPoint();
 };    
     
 

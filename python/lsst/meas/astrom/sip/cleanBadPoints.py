@@ -47,13 +47,13 @@ def clean(srcMatch, wcs, order=3, nsigma=3):
     catX = np.zeros(N)
     #catY = np.zeros(N)
     for i in range(N):
-        x,y = wcs.skyToPixel(srcMatch[i].first.getRaDec())
+        x,y = wcs.skyToPixel(srcMatch[i].first.getCoord())
         catX[i] = x
         #catY[i] = y
 
     ## FIXME -- why does this only use X?
 
-    x = np.array([s.second.getXAstrom() for s in srcMatch])
+    x = np.array([s.second.getX() for s in srcMatch])
     dx = x - catX
     sigma = np.zeros_like(dx) + 0.1
     

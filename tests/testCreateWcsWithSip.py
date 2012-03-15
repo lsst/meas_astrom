@@ -38,7 +38,7 @@ import lsst.pex.logging as pexLog
 import lsst.afw.coord as afwCoord
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
-import lsst.afw.detection as afwDet
+import lsst.afw.table as afwTable
 import lsst.meas.astrom.sip as astromSip
 
 class CreateWcsWithSipTestCase(unittest.TestCase):
@@ -60,26 +60,30 @@ class CreateWcsWithSipTestCase(unittest.TestCase):
         num = 4000
         step = 1000
 
+        catTable = afwTable.SimpleTable.make(afwTable.SimpleTable.makeMinimalSchema())
+        srcSchema = afwTable.SourceTable.makeMinimalSchema()
+        key = srcSchema.addField("centroid", type="Point<F8>")
+        srcSchema.addField("centroid.flags", type="Flag")
+        srcSchema.addField("centroid.err", type="Cov<Point<F8>>")
+        srcTable = afwTable.SourceTable.make(srcSchema)
+        srcTable.defineCentroid("centroid")
         self.sourceMatchSet = []
         for i in range(0, num, step):
             for j in range(0, num, step):
-                src = afwDet.Source()
-                cat = afwDet.Source()
+                src = srcTable.makeRecord()
+                cat = catTable.makeRecord()
 
-                cat.setXAstrom(i)
-                cat.setYAstrom(j)
-
-                src.setXAstrom(i)
-                src.setYAstrom(j)
+                src.set(key.getX(), i)
+                src.set(key.getY(), j)
 
                 c = self.wcs.pixelToSky(i, j);
-                cat.setRaDec(c);
-                cat.setRaDecAstrom(c);
+                cat.setCoord(c);
+
                 if False:
                     print "RA,Dec = (%.3f, %.3f) deg" %  (c.toFk5().getRa().asDegrees(),
                                                           c.toFk5().getDec().asDegrees())
-                dist = math.hypot(src.getXAstrom() - cat.getXAstrom(), src.getYAstrom() - cat.getYAstrom())
-                self.sourceMatchSet.append(afwDet.SourceMatch(cat, src, dist))
+
+                self.sourceMatchSet.append(afwTable.ReferenceMatch(cat, src, 0.0))
 
     def tearDown(self):
         del self.sourceMatchSet
@@ -91,19 +95,19 @@ class CreateWcsWithSipTestCase(unittest.TestCase):
 
     def checkResults(self, sipWcs):
         for cat, src, d in self.sourceMatchSet:
-            srcX = src.getXAstrom()
-            srcY = src.getYAstrom()
+            srcX = src.getX()
+            srcY = src.getY()
             catRa  = cat.getRa();
             catDec = cat.getDec();
-            srcRaDec = sipWcs.pixelToSky(srcX, srcY).toFk5();
+            srcCoord = sipWcs.pixelToSky(srcX, srcY).toFk5();
 
             if False:
                 print "cat RA,Dec = (%.5f, %.5f) deg" % (catRa.asDegrees(), catDec.asDegrees())
-                print "src RA,Dec = (%.5f, %.5f) deg" % (srcRaDec.getRa().asDegrees(), srcRaDec.getDec().asDegrees())
-            self.assertAlmostEqualAngle(catRa, srcRaDec.getRa())
-            self.assertAlmostEqualAngle(catDec, srcRaDec.getDec())
+                print "src RA,Dec = (%.5f, %.5f) deg" % (srcCoord.getRa().asDegrees(), srcCoord.getDec().asDegrees())
+            self.assertAlmostEqualAngle(catRa, srcCoord.getRa())
+            self.assertAlmostEqualAngle(catDec, srcCoord.getDec())
             # these are in pixels.
-            catxy = sipWcs.skyToPixel(cat.getRaDec());
+            catxy = sipWcs.skyToPixel(cat.getCoord());
             if False:
                 print "cat X,Y = (%.3f, %.3f)" % (catxy[0], catxy[1])
                 print "src X,Y = (%.3f, %.3f)" % (srcX, srcY);
@@ -114,8 +118,8 @@ class CreateWcsWithSipTestCase(unittest.TestCase):
         """Apply func(x, y) to each point"""
 
         for cat, src, d in self.sourceMatchSet:
-            x, y = func(src.getXAstrom(), src.getYAstrom())
-            src.setXAstrom(x); src.setYAstrom(y)
+            x, y = func(src.getX(), src.getY())
+            src.set("centroid.x", x); src.set("centroid.y", y)
 
         self.sipObject = astromSip.CreateWcsWithSip(self.sourceMatchSet, self.wcs, order)
 
