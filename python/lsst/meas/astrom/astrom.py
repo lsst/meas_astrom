@@ -204,12 +204,8 @@ class Astrometry(object):
             sources = _trimBadPoints(sources, bbox)
             self._debug("Trimming: kept %i of %i sources" % (n, len(sources)))
 
-        '''
-        hscAstrom does:
-        isSolved, wcs, matchList = runMatch(sourceSet, catSet, min(policy.get('numBrightStars'), len(sourceSet)), log=log)
-        '''
-
-        wcs,qa = self._solve(sources, wcs, imageSize, pixelScale, radecCenter, searchRadius, parity)
+        wcs,qa = self._solve(sources, wcs, imageSize, pixelScale, radecCenter, searchRadius, parity,
+                             filterName)
         if wcs is None:
             raise RuntimeError("Unable to match sources with catalog.")
 
@@ -307,9 +303,14 @@ class Astrometry(object):
         return self._mapFilterName(filterName, self.andConfig.defaultMagColumn)
 
     def _mapFilterName(self, filterName, default=None):
-        ## Warn if default is used?
         filterName = self.config.filterMap.get(filterName, filterName) # Exposure filter --> desired filter
-        return self.andConfig.magColumnMap.get(filterName, default) # Desired filter --> a_n_d column name
+        try:
+            return self.andConfig.magColumnMap[filterName] # Desired filter --> a_n_d column name
+        except KeyError:
+            self.log.warn("No mag column in configuration for filter '%s'; using default '%s'" %
+                          (filterName, default))
+            return default
+
 
     def getReferenceSourcesForWcs(self, wcs, imageSize, filterName, pixelMargin,
                                   trim=True):
@@ -360,7 +361,7 @@ class Astrometry(object):
         return cat
 
     def _solve(self, sources, wcs, imageSize, pixelScale, radecCenter,
-               searchRadius, parity):
+               searchRadius, parity, filterName=None):
         solver = self._getSolver()
 
         # select sources with valid x,y, flux
@@ -410,7 +411,7 @@ class Astrometry(object):
             self.log.logdebug('WCS: %s' % wcs.getFitsMetadata().toString())
             
         else:
-            self.log.warn('Did not got an astrometric solution from Astrometry.net')
+            self.log.warn('Did not get an astrometric solution from Astrometry.net')
             wcs = None
             # Gather debugging info...
 
@@ -418,7 +419,7 @@ class Astrometry(object):
             if radecCenter is not None:
                 ra = radecCenter.getLongitude()
                 dec = radecCenter.getLatitude()
-                refs = self.getReferenceSources(ra, dec, searchRadius, None)
+                refs = self.getReferenceSources(ra, dec, searchRadius, filterName)
                 self.log.info('Searching around RA,Dec = (%g,%g) with radius %g deg yields %i reference-catalog sources' %
                               (ra.asDegrees(), dec.asDegrees(), searchRadius.asDegrees(), len(refs)))
 
