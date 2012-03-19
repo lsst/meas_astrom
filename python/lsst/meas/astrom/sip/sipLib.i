@@ -52,7 +52,7 @@ Python interface to lsst::afw::meas::astrom::sip classes
 
 %include "lsst/p_lsstSwig.i"
 %include "std_string.i"
-%include "lsst/ndarray/ndarray.i"
+%include "ndarray.i"
 
 %declareNumPyConverters(Eigen::Matrix2d);
 %declareNumPyConverters(Eigen::MatrixXd);
