@@ -503,7 +503,6 @@ class Astrometry(object):
                           (ra.asDegrees(), dec.asDegrees(), rad.asArcseconds(), filterName))
         refCat = self.getReferenceSources(ra, dec, rad, filterName)
         self.log.logdebug('Found %i reference catalog sources in range' % len(refCat))
-        import pdb;pdb.set_trace()
         refCat.sort()
         sourceCat.sort()
         return afwTable.unpackMatches(packedMatches, refCat, sourceCat)
