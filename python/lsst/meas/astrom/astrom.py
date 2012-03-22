@@ -503,6 +503,7 @@ class Astrometry(object):
                           (ra.asDegrees(), dec.asDegrees(), rad.asArcseconds(), filterName))
         refCat = self.getReferenceSources(ra, dec, rad, filterName)
         self.log.logdebug('Found %i reference catalog sources in range' % len(refCat))
+        import pdb;pdb.set_trace()
         refCat.sort()
         sourceCat.sort()
         return afwTable.unpackMatches(packedMatches, refCat, sourceCat)
@@ -553,10 +554,5 @@ def readMatches(butler, dataId, sourcesName='icSrc', matchesName='icMatch'):
     """
     sources = butler.get(sourcesName, dataId)
     matches = butler.get(matchesName, dataId)
-    matchList = matches.getSourceMatches()
-    matchMeta = matches.getSourceMatchMetadata()
-    
     astrom = Astrometry(MeasAstromConfig())
-    astrom.joinMatchListWithCatalog(matchList, matchMeta)
-    astrom.joinMatchList(matchList, sources.getSources(), first=False)
-    return matchList
+    return astrom.joinMatchListWithCatalog(matches, sources)
