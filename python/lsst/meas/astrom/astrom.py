@@ -352,6 +352,34 @@ class Astrometry(object):
         fdict = maUtils.getDetectionFlags()
         starflag = fdict["STAR"]
 
+        '''
+        Note about multiple astrometry_net index files and duplicate IDs:
+
+        -as of astrometry_net 0.30, we take a reference catalog and build
+         a set of astrometry_net index files from it, with each one covering a
+         region of sky and a range of angular scales.  The index files covering
+         the same region of sky at different scales use exactly the same stars.
+         Therefore, if we search every index file, we will get multiple copies of
+         each reference star (one from each index file).
+         For now, we have the "unique_ids" option to solver.getCatalog().
+         -recall that the index files to be used are specified in the
+          AstrometryNetDataConfig.indexFiles flat list.
+
+        -as of astrometry_net 0.40, we have the capability to share
+         the reference stars between index files (called
+         "multiindex"), so we will no longer have to repeat the
+         reference stars in each index.  We will, however, have to
+         change the way the index files are configured to take
+         advantage of this functionality.  Once this is in place, we
+         can eliminate the horrid ID checking and deduplication (in solver.getCatalog()).
+         -multiindex files will be specified in the
+          AstrometryNetDatConfig.multiIndexFiles list-of-lists; first
+          element is the filename containing the stars, subsequent
+          elements are filenames containing the index structures.
+          We may be able to backwards-compatibly build this from the flat indexFiles
+          list if we assume things about the filenames.
+        '''
+
         cat = solver.getCatalog(self.inds,
                                 ra.asDegrees(), dec.asDegrees(),
                                 radius.asDegrees(),

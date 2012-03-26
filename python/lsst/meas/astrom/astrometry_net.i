@@ -24,6 +24,7 @@ Python interface to Astrometry.net
 	}
 
 #include <vector>
+#include <set>
 #include "boost/cstdint.hpp"
 #include "boost/shared_ptr.hpp"
 #include "boost/format.hpp"
@@ -158,7 +159,12 @@ static time_t timer_callback(void* baton) {
 				   const char* magerrcol,
 				   const char* stargalcol,
 				   const char* varcol,
-				   boost::int64_t starflag) {
+				   boost::int64_t starflag,
+                   bool unique_ids=true) {
+        /*
+         unique_ids: return a SourceSet with no duplicate IDs; return only the first
+         star found with each ID.
+         */
 		lsst::afw::detection::SourceSet cat;
 
         // FIXME -- cut on indexid?
@@ -170,6 +176,9 @@ static time_t timer_callback(void* baton) {
 		double xyz[3];
 		radecdeg2xyzarr(ra, dec, xyz);
 		double r2 = deg2distsq(radius);
+
+        // for unique_ids...
+        std::set<boost::int64_t> uids;
 
 		for (std::vector<index_t*>::iterator pind = inds.begin();
 			 pind != inds.end(); ++pind) {
@@ -191,7 +200,6 @@ static time_t timer_callback(void* baton) {
 			//printf("found %i\n", nstars);
 			if (nstars == 0)
 				continue;
-			// FIXME -- handle duplicates here, or in python?
 
 			float* mag = NULL;
 			float* magerr = NULL;
@@ -208,6 +216,44 @@ static time_t timer_callback(void* baton) {
 					id = static_cast<boost::int64_t*>(fitstable_read_column_inds(tag, idcol, i64, starinds, nstars));
 					assert(id);
 				}
+
+                if (id && unique_ids) {
+                    // remove duplicate IDs.
+
+                    // FIXME -- this shouldn't be necessary once we get astrometry_net 0.40
+                    // multi-index functionality in place.
+
+                    if (uids.empty()) {
+                        uids = std::set<boost::int64_t>(id, id+nstars);
+                    } else {
+                        int nkeep = 0;
+                        for (int i=0; i<nstars; i++) {
+                            //std::pair<std::set<boost::int64_t>::iterator, bool> 
+                            if (uids.insert(id[i]).second) {
+                                // inserted; keep this one.
+                                if (nkeep != i) {
+                                    // compact the arrays.
+                                    starinds[nkeep] = starinds[i];
+                                    radecs[nkeep*2+0] = radecs[i*2+0];
+                                    radecs[nkeep*2+1] = radecs[i*2+1];
+                                    id[nkeep] = id[i];
+                                }
+                                nkeep++;
+                            } else {
+                                // did not insert (this id has already been found);
+                                // drop this star.
+                            }
+                        }
+                        nstars = nkeep;
+                        // if they were all duplicate IDs...
+                        if (nstars == 0) {
+                            free(starinds);
+                            free(radecs);
+                            free(id);
+                            continue;
+                        }
+                    }
+                }
 
 				if (magcol) {
 					mag = static_cast<float*>(fitstable_read_column_inds(tag, magcol, flt, starinds, nstars));
