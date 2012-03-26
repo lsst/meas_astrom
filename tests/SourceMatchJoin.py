@@ -29,6 +29,7 @@ except NameError:
     display = False
     verbose = 0
 
+
 class matchlistTestCase(unittest.TestCase):
     def setUp(self):
         # Load sample input from disk
@@ -81,6 +82,41 @@ class matchlistTestCase(unittest.TestCase):
             self.assertEqual(matches2[i].first.getDec().asDegrees(), matches[i].first.getDec().asDegrees())
             self.assertEqual(matches2[i].first.get("flux"), matches[i].first.get("flux"))
 
+
+
+class LocalMapper(dafPersist.Mapper):
+    def __init__(self, *args, **kwargs):
+        print 'LocalMapper()'
+
+    def map_icMatch(self, dataId):
+        print 'map_icMatch:', dataId
+        actualId = dataId
+        mypath = eups.productDir("meas_astrom")
+        visit = dataId['visit']
+        loc = os.path.join(mypath, 'tests', 'data', 'sourcematchjoin-icMatch-%i.fits' % visit)
+        return dafPersist.ButlerLocation('lsst.afw.table.BaseCatalog', 'MatchList',
+                                         'FitsStorage', loc, actualId)
+    
+
+    def keys(self):
+        return ['visit']
+
+class butleredMatchlistTestCase(unittest.TestCase):
+    def setUp(self):
+        mapper = LocalMapper()
+        self.butler = dafPersist.ButlerFactory(mapper=mapper).create()
+        print 'Butler:', self.butler
+
+    def tearDown(self):
+        del self.butler
+
+    def test1(self):
+        dataId = dict(visit=12345)
+        match = self.butler.get('icMatch', dataId)
+        print 'Match:', match
+    
+
+
             
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= silly boilerplate -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -88,6 +124,7 @@ def suite():
     utilsTests.init()
     suites = []
     suites += unittest.makeSuite(matchlistTestCase)
+    suites += unittest.makeSuite(butleredMatchlistTestCase)
     suites += unittest.makeSuite(utilsTests.MemoryTestCase)
     return unittest.TestSuite(suites)
 
