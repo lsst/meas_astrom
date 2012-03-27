@@ -29,6 +29,7 @@ except NameError:
     display = False
     verbose = 0
 
+
 class matchlistTestCase(unittest.TestCase):
     def setUp(self):
         # Load sample input from disk
@@ -80,6 +81,7 @@ class matchlistTestCase(unittest.TestCase):
             self.assertEqual(matches2[i].first.getRa().asDegrees(), matches[i].first.getRa().asDegrees())
             self.assertEqual(matches2[i].first.getDec().asDegrees(), matches[i].first.getDec().asDegrees())
             self.assertEqual(matches2[i].first.get("flux"), matches[i].first.get("flux"))
+
 
             
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= silly boilerplate -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-

@@ -24,6 +24,7 @@ Python interface to Astrometry.net
 	}
 
 #include <vector>
+#include <set>
 #include "boost/cstdint.hpp"
 #include "boost/shared_ptr.hpp"
 #include "boost/format.hpp"
@@ -146,7 +147,12 @@ static time_t timer_callback(void* baton) {
 				   const char* magcol,
 				   const char* magerrcol,
 				   const char* stargalcol,
-				   const char* varcol) {
+				   const char* varcol,
+                   bool unique_ids=true) {
+        /*
+         If unique_ids == true: return only reference sources with unique IDs;
+         arbitrarily keep the first star found with each ID.
+         */
 
         // FIXME -- cut on indexid?
 		// FIXME -- cut on healpix?
@@ -184,6 +190,9 @@ static time_t timer_callback(void* baton) {
         // make catalog with no IdFactory, since IDs are external
         afwTable::SimpleCatalog cat(afwTable::SimpleTable::make(schema, PTR(afwTable::IdFactory)()));
 
+        // for unique_ids: keep track of the IDs we have already added to the result set.
+        std::set<boost::int64_t> uids;
+
 		for (std::vector<index_t*>::iterator pind = inds.begin();
 			 pind != inds.end(); ++pind) {
 			index_t* ind = (*pind);
@@ -204,7 +213,6 @@ static time_t timer_callback(void* baton) {
 			//printf("found %i\n", nstars);
 			if (nstars == 0)
 				continue;
-			// FIXME -- handle duplicates here, or in python?
 
 			float* mag = NULL;
 			float* magerr = NULL;
@@ -221,6 +229,44 @@ static time_t timer_callback(void* baton) {
 					id = static_cast<boost::int64_t*>(fitstable_read_column_inds(tag, idcol, i64, starinds, nstars));
 					assert(id);
 				}
+
+                if (id && unique_ids) {
+                    // remove duplicate IDs.
+
+                    // FIXME -- this shouldn't be necessary once we get astrometry_net 0.40
+                    // multi-index functionality in place.
+
+                    if (uids.empty()) {
+                        uids = std::set<boost::int64_t>(id, id+nstars);
+                    } else {
+                        int nkeep = 0;
+                        for (int i=0; i<nstars; i++) {
+                            //std::pair<std::set<boost::int64_t>::iterator, bool> 
+                            if (uids.insert(id[i]).second) {
+                                // inserted; keep this one.
+                                if (nkeep != i) {
+                                    // compact the arrays.
+                                    starinds[nkeep] = starinds[i];
+                                    radecs[nkeep*2+0] = radecs[i*2+0];
+                                    radecs[nkeep*2+1] = radecs[i*2+1];
+                                    id[nkeep] = id[i];
+                                }
+                                nkeep++;
+                            } else {
+                                // did not insert (this id has already been found);
+                                // drop this star.
+                            }
+                        }
+                        nstars = nkeep;
+                        // if they were all duplicate IDs...
+                        if (nstars == 0) {
+                            free(starinds);
+                            free(radecs);
+                            free(id);
+                            continue;
+                        }
+                    }
+                }
 
 				if (magcol) {
 					mag = static_cast<float*>(fitstable_read_column_inds(tag, magcol, flt, starinds, nstars));
@@ -266,10 +312,12 @@ static time_t timer_callback(void* baton) {
 				if (id)	src->setId(id[i]);
 
 				if (mag) {
-                    // Dustin things converting to flux is 'LAME!';
+                    // Dustin thinks converting to flux is 'LAME!';
                     // Jim thinks it's nice for consistency (and photocal wants fluxes
                     // as inputs, so we'll continue to go with that for now) even though
                     // we don't need to anymore.
+                    // Dustin rebuts that photocal immediately converts those fluxes into mags,
+                    // so :-P
                     double flux = pow(10.0, -mag[i] / 2.5);
                     src->set(fluxKey, flux);
 					if (magerr)	src->set(fluxErrKey, magerr[i] * flux * -std::log(10.0) / 2.5);
@@ -285,11 +333,6 @@ static time_t timer_callback(void* baton) {
                     ok &= (!var[i]);
 				}
                 src->set(photometricKey, ok);
-
-				/*if (id && stargal) {
-					printf("  id %li,  stargal %s\n", (long)id[i], stargal[i] ? "T":"F");
-				}*/
-
 			}
 
             free(id);
@@ -297,7 +340,6 @@ static time_t timer_callback(void* baton) {
 			free(magerr);
 			free(stargal);
 			free(var);
-
 			free(radecs);
 			free(starinds);
 		}

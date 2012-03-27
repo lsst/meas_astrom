@@ -204,12 +204,8 @@ class Astrometry(object):
             sources = _trimBadPoints(sources, bbox)
             self._debug("Trimming: kept %i of %i sources" % (n, len(sources)))
 
-        '''
-        hscAstrom does:
-        isSolved, wcs, matchList = runMatch(sourceSet, catSet, min(policy.get('numBrightStars'), len(sourceSet)), log=log)
-        '''
-
-        wcs,qa = self._solve(sources, wcs, imageSize, pixelScale, radecCenter, searchRadius, parity)
+        wcs,qa = self._solve(sources, wcs, imageSize, pixelScale, radecCenter, searchRadius, parity,
+                             filterName)
         if wcs is None:
             raise RuntimeError("Unable to match sources with catalog.")
 
@@ -307,9 +303,14 @@ class Astrometry(object):
         return self._mapFilterName(filterName, self.andConfig.defaultMagColumn)
 
     def _mapFilterName(self, filterName, default=None):
-        ## Warn if default is used?
         filterName = self.config.filterMap.get(filterName, filterName) # Exposure filter --> desired filter
-        return self.andConfig.magColumnMap.get(filterName, default) # Desired filter --> a_n_d column name
+        try:
+            return self.andConfig.magColumnMap[filterName] # Desired filter --> a_n_d column name
+        except KeyError:
+            self.log.warn("No mag column in configuration for filter '%s'; using default '%s'" %
+                          (filterName, default))
+            return default
+
 
     def getReferenceSourcesForWcs(self, wcs, imageSize, filterName, pixelMargin,
                                   trim=True):
@@ -337,7 +338,7 @@ class Astrometry(object):
         Angle).  The flux values will be set based on the requested
         filter (None => default filter).
         
-        Returns: list of Source objects.
+        Returns: an lsst.afw.table.SimpleCatalog of reference objects
         '''
         solver = self._getSolver()
         magcolumn = self.getCatalogFilterName(filterName)
@@ -347,20 +348,43 @@ class Astrometry(object):
         idcolumn = self.andConfig.idColumn
         magerrCol = self.andConfig.magErrorColumnMap.get(filterName, None)
 
+        '''
+        Note about multiple astrometry_net index files and duplicate IDs:
+
+        -as of astrometry_net 0.30, we take a reference catalog and build
+         a set of astrometry_net index files from it, with each one covering a
+         region of sky and a range of angular scales.  The index files covering
+         the same region of sky at different scales use exactly the same stars.
+         Therefore, if we search every index file, we will get multiple copies of
+         each reference star (one from each index file).
+         For now, we have the "unique_ids" option to solver.getCatalog().
+         -recall that the index files to be used are specified in the
+          AstrometryNetDataConfig.indexFiles flat list.
+
+        -as of astrometry_net 0.40, we have the capability to share
+         the reference stars between index files (called
+         "multiindex"), so we will no longer have to repeat the
+         reference stars in each index.  We will, however, have to
+         change the way the index files are configured to take
+         advantage of this functionality.  Once this is in place, we
+         can eliminate the horrid ID checking and deduplication (in solver.getCatalog()).
+         -multiindex files will be specified in the
+          AstrometryNetDatConfig.multiIndexFiles list-of-lists; first
+          element is the filename containing the stars, subsequent
+          elements are filenames containing the index structures.
+          We may be able to backwards-compatibly build this from the flat indexFiles
+          list if we assume things about the filenames.
+        '''
         cat = solver.getCatalog(self.inds,
                                 ra.asDegrees(), dec.asDegrees(),
                                 radius.asDegrees(),
                                 idcolumn, magcolumn,
                                 magerrCol, sgCol, varCol)
         del solver
-        #print 'STAR flag', starflag
-        #print len(cat), 'reference sources'
-        #print sum([src.getFlagForDetection() & starflag > 0
-        #           for src in cat]), 'have STAR set'
         return cat
 
     def _solve(self, sources, wcs, imageSize, pixelScale, radecCenter,
-               searchRadius, parity):
+               searchRadius, parity, filterName=None):
         solver = self._getSolver()
 
         # select sources with valid x,y, flux
@@ -410,7 +434,7 @@ class Astrometry(object):
             self.log.logdebug('WCS: %s' % wcs.getFitsMetadata().toString())
             
         else:
-            self.log.warn('Did not got an astrometric solution from Astrometry.net')
+            self.log.warn('Did not get an astrometric solution from Astrometry.net')
             wcs = None
             # Gather debugging info...
 
@@ -418,7 +442,7 @@ class Astrometry(object):
             if radecCenter is not None:
                 ra = radecCenter.getLongitude()
                 dec = radecCenter.getLatitude()
-                refs = self.getReferenceSources(ra, dec, searchRadius, None)
+                refs = self.getReferenceSources(ra, dec, searchRadius, filterName)
                 self.log.info('Searching around RA,Dec = (%g,%g) with radius %g deg yields %i reference-catalog sources' %
                               (ra.asDegrees(), dec.asDegrees(), searchRadius.asDegrees(), len(refs)))
 
@@ -470,7 +494,7 @@ class Astrometry(object):
         This function is required to reconstitute a ReferenceMatchVector after being
         unpersisted.  The persisted form of a ReferenceMatchVector is the 
         normalized Catalog of IDs produced by afw.table.packMatches(), with the result of 
-        InitialAstrometry.getMatchMetadata() in the associated tables' metadata.
+        InitialAstrometry.getMatchMetadata() in the associated tables\' metadata.
 
         The "live" form of a matchlist has links to
         the real record objects that are matched; it is "denormalized".
@@ -552,6 +576,6 @@ def readMatches(butler, dataId, sourcesName='icSrc', matchesName='icMatch'):
     @returns Matches
     """
     sources = butler.get(sourcesName, dataId)
-    matches = butler.get(matchesName, dataId)
+    packedMatches = butler.get(matchesName, dataId)
     astrom = Astrometry(MeasAstromConfig())
-    return astrom.joinMatchListWithCatalog(matches, sources)
+    return astrom.joinMatchListWithCatalog(packedMatches, sources)
