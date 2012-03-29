@@ -64,6 +64,7 @@ class PhotoCalTask(pipeBase.Task):
     """Calculate the zero point of an exposure given a ReferenceMatchVector.
     """
     ConfigClass = PhotoCalConfig
+    _DefaultName = "photoCal"
 
     def __init__(self, schema, **kwds):
         """Create the task, pulling input keys from the schema and adding a flag field
