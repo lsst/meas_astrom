@@ -8,6 +8,11 @@ Python interface to Astrometry.net
 %module(package="lsst.meas.astrom.astrometry_net",
         docstring=astrometry_net_DOCSTRING) astrometry_net
 
+%pythonnondynamic;
+%naturalvar;  // use const reference typemaps
+
+%include "std_string.i"
+%include "std_vector.i"
 
 %{
     // Astrometry.net include files...
@@ -67,7 +72,220 @@ static time_t timer_callback(void* baton) {
     return 1;
 }
 
+/*
+ * Implementation for index_s::getCatalog method
+ */
+static lsst::afw::table::SimpleCatalog
+getCatalogImpl(std::vector<index_t*> inds,
+	       double ra, double dec, double radius,
+	       const char* idcol,
+	       std::vector<std::string> const & magcolVec,
+	       std::vector<std::string> const & magerrcolVec,
+	       const char* stargalcol,
+	       const char* varcol,
+	       bool unique_ids=true)
+{
+   assert(!magcolVec.empty());
+   char const* magcol = magcolVec[0] == "" ? NULL : magcolVec[0].c_str();
+   assert(!magerrcolVec.empty());
+   char const* magerrcol = magerrcolVec[0] == "" ? NULL : magerrcolVec[0].c_str();
 
+   /*
+     If unique_ids == true: return only reference sources with unique IDs;
+     arbitrarily keep the first star found with each ID.
+   */
+
+   // FIXME -- cut on indexid?
+   // FIXME -- cut on healpix?
+
+   // additional margin on healpixes, in deg.
+   double margin = 1.0;
+
+   double xyz[3];
+   radecdeg2xyzarr(ra, dec, xyz);
+   double r2 = deg2distsq(radius);
+
+   afwTable::Schema schema = afwTable::SimpleTable::makeMinimalSchema(); // contains ID, ra, dec.
+   afwTable::Key<double> fluxKey;    // these are double for consistency with measured fluxes;
+   afwTable::Key<double> fluxErrKey; // may be unnecessary, but less surprising.
+   if (magcol) {
+      fluxKey = schema.addField<double>("flux", "flux");
+      if (magerrcol) {
+	 fluxErrKey = schema.addField<double>("flux.err", "flux uncertainty");
+      }
+   }
+   afwTable::Key<afwTable::Flag> stargalKey;
+   if (stargalcol) {
+      stargalKey = schema.addField<afwTable::Flag>(
+	 "stargal", "set if the reference object is a star"
+	 );
+   }
+   afwTable::Key<afwTable::Flag> varKey;
+   if (varcol) {
+      varKey = schema.addField<afwTable::Flag>("var", "set if the reference object is variable");
+   }
+   afwTable::Key<afwTable::Flag> photometricKey = schema.addField<afwTable::Flag>(
+      "photometric", "set if the reference object can be used in photometric calibration"
+      );
+            
+   // make catalog with no IdFactory, since IDs are external
+   afwTable::SimpleCatalog cat(afwTable::SimpleTable::make(schema, PTR(afwTable::IdFactory)()));
+
+   // for unique_ids: keep track of the IDs we have already added to the result set.
+   std::set<boost::int64_t> uids;
+
+   for (std::vector<index_t*>::iterator pind = inds.begin();
+	pind != inds.end(); ++pind) {
+      index_t* ind = (*pind);
+      //printf("checking index \"%s\"\n", ind->indexname);
+      if (!index_is_within_range(ind, ra, dec, radius + margin)) {
+	 //printf(" skipping: not within range\n");
+	 continue;
+      }
+      // Ensure the index is loaded...
+      index_reload(ind);
+
+      // Find nearby stars
+      double *radecs = NULL;
+      int *starinds = NULL;
+      int nstars = 0;
+      startree_search_for(ind->starkd, xyz, r2, NULL,
+			  &radecs, &starinds, &nstars);
+      //printf("found %i\n", nstars);
+      if (nstars == 0)
+	 continue;
+
+      float* mag = NULL;
+      float* magerr = NULL;
+      boost::int64_t* id = NULL;
+      bool* stargal = NULL;
+      bool* var = NULL;
+      if (idcol || magcol || magerrcol || stargalcol || varcol) {
+	 fitstable_t* tag = startree_get_tagalong(ind->starkd);
+	 tfits_type flt = fitscolumn_float_type();
+	 tfits_type boo = fitscolumn_boolean_type();
+	 tfits_type i64 = fitscolumn_i64_type();
+
+	 if (idcol) {
+	    id = static_cast<boost::int64_t*>(fitstable_read_column_inds(tag, idcol, i64, starinds, nstars));
+	    assert(id);
+	 }
+
+	 if (id && unique_ids) {
+	    // remove duplicate IDs.
+
+	    // FIXME -- this shouldn't be necessary once we get astrometry_net 0.40
+	    // multi-index functionality in place.
+
+	    if (uids.empty()) {
+	       uids = std::set<boost::int64_t>(id, id+nstars);
+	    } else {
+	       int nkeep = 0;
+	       for (int i=0; i<nstars; i++) {
+		  //std::pair<std::set<boost::int64_t>::iterator, bool> 
+		  if (uids.insert(id[i]).second) {
+		     // inserted; keep this one.
+		     if (nkeep != i) {
+			// compact the arrays.
+			starinds[nkeep] = starinds[i];
+			radecs[nkeep*2+0] = radecs[i*2+0];
+			radecs[nkeep*2+1] = radecs[i*2+1];
+			id[nkeep] = id[i];
+		     }
+		     nkeep++;
+		  } else {
+		     // did not insert (this id has already been found);
+		     // drop this star.
+		  }
+	       }
+	       nstars = nkeep;
+	       // if they were all duplicate IDs...
+	       if (nstars == 0) {
+		  free(starinds);
+		  free(radecs);
+		  free(id);
+		  continue;
+	       }
+	    }
+	 }
+
+	 if (magcol) {
+	    mag = static_cast<float*>(fitstable_read_column_inds(tag, magcol, flt, starinds, nstars));
+	    assert(mag);
+	 }
+	 if (magerrcol) {
+	    magerr = static_cast<float*>(fitstable_read_column_inds(tag, magerrcol, flt, starinds, nstars));
+	    assert(magerr);
+	 }
+	 if (stargalcol) {
+	    /*  There is something weird going on with handling of bools; maybe "T" vs "F"?
+		stargal = static_cast<bool*>(fitstable_read_column_inds(tag, stargalcol, boo, starinds, nstars));
+		for (int j=0; j<nstars; j++) {
+		printf("  sg %i = %i, vs %i\n", j, (int)sg[j], stargal[j] ? 1:0);
+		}
+	    */
+	    uint8_t* sg = static_cast<uint8_t*>(fitstable_read_column_inds(tag, stargalcol, fitscolumn_u8_type(), starinds, nstars));
+	    stargal = static_cast<bool*>(malloc(nstars));
+	    assert(stargal);
+	    for (int j=0; j<nstars; j++) {
+	       stargal[j] = (sg[j] > 0);
+	    }
+	    free(sg);
+	 }
+	 if (varcol) {
+	    var = static_cast<bool*>(fitstable_read_column_inds(tag, varcol, boo, starinds, nstars));
+	    assert(var);
+	 }
+      }
+
+      for (int i=0; i<nstars; i++) {
+	 PTR(afwTable::SimpleRecord) src = cat.addNew();
+
+	 // Note that all coords in afwTable catalogs are ICRS; hopefully that's what the 
+	 // reference catalogs are (and that's what the code assumed before JFB modified it).
+	 src->setCoord(
+	    afwCoord::IcrsCoord(
+	       radecs[i * 2 + 0] * afwGeom::degrees,
+	       radecs[i * 2 + 1] * afwGeom::degrees
+	       )
+	    );
+
+	 if (id)    src->setId(id[i]);
+
+	 if (mag) {
+	    // Dustin thinks converting to flux is 'LAME!';
+	    // Jim thinks it's nice for consistency (and photocal wants fluxes
+	    // as inputs, so we'll continue to go with that for now) even though
+	    // we don't need to anymore.
+	    // Dustin rebuts that photocal immediately converts those fluxes into mags,
+	    // so :-P
+	    double flux = pow(10.0, -mag[i] / 2.5);
+	    src->set(fluxKey, flux);
+	    if (magerr)    src->set(fluxErrKey, magerr[i] * flux * -std::log(10.0) / 2.5);
+	 }
+
+	 bool ok = true;
+	 if (stargal) {
+	    src->set(stargalKey, stargal[i]);
+	    ok &= stargal[i];
+	 }
+	 if (var) {
+	    src->set(varKey, var[i]);
+	    ok &= (!var[i]);
+	 }
+	 src->set(photometricKey, ok);
+      }
+
+      free(id);
+      free(mag);
+      free(magerr);
+      free(stargal);
+      free(var);
+      free(radecs);
+      free(starinds);
+   }
+   return cat;
+}
     %}
 
 %init %{
@@ -76,14 +294,14 @@ static time_t timer_callback(void* baton) {
     log_init(LOG_MSG);
     %}
 
-%include "std_string.i"
-%include "std_vector.i"
 %include "boost_shared_ptr.i"
 %include "lsst/p_lsstSwig.i"
 %include "lsst/base.h"
 %import "lsst/daf/base/baseLib.i"
 
 %lsst_exceptions();
+
+%template(VectorOfString) std::vector<std::string>;
 
 %import "lsst/afw/table/tableLib.i"
 
@@ -141,6 +359,20 @@ static time_t timer_callback(void* baton) {
     }
 
     lsst::afw::table::SimpleCatalog
+       getCatalog(std::vector<index_t*> inds,
+		  double ra, double dec, double radius,
+		  const char* idcol,
+		  std::vector<std::string> const& magcolVec,
+		  std::vector<std::string> const& magerrcolVec,
+		  const char* stargalcol,
+		  const char* varcol,
+		  bool unique_ids=true)
+    {
+       return getCatalogImpl(inds, ra, dec, radius,
+			     idcol, magcolVec, magerrcolVec, stargalcol, varcol, unique_ids);
+    }
+
+    lsst::afw::table::SimpleCatalog
         getCatalog(std::vector<index_t*> inds,
                    double ra, double dec, double radius,
                    const char* idcol,
@@ -148,202 +380,16 @@ static time_t timer_callback(void* baton) {
                    const char* magerrcol,
                    const char* stargalcol,
                    const char* varcol,
-                   bool unique_ids=true) {
-        /*
-         If unique_ids == true: return only reference sources with unique IDs;
-         arbitrarily keep the first star found with each ID.
-         */
+                   bool unique_ids=true)
+    {
+       std::vector<std::string> magcolVec;
+       std::vector<std::string> magerrcolVec;
 
-        // FIXME -- cut on indexid?
-        // FIXME -- cut on healpix?
+       magcolVec.push_back(std::string(magcol ? magcol : ""));
+       magerrcolVec.push_back(std::string(magerrcol ? magerrcol : ""));
 
-        // additional margin on healpixes, in deg.
-        double margin = 1.0;
-
-        double xyz[3];
-        radecdeg2xyzarr(ra, dec, xyz);
-        double r2 = deg2distsq(radius);
-
-        afwTable::Schema schema = afwTable::SimpleTable::makeMinimalSchema(); // contains ID, ra, dec.
-        afwTable::Key<double> fluxKey;    // these are double for consistency with measured fluxes;
-        afwTable::Key<double> fluxErrKey; // may be unnecessary, but less surprising.
-        if (magcol) {
-            fluxKey = schema.addField<double>("flux", "flux");
-            if (magerrcol) {
-                fluxErrKey = schema.addField<double>("flux.err", "flux uncertainty");
-            }
-        }
-        afwTable::Key<afwTable::Flag> stargalKey;
-        if (stargalcol) {
-            stargalKey = schema.addField<afwTable::Flag>(
-                "stargal", "set if the reference object is a star"
-            );
-        }
-        afwTable::Key<afwTable::Flag> varKey;
-        if (varcol) {
-            varKey = schema.addField<afwTable::Flag>("var", "set if the reference object is variable");
-        }
-        afwTable::Key<afwTable::Flag> photometricKey = schema.addField<afwTable::Flag>(
-            "photometric", "set if the reference object can be used in photometric calibration"
-        );
-            
-        // make catalog with no IdFactory, since IDs are external
-        afwTable::SimpleCatalog cat(afwTable::SimpleTable::make(schema, PTR(afwTable::IdFactory)()));
-
-        // for unique_ids: keep track of the IDs we have already added to the result set.
-        std::set<boost::int64_t> uids;
-
-        for (std::vector<index_t*>::iterator pind = inds.begin();
-             pind != inds.end(); ++pind) {
-            index_t* ind = (*pind);
-            //printf("checking index \"%s\"\n", ind->indexname);
-            if (!index_is_within_range(ind, ra, dec, radius + margin)) {
-                             //printf(" skipping: not within range\n");
-                             continue;
-            }
-            // Ensure the index is loaded...
-            index_reload(ind);
-
-            // Find nearby stars
-            double *radecs = NULL;
-            int *starinds = NULL;
-            int nstars = 0;
-            startree_search_for(ind->starkd, xyz, r2, NULL,
-                                &radecs, &starinds, &nstars);
-            //printf("found %i\n", nstars);
-            if (nstars == 0)
-                continue;
-
-            float* mag = NULL;
-            float* magerr = NULL;
-            boost::int64_t* id = NULL;
-            bool* stargal = NULL;
-            bool* var = NULL;
-            if (idcol || magcol || magerrcol || stargalcol || varcol) {
-                fitstable_t* tag = startree_get_tagalong(ind->starkd);
-                tfits_type flt = fitscolumn_float_type();
-                tfits_type boo = fitscolumn_boolean_type();
-                tfits_type i64 = fitscolumn_i64_type();
-
-                if (idcol) {
-                    id = static_cast<boost::int64_t*>(fitstable_read_column_inds(tag, idcol, i64, starinds, nstars));
-                    assert(id);
-                }
-
-                if (id && unique_ids) {
-                    // remove duplicate IDs.
-
-                    // FIXME -- this shouldn't be necessary once we get astrometry_net 0.40
-                    // multi-index functionality in place.
-
-                    if (uids.empty()) {
-                        uids = std::set<boost::int64_t>(id, id+nstars);
-                    } else {
-                        int nkeep = 0;
-                        for (int i=0; i<nstars; i++) {
-                            //std::pair<std::set<boost::int64_t>::iterator, bool> 
-                            if (uids.insert(id[i]).second) {
-                                // inserted; keep this one.
-                                if (nkeep != i) {
-                                    // compact the arrays.
-                                    starinds[nkeep] = starinds[i];
-                                    radecs[nkeep*2+0] = radecs[i*2+0];
-                                    radecs[nkeep*2+1] = radecs[i*2+1];
-                                    id[nkeep] = id[i];
-                                }
-                                nkeep++;
-                            } else {
-                                // did not insert (this id has already been found);
-                                // drop this star.
-                            }
-                        }
-                        nstars = nkeep;
-                        // if they were all duplicate IDs...
-                        if (nstars == 0) {
-                            free(starinds);
-                            free(radecs);
-                            free(id);
-                            continue;
-                        }
-                    }
-                }
-
-                if (magcol) {
-                    mag = static_cast<float*>(fitstable_read_column_inds(tag, magcol, flt, starinds, nstars));
-                    assert(mag);
-                }
-                if (magerrcol) {
-                    magerr = static_cast<float*>(fitstable_read_column_inds(tag, magerrcol, flt, starinds, nstars));
-                    assert(magerr);
-                }
-                if (stargalcol) {
-                    /*  There is something weird going on with handling of bools; maybe "T" vs "F"?
-                        stargal = static_cast<bool*>(fitstable_read_column_inds(tag, stargalcol, boo, starinds, nstars));
-                        for (int j=0; j<nstars; j++) {
-                            printf("  sg %i = %i, vs %i\n", j, (int)sg[j], stargal[j] ? 1:0);
-                        }
-                    */
-                    uint8_t* sg = static_cast<uint8_t*>(fitstable_read_column_inds(tag, stargalcol, fitscolumn_u8_type(), starinds, nstars));
-                    stargal = static_cast<bool*>(malloc(nstars));
-                    assert(stargal);
-                    for (int j=0; j<nstars; j++) {
-                        stargal[j] = (sg[j] > 0);
-                    }
-                    free(sg);
-                }
-                if (varcol) {
-                    var = static_cast<bool*>(fitstable_read_column_inds(tag, varcol, boo, starinds, nstars));
-                    assert(var);
-                }
-            }
-
-            for (int i=0; i<nstars; i++) {
-                PTR(afwTable::SimpleRecord) src = cat.addNew();
-
-                // Note that all coords in afwTable catalogs are ICRS; hopefully that's what the 
-                // reference catalogs are (and that's what the code assumed before JFB modified it).
-                src->setCoord(
-                    afwCoord::IcrsCoord(
-                        radecs[i * 2 + 0] * afwGeom::degrees,
-                        radecs[i * 2 + 1] * afwGeom::degrees
-                    )
-                );
-
-                if (id)    src->setId(id[i]);
-
-                if (mag) {
-                    // Dustin thinks converting to flux is 'LAME!';
-                    // Jim thinks it's nice for consistency (and photocal wants fluxes
-                    // as inputs, so we'll continue to go with that for now) even though
-                    // we don't need to anymore.
-                    // Dustin rebuts that photocal immediately converts those fluxes into mags,
-                    // so :-P
-                    double flux = pow(10.0, -mag[i] / 2.5);
-                    src->set(fluxKey, flux);
-                    if (magerr)    src->set(fluxErrKey, magerr[i] * flux * -std::log(10.0) / 2.5);
-                }
-
-                bool ok = true;
-                if (stargal) {
-                    src->set(stargalKey, stargal[i]);
-                    ok &= stargal[i];
-                }
-                if (var) {
-                    src->set(varKey, var[i]);
-                    ok &= (!var[i]);
-                }
-                src->set(photometricKey, ok);
-            }
-
-            free(id);
-            free(mag);
-            free(magerr);
-            free(stargal);
-            free(var);
-            free(radecs);
-            free(starinds);
-        }
-        return cat;
+       return getCatalogImpl(inds, ra, dec, radius,
+			     idcol, magcolVec, magerrcolVec, stargalcol, varcol, unique_ids);
     }
 
     PTR(lsst::daf::base::PropertyList) getSolveStats() {
