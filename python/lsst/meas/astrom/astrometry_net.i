@@ -25,6 +25,8 @@ Python interface to Astrometry.net
 #include "fitstable.h"
 #include "log.h"
 #include "tic.h"
+
+#undef ATTRIB_FORMAT
 #undef FALSE
 #undef TRUE
     }

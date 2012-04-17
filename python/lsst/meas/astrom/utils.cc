@@ -7,6 +7,7 @@ extern "C" {
 #include "fitsioutils.h"
 #include "fitstable.h"
 
+#undef ATTRIB_FORMAT
 #undef FALSE
 #undef TRUE
 }
