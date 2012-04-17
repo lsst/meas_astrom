@@ -186,37 +186,41 @@ getCatalogImpl(std::vector<index_t*> inds,
 	 }
 
 	 for (unsigned int j = 0; j != nMag; ++j) {
-             if (magcolVec[j] != "") {
-                 char const* magcol = magcolVec[j].c_str();
-		 float *tmp;
-		 tmp = static_cast<float*>(fitstable_read_column_inds(tag, magcol, flt, starinds, nstars));
-		 assert(tmp);
-	     
-		 mag.push_back(tmp);
-		 if (j == 0) {		/* we need an extra copy for "flux" */
-                     tmp = static_cast<float*>(fitstable_read_column_inds(tag, magcol, flt, starinds, nstars));
-		     assert(tmp);
-		     
-		     mag.push_back(tmp);
-                 }
+             if (magcolVec[j] == "") {
+                 continue;
              }
+             
+             char const* magcol = magcolVec[j].c_str();
+             float *tmp;
+
+             if (j == 0) {		/* we need an extra copy for "flux" */
+                 tmp = static_cast<float*>(fitstable_read_column_inds(tag, magcol, flt, starinds, nstars));
+                 assert(tmp);		 
+                 mag.push_back(tmp);
+             }
+             
+             tmp = static_cast<float*>(fitstable_read_column_inds(tag, magcol, flt, starinds, nstars));
+             assert(tmp);
+             mag.push_back(tmp);
 	 }
 	 for (unsigned int j = 0; j != nMagErr; ++j) {
-             if (magerrcolVec[j] != "") {
-                 char const* magerrcol = magerrcolVec[j].c_str();
-		 float *tmp;
-		 tmp = static_cast<float*>(fitstable_read_column_inds(tag, magerrcol, flt, starinds, nstars));
-		 assert(tmp);
-	     
-		 magerr.push_back(tmp);
-	         if (j == 0) {		/* we need an extra copy for "flux" */
-                     tmp = static_cast<float*>(fitstable_read_column_inds(tag,
-                                                                          magerrcol, flt, starinds, nstars));
-		     assert(tmp);
-		     
-		     magerr.push_back(tmp);
-                 }
+             if (magerrcolVec[j] == "") {
+                 continue;
              }
+
+             char const* magerrcol = magerrcolVec[j].c_str();
+             float *tmp;
+             
+             if (j == 0) {		/* we need an extra copy for "flux" */
+                 tmp = static_cast<float*>(fitstable_read_column_inds(tag, magerrcol, flt, starinds, nstars));
+                 assert(tmp);
+                 magerr.push_back(tmp);
+             }
+             
+             tmp = static_cast<float*>(fitstable_read_column_inds(tag, magerrcol, flt, starinds, nstars));
+             assert(tmp);
+	     
+             magerr.push_back(tmp);
 	 }
 	 if (stargalcol) {
 	    /*  There is something weird going on with handling of bools; maybe "T" vs "F"?
@@ -255,7 +259,7 @@ getCatalogImpl(std::vector<index_t*> inds,
              src->setId(id[i]);
          }
 
-	 for (unsigned int j = 0; j != nMag; ++j) {
+	 for (unsigned int j = 0; j != nMag + 1; ++j) { // +1 for "flux" column
 	    // Dustin thinks converting to flux is 'LAME!';
 	    // Jim thinks it's nice for consistency (and photocal wants fluxes
 	    // as inputs, so we'll continue to go with that for now) even though
