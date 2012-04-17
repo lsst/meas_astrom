@@ -85,11 +85,12 @@ getCatalogImpl(std::vector<index_t*> inds,
 	       const char* varcol,
 	       bool unique_ids=true)
 {
-   assert(!magcolVec.empty());
-   char const* magcol = magcolVec[0] == "" ? NULL : magcolVec[0].c_str();
-   assert(!magerrcolVec.empty());
-   char const* magerrcol = magerrcolVec[0] == "" ? NULL : magerrcolVec[0].c_str();
-
+   int const nMag = magcolVec.size();	    /* number of magnitude columns */
+   int const nMagErr = magerrcolVec.size(); /* number of magnitude error columns */
+   if (nMagErr > nMag) {
+      throw LSST_EXCEPT(lsst::pex::exceptions::LengthErrorException,
+			"You may not specify more mag errors than mags");
+   }
    /*
      If unique_ids == true: return only reference sources with unique IDs;
      arbitrarily keep the first star found with each ID.
@@ -106,14 +107,26 @@ getCatalogImpl(std::vector<index_t*> inds,
    double r2 = deg2distsq(radius);
 
    afwTable::Schema schema = afwTable::SimpleTable::makeMinimalSchema(); // contains ID, ra, dec.
-   afwTable::Key<double> fluxKey;    // these are double for consistency with measured fluxes;
-   afwTable::Key<double> fluxErrKey; // may be unnecessary, but less surprising.
-   if (magcol) {
-      fluxKey = schema.addField<double>("flux", "flux");
-      if (magerrcol) {
-	 fluxErrKey = schema.addField<double>("flux.err", "flux uncertainty");
+   std::vector<afwTable::Key<double> > fluxKey;	// these are double for consistency with measured fluxes;
+   fluxKey.reserve(1 + nMag);
+   std::vector<afwTable::Key<double> > fluxErrKey; // may be unnecessary, but less surprising.
+   fluxErrKey.reserve(1 + nMagErr);
+
+   if (nMag) {
+      fluxKey.push_back(schema.addField<double>("flux", "flux"));
+      if (nMagErr) {
+          fluxErrKey.push_back(schema.addField<double>("flux.err", "flux uncertainty"));
       }
    }
+   for (int j = 0; j != nMag; ++j) {
+      std::string const& magCol = magcolVec[j];
+      fluxKey.push_back(schema.addField<double>(magCol, magCol + std::string(" flux")));
+      if (j < nMagErr) {
+          std::string const& magerrCol = magerrcolVec[j];
+          fluxErrKey.push_back(schema.addField<double>(magerrCol, magCol + " flux uncertainty"));
+      }
+   }
+
    afwTable::Key<afwTable::Flag> stargalKey;
    if (stargalcol) {
       stargalKey = schema.addField<afwTable::Flag>(
@@ -155,12 +168,14 @@ getCatalogImpl(std::vector<index_t*> inds,
       if (nstars == 0)
 	 continue;
 
-      float* mag = NULL;
-      float* magerr = NULL;
+      std::vector<float*> mag;
+      mag.reserve(nMag + 1);
+      std::vector<float*> magerr;
+      magerr.reserve(nMagErr + 1);
       boost::int64_t* id = NULL;
       bool* stargal = NULL;
       bool* var = NULL;
-      if (idcol || magcol || magerrcol || stargalcol || varcol) {
+      if (idcol || nMag || nMagErr || stargalcol || varcol) {
 	 fitstable_t* tag = startree_get_tagalong(ind->starkd);
 	 tfits_type flt = fitscolumn_float_type();
 	 tfits_type boo = fitscolumn_boolean_type();
@@ -209,13 +224,38 @@ getCatalogImpl(std::vector<index_t*> inds,
 	    }
 	 }
 
-	 if (magcol) {
-	    mag = static_cast<float*>(fitstable_read_column_inds(tag, magcol, flt, starinds, nstars));
-	    assert(mag);
+	 for (int j = 0; j != nMag; ++j) {
+             if (magcolVec[j] != "") {
+                 char const* magcol = magcolVec[j].c_str();
+		 float *tmp;
+		 tmp = static_cast<float*>(fitstable_read_column_inds(tag, magcol, flt, starinds, nstars));
+		 assert(tmp);
+	     
+		 mag.push_back(tmp);
+		 if (j == 0) {		/* we need an extra copy for "flux" */
+                     tmp = static_cast<float*>(fitstable_read_column_inds(tag, magcol, flt, starinds, nstars));
+		     assert(tmp);
+		     
+		     mag.push_back(tmp);
+                 }
+             }
 	 }
-	 if (magerrcol) {
-	    magerr = static_cast<float*>(fitstable_read_column_inds(tag, magerrcol, flt, starinds, nstars));
-	    assert(magerr);
+	 for (int j = 0; j != nMagErr; ++j) {
+             if (magerrcolVec[j] != "") {
+                 char const* magerrcol = magerrcolVec[j].c_str();
+		 float *tmp;
+		 tmp = static_cast<float*>(fitstable_read_column_inds(tag, magerrcol, flt, starinds, nstars));
+		 assert(tmp);
+	     
+		 magerr.push_back(tmp);
+	         if (j == 0) {		/* we need an extra copy for "flux" */
+                     tmp = static_cast<float*>(fitstable_read_column_inds(tag,
+                                                                          magerrcol, flt, starinds, nstars));
+		     assert(tmp);
+		     
+		     magerr.push_back(tmp);
+                 }
+             }
 	 }
 	 if (stargalcol) {
 	    /*  There is something weird going on with handling of bools; maybe "T" vs "F"?
@@ -250,18 +290,22 @@ getCatalogImpl(std::vector<index_t*> inds,
 	       )
 	    );
 
-	 if (id)    src->setId(id[i]);
+	 if (id) {
+             src->setId(id[i]);
+         }
 
-	 if (mag) {
+	 for (int j = 0; j != nMag; ++j) {
 	    // Dustin thinks converting to flux is 'LAME!';
 	    // Jim thinks it's nice for consistency (and photocal wants fluxes
 	    // as inputs, so we'll continue to go with that for now) even though
 	    // we don't need to anymore.
 	    // Dustin rebuts that photocal immediately converts those fluxes into mags,
 	    // so :-P
-	    double flux = pow(10.0, -mag[i] / 2.5);
-	    src->set(fluxKey, flux);
-	    if (magerr)    src->set(fluxErrKey, magerr[i] * flux * -std::log(10.0) / 2.5);
+	    double flux = pow(10.0, -0.4*mag[j][i]);
+	    src->set(fluxKey[j], flux);
+	    if (j < nMagErr) {
+	       src->set(fluxErrKey[j], -0.4*magerr[j][i]*flux*std::log(10.0));
+	    }
 	 }
 
 	 bool ok = true;
@@ -277,8 +321,12 @@ getCatalogImpl(std::vector<index_t*> inds,
       }
 
       free(id);
-      free(mag);
-      free(magerr);
+      for (int j = 0; j != nMag; ++j) {
+         free(mag[j]);
+	 if (j < magerr.size()) {
+             free(magerr[j]);
+         }
+      }
       free(stargal);
       free(var);
       free(radecs);
