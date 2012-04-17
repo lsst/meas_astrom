@@ -330,7 +330,7 @@ class Astrometry(object):
         return cat
 
 
-    def getReferenceSources(self, ra, dec, radius, filterName):
+    def getReferenceSources(self, ra, dec, radius, filterName, allFluxes=False):
         '''
         Searches for reference-catalog sources (in the
         astrometry_net_data files) in the requested RA,Dec region
@@ -341,12 +341,19 @@ class Astrometry(object):
         Returns: an lsst.afw.table.SimpleCatalog of reference objects
         '''
         solver = self._getSolver()
-        magcolumn = self.getCatalogFilterName(filterName)
 
         sgCol = self.andConfig.starGalaxyColumn
         varCol = self.andConfig.variableColumn
         idcolumn = self.andConfig.idColumn
+
+        magCol = self.getCatalogFilterName(filterName)
         magerrCol = self.andConfig.magErrorColumnMap.get(filterName, None)
+
+        if allFluxes:
+            magCol = [magCol] + [x for x in self.andConfig.magColumnMap.keys() if x != magCol]
+            tmp = [self.andConfig.magErrorColumnMap.get(x, None) for x in \
+                       self.andConfig.magErrorColumnMap.keys()]
+            magerrCol = [magerrCol] + [x for x in tmp if x != magerrCol]
 
         '''
         Note about multiple astrometry_net index files and duplicate IDs:
@@ -375,11 +382,8 @@ class Astrometry(object):
           We may be able to backwards-compatibly build this from the flat indexFiles
           list if we assume things about the filenames.
         '''
-        cat = solver.getCatalog(self.inds,
-                                ra.asDegrees(), dec.asDegrees(),
-                                radius.asDegrees(),
-                                idcolumn, magcolumn,
-                                magerrCol, sgCol, varCol)
+        cat = solver.getCatalog(self.inds, ra.asDegrees(), dec.asDegrees(), radius.asDegrees(),
+                                idcolumn, magCol, magerrCol, sgCol, varCol)
         del solver
         return cat
 
