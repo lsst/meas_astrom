@@ -14,6 +14,7 @@ extern "C" {
 
 #include <set>
 #include "boost/cstdint.hpp"
+#include "boost/format.hpp"
 
 #include "lsst/meas/astrom/detail/utils.h"
 #include "lsst/base.h"
@@ -33,17 +34,36 @@ namespace meas {
 namespace astrom {
 namespace detail {
 
+static float *
+read_column(fitstable_t* tag,
+            char const *colName,
+            tfits_type type,
+            int *starinds,
+            int nstars,
+            char const *indexName)
+{
+    float *col =
+        static_cast<float*>(fitstable_read_column_inds(tag, colName, type, starinds, nstars));
+    if (!col) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundException,
+                          str(boost::format("Unable to read data for %s from %s") % colName % indexName));
+    }
+
+    return col;
+}
+
+    
 /*
  * Implementation for index_s::getCatalog method
  */
 afwTable::SimpleCatalog
 getCatalogImpl(std::vector<index_t*> inds,
 	       double ra, double dec, double radius,
-	       const char* idcol,
+	       char const* idcol,
 	       std::vector<std::string> const & magcolVec,
 	       std::vector<std::string> const & magerrcolVec,
-	       const char* stargalcol,
-	       const char* varcol,
+	       char const* stargalcol,
+	       char const* varcol,
 	       bool unique_ids)
 {
    unsigned int const nMag = magcolVec.size();       /* number of magnitude columns */
@@ -143,10 +163,13 @@ getCatalogImpl(std::vector<index_t*> inds,
 	 tfits_type i64 = fitscolumn_i64_type();
 
 	 if (idcol) {
-	    id = static_cast<boost::int64_t*>(fitstable_read_column_inds(tag, idcol, i64, starinds, nstars));
-	    assert(id);
-	 }
-
+             id = static_cast<int64_t*>(fitstable_read_column_inds(tag, idcol, i64, starinds, nstars));
+             if (!id) {
+                 throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundException,
+                                   str(boost::format("Unable to read data for %s from %s") %
+                                       idcol % ind->indexname));
+             }
+         }
 	 if (id && unique_ids) {
 	    // remove duplicate IDs.
 
@@ -191,17 +214,12 @@ getCatalogImpl(std::vector<index_t*> inds,
              }
              
              char const* magcol = magcolVec[j].c_str();
-             float *tmp;
 
              if (j == 0) {		/* we need an extra copy for "flux" */
-                 tmp = static_cast<float*>(fitstable_read_column_inds(tag, magcol, flt, starinds, nstars));
-                 assert(tmp);		 
-                 mag.push_back(tmp);
+                 mag.push_back(read_column(tag, magcol, flt, starinds, nstars, ind->indexname));
              }
              
-             tmp = static_cast<float*>(fitstable_read_column_inds(tag, magcol, flt, starinds, nstars));
-             assert(tmp);
-             mag.push_back(tmp);
+             mag.push_back(read_column(tag, magcol, flt, starinds, nstars, ind->indexname));
 	 }
 	 for (unsigned int j = 0; j != nMagErr; ++j) {
              if (magerrcolVec[j] == "") {
@@ -209,18 +227,11 @@ getCatalogImpl(std::vector<index_t*> inds,
              }
 
              char const* magerrcol = magerrcolVec[j].c_str();
-             float *tmp;
-             
              if (j == 0) {		/* we need an extra copy for "flux" */
-                 tmp = static_cast<float*>(fitstable_read_column_inds(tag, magerrcol, flt, starinds, nstars));
-                 assert(tmp);
-                 magerr.push_back(tmp);
+                 magerr.push_back(read_column(tag, magerrcol, flt, starinds, nstars, ind->indexname));
              }
              
-             tmp = static_cast<float*>(fitstable_read_column_inds(tag, magerrcol, flt, starinds, nstars));
-             assert(tmp);
-	     
-             magerr.push_back(tmp);
+             magerr.push_back(read_column(tag, magerrcol, flt, starinds, nstars, ind->indexname));
 	 }
 	 if (stargalcol) {
 	    /*  There is something weird going on with handling of bools; maybe "T" vs "F"?
@@ -231,7 +242,11 @@ getCatalogImpl(std::vector<index_t*> inds,
 	    */
 	    uint8_t* sg = static_cast<uint8_t*>(fitstable_read_column_inds(tag, stargalcol, fitscolumn_u8_type(), starinds, nstars));
 	    stargal = static_cast<bool*>(malloc(nstars));
-	    assert(stargal);
+            if (!stargal) {
+                throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundException,
+                                  str(boost::format("Unable to read data for %s from %s") %
+                                      stargalcol % ind->indexname));
+            }
 	    for (int j=0; j<nstars; j++) {
 	       stargal[j] = (sg[j] > 0);
 	    }
@@ -239,7 +254,11 @@ getCatalogImpl(std::vector<index_t*> inds,
 	 }
 	 if (varcol) {
 	    var = static_cast<bool*>(fitstable_read_column_inds(tag, varcol, boo, starinds, nstars));
-	    assert(var);
+            if (!var) {
+                throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundException,
+                                  str(boost::format("Unable to read data for %s from %s") %
+                                      varcol % ind->indexname));
+            }
 	 }
       }
 
