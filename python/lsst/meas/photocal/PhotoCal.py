@@ -32,10 +32,10 @@ import lsst.afw.table as afwTable
 
 from lsst.meas.photocal.PhotometricMagnitude import PhotometricMagnitude
 
-try:
-    import matplotlib.pyplot as pyplot
-except ImportError:
-    pyplot = None
+#try:
+#    import matplotlib.pyplot as pyplot
+#except ImportError:
+#    pyplot = None
 
 class PhotoCalConfig(pexConf.Config):
 
