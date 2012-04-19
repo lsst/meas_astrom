@@ -313,14 +313,14 @@ class Astrometry(object):
 
 
     def getReferenceSourcesForWcs(self, wcs, imageSize, filterName, pixelMargin,
-                                  trim=True):
+                                  trim=True, allFluxes=False):
         W,H = imageSize
         xc, yc = W/2. + 0.5, H/2. + 0.5
         rdc = wcs.pixelToSky(xc, yc)
         ra,dec = rdc.getLongitude(), rdc.getLatitude()
         pixelScale = wcs.pixelScale()
         rad = pixelScale * (math.hypot(W,H)/2. + pixelMargin)
-        cat = self.getReferenceSources(ra, dec, rad, filterName)
+        cat = self.getReferenceSources(ra, dec, rad, filterName, allFluxes=allFluxes)
         # NOTE: reference objects don't have (x,y) anymore, so we can't apply WCS to set x,y positions
         if trim:
             # cut to image bounds + margin.
@@ -493,7 +493,7 @@ class Astrometry(object):
                 keep.append(s)
         return keep
 
-    def joinMatchListWithCatalog(self, packedMatches, sourceCat):
+    def joinMatchListWithCatalog(self, packedMatches, sourceCat, allFluxes=False):
         '''
         This function is required to reconstitute a ReferenceMatchVector after being
         unpersisted.  The persisted form of a ReferenceMatchVector is the 
@@ -529,7 +529,7 @@ class Astrometry(object):
         rad = matchmeta.getDouble('RADIUS') * afwGeom.degrees
         self.log.logdebug('Searching RA,Dec %.3f,%.3f, radius %.1f arcsec, filter "%s"' %
                           (ra.asDegrees(), dec.asDegrees(), rad.asArcseconds(), filterName))
-        refCat = self.getReferenceSources(ra, dec, rad, filterName)
+        refCat = self.getReferenceSources(ra, dec, rad, filterName, allFluxes=allFluxes)
         self.log.logdebug('Found %i reference catalog sources in range' % len(refCat))
         refCat.sort()
         sourceCat.sort()
