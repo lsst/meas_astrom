@@ -82,7 +82,25 @@ class matchlistTestCase(unittest.TestCase):
             self.assertEqual(matches2[i].first.getDec().asDegrees(), matches[i].first.getDec().asDegrees())
             self.assertEqual(matches2[i].first.get("flux"), matches[i].first.get("flux"))
 
+    def testJoinAllFluxes(self):
+        """Test that we can read all the fluxes back from an a.n.d catalogue"""
+        res = self.getAstrometrySolution()
 
+        matches = res.getMatches()
+        matchmeta = res.getMatchMetadata()
+
+        normalized = afwTable.packMatches(matches)
+        normalized.table.setMetadata(matchmeta)
+
+        matches2 = self.astrom.joinMatchListWithCatalog(normalized, self.srcSet, allFluxes=True)
+        self.assertTrue(len(matches2) > 0)
+        ref = matches2[0][0]
+        self.assertEqual(ref.get("flux"), ref.get("i"))
+
+        sch = ref.getSchema()
+        names = sch.getNames()
+        for b in "ugriz":               # use one of the "features" I hate in python...
+            self.assertTrue(b in names)
             
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= silly boilerplate -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
