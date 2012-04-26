@@ -515,6 +515,8 @@ class Astrometry(object):
         @param[in,out] sourceCat  Source catalog used for the 'second' side of the matches
                                   (an lsst.afw.table.SourceCatalog).  As a side effect,
                                   the catalog will be sorted by ID.
+        @param[in] allFluxes      Include all fluxes (and their errors) available in the catalog
+                                  in the returned reference objects
         
         @return An lsst.afw.table.ReferenceMatchVector of denormalized matches.
         '''
