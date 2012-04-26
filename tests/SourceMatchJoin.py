@@ -96,11 +96,13 @@ class matchlistTestCase(unittest.TestCase):
         self.assertTrue(len(matches2) > 0)
         ref = matches2[0][0]
         self.assertEqual(ref.get("flux"), ref.get("i"))
+        self.assertEqual(ref.get("flux.err"), ref.get("i.err"))
 
         sch = ref.getSchema()
         names = sch.getNames()
         for b in "ugriz":               # use one of the "features" I hate in python...
             self.assertTrue(b in names)
+            self.assertTrue("%s.err" % b in names)
             
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= silly boilerplate -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 

@@ -103,8 +103,7 @@ getCatalogImpl(std::vector<index_t*> inds,
       std::string const& magCol = magcolVec[j];
       fluxKey.push_back(schema.addField<double>(magCol, magCol + std::string(" flux")));
       if (j < nMagErr) {
-          std::string const& magerrCol = magerrcolVec[j];
-          fluxErrKey.push_back(schema.addField<double>(magerrCol + ".err", magCol + " flux uncertainty"));
+          fluxErrKey.push_back(schema.addField<double>(magCol + ".err", magCol + " flux uncertainty"));
       }
    }
 
