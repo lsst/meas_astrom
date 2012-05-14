@@ -24,6 +24,7 @@ import numpy as np
 
 import lsst.meas.astrom as measAst
 import lsst.meas.astrom.sip as sip
+from lsst.meas.photocal.colorterms import Colorterm
 import lsst.meas.algorithms.utils as malgUtil
 import lsst.pex.logging as pexLog
 import lsst.pex.config as pexConf
@@ -49,6 +50,10 @@ class PhotoCalConfig(pexConf.Config):
         doc="Name of the source flux field to use.  The associated flag field\n"\
             "('<name>.flags') will be implicitly included in badFlags.\n"
         )
+    applyColorTerms = pexConf.Field(
+        dtype=bool, default=True,
+        doc= "Apply photometric colour terms (if available) to reference stars",
+        )
     goodFlags = pexConf.ListField(
         dtype=str, optional=False,
         default=[], 
@@ -64,6 +69,7 @@ class PhotoCalTask(pipeBase.Task):
     """Calculate the zero point of an exposure given a ReferenceMatchVector.
     """
     ConfigClass = PhotoCalConfig
+    _DefaultName = "photoCal"
 
     def __init__(self, schema, **kwds):
         """Create the task, pulling input keys from the schema and adding a flag field
@@ -148,10 +154,11 @@ class PhotoCalTask(pipeBase.Task):
         return result
 
     @pipeBase.timeMethod
-    def extractMagArrays(self, matches):
+    def extractMagArrays(self, matches, filterName):
         """Extract magnitude and magnitude error arrays from the given matches.
 
         @param[in]  ReferenceMatchVector object containing reference/source matches
+        @param[in]  Name of filter being calibrated
         
         @return Struct containing srcMag, refMag, srcMagErr, refMagErr, and errMag arrays.
         """
@@ -161,19 +168,44 @@ class PhotoCalTask(pipeBase.Task):
             self.log.warn("Source catalog does not have flux uncertainties; using sqrt(flux).")
             srcFluxErr = np.sqrt(srcFlux)
         
-        refSchema = matches[0].first.schema
-        refFluxKey = refSchema.find("flux").key
-        refFlux    = np.array([m.first.get(refFluxKey) for m in matches])
-        try:
-            refFluxErrKey = refSchema.find("flux.err").key
-            refFluxErr = np.array([m.first.get(refFluxErrKey) for m in matches])
-        except:
-            # Catalogue may not have flux uncertainties; HACK
-            self.log.warn("Reference catalog does not have flux uncertainties; using sqrt(flux).")
-            refFluxErr = np.sqrt(refFlux)
+        if not matches:
+            raise RuntimeError("No reference stars are available")
 
-        srcMag = -2.5 * np.log10(srcFlux)
-        refMag = -2.5 * np.log10(refFlux)
+        refSchema = matches[0].first.schema
+        if self.config.applyColorTerms:
+            ct = Colorterm.getColorterm(filterName)
+        else:
+            ct = None
+
+        if ct:                          # we have a colour term to worry about
+            fluxNames = [ct.primary, ct.secondary]
+        else:
+            fluxNames = ["flux"]
+
+        refFluxes = []
+        refFluxErrors = []
+        for flux in fluxNames:
+            refFlux = np.array([m.first.get(refSchema.find(flux).key) for m in matches])
+            try:
+                refFluxErr = np.array([m.first.get(refSchema.find(flux + ".err").key) for m in matches])
+            except KeyError:
+                # Catalogue may not have flux uncertainties; HACK
+                self.log.warn("Reference catalog does not have flux uncertainties for %s; using sqrt(flux)."
+                              % flux)
+                refFluxErr = np.sqrt(refFlux)
+
+            refFluxes.append(refFlux)
+            refFluxErrors.append(refFluxErr)
+
+        srcMag = -2.5*np.log10(srcFlux)
+        if ct:                          # we have a colour term to worry about
+            refMag =  -2.5*np.log10(refFluxes[0]) # primary
+            refMag2 = -2.5*np.log10(refFluxes[1]) # secondary
+
+            refMag = ct.transformMags(filterName, refMag, refMag2)
+            refFluxErr = ct.propagateFluxErrors(filterName, refFluxErrors[0], refFluxErrors[1])
+        else:
+            refMag = -2.5*np.log10(refFluxes[0])
 
         # Fitting with error bars in both axes is hard, so transfer all
         # the error to src, then convert to magnitude
@@ -192,7 +224,7 @@ class PhotoCalTask(pipeBase.Task):
             )
 
     @pipeBase.timeMethod
-    def run(self, matches):
+    def run(self, matches, filterName):
         """Do photometric calibration - select matches to use and (possibly iteratively) compute
         the zero point.
 
@@ -217,7 +249,7 @@ class PhotoCalTask(pipeBase.Task):
 
         matches = self.selectMatches(matches)
 
-        arrays = self.extractMagArrays(matches)
+        arrays = self.extractMagArrays(matches, filterName)
 
         # Fit for zeropoint.  We can run the code more than once, so as to
         # give good stars that got clipped by a bad first guess a second

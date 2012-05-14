@@ -313,14 +313,14 @@ class Astrometry(object):
 
 
     def getReferenceSourcesForWcs(self, wcs, imageSize, filterName, pixelMargin,
-                                  trim=True):
+                                  trim=True, allFluxes=False):
         W,H = imageSize
         xc, yc = W/2. + 0.5, H/2. + 0.5
         rdc = wcs.pixelToSky(xc, yc)
         ra,dec = rdc.getLongitude(), rdc.getLatitude()
         pixelScale = wcs.pixelScale()
         rad = pixelScale * (math.hypot(W,H)/2. + pixelMargin)
-        cat = self.getReferenceSources(ra, dec, rad, filterName)
+        cat = self.getReferenceSources(ra, dec, rad, filterName, allFluxes=allFluxes)
         # NOTE: reference objects don't have (x,y) anymore, so we can't apply WCS to set x,y positions
         if trim:
             # cut to image bounds + margin.
@@ -330,7 +330,7 @@ class Astrometry(object):
         return cat
 
 
-    def getReferenceSources(self, ra, dec, radius, filterName):
+    def getReferenceSources(self, ra, dec, radius, filterName, allFluxes=False):
         '''
         Searches for reference-catalog sources (in the
         astrometry_net_data files) in the requested RA,Dec region
@@ -341,12 +341,19 @@ class Astrometry(object):
         Returns: an lsst.afw.table.SimpleCatalog of reference objects
         '''
         solver = self._getSolver()
-        magcolumn = self.getCatalogFilterName(filterName)
 
         sgCol = self.andConfig.starGalaxyColumn
         varCol = self.andConfig.variableColumn
         idcolumn = self.andConfig.idColumn
+
+        magCol = self.getCatalogFilterName(filterName)
         magerrCol = self.andConfig.magErrorColumnMap.get(filterName, None)
+
+        if allFluxes:
+            magCol = [magCol] + [x for x in self.andConfig.magColumnMap.keys() if x != magCol]
+            tmp = [self.andConfig.magErrorColumnMap.get(x, None) for x in \
+                       self.andConfig.magErrorColumnMap.keys()]
+            magerrCol = [magerrCol] + [x for x in tmp if x != magerrCol]
 
         '''
         Note about multiple astrometry_net index files and duplicate IDs:
@@ -375,11 +382,8 @@ class Astrometry(object):
           We may be able to backwards-compatibly build this from the flat indexFiles
           list if we assume things about the filenames.
         '''
-        cat = solver.getCatalog(self.inds,
-                                ra.asDegrees(), dec.asDegrees(),
-                                radius.asDegrees(),
-                                idcolumn, magcolumn,
-                                magerrCol, sgCol, varCol)
+        cat = solver.getCatalog(self.inds, ra.asDegrees(), dec.asDegrees(), radius.asDegrees(),
+                                idcolumn, magCol, magerrCol, sgCol, varCol)
         del solver
         return cat
 
@@ -489,7 +493,7 @@ class Astrometry(object):
                 keep.append(s)
         return keep
 
-    def joinMatchListWithCatalog(self, packedMatches, sourceCat):
+    def joinMatchListWithCatalog(self, packedMatches, sourceCat, allFluxes=False):
         '''
         This function is required to reconstitute a ReferenceMatchVector after being
         unpersisted.  The persisted form of a ReferenceMatchVector is the 
@@ -511,6 +515,8 @@ class Astrometry(object):
         @param[in,out] sourceCat  Source catalog used for the 'second' side of the matches
                                   (an lsst.afw.table.SourceCatalog).  As a side effect,
                                   the catalog will be sorted by ID.
+        @param[in] allFluxes      Include all fluxes (and their errors) available in the catalog
+                                  in the returned reference objects
         
         @return An lsst.afw.table.ReferenceMatchVector of denormalized matches.
         '''
@@ -525,7 +531,7 @@ class Astrometry(object):
         rad = matchmeta.getDouble('RADIUS') * afwGeom.degrees
         self.log.logdebug('Searching RA,Dec %.3f,%.3f, radius %.1f arcsec, filter "%s"' %
                           (ra.asDegrees(), dec.asDegrees(), rad.asArcseconds(), filterName))
-        refCat = self.getReferenceSources(ra, dec, rad, filterName)
+        refCat = self.getReferenceSources(ra, dec, rad, filterName, allFluxes=allFluxes)
         self.log.logdebug('Found %i reference catalog sources in range' % len(refCat))
         refCat.sort()
         sourceCat.sort()

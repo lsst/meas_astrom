@@ -1,4 +1,5 @@
 # -*- python -*-
 from lsst.sconsUtils import scripts
-scripts.BasicSConscript.python(['astrometry_net'])
+scripts.BasicSConscript.python(['astrometry_net'],
+                                swigSrc={"astrometry_net": ["utils.cc"]})
 
