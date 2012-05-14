@@ -184,6 +184,8 @@ class PhotoCalTest(unittest.TestCase):
     def test1(self):
         res = self.getAstrometrySolution()
         matches = res.getMatches()
+        metadata = res.getMatchMetadata()
+        passband = metadata.get('FILTER')
 
         print 'Test1'
 
@@ -197,7 +199,7 @@ class PhotoCalTest(unittest.TestCase):
         config = photocal.PhotoCalConfig()
         config.outputField = None    # schema is fixed because we already loaded the data
         task = photocal.PhotoCalTask(config=config, schema=schema)
-        pCal = task.run(matches)
+        pCal = task.run(matches, passband)
         print pCal.photocal
 
         # These are all matches; we don't really expect to do that well.
