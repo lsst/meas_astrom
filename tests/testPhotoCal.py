@@ -29,9 +29,12 @@ import glob
 import math
 import unittest
 
-import matplotlib
-matplotlib.use('Agg')
-import pylab as plt
+try:                                    # used in plotPhotoCal
+    import matplotlib
+    matplotlib.use('Agg')
+    import pylab as plt
+except ImportError:
+    plt = None
 
 import numpy as np
 
