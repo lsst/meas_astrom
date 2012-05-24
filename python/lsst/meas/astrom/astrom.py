@@ -6,6 +6,7 @@ import lsst.pex.logging as pexLog
 import lsst.pex.config as pexConfig
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
+from lsst.meas.photocal.colorterms import Colorterm
 import lsst.meas.algorithms.utils as maUtils
 
 from .config import MeasAstromConfig, AstrometryNetDataConfig
@@ -209,8 +210,8 @@ class Astrometry(object):
         if wcs is None:
             raise RuntimeError("Unable to match sources with catalog.")
 
-        pixelMargin = 50.
-        cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName, pixelMargin)
+        cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName,
+                                             allFluxes=True if Colorterm.getColorterm(filterName) else False)
 
         catids = [src.getId() for src in cat]
         uids = set(catids)
@@ -312,7 +313,7 @@ class Astrometry(object):
             return default
 
 
-    def getReferenceSourcesForWcs(self, wcs, imageSize, filterName, pixelMargin,
+    def getReferenceSourcesForWcs(self, wcs, imageSize, filterName, pixelMargin=50,
                                   trim=True, allFluxes=False):
         W,H = imageSize
         xc, yc = W/2. + 0.5, H/2. + 0.5
