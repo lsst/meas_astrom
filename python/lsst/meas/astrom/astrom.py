@@ -7,6 +7,7 @@ import lsst.pex.exceptions as pexExceptions
 import lsst.pex.config as pexConfig
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
+from lsst.meas.photocal.colorterms import Colorterm
 import lsst.meas.algorithms.utils as maUtils
 
 from .config import MeasAstromConfig, AstrometryNetDataConfig
@@ -160,8 +161,11 @@ class Astrometry(object):
                                                           imageSize=imageSize,
                                                           filterName=filterName)
         pixelMargin = 50.
-        cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName, pixelMargin, x0=x0, y0=y0)
 
+        cat = self.getReferenceSourcesForWcs(
+            wcs, imageSize, filterName, pixelMargin, x0=x0, y0=y0,
+            allFluxes = (True if Colorterm.getColorterm(filterName) else False)
+            )
         catids = [src.getId() for src in cat]
         uids = set(catids)
         self.log.logdebug('%i reference sources; %i unique IDs' % (len(catids), len(uids)))
