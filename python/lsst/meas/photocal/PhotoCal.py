@@ -22,8 +22,6 @@
 import math, os, sys
 import numpy as np
 
-import lsst.meas.astrom as measAst
-import lsst.meas.astrom.sip as sip
 from lsst.meas.photocal.colorterms import Colorterm
 import lsst.meas.algorithms.utils as malgUtil
 import lsst.pex.logging as pexLog
