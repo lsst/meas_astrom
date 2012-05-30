@@ -438,10 +438,13 @@ class PhotoCalTask(pipeBase.Task):
                     center = np.average(dmag, weights=dmagErr)
                     msg += " on first iteration; using average of all calibration stars"
 
-
                 self.log.log(self.log.WARN, msg)
 
-                return center, sig, len(dmag)
+                return pipeBase.Struct(
+                    zp = center,
+                    sigma = sig,
+                    ngood = len(dmag)
+                    )
             elif ngood == old_ngood:
                 break
 
