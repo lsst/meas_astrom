@@ -213,7 +213,7 @@ class CatalogStarSelector(object):
                     ds9.dot(symb, source.getX() - mi.getX0(), source.getY() - mi.getY0(),
                             size=4, frame=frames["displayExposure"], ctype=ctype)
 
-        if pauseAtEnd:
+        if display and pauseAtEnd:
             raw_input("Continue? y[es] p[db] ")
 
         return psfCandidateList
