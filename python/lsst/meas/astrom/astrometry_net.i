@@ -333,7 +333,7 @@ static time_t timer_callback(void* baton) {
         $self->endobj = N;
     }
 
-    void setStars(lsst::afw::table::SourceCatalog const & srcs) {
+    void setStars(lsst::afw::table::SourceCatalog const & srcs, int x0, int y0) {
         // convert to Astrometry.net "starxy_t"
         starxy_free($self->fieldxy);
         const size_t N = srcs.size();
@@ -342,7 +342,7 @@ static time_t timer_callback(void* baton) {
             double const x    = srcs[i].getX();
             double const y    = srcs[i].getY();
             double const flux = srcs[i].getPsfFlux();
-            starxy_set(starxy, i, x, y);
+            starxy_set(starxy, i, x - x0, y - y0);
             starxy_set_flux(starxy, i, flux);
         }
         // Sort the array
