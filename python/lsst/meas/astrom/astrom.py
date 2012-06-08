@@ -97,15 +97,17 @@ class Astrometry(object):
         self.andConfig = andconfig
 
     def _getImageParams(self, wcs, exposure, filterName=None, imageSize=None):
+        x0,y0 = 0, 0
         if exposure is not None:
+            x0,y0 = exposure.getX0(), exposure.getY0()
+            self._debug('Got exposure x0,y0 = %i,%i' % (x0,y0))
             if filterName is None:
                 filterName = exposure.getFilter().getName()
                 self._debug('Setting filterName = "%s" from exposure metadata' % str(filterName))
             if imageSize is None:
                 imageSize = (exposure.getWidth(), exposure.getHeight())
                 self._debug('Setting image size = (%i, %i) from exposure metadata' % (imageSize))
-
-        return filterName, imageSize
+        return filterName, imageSize, x0, y0
 
     def useKnownWcs(self, wcs, sources, exposure=None, filterName=None, imageSize=None):
         '''
@@ -115,12 +117,13 @@ class Astrometry(object):
         # return value:
         astrom = InitialAstrometry()
 
-        filterName,imageSize = self._getImageParams(exposure=exposure, wcs=wcs, imageSize=imageSize,
-                                                    filterName=filterName)
+        filterName,imageSize,x0,y0 = self._getImageParams(exposure=exposure, wcs=wcs,
+                                                          imageSize=imageSize,
+                                                          filterName=filterName)
         W,H = imageSize
 
         pixelMargin = 50.
-        cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName, pixelMargin)
+        cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName, pixelMargin, x0=x0, y0=y0)
 
         catids = [src.getId() for src in cat]
         uids = set(catids)
@@ -226,13 +229,11 @@ class Astrometry(object):
         if not usePixelScale and pixelScale is not None:
             raise RuntimeError('pixelScale is set, but usePixelScale is False.  Make up your mind!')
 
-        filterName,imageSize = self._getImageParams(exposure=exposure, wcs=wcs, imageSize=imageSize,
-                                                    filterName=filterName)
+        filterName,imageSize,x0,y0 = self._getImageParams(exposure=exposure, wcs=wcs,
+                                                          imageSize=imageSize,
+                                                          filterName=filterName)
 
-        x0,y0 = 0, 0
         if exposure is not None:
-            x0,y0 = exposure.getX0(), exposure.getY0()
-            self._debug('Got exposure x0,y0 = %i,%i' % (x0,y0))
             if wcs is None:
                 wcs = exposure.getWcs()
                 self._debug('Setting initial WCS estimate from exposure metadata')
@@ -286,6 +287,12 @@ class Astrometry(object):
                              filterName, xy0=(x0,y0))
         if wcs is None:
             raise RuntimeError("Unable to match sources with catalog.")
+        self.log.info('Got astrometric solution from Astrometry.net')
+
+        rdc = wcs.pixelToSky(xc, yc)
+        self._debug('New WCS says image center pixel (%.1f, %.1f) -> RA,Dec (%.3f, %.3f)' %
+                    (xc, yc, rdc.getLongitude().asDegrees(), rdc.getLatitude().asDegrees()))
+                     
 
         return wcs,qa
 
@@ -344,12 +351,11 @@ class Astrometry(object):
                           (filterName, default))
             return default
 
-
     def getReferenceSourcesForWcs(self, wcs, imageSize, filterName, pixelMargin,
-                                  trim=True, allFluxes=False):
+                                  x0=0, y0=0, trim=True, allFluxes=False):
         W,H = imageSize
         xc, yc = W/2. + 0.5, H/2. + 0.5
-        rdc = wcs.pixelToSky(xc, yc)
+        rdc = wcs.pixelToSky(x0 + xc, y0 + yc)
         ra,dec = rdc.getLongitude(), rdc.getLatitude()
         pixelScale = wcs.pixelScale()
         rad = pixelScale * (math.hypot(W,H)/2. + pixelMargin)
@@ -357,7 +363,7 @@ class Astrometry(object):
         # NOTE: reference objects don't have (x,y) anymore, so we can't apply WCS to set x,y positions
         if trim:
             # cut to image bounds + margin.
-            bbox = afwGeom.Box2D(afwGeom.Point2D(0.,0.), afwGeom.Point2D(W, H))
+            bbox = afwGeom.Box2D(afwGeom.Point2D(x0, y0), afwGeom.Extent2D(W, H))
             bbox.grow(pixelMargin)
             cat = self._trimBadPoints(cat, bbox, wcs=wcs) # passing wcs says to compute x,y on-the-fly
         return cat
@@ -479,7 +485,12 @@ class Astrometry(object):
             self.log.logdebug('Solved!')
             wcs = solver.getWcs()
             self.log.logdebug('WCS: %s' % wcs.getFitsMetadata().toString())
-            
+
+            if x0 != 0 or y0 != 0:
+                wcs.shiftReferencePixel(x0, y0)
+                self.log.logdebug('After shifting reference pixel by x0,y0 = (%i,%i), WCS is: %s' %
+                                  (x0, y0, wcs.getFitsMetadata().toString()))
+
         else:
             self.log.warn('Did not get an astrometric solution from Astrometry.net')
             wcs = None
