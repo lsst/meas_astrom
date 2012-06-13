@@ -146,8 +146,12 @@ class Astrometry(object):
             assert(m.second in sources)
 
         if self.config.calculateSip:
-            wcs,matchList = self._calculateSipTerms(wcs, cat, sources, matchList)
-            astrom.sipWcs = wcs
+            sipwcs,matchList = self._calculateSipTerms(wcs, cat, sources, matchList)
+            if sipwcs == wcs:
+                self._debug('Failed to find a SIP WCS better than the linear one.')
+            else:
+                self._debug('%i reference objects match input sources using SIP WCS' % (len(matchList)))
+            astrom.sipWcs = sipwcs
             astrom.sipMatches = matchList
 
         astrom.matchMetadata = _createMetadata(W, H, wcs, filterName)
@@ -311,7 +315,7 @@ class Astrometry(object):
                 break
 
             matchSize = len(matchList)
-            self._debug('Sip Iteration %i: %i objects match. rms scatter is %g arcsec or %g pixels' %
+            self._debug('Sip iteration %i: %i objects match. rms scatter is %g arcsec or %g pixels' %
                         (i, matchSize, sipObject.getScatterOnSky().asArcseconds(), sipObject.getScatterInPixels()))
             # use new WCS to get new matchlist.
             proposedMatchlist = self._getMatchList(sources, cat, proposedWcs)
@@ -331,6 +335,26 @@ class Astrometry(object):
         matcher = astromSip.MatchSrcToCatalogue(cat, sources, wcs, dist)
         matchList = matcher.getMatches()
         if matchList is None:
+            # Produce debugging stats...
+            X = [src.getX() for src in sources]
+            Y = [src.getY() for src in sources]
+            R1 = [src.getRa().asDegrees() for src in sources]
+            D1 = [src.getDec().asDegrees() for src in sources]
+            R2 = [src.getRa().asDegrees() for src in cat]
+            D2 = [src.getDec().asDegrees() for src in cat]
+            # for src in sources:
+            #self._debug("source: x,y (%.1f, %.1f), RA,Dec (%.3f, %.3f)" %
+            #(src.getX(), src.getY(), src.getRa().asDegrees(), src.getDec().asDegrees()))
+            #for src in cat:
+            #self._debug("ref: RA,Dec (%.3f, %.3f)" %
+            #(src.getRa().asDegrees(), src.getDec().asDegrees()))
+            self.loginfo('_getMatchList: %i sources, %i reference sources' % (len(sources), len(cat)))
+            if len(sources):
+                self.loginfo('Source range: x [%.1f, %.1f], y [%.1f, %.1f], RA [%.3f, %.3f], Dec [%.3f, %.3f]' %
+                             (min(X), max(X), min(Y), max(Y), min(R1), max(R1), min(D1), max(D1)))
+            if len(cat):
+                self.loginfo('Reference range: RA [%.3f, %.3f], Dec [%.3f, %.3f]' %
+                             (min(R2), max(R2), min(D2), max(D2)))
             raise RuntimeError('No matches found between image and catalogue')
         matchList = astromSip.cleanBadPoints.clean(matchList, wcs, nsigma=clean)
         return matchList
@@ -357,8 +381,11 @@ class Astrometry(object):
         xc, yc = W/2. + 0.5, H/2. + 0.5
         rdc = wcs.pixelToSky(x0 + xc, y0 + yc)
         ra,dec = rdc.getLongitude(), rdc.getLatitude()
+        self._debug('Getting reference sources using center: pixel (%.1f, %.1f) -> RA,Dec (%.3f, %.3f)' %
+                    (xc, yc, ra, dec))
         pixelScale = wcs.pixelScale()
         rad = pixelScale * (math.hypot(W,H)/2. + pixelMargin)
+        self._debug('Getting reference sources using radius of %.3g deg' % rad.asDegrees())
         cat = self.getReferenceSources(ra, dec, rad, filterName, allFluxes=allFluxes)
         # NOTE: reference objects don't have (x,y) anymore, so we can't apply WCS to set x,y positions
         if trim:
