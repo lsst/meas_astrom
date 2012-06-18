@@ -35,6 +35,7 @@ import lsst.afw.geom.ellipses as geomEllip
 import lsst.afw.cameraGeom as cameraGeom
 from lsst.meas.astrom.astrom import Astrometry
 import lsst.meas.algorithms as measAlg
+from lsst.meas.algorithms.starSelectorRegistry import starSelectorRegistry
 
 class CatalogStarSelectorConfig(pexConfig.Config):
     fluxLim = pexConfig.Field(
@@ -216,3 +217,5 @@ class CatalogStarSelector(object):
             raw_input("Continue? y[es] p[db] ")
 
         return psfCandidateList
+
+starSelectorRegistry.register("catalog", CatalogStarSelector)
