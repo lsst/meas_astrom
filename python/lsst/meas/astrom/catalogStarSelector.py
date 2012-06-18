@@ -40,8 +40,7 @@ class CatalogStarSelectorConfig(pexConfig.Config):
     fluxLim = pexConfig.Field(
         doc = "specify the minimum psfFlux for good Psf Candidates",
         dtype = float,
-        default = 12500.0,
-#        minValue = 0.0,
+        default = 0.0,
         check = lambda x: x >= 0.0,
     )
     fluxMax = pexConfig.Field(
