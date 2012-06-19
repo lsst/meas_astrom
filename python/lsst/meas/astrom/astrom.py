@@ -151,7 +151,7 @@ class Astrometry(object):
                 isUnchanged = (sipwcs == wcs)
             except TypeError:
                 isUnchanged = False
-            if isUnchanged
+            if isUnchanged:
                 self._debug('Failed to find a SIP WCS better than the linear one.')
             else:
                 self._debug('%i reference objects match input sources using SIP WCS' % (len(matchList)))
