@@ -209,8 +209,7 @@ class Astrometry(object):
         if wcs is None:
             raise RuntimeError("Unable to match sources with catalog.")
 
-        pixelMargin = 50.
-        cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName, pixelMargin)
+        cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName)
 
         catids = [src.getId() for src in cat]
         uids = set(catids)
@@ -312,7 +311,7 @@ class Astrometry(object):
             return default
 
 
-    def getReferenceSourcesForWcs(self, wcs, imageSize, filterName, pixelMargin,
+    def getReferenceSourcesForWcs(self, wcs, imageSize, filterName, pixelMargin=50,
                                   trim=True, allFluxes=False):
         W,H = imageSize
         xc, yc = W/2. + 0.5, H/2. + 0.5
