@@ -91,11 +91,6 @@ void MatchSrcToCatalogue::findMatches() {
 
     _removeOneToMany();  
     _removeManyToOne();  
-   
-    if (_match.empty()) {
-        std::cout << _imgSet.size() << " " << _catSet.size() << std::endl;
-        throw LSST_EXCEPT(pex::exceptions::RuntimeErrorException, "No matching objects found");
-    }
 }
 
 

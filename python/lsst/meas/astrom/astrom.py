@@ -96,14 +96,163 @@ class Astrometry(object):
     def setAndConfig(self, andconfig):
         self.andConfig = andconfig
 
+    def _getImageParams(self, wcs, exposure, filterName=None, imageSize=None):
+        x0,y0 = 0, 0
+        if exposure is not None:
+            x0,y0 = exposure.getX0(), exposure.getY0()
+            self._debug('Got exposure x0,y0 = %i,%i' % (x0,y0))
+            if filterName is None:
+                filterName = exposure.getFilter().getName()
+                self._debug('Setting filterName = "%s" from exposure metadata' % str(filterName))
+            if imageSize is None:
+                imageSize = (exposure.getWidth(), exposure.getHeight())
+                self._debug('Setting image size = (%i, %i) from exposure metadata' % (imageSize))
+        return filterName, imageSize, x0, y0
+
+    def useKnownWcs(self, sources, wcs=None, exposure=None, filterName=None, imageSize=None):
+        """
+        Returns an InitialAstrometry object, just like determineWcs,
+        but assuming the given input WCS is correct.
+
+        This is enabled by the pipe_tasks AstrometryConfig
+        'forceKnownWcs' option.  If you are using that option, you
+        probably also want to turn OFF 'calculateSip'.
+
+        This involves searching for reference sources within the WCS
+        area, and matching them to the given 'sources'.  If
+        'calculateSip' is set, we will try to compute a TAN-SIP
+        distortion correction.
+
+        sources: list of detected sources in this image.
+        wcs: your known WCS
+        exposure: the exposure holding metadata for this image.
+        filterName:
+
+        You MUST provide a WCS, either by providing the 'wcs' kwarg
+        (an lsst.image.Wcs object), or by providing the 'exposure' on
+        which we will call 'exposure.getWcs()'.
+
+        You MUST provide a filter name, either by providing the
+        'filterName' kwarg (a string), or by setting the 'exposure';
+        we will call 'exposure.getFilter().getName()'.
+
+        You MUST provide the image size, either by providing the
+        'imageSize' kwargs, an (W,H) tuple of ints, or by providing
+        the 'exposure'; we will call 'exposure.getWidth()' and
+        'exposure.getHeight()'.
+
+        Note, when modifying this function, that it is also called
+        'determineWcs' (via 'determineWcs2'), since the steps are all
+        the same.
+        """
+        # return value:
+        astrom = InitialAstrometry()
+
+        if wcs is None:
+            if exposure is None:
+                raise RuntimeError('useKnownWcs: need either "wcs=" or "exposure=" kwarg.')
+            wcs = exposure.getWcs()
+            if wcs is None:
+                raise RuntimeError('useKnownWcs: wcs==None and exposure.getWcs()==None.')
+                
+        filterName,imageSize,x0,y0 = self._getImageParams(exposure=exposure, wcs=wcs,
+                                                          imageSize=imageSize,
+                                                          filterName=filterName)
+        pixelMargin = 50.
+        cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName, pixelMargin, x0=x0, y0=y0)
+
+        catids = [src.getId() for src in cat]
+        uids = set(catids)
+        self.log.logdebug('%i reference sources; %i unique IDs' % (len(catids), len(uids)))
+        matchList = self._getMatchList(sources, cat, wcs)
+        uniq = set([sm.second.getId() for sm in matchList])
+        if len(matchList) != len(uniq):
+            self._warn(('The list of matched stars contains duplicate reference source IDs ' +
+                        '(%i sources, %i unique ids)') % (len(matchList), len(uniq)))
+        if len(matchList) == 0:
+            self._warn('No matches found between input sources and reference catalogue.')
+            return astrom
+
+        self._debug('%i reference objects match input sources using input WCS' % (len(matchList)))
+        astrom.tanMatches = matchList
+
+        srcids = [s.getId() for s in sources]
+        for m in matchList:
+            assert(m.second.getId() in srcids)
+            assert(m.second in sources)
+
+        if self.config.calculateSip:
+            sipwcs,matchList = self._calculateSipTerms(wcs, cat, sources, matchList)
+
+            # Remove this try block once #2184 is fixed.
+            try:
+                isUnchanged = (sipwcs == wcs)
+            except TypeError:
+                isUnchanged = False
+
+            if isUnchanged:
+                self._debug('Failed to find a SIP WCS better than the initial one.')
+            else:
+                self._debug('%i reference objects match input sources using SIP WCS' % (len(matchList)))
+            astrom.sipWcs = sipwcs
+            astrom.sipMatches = matchList
+
+        W,H = imageSize
+        astrom.matchMetadata = _createMetadata(W, H, wcs, filterName)
+        astrom.wcs = wcs
+        astrom.matches = matchList
+        return astrom
+
     def determineWcs(self,
                      sources,
                      exposure,
                      **kwargs):
-        '''
-        Version of determineWcs(), meant for pipeline use, that gets
-        almost all its parameters from config or reasonable defaults.
-        '''
+        """
+        Finds a WCS solution for the given 'sources' in the given
+        'exposure', getting other parameters from config.
+
+        Valid kwargs include:
+
+        'radecCenter', an afw.coord.Coord giving the RA,Dec position
+           of the center of the field.  This is used to limit the
+           search done by Astrometry.net (to make it faster and load
+           fewer index files, thereby using less memory).  Defaults to
+           the RA,Dec center from the exposure's WCS; turn that off
+           with the boolean kwarg 'useRaDecCenter' or config option
+           'useWcsRaDecCenter'
+
+        'useRaDecCenter', a boolean.  Don't use the RA,Dec center from
+           the exposure's initial WCS.
+
+        'searchRadius', in degrees, to search for a solution around
+           the given 'radecCenter'; default from config option
+           'raDecSearchRadius'.
+
+        'useParity': parity is the 'flip' of the image.  Knowing it
+           reduces the search space (hence time) for Astrometry.net.
+           The parity can be computed from the exposure's WCS (the
+           sign of the determinant of the CD matrix); this option
+           controls whether we do that or force Astrometry.net to
+           search both parities.  Default from config.useWcsParity.
+
+        'pixelScale': afwGeom.Angle, estimate of the angle-per-pixel
+           (ie, arcseconds per pixel).  Defaults to a value derived
+           from the exposure's WCS.  If enabled, this value, plus or
+           minus config.pixelScaleUncertainty, will be used to limit
+           Astrometry.net's search.
+
+        'usePixelScale': boolean.  Use the pixel scale to limit
+           Astrometry.net's search?  Defaults to config.useWcsPixelScale.
+
+        'filterName', a string, the filter name of this image.  Will
+           be mapped through the 'filterMap' config dictionary to a
+           column name in the astrometry_net_data index FITS files.
+           Defaults to the exposure.getFilter() value.
+
+        'imageSize', a tuple (W,H) of integers, the image size.
+           Defaults to the exposure.get{Width,Height}() values.
+
+        """
         assert(exposure is not None)
 
         margs = kwargs.copy()
@@ -115,84 +264,101 @@ class Astrometry(object):
             margs.update(useRaDecCenter = self.config.useWcsRaDecCenter)
         if not 'useParity' in margs:
             margs.update(useParity = self.config.useWcsParity)
+        margs.update(exposure=exposure)
+        return self.determineWcs2(sources, **margs)
 
-        return self.determineWcs2(sources, exposure, **margs)
-        
-
-    def determineWcs2(self,
-                      sources,
-                      exposure=None,
-                      wcs=None,
-                      imageSize=None,
-                      radecCenter=None,
-                      searchRadius=None,
-                      pixelScale=None,
-                      filterName=None,
-                      doTrim=False,
-                      usePixelScale=True,
-                      useRaDecCenter=True,
-                      useParity=True,
-                      searchRadiusScale=2.):
+    def determineWcs2(self, sources, **kwargs):
         '''
-        We dont really need an Exposure; we need:
-          -an initial Wcs estimate;
+        Get a blind astrometric solution for the given list of sources.
+
+        We need:
           -the image size;
           -the filter
+
+        And if available, we can use:
+          -an initial Wcs estimate;
+             --> RA,Dec center
+             --> pixel scale
+             --> "parity"
+             
         (all of which are metadata of Exposure).
-
-        We also need the estimated pixel scale, which again we can get
-        from the initial Wcs, but it should be possible to specify it
-        without needing a Wcs.
-
-        Same with the estimated RA,Dec and search radius.
 
         filterName: string
         imageSize: (W,H) integer tuple/iterable
         pixelScale: afwGeom::Angle per pixel.
         radecCenter: afwCoord::Coord
         '''
+        wcs,qa = self.getBlindWcsSolution(sources, **kwargs)
+        kw = {}
+        for key in ['exposure', 'filterName', 'imageSize']:
+            if key in kwargs:
+                kw[key] = kwargs[key]
+        astrom = self.useKnownWcs(sources, wcs=wcs, **kw)
+        astrom.solveQa = qa
+        astrom.tanWcs = wcs
+        return astrom
 
+    def getBlindWcsSolution(self, sources, 
+                            exposure=None,
+                            wcs=None,
+                            imageSize=None,
+                            radecCenter=None,
+                            searchRadius=None,
+                            pixelScale=None,
+                            filterName=None,
+                            doTrim=False,
+                            usePixelScale=True,
+                            useRaDecCenter=True,
+                            useParity=True,
+                            searchRadiusScale=2.):
         if not useRaDecCenter and radecCenter is not None:
             raise RuntimeError('radecCenter is set, but useRaDecCenter is False.  Make up your mind!')
         if not usePixelScale and pixelScale is not None:
             raise RuntimeError('pixelScale is set, but usePixelScale is False.  Make up your mind!')
-        
-        # return value:
-        astrom = InitialAstrometry()
-        
+
+        filterName,imageSize,x0,y0 = self._getImageParams(exposure=exposure, wcs=wcs,
+                                                          imageSize=imageSize,
+                                                          filterName=filterName)
+
         if exposure is not None:
-            if filterName is None:
-                filterName = exposure.getFilter().getName()
-            if imageSize is None:
-                imageSize = (exposure.getWidth(), exposure.getHeight())
             if wcs is None:
                 wcs = exposure.getWcs()
+                self._debug('Setting initial WCS estimate from exposure metadata')
 
         if imageSize is None:
             # Could guess from the extent of the Sources...
             raise RuntimeError('Image size must be specified by passing "exposure" or "imageSize"')
-        W,H = imageSize
-        xc, yc = W/2. + 0.5, H/2. + 0.5
 
+        W,H = imageSize
+        xc, yc = W/2. + 0.5 + x0, H/2. + 0.5 + y0
         parity = None
-        
+
         if wcs is not None:
             if pixelScale is None:
                 if usePixelScale:
                     pixelScale = wcs.pixelScale()
+                    self._debug('Setting pixel scale estimate = %.3f from given WCS estimate' %
+                                (pixelScale.asArcseconds()))
 
             if radecCenter is None:
                 if useRaDecCenter:
                     radecCenter = wcs.pixelToSky(xc, yc)
+                    self._debug(('Setting RA,Dec center estimate = (%.3f, %.3f) from given WCS '
+                                 + 'estimate, using pixel center = (%.1f, %.1f)') %
+                                (radecCenter.getLongitude().asDegrees(),
+                                 radecCenter.getLatitude().asDegrees(), xc, yc))
 
             if searchRadius is None:
                 if useRaDecCenter:
                     assert(pixelScale is not None)
                     searchRadius = (pixelScale * math.hypot(W,H)/2. *
                                     searchRadiusScale)
-                
+                    self._debug(('Using RA,Dec search radius = %.3f deg, from pixel scale, '
+                                 + 'image size, and searchRadiusScale = %g') %
+                                (searchRadius, searchRadiusScale))
             if useParity:
                 parity = wcs.isFlipped()
+                self._debug('Using parity = %s' % (parity and 'True' or 'False'))
 
         if doTrim:
             n = len(sources)
@@ -205,56 +371,16 @@ class Astrometry(object):
             self._debug("Trimming: kept %i of %i sources" % (n, len(sources)))
 
         wcs,qa = self._solve(sources, wcs, imageSize, pixelScale, radecCenter, searchRadius, parity,
-                             filterName)
+                             filterName, xy0=(x0,y0))
         if wcs is None:
             raise RuntimeError("Unable to match sources with catalog.")
+        self.log.info('Got astrometric solution from Astrometry.net')
 
-        cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName)
+        rdc = wcs.pixelToSky(xc, yc)
+        self._debug('New WCS says image center pixel (%.1f, %.1f) -> RA,Dec (%.3f, %.3f)' %
+                    (xc, yc, rdc.getLongitude().asDegrees(), rdc.getLatitude().asDegrees()))
+        return wcs,qa
 
-        catids = [src.getId() for src in cat]
-        uids = set(catids)
-        self.log.logdebug('%i reference sources; %i unique IDs' % (len(catids), len(uids)))
-
-        matchList = self._getMatchList(sources, cat, wcs)
-
-        uniq = set([sm.second.getId() for sm in matchList])
-        if len(matchList) != len(uniq):
-            self._warn('The list of matched stars contains duplicate reference source IDs (%i sources, %i unique ids)'
-                       % (len(matchList), len(uniq)))
-        if len(matchList) == 0:
-            self._warn('No matches found between input sources and reference catalogue.')
-            return astrom
-
-        self._debug('%i reference objects match input sources using linear WCS' % (len(matchList)))
-
-        astrom.solveQa = qa
-        astrom.tanWcs = wcs
-        astrom.tanMatches = matchList
-
-        srcids = [s.getId() for s in sources]
-        for m in matchList:
-            assert(m.second.getId() in srcids)
-            assert(m.second in sources)
-
-        if self.config.calculateSip:
-            wcs,matchList = self._calculateSipTerms(wcs, cat, sources, matchList)
-            astrom.sipWcs = wcs
-            astrom.sipMatches = matchList
-
-        meta = _createMetadata(W, H, wcs, filterName)
-        #matchListMeta = solver.getMatchedIndexMetadata()
-        #moreMeta.combine(matchListMeta)
-
-        astrom.matchMetadata = meta
-        astrom.wcs = wcs
-
-        astrom.matches = afwTable.ReferenceMatchVector()
-        for m in matchList:
-            astrom.matches.push_back(m)
-
-        return astrom
-
-    #### FIXME!
     def _calculateSipTerms(self, origWcs, cat, sources, matchList):
         '''Iteratively calculate sip distortions and regenerate matchList based on improved wcs'''
         sipOrder = self.config.sipOrder
@@ -270,7 +396,7 @@ class Astrometry(object):
                 break
 
             matchSize = len(matchList)
-            self._debug('Sip Iteration %i: %i objects match. rms scatter is %g arcsec or %g pixels' %
+            self._debug('Sip iteration %i: %i objects match. rms scatter is %g arcsec or %g pixels' %
                         (i, matchSize, sipObject.getScatterOnSky().asArcseconds(), sipObject.getScatterInPixels()))
             # use new WCS to get new matchlist.
             proposedMatchlist = self._getMatchList(sources, cat, proposedWcs)
@@ -290,6 +416,26 @@ class Astrometry(object):
         matcher = astromSip.MatchSrcToCatalogue(cat, sources, wcs, dist)
         matchList = matcher.getMatches()
         if matchList is None:
+            # Produce debugging stats...
+            X = [src.getX() for src in sources]
+            Y = [src.getY() for src in sources]
+            R1 = [src.getRa().asDegrees() for src in sources]
+            D1 = [src.getDec().asDegrees() for src in sources]
+            R2 = [src.getRa().asDegrees() for src in cat]
+            D2 = [src.getDec().asDegrees() for src in cat]
+            # for src in sources:
+            #self._debug("source: x,y (%.1f, %.1f), RA,Dec (%.3f, %.3f)" %
+            #(src.getX(), src.getY(), src.getRa().asDegrees(), src.getDec().asDegrees()))
+            #for src in cat:
+            #self._debug("ref: RA,Dec (%.3f, %.3f)" %
+            #(src.getRa().asDegrees(), src.getDec().asDegrees()))
+            self.loginfo('_getMatchList: %i sources, %i reference sources' % (len(sources), len(cat)))
+            if len(sources):
+                self.loginfo('Source range: x [%.1f, %.1f], y [%.1f, %.1f], RA [%.3f, %.3f], Dec [%.3f, %.3f]' %
+                             (min(X), max(X), min(Y), max(Y), min(R1), max(R1), min(D1), max(D1)))
+            if len(cat):
+                self.loginfo('Reference range: RA [%.3f, %.3f], Dec [%.3f, %.3f]' %
+                             (min(R2), max(R2), min(D2), max(D2)))
             raise RuntimeError('No matches found between image and catalogue')
         matchList = astromSip.cleanBadPoints.clean(matchList, wcs, nsigma=clean)
         return matchList
@@ -310,20 +456,22 @@ class Astrometry(object):
                           (filterName, default))
             return default
 
-
     def getReferenceSourcesForWcs(self, wcs, imageSize, filterName, pixelMargin=50,
-                                  trim=True, allFluxes=False):
+                                  x0=0, y0=0, trim=True, allFluxes=False):
         W,H = imageSize
         xc, yc = W/2. + 0.5, H/2. + 0.5
-        rdc = wcs.pixelToSky(xc, yc)
+        rdc = wcs.pixelToSky(x0 + xc, y0 + yc)
         ra,dec = rdc.getLongitude(), rdc.getLatitude()
+        self._debug('Getting reference sources using center: pixel (%.1f, %.1f) -> RA,Dec (%.3f, %.3f)' %
+                    (xc, yc, ra, dec))
         pixelScale = wcs.pixelScale()
         rad = pixelScale * (math.hypot(W,H)/2. + pixelMargin)
+        self._debug('Getting reference sources using radius of %.3g deg' % rad.asDegrees())
         cat = self.getReferenceSources(ra, dec, rad, filterName, allFluxes=allFluxes)
         # NOTE: reference objects don't have (x,y) anymore, so we can't apply WCS to set x,y positions
         if trim:
             # cut to image bounds + margin.
-            bbox = afwGeom.Box2D(afwGeom.Point2D(0.,0.), afwGeom.Point2D(W, H))
+            bbox = afwGeom.Box2D(afwGeom.Point2D(x0, y0), afwGeom.Extent2D(W, H))
             bbox.grow(pixelMargin)
             cat = self._trimBadPoints(cat, bbox, wcs=wcs) # passing wcs says to compute x,y on-the-fly
         return cat
@@ -387,19 +535,28 @@ class Astrometry(object):
         return cat
 
     def _solve(self, sources, wcs, imageSize, pixelScale, radecCenter,
-               searchRadius, parity, filterName=None):
+               searchRadius, parity, filterName=None, xy0=None):
         solver = self._getSolver()
 
+        x0,y0 = 0,0
+        if xy0 is not None:
+            x0,y0 = xy0
+
         # select sources with valid x,y, flux
+        xybb = afwGeom.Box2D()
         goodsources = afwTable.SourceCatalog(sources.table)
         for s in sources:
             if np.isfinite(s.getX()) and np.isfinite(s.getY()) and np.isfinite(s.getPsfFlux()):
                 goodsources.append(s)
+                xybb.include(afwGeom.Point2D(s.getX() - x0, s.getY() - y0))
         if len(goodsources) < len(sources):
             self.log.logdebug('Keeping %i of %i sources with finite X,Y positions and PSF flux' %
                               (len(goodsources), len(sources)))
+        self._debug(('Feeding sources in range x=[%.1f, %.1f], y=[%.1f, %.1f] ' +
+                     '(after subtracting x0,y0) to Astrometry.net') %
+                    (xybb.getMinX(), xybb.getMaxX(), xybb.getMinY(), xybb.getMaxY()))
         # setStars sorts them by PSF flux.
-        solver.setStars(goodsources)
+        solver.setStars(goodsources, x0, y0)
         solver.setMaxStars(self.config.maxStars)
         solver.setImageSize(*imageSize)
         solver.setMatchThreshold(self.config.matchThreshold)
@@ -425,7 +582,8 @@ class Astrometry(object):
 
         solver.addIndices(self.inds)
         active = solver.getActiveIndexFiles()
-        self.log.logdebug('Searching for match in %i of %i index files: [ ' % (len(active), len(self.inds)) +
+        self.log.logdebug('Searching for match in %i of %i index files: [ ' %
+                          (len(active), len(self.inds)) +
                           ', '.join(ind.indexname for ind in active) + ' ]')
 
         cpulimit = self.config.maxCpuTime
@@ -435,7 +593,12 @@ class Astrometry(object):
             self.log.logdebug('Solved!')
             wcs = solver.getWcs()
             self.log.logdebug('WCS: %s' % wcs.getFitsMetadata().toString())
-            
+
+            if x0 != 0 or y0 != 0:
+                wcs.shiftReferencePixel(x0, y0)
+                self.log.logdebug('After shifting reference pixel by x0,y0 = (%i,%i), WCS is: %s' %
+                                  (x0, y0, wcs.getFitsMetadata().toString()))
+
         else:
             self.log.warn('Did not get an astrometric solution from Astrometry.net')
             wcs = None
