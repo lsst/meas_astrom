@@ -109,19 +109,55 @@ class Astrometry(object):
                 self._debug('Setting image size = (%i, %i) from exposure metadata' % (imageSize))
         return filterName, imageSize, x0, y0
 
-    def useKnownWcs(self, wcs, sources, exposure=None, filterName=None, imageSize=None):
-        '''
-        Returns an InitialAstrometry object, just like determineWcs, but assuming the given input
-        WCS is correct.
-        '''
+    def useKnownWcs(self, sources, wcs=None, exposure=None, filterName=None, imageSize=None):
+        """
+        Returns an InitialAstrometry object, just like determineWcs,
+        but assuming the given input WCS is correct.
+
+        This is enabled by the pipe_tasks AstrometryConfig
+        'forceKnownWcs' option.  If you are using that option, you
+        probably also want to turn OFF 'calculateSip'.
+
+        This involves searching for reference sources within the WCS
+        area, and matching them to the given 'sources'.  If
+        'calculateSip' is set, we will try to compute a TAN-SIP
+        distortion correction.
+
+        sources: list of detected sources in this image.
+        wcs: your known WCS
+        exposure: the exposure holding metadata for this image.
+        filterName:
+
+        You MUST provide a WCS, either by providing the 'wcs' kwarg
+        (an lsst.image.Wcs object), or by providing the 'exposure' on
+        which we will call 'exposure.getWcs()'.
+
+        You MUST provide a filter name, either by providing the
+        'filterName' kwarg (a string), or by setting the 'exposure';
+        we will call 'exposure.getFilter().getName()'.
+
+        You MUST provide the image size, either by providing the
+        'imageSize' kwargs, an (W,H) tuple of ints, or by providing
+        the 'exposure'; we will call 'exposure.getWidth()' and
+        'exposure.getHeight()'.
+
+        Note, when modifying this function, that it is also called
+        'determineWcs' (via 'determineWcs2'), since the steps are all
+        the same.
+        """
         # return value:
         astrom = InitialAstrometry()
 
+        if wcs is None:
+            if exposure is None:
+                raise RuntimeError('useKnownWcs: need either "wcs=" or "exposure=" kwarg.')
+            wcs = exposure.getWcs()
+            if wcs is None:
+                raise RuntimeError('useKnownWcs: wcs==None and exposure.getWcs()==None.')
+                
         filterName,imageSize,x0,y0 = self._getImageParams(exposure=exposure, wcs=wcs,
                                                           imageSize=imageSize,
                                                           filterName=filterName)
-        W,H = imageSize
-
         pixelMargin = 50.
         cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName, pixelMargin, x0=x0, y0=y0)
 
@@ -137,7 +173,7 @@ class Astrometry(object):
             self._warn('No matches found between input sources and reference catalogue.')
             return astrom
 
-        self._debug('%i reference objects match input sources using linear WCS' % (len(matchList)))
+        self._debug('%i reference objects match input sources using input WCS' % (len(matchList)))
         astrom.tanMatches = matchList
 
         srcids = [s.getId() for s in sources]
@@ -147,33 +183,76 @@ class Astrometry(object):
 
         if self.config.calculateSip:
             sipwcs,matchList = self._calculateSipTerms(wcs, cat, sources, matchList)
+
+            # Remove this try block once #2184 is fixed.
             try:
                 isUnchanged = (sipwcs == wcs)
             except TypeError:
                 isUnchanged = False
+
             if isUnchanged:
-                self._debug('Failed to find a SIP WCS better than the linear one.')
+                self._debug('Failed to find a SIP WCS better than the initial one.')
             else:
                 self._debug('%i reference objects match input sources using SIP WCS' % (len(matchList)))
             astrom.sipWcs = sipwcs
             astrom.sipMatches = matchList
 
+        W,H = imageSize
         astrom.matchMetadata = _createMetadata(W, H, wcs, filterName)
         astrom.wcs = wcs
-
-        astrom.matches = afwTable.ReferenceMatchVector()
-        for m in matchList:
-            astrom.matches.push_back(m)
+        astrom.matches = matchList
         return astrom
 
     def determineWcs(self,
                      sources,
                      exposure,
                      **kwargs):
-        '''
-        Version of determineWcs(), meant for pipeline use, that gets
-        almost all its parameters from config or reasonable defaults.
-        '''
+        """
+        Finds a WCS solution for the given 'sources' in the given
+        'exposure', getting other parameters from config.
+
+        Valid kwargs include:
+
+        'radecCenter', an afw.coord.Coord giving the RA,Dec position
+           of the center of the field.  This is used to limit the
+           search done by Astrometry.net (to make it faster and load
+           fewer index files, thereby using less memory).  Defaults to
+           the RA,Dec center from the exposure's WCS; turn that off
+           with the boolean kwarg 'useRaDecCenter' or config option
+           'useWcsRaDecCenter'
+
+        'useRaDecCenter', a boolean.  Don't use the RA,Dec center from
+           the exposure's initial WCS.
+
+        'searchRadius', in degrees, to search for a solution around
+           the given 'radecCenter'; default from config option
+           'raDecSearchRadius'.
+
+        'useParity': parity is the 'flip' of the image.  Knowing it
+           reduces the search space (hence time) for Astrometry.net.
+           The parity can be computed from the exposure's WCS (the
+           sign of the determinant of the CD matrix); this option
+           controls whether we do that or force Astrometry.net to
+           search both parities.  Default from config.useWcsParity.
+
+        'pixelScale': afwGeom.Angle, estimate of the angle-per-pixel
+           (ie, arcseconds per pixel).  Defaults to a value derived
+           from the exposure's WCS.  If enabled, this value, plus or
+           minus config.pixelScaleUncertainty, will be used to limit
+           Astrometry.net's search.
+
+        'usePixelScale': boolean.  Use the pixel scale to limit
+           Astrometry.net's search?  Defaults to config.useWcsPixelScale.
+
+        'filterName', a string, the filter name of this image.  Will
+           be mapped through the 'filterMap' config dictionary to a
+           column name in the astrometry_net_data index FITS files.
+           Defaults to the exposure.getFilter() value.
+
+        'imageSize', a tuple (W,H) of integers, the image size.
+           Defaults to the exposure.get{Width,Height}() values.
+
+        """
         assert(exposure is not None)
 
         margs = kwargs.copy()
@@ -214,7 +293,7 @@ class Astrometry(object):
         for key in ['exposure', 'filterName', 'imageSize']:
             if key in kwargs:
                 kw[key] = kwargs[key]
-        astrom = self.useKnownWcs(wcs, sources, **kw)
+        astrom = self.useKnownWcs(sources, wcs=wcs, **kw)
         astrom.solveQa = qa
         astrom.tanWcs = wcs
         return astrom
