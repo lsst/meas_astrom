@@ -75,16 +75,13 @@ def indicesOfGoodPoints(x, y, s, order=1, nsigma=3, maxiter=100):
     #Indices of elements of x sorted in order of increasing value
     idx = x.argsort()
     newidx=[]
-    flag=True
-    niter = 0
-    while flag and niter < maxiter:
+    for niter in xrange(maxiter):
         rx = chooseRx(x, idx, order)
         ry = chooseRy(y, idx, order)
         rs = np.ones((len(rx)))
           
         lsf = sip.LeastSqFitter1dPoly(list(rx), list(ry), list(rs), order)
         fit = map(lambda x: lsf.valueAt(x), rx)
-
         f = map(lambda x: lsf.valueAt(x), x)
         
         sigma = (y-f).std()
@@ -98,23 +95,16 @@ def indicesOfGoodPoints(x, y, s, order=1, nsigma=3, maxiter=100):
             mpl.plot(rx, ry, 'bs')        
             mpl.plot(rx, fit, 'ms')        
             mpl.plot(rx, fit, 'm-')        
-
             #mpl.plot(x[newidx], y[newidx], 'rs')
             mpl.show()
         
-        #If we haven't culled any points we're finished cleaning
+        # If we haven't culled any points we're finished cleaning
         if len(newidx) == len(idx):
-            flag = True
-        
-        #Otherwise, try another iteration    
-        niter=niter+1
-        flag=False
+            break
     
-    #We get here because we either a) stopped finding bad points
-    #or b) ran out of iterations. Either way, we just return our
-    #list of indices of good points.
-    if len(newidx) == 0:
-        raise RuntimeError("All points cleaned out. This is probably a bug")
+    # We get here because we either a) stopped finding bad points
+    # or b) ran out of iterations. Either way, we just return our
+    # list of indices of good points.
     return newidx
     
 

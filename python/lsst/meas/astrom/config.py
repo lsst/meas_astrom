@@ -65,23 +65,6 @@ class MeasAstromConfig(pexConfig.Config):
         int,
         default=50, min=10)
 
-    #forceBlindSolve = Field(
-    #    bool,
-    #    '''Ignore any input WCS and do a blind solve?''',
-    #    default=False)
-
-    #useInputWcs = Field(bool, ...)
-    #     str,
-    #     '''Use the WCS header information in the input exposure?  We
-    #     can take advantage of the pixel scale and RA,Dec center to
-    #     restrict the search and make astrometric matching faster.
-    #     '''
-    #     default='all',
-    #     allowed={'all': 'Use all available WCS information',
-    #              'pixelscale': 'Use the pixel scale only',
-    #              'radec': 'Use the RA,Dec center only',
-    #              })
-
     useWcsPixelScale = Field(
         '''Use the pixel scale from the input exposure\'s WCS headers?''',
         bool,
