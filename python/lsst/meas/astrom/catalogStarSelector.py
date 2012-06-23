@@ -51,6 +51,11 @@ class CatalogStarSelectorConfig(pexConfig.Config):
 #        minValue = 0.0,
         check = lambda x: x >= 0.0,
     )
+    pixelFlags = pexConfig.ListField(
+        doc = "PSF candidate objects may not have any of these bits set",
+        dtype = "str",
+        default = ["flags.pixel.edge", "flags.pixel.interpolated.center", "flags.pixel.saturated.center"],
+        )
     kernelSize = pexConfig.Field(
         doc = "size of the kernel to create",
         dtype = int,
@@ -65,8 +70,8 @@ class CatalogStarSelectorConfig(pexConfig.Config):
 class CheckSource(object):
     """A functor to check whether a source has any flags set that should cause it to be labeled bad."""
 
-    def __init__(self, table, fluxLim, fluxMax):
-        pixelFlags = ["flags.pixel.edge", "flags.pixel.interpolated.center", "flags.pixel.saturated.center"]
+    def __init__(self, table, fluxLim, fluxMax, pixelFlags):
+        pixelFlags = pixelFlags[:]
         pixelFlags += ["initial.%s" % k for k in pixelFlags]
 
         self.keys = [table.getSchema().find(name).key for name in pixelFlags]
@@ -103,6 +108,8 @@ class CatalogStarSelector(object):
         self._borderWidth = config.borderWidth
         self._fluxLim  = config.fluxLim
         self._fluxMax  = config.fluxMax
+        self._pixelFlags = config.pixelFlags
+
         if schema is not None:
             self._key = schema.addField("classification.catalogstar", type="Flag",
                                         doc="selected as a star by CatalogStarSelector")
@@ -164,7 +171,7 @@ class CatalogStarSelector(object):
                     ds9.dot("x", x, y, ctype=ds9.CYAN, frame=frames["displayExposure"])
         matched = astrom._getMatchList(sources, cat, wcs)            
     
-        isGoodSource = CheckSource(sources, self._fluxLim, self._fluxMax)
+        isGoodSource = CheckSource(sources, self._fluxLim, self._fluxMax, self._pixelFlags)
         #
         # Go through and find all the PSFs in the catalogue
         #
