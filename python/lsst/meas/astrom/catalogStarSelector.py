@@ -62,9 +62,6 @@ class CatalogStarSelectorConfig(pexConfig.Config):
         default = 0,
     )
 
-
-Clump = collections.namedtuple('Clump', ['peak', 'x', 'y', 'ixx', 'ixy', 'iyy', 'a', 'b', 'c'])
-
 class CheckSource(object):
     """A functor to check whether a source has any flags set that should cause it to be labeled bad."""
 
