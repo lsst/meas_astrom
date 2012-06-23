@@ -131,18 +131,18 @@ class CatalogStarSelector(object):
         displayExposure = lsstDebug.Info(__name__).displayExposure     # display the Exposure + spatialCells
         pauseAtEnd = lsstDebug.Info(__name__).pauseAtEnd               # pause when done
 
-	detector = exposure.getDetector()
-	distorter = None
-	xy0 = afwGeom.Point2D(0,0)
-	if not detector is None:
-	    cPix = detector.getCenterPixel()
-	    detSize = detector.getSize()
-	    xy0.setX(cPix.getX() - int(0.5*detSize.getMm()[0]))
-	    xy0.setY(cPix.getY() - int(0.5*detSize.getMm()[1]))
-	    distorter = detector.getDistortion()
+        detector = exposure.getDetector()
+        distorter = None
+        xy0 = afwGeom.Point2D(0,0)
+        if not detector is None:
+            cPix = detector.getCenterPixel()
+            detSize = detector.getSize()
+            xy0.setX(cPix.getX() - int(0.5*detSize.getMm()[0]))
+            xy0.setY(cPix.getY() - int(0.5*detSize.getMm()[1]))
+            distorter = detector.getDistortion()
 
         mi = exposure.getMaskedImage()
-	
+        
         if display:
             frames = {}
             if displayExposure:
