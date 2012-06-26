@@ -128,14 +128,12 @@ class CatalogStarSelector(object):
         pauseAtEnd = lsstDebug.Info(__name__).pauseAtEnd               # pause when done
 
 	detector = exposure.getDetector()
-	distorter = None
 	xy0 = afwGeom.Point2D(0,0)
 	if not detector is None:
 	    cPix = detector.getCenterPixel()
 	    detSize = detector.getSize()
 	    xy0.setX(cPix.getX() - int(0.5*detSize.getMm()[0]))
 	    xy0.setY(cPix.getY() - int(0.5*detSize.getMm()[1]))
-	    distorter = detector.getDistortion()
 
         mi = exposure.getMaskedImage()
 	
@@ -153,14 +151,11 @@ class CatalogStarSelector(object):
         calib = exposure.getCalib()
 
         astrom = Astrometry(Astrometry.ConfigClass())
+
         cat = astrom.getReferenceSourcesForWcs(wcs, imageSize, filterName, trim=True, allFluxes=False)
         if display and displayExposure > 1:
             with ds9.Buffering():
                 for s in sources:
-                    if distorter:
-                        xpix, ypix = s.getX() + 0*xy0.getX(), s.getY() + 0*xy0.getY()
-                        m = distorter.undistort(afwGeom.Point2D(xpix, ypix), detector)
-                        s.set("centroid.sdss.x", m.getX()); s.set("centroid.sdss.y", m.getY())
                     ds9.dot("+", s.getX(), s.getY(), ctype=ds9.YELLOW, frame=frames["displayExposure"])
                 for c in cat:
                     x, y = wcs.skyToPixel(c.getCoord())
@@ -217,3 +212,5 @@ class CatalogStarSelector(object):
             raw_input("Continue? y[es] p[db] ")
 
         return psfCandidateList
+
+measAlg.starSelectorRegistry.register("catalog", CatalogStarSelector)
