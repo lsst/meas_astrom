@@ -51,6 +51,11 @@ class CatalogStarSelectorConfig(pexConfig.Config):
 #        minValue = 0.0,
         check = lambda x: x >= 0.0,
     )
+    badStarPixelFlags = pexConfig.ListField(
+        doc = "PSF candidate objects may not have any of these bits set",
+        dtype = str,
+        default = ["flags.pixel.edge", "flags.pixel.interpolated.center", "flags.pixel.saturated.center"],
+        )
     kernelSize = pexConfig.Field(
         doc = "size of the kernel to create",
         dtype = int,
@@ -62,17 +67,14 @@ class CatalogStarSelectorConfig(pexConfig.Config):
         default = 0,
     )
 
-
-Clump = collections.namedtuple('Clump', ['peak', 'x', 'y', 'ixx', 'ixy', 'iyy', 'a', 'b', 'c'])
-
 class CheckSource(object):
     """A functor to check whether a source has any flags set that should cause it to be labeled bad."""
 
-    def __init__(self, table, fluxLim, fluxMax):
-        pixelFlags = ["flags.pixel.edge", "flags.pixel.interpolated.center", "flags.pixel.saturated.center"]
-        pixelFlags += ["initial.%s" % k for k in pixelFlags]
+    def __init__(self, table, fluxLim, fluxMax, badStarPixelFlags):
+        badStarPixelFlags = badStarPixelFlags[:]
+        badStarPixelFlags += ["initial.%s" % k for k in badStarPixelFlags]
 
-        self.keys = [table.getSchema().find(name).key for name in pixelFlags]
+        self.keys = [table.getSchema().find(name).key for name in badStarPixelFlags]
         self.keys.append(table.getCentroidFlagKey())
         self.fluxLim = fluxLim
         self.fluxMax = fluxMax
@@ -106,6 +108,8 @@ class CatalogStarSelector(object):
         self._borderWidth = config.borderWidth
         self._fluxLim  = config.fluxLim
         self._fluxMax  = config.fluxMax
+        self._badStarPixelFlags = config.badStarPixelFlags
+
         if schema is not None:
             self._key = schema.addField("classification.catalogstar", type="Flag",
                                         doc="selected as a star by CatalogStarSelector")
@@ -127,18 +131,18 @@ class CatalogStarSelector(object):
         displayExposure = lsstDebug.Info(__name__).displayExposure     # display the Exposure + spatialCells
         pauseAtEnd = lsstDebug.Info(__name__).pauseAtEnd               # pause when done
 
-	detector = exposure.getDetector()
-	distorter = None
-	xy0 = afwGeom.Point2D(0,0)
-	if not detector is None:
-	    cPix = detector.getCenterPixel()
-	    detSize = detector.getSize()
-	    xy0.setX(cPix.getX() - int(0.5*detSize.getMm()[0]))
-	    xy0.setY(cPix.getY() - int(0.5*detSize.getMm()[1]))
-	    distorter = detector.getDistortion()
+        detector = exposure.getDetector()
+        distorter = None
+        xy0 = afwGeom.Point2D(0,0)
+        if not detector is None:
+            cPix = detector.getCenterPixel()
+            detSize = detector.getSize()
+            xy0.setX(cPix.getX() - int(0.5*detSize.getMm()[0]))
+            xy0.setY(cPix.getY() - int(0.5*detSize.getMm()[1]))
+            distorter = detector.getDistortion()
 
         mi = exposure.getMaskedImage()
-	
+        
         if display:
             frames = {}
             if displayExposure:
@@ -167,7 +171,7 @@ class CatalogStarSelector(object):
                     ds9.dot("x", x, y, ctype=ds9.CYAN, frame=frames["displayExposure"])
         matched = astrom._getMatchList(sources, cat, wcs)            
     
-        isGoodSource = CheckSource(sources, self._fluxLim, self._fluxMax)
+        isGoodSource = CheckSource(sources, self._fluxLim, self._fluxMax, self._badStarPixelFlags)
         #
         # Go through and find all the PSFs in the catalogue
         #
