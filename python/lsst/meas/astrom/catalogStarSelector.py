@@ -116,13 +116,15 @@ class CatalogStarSelector(object):
         else:
             self._key = None
             
-    def selectStars(self, exposure, sources):
+    def selectStars(self, exposure, sources, matches=None):
         """Return a list of PSF candidates that represent likely stars
         
         A list of PSF candidates may be used by a PSF fitter to construct a PSF.
         
         @param[in] exposure: the exposure containing the sources
         @param[in] sources: a source list containing sources that may be stars
+        @param[in] matches: a match vector as produced by meas_astrom; if present,
+                            we skip all the matching code here
         
         @return psfCandidateList: a list of PSF candidates.
         """
@@ -131,15 +133,16 @@ class CatalogStarSelector(object):
         displayExposure = lsstDebug.Info(__name__).displayExposure     # display the Exposure + spatialCells
         pauseAtEnd = lsstDebug.Info(__name__).pauseAtEnd               # pause when done
 
-        detector = exposure.getDetector()
-        distorter = None
-        xy0 = afwGeom.Point2D(0,0)
-        if not detector is None:
-            cPix = detector.getCenterPixel()
-            detSize = detector.getSize()
-            xy0.setX(cPix.getX() - int(0.5*detSize.getMm()[0]))
-            xy0.setY(cPix.getY() - int(0.5*detSize.getMm()[1]))
-            distorter = detector.getDistortion()
+        if matches is None:
+            detector = exposure.getDetector()
+            distorter = None
+            xy0 = afwGeom.Point2D(0,0)
+            if not detector is None:
+                cPix = detector.getCenterPixel()
+                detSize = detector.getSize()
+                xy0.setX(cPix.getX() - int(0.5*detSize.getMm()[0]))
+                xy0.setY(cPix.getY() - int(0.5*detSize.getMm()[1]))
+                distorter = detector.getDistortion()
 
         mi = exposure.getMaskedImage()
         
@@ -156,20 +159,23 @@ class CatalogStarSelector(object):
         filterName = exposure.getFilter().getName()
         calib = exposure.getCalib()
 
-        astrom = Astrometry(Astrometry.ConfigClass())
-        cat = astrom.getReferenceSourcesForWcs(wcs, imageSize, filterName, trim=True, allFluxes=False)
-        if display and displayExposure > 1:
-            with ds9.Buffering():
-                for s in sources:
-                    if distorter:
-                        xpix, ypix = s.getX() + 0*xy0.getX(), s.getY() + 0*xy0.getY()
-                        m = distorter.undistort(afwGeom.Point2D(xpix, ypix), detector)
-                        s.set("centroid.sdss.x", m.getX()); s.set("centroid.sdss.y", m.getY())
-                    ds9.dot("+", s.getX(), s.getY(), ctype=ds9.YELLOW, frame=frames["displayExposure"])
-                for c in cat:
-                    x, y = wcs.skyToPixel(c.getCoord())
-                    ds9.dot("x", x, y, ctype=ds9.CYAN, frame=frames["displayExposure"])
-        matched = astrom._getMatchList(sources, cat, wcs)            
+        if matches is None:
+            astrom = Astrometry(Astrometry.ConfigClass())
+            cat = astrom.getReferenceSourcesForWcs(wcs, imageSize, filterName, trim=True, allFluxes=False)
+            if display and displayExposure > 1:
+                with ds9.Buffering():
+                    for s in sources:
+                        if distorter:
+                            xpix, ypix = s.getX() + 0*xy0.getX(), s.getY() + 0*xy0.getY()
+                            m = distorter.undistort(afwGeom.Point2D(xpix, ypix), detector)
+                            s.set("centroid.sdss.x", m.getX()); s.set("centroid.sdss.y", m.getY())
+                        ds9.dot("+", s.getX(), s.getY(), ctype=ds9.YELLOW, frame=frames["displayExposure"])
+                    for c in cat:
+                        x, y = wcs.skyToPixel(c.getCoord())
+                        ds9.dot("x", x, y, ctype=ds9.CYAN, frame=frames["displayExposure"])
+            matched = astrom._getMatchList(sources, cat, wcs)
+        else:
+            matched = matches
     
         isGoodSource = CheckSource(sources, self._fluxLim, self._fluxMax, self._badStarPixelFlags)
         #
