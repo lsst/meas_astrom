@@ -463,7 +463,7 @@ class Astrometry(object):
         rdc = wcs.pixelToSky(x0 + xc, y0 + yc)
         ra,dec = rdc.getLongitude(), rdc.getLatitude()
         self._debug('Getting reference sources using center: pixel (%.1f, %.1f) -> RA,Dec (%.3f, %.3f)' %
-                    (xc, yc, ra, dec))
+                    (xc, yc, ra.asDegrees(), dec.asDegrees()))
         pixelScale = wcs.pixelScale()
         rad = pixelScale * (math.hypot(W,H)/2. + pixelMargin)
         self._debug('Getting reference sources using radius of %.3g deg' % rad.asDegrees())
