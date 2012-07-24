@@ -187,14 +187,7 @@ class Astrometry(object):
 
         if self.config.calculateSip:
             sipwcs,matchList = self._calculateSipTerms(wcs, cat, sources, matchList)
-
-            # Remove this try block once #2184 is fixed.
-            try:
-                isUnchanged = (sipwcs == wcs)
-            except TypeError:
-                isUnchanged = False
-
-            if isUnchanged:
+            if sipwcs == wcs:
                 self._debug('Failed to find a SIP WCS better than the initial one.')
             else:
                 self._debug('%i reference objects match input sources using SIP WCS' % (len(matchList)))
