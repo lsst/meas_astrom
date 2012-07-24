@@ -6,6 +6,7 @@ import lsst.pex.logging as pexLog
 import lsst.pex.config as pexConfig
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
+from lsst.meas.photocal.colorterms import Colorterm
 import lsst.meas.algorithms.utils as maUtils
 
 from .config import MeasAstromConfig, AstrometryNetDataConfig
@@ -159,8 +160,11 @@ class Astrometry(object):
                                                           imageSize=imageSize,
                                                           filterName=filterName)
         pixelMargin = 50.
-        cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName, pixelMargin, x0=x0, y0=y0)
 
+        cat = self.getReferenceSourcesForWcs(
+            wcs, imageSize, filterName, pixelMargin, x0=x0, y0=y0,
+            allFluxes = (True if Colorterm.getColorterm(filterName) else False)
+            )
         catids = [src.getId() for src in cat]
         uids = set(catids)
         self.log.logdebug('%i reference sources; %i unique IDs' % (len(catids), len(uids)))
@@ -200,7 +204,9 @@ class Astrometry(object):
         W,H = imageSize
         astrom.matchMetadata = _createMetadata(W, H, wcs, filterName)
         astrom.wcs = wcs
-        astrom.matches = matchList
+        astrom.matches = afwTable.ReferenceMatchVector()
+        for m in matchList:
+            astrom.matches.push_back(m)
         return astrom
 
     def determineWcs(self,
@@ -494,13 +500,14 @@ class Astrometry(object):
         idcolumn = self.andConfig.idColumn
 
         magCol = self.getCatalogFilterName(filterName)
-        magerrCol = self.andConfig.magErrorColumnMap.get(filterName, None)
+        magerrCol = self.andConfig.magErrorColumnMap.get(magCol, None)
 
         if allFluxes:
             magCol = [magCol] + [x for x in self.andConfig.magColumnMap.keys() if x != magCol]
             tmp = [self.andConfig.magErrorColumnMap.get(x, None) for x in \
                        self.andConfig.magErrorColumnMap.keys()]
-            magerrCol = [magerrCol] + [x for x in tmp if x != magerrCol]
+            if magerrCol:
+                magerrCol = [magerrCol] + [x for x in tmp if x != magerrCol]
 
         '''
         Note about multiple astrometry_net index files and duplicate IDs:
@@ -745,7 +752,5 @@ def readMatches(butler, dataId, sourcesName='icSrc', matchesName='icMatch'):
     """
     sources = butler.get(sourcesName, dataId)
     packedMatches = butler.get(matchesName, dataId)
-    
     astrom = Astrometry(MeasAstromConfig())
     return astrom.joinMatchListWithCatalog(packedMatches, sources)
-
