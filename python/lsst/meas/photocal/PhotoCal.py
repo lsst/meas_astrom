@@ -271,7 +271,10 @@ class PhotoCalTask(pipeBase.Task):
         return pipeBase.Struct(
             photocal = photocal,
             arrays = arrays,
-            matches = matches
+            matches = matches,
+            zp = r.zp,
+            sigma = r.sigma,
+            ngood = r.ngood,
             )
 
     def getZeroPoint(self, src, ref, srcErr=None, zp0=None, 
