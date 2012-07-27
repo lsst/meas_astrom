@@ -28,6 +28,7 @@ import lsst.pex.logging as pexLog
 import lsst.pex.config as pexConf
 import lsst.pipe.base as pipeBase
 import lsst.afw.table as afwTable
+import lsst.afw.display.ds9 as ds9
 
 from lsst.meas.photocal.PhotometricMagnitude import PhotometricMagnitude
 
@@ -95,9 +96,14 @@ class PhotoCalTask(pipeBase.Task):
         return True
 
     @pipeBase.timeMethod
-    def selectMatches(self, matches):
+    def selectMatches(self, matches, frame=None):
         """Select reference/source matches according the criteria specified in the config.
-        
+
+        if frame is non-None, display information about trimmed objects on that ds9 frame:
+            Bad:               red x
+            Non-"photometric": blue +
+            Failed flux cut:   magenta o
+
         The return value is a ReferenceMatchVector that contains only the selected matches.
         If a schema was passed during task construction, a flag field will be set on sources 
         in the selected matches.
@@ -113,10 +119,22 @@ class PhotoCalTask(pipeBase.Task):
             raise ValueError("No input matches")
 
         # Only use stars for which the flags indicate the photometry is good.
-        afterFlagCut = [m for m in matches if self.checkSourceFlags(m.second)]
+        afterFlagCutInd = [i for i, m in enumerate(matches) if self.checkSourceFlags(m.second)]
+        afterFlagCut = [matches[i] for i in afterFlagCutInd]
         self.log.logdebug("Number of matches after source flag cuts: %d" % (len(afterFlagCut)))
+
+        if len(afterFlagCut) != len(matches):
+            if frame is not None:
+                with ds9.Buffering():
+                    for i, m in enumerate(matches):
+                        if i not in afterFlagCutInd:
+                            x, y = m.second.getCentroid()
+                            ds9.dot("x", x,  y, size=4, frame=frame, ctype=ds9.RED)
+
+            matches = afterFlagCut
+
         if len(matches) == 0:
-            raise ValueError("All matches eliminated by to source flags")
+            raise ValueError("All matches eliminated by source flags")
 
         refSchema = matches[0].first.schema
         try:
@@ -124,28 +142,53 @@ class PhotoCalTask(pipeBase.Task):
         except:
             self.log.warn("No 'photometric' flag key found in reference schema.")
             refKey = None
-        if refKey is not None:
-            afterRefCut = [m for m in afterFlagCut if m.first.get(refKey)]
-        else:
-            afterRefCut = afterFlagCut
 
-        self.log.logdebug("Number of matches after reference catalog cuts: %d" % (len(afterRefCut)))
-        if len(afterRefCut) == 0:
-            raise RuntimeError("No sources remaining in match list after reference catalog cuts.")
+        if refKey is not None:
+            afterRefCutInd = [i for i, m in enumerate(matches) if m.first.get(refKey)]
+            afterRefCut = [matches[i] for i in afterRefCutInd]
+
+            if len(afterRefCut) != len(matches):
+                if frame is not None:
+                    with ds9.Buffering():
+                        for i, m in enumerate(matches):
+                            if i not in afterRefCutInd:
+                                x, y = m.second.getCentroid()
+                                ds9.dot("+", x,  y, size=4, frame=frame, ctype=ds9.BLUE)
+
+                matches = afterRefCut
+
+        self.log.logdebug("Number of matches after reference catalog cuts: %d" % (len(matches)))
+        if len(matches) == 0:
+            raise RuntimeError("No sources remain in match list after reference catalog cuts.")
         
         fluxKey = refSchema.find("flux").key
         if self.config.magLimit is not None:
-            fluxLimit = 10.0**(-self.config.magLimit / 2.5)
-            afterMagCut = [m for m in afterRefCut if (m.first.get(fluxKey) > fluxLimit
-                                                      and m.second.get(self.flux) > 0.0)]
+            fluxLimit = 10.0**(-self.config.magLimit/2.5)
+
+            afterMagCutInd = [i for i, m in enumerate(matches) if (m.first.get(fluxKey) > fluxLimit
+                                                                   and m.second.get(self.flux) > 0.0)]
         else:
-            afterMagCut = [m for m in afterRefCut if m.second.get(self.flux) > 0.0]
-        self.log.logdebug("Number of matches after magnitude limit cuts: %d" % (len(afterMagCut)))
-        if len(afterRefCut) == 0:
+            afterMagCutInd = [i for i, m in enumerate(matches) if m.second.get(self.flux) > 0.0]
+
+        afterMagCut = [matches[i] for i in afterMagCutInd]
+
+        if len(afterMagCut) != len(matches):
+            if frame is not None:
+                with ds9.Buffering():
+                    for i, m in enumerate(matches):
+                        if i not in afterMagCutInd:
+                            x, y = m.second.getCentroid()
+                            ds9.dot("o", x,  y, size=3, frame=frame, ctype=ds9.MAGENTA)
+
+            matches = afterMagCut
+            
+        self.log.logdebug("Number of matches after magnitude limit cuts: %d" % (len(matches)))
+
+        if len(matches) == 0:
             raise RuntimeError("No sources remaining in match list after magnitude limit cuts.")
 
         result = afwTable.ReferenceMatchVector()
-        for m in afterMagCut:
+        for m in matches:
             if self.output is not None:
                 m.second.set(self.output, True)
             result.append(m)
@@ -222,32 +265,44 @@ class PhotoCalTask(pipeBase.Task):
             )
 
     @pipeBase.timeMethod
-    def run(self, matches, filterName):
+    def run(self, exposure, matches):
         """Do photometric calibration - select matches to use and (possibly iteratively) compute
         the zero point.
 
         @param[in]  matches   Input ReferenceMatchVector (will not be modified).
+        @param[in]  exposure   Input ReferenceMatchVector (will not be modified).
         
         @return Struct of:
            photocal ---- PhotometricMagnitude object containing the zero point
            arrays ------ Magnitude arrays returned be extractMagArrays
            matches ----- Final ReferenceMatchVector, as returned by selectMathces.
         """
-        
-
-        global display, fig
+        global scatterPlot, fig
         import lsstDebug
-        display = lsstDebug.Info(__name__).display
-        if display:
+        displaySources = lsstDebug.Info(__name__).displaySources
+        scatterPlot = lsstDebug.Info(__name__).scatterPlot
+        if scatterPlot:
             from matplotlib import pyplot
             try:
                 fig.clf()
             except:
                 fig = pyplot.figure()
 
-        matches = self.selectMatches(matches)
+        assert exposure
+        assert matches
 
-        arrays = self.extractMagArrays(matches, filterName)
+        if displaySources:
+            frame = 1
+            ds9.mtv(exposure, frame=frame, title="photocal")
+
+            with ds9.Buffering():
+                for m in matches:
+                    x, y = m.second.getCentroid()
+                    ds9.dot("o", x,  y, size=4, frame=frame, ctype=ds9.GREEN)
+            matches0 = matches
+
+        matches = self.selectMatches(matches, frame=frame)
+        arrays = self.extractMagArrays(matches, exposure.getFilter().getName())
 
         # Fit for zeropoint.  We can run the code more than once, so as to
         # give good stars that got clipped by a bad first guess a second
@@ -379,7 +434,7 @@ class PhotoCalTask(pipeBase.Task):
 
             #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-            if display:
+            if scatterPlot:
                 from matplotlib import pyplot
                 try:
                     fig.clf()
@@ -407,7 +462,7 @@ class PhotoCalTask(pipeBase.Task):
 
                     fig.show()
 
-                    if display > 1:
+                    if scatterPlot > 1:
                         while i == 0 or reply != "c":
                             try:
                                 reply = raw_input("Next iteration? [ynhpc] ")
