@@ -103,8 +103,8 @@ class PhotoCalTask(pipeBase.Task):
 
         if frame is non-None, display information about trimmed objects on that ds9 frame:
             Bad:               red x
-            Non-"photometric": blue +
-            Failed flux cut:   magenta o
+            Non-"photometric": blue +  (and a cyan o if a galaxy)
+            Failed flux cut:   magenta *
 
         The return value is a ReferenceMatchVector that contains only the selected matches.
         If a schema was passed during task construction, a flag field will be set on sources 
@@ -141,6 +141,15 @@ class PhotoCalTask(pipeBase.Task):
         refSchema = matches[0].first.schema
         try:
             refKey = refSchema.find("photometric").key
+            try:
+                stargalKey = refSchema.find("stargal").key
+            except:
+                stargalKey = None
+
+            try:
+                varKey = refSchema.find("var").key
+            except:
+                varKey = None
         except:
             self.log.warn("No 'photometric' flag key found in reference schema.")
             refKey = None
@@ -156,6 +165,11 @@ class PhotoCalTask(pipeBase.Task):
                             if i not in afterRefCutInd:
                                 x, y = m.second.getCentroid()
                                 ds9.dot("+", x,  y, size=4, frame=frame, ctype=ds9.BLUE)
+
+                                if stargalKey and not m.first.get(stargalKey):
+                                    ds9.dot("o", x,  y, size=6, frame=frame, ctype=ds9.CYAN)
+                                if varKey and m.first.get(varKey):
+                                    ds9.dot("o", x,  y, size=6, frame=frame, ctype=ds9.MAGENTA)
 
                 matches = afterRefCut
 
@@ -180,7 +194,7 @@ class PhotoCalTask(pipeBase.Task):
                     for i, m in enumerate(matches):
                         if i not in afterMagCutInd:
                             x, y = m.second.getCentroid()
-                            ds9.dot("o", x,  y, size=3, frame=frame, ctype=ds9.MAGENTA)
+                            ds9.dot("*", x,  y, size=4, frame=frame, ctype=ds9.MAGENTA)
 
             matches = afterMagCut
             
@@ -188,6 +202,12 @@ class PhotoCalTask(pipeBase.Task):
 
         if len(matches) == 0:
             raise RuntimeError("No sources remaining in match list after magnitude limit cuts.")
+
+        if frame is not None:
+            with ds9.Buffering():
+                for m in matches:
+                    x, y = m.second.getCentroid()
+                    ds9.dot("o", x,  y, size=4, frame=frame, ctype=ds9.GREEN)
 
         result = afwTable.ReferenceMatchVector()
         for m in matches:
@@ -293,8 +313,9 @@ class PhotoCalTask(pipeBase.Task):
         """
         global scatterPlot, fig
         import lsstDebug
-        displaySources = lsstDebug.Info(__name__).displaySources
-        scatterPlot = lsstDebug.Info(__name__).scatterPlot
+        display = lsstDebug.Info(__name__).display
+        displaySources = display and lsstDebug.Info(__name__).displaySources
+        scatterPlot = display and lsstDebug.Info(__name__).scatterPlot
         if scatterPlot:
             from matplotlib import pyplot
             try:
@@ -302,18 +323,14 @@ class PhotoCalTask(pipeBase.Task):
             except:
                 fig = pyplot.figure()
 
-        assert exposure
-        assert matches
+        assert exposure, "No exposure provided"
+        assert matches, "No matches provided"
 
         if displaySources:
             frame = 1
             ds9.mtv(exposure, frame=frame, title="photocal")
-
-            with ds9.Buffering():
-                for m in matches:
-                    x, y = m.second.getCentroid()
-                    ds9.dot("o", x,  y, size=4, frame=frame, ctype=ds9.GREEN)
-            matches0 = matches
+        else:
+            frame = None
 
         matches = self.selectMatches(matches, frame=frame)
         arrays = self.extractMagArrays(matches, exposure.getFilter().getName())
