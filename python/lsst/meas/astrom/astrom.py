@@ -3,6 +3,7 @@ import math
 
 import lsst.daf.base as dafBase
 import lsst.pex.logging as pexLog
+import lsst.pex.exceptions as pexExceptions
 import lsst.pex.config as pexConfig
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
@@ -384,7 +385,7 @@ class Astrometry(object):
             try:
                 sipObject = astromSip.CreateWcsWithSip(matchList, wcs, sipOrder)
                 proposedWcs = sipObject.getNewWcs()
-            except LsstCppException, e:
+            except pexExceptions.LsstCppException, e:
                 self._warn('Failed to calculate distortion terms. Error: ' + str(e))
                 break
 
