@@ -457,7 +457,7 @@ class Astrometry(object):
             return default
 
     def getReferenceSourcesForWcs(self, wcs, imageSize, filterName, pixelMargin=50,
-                                  x0=0, y0=0, trim=True, allFluxes=False):
+                                  x0=0, y0=0, trim=True, allFluxes=True):
         W,H = imageSize
         xc, yc = W/2. + 0.5, H/2. + 0.5
         rdc = wcs.pixelToSky(x0 + xc, y0 + yc)
