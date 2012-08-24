@@ -497,10 +497,22 @@ class Astrometry(object):
         magerrCol = self.andConfig.magErrorColumnMap.get(filterName, None)
 
         if allFluxes:
-            magCol = [magCol] + [x for x in self.andConfig.magColumnMap.keys() if x != magCol]
-            tmp = [self.andConfig.magErrorColumnMap.get(x, None) for x in \
-                       self.andConfig.magErrorColumnMap.keys()]
-            magerrCol = [magerrCol] + [x for x in tmp if x != magerrCol]
+            if magCol is None:
+                magCols = []
+                magerrCols = []
+            else:
+                magCols = [magCol]
+                if magerrCol is not None:
+                    magerrCols = [magerrCol]
+                else:
+                    magerrCols = []
+            magCols += [x for x in self.andConfig.magColumnMap.keys() if x != magCol]
+            tmp = [self.andConfig.magErrorColumnMap.get(x, None) for x in
+                   self.andConfig.magErrorColumnMap.keys()]
+            magerrCols += [x for x in tmp if x != magerrCol]
+
+            magCol = magCols
+            magerrCol = magerrCols
 
         '''
         Note about multiple astrometry_net index files and duplicate IDs:

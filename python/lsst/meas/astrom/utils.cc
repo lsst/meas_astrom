@@ -120,9 +120,15 @@ getCatalogImpl(std::vector<index_t*> inds,
    afwTable::Key<afwTable::Flag> photometricKey = schema.addField<afwTable::Flag>(
       "photometric", "set if the reference object can be used in photometric calibration"
       );
-            
-   // make catalog with no IdFactory, since IDs are external
-   afwTable::SimpleCatalog cat(afwTable::SimpleTable::make(schema, PTR(afwTable::IdFactory)()));
+
+   afwTable::SimpleCatalog cat;
+   if (idcol) {
+       // make catalog with no IdFactory, since IDs are external
+       cat = afwTable::SimpleCatalog(afwTable::SimpleTable::make(schema, PTR(afwTable::IdFactory)()));
+   } else {
+       // let the catalog assign IDs
+       cat = afwTable::SimpleCatalog(afwTable::SimpleTable::make(schema));
+   }
 
    // for unique_ids: keep track of the IDs we have already added to the result set.
    std::set<boost::int64_t> uids;
@@ -160,6 +166,28 @@ getCatalogImpl(std::vector<index_t*> inds,
 	 tfits_type flt = fitscolumn_float_type();
 	 tfits_type boo = fitscolumn_boolean_type();
 	 tfits_type i64 = fitscolumn_i64_type();
+
+         if (!tag) {
+             std::string msg = boost::str(boost::format("astrometry_net_data index file %s does not contain a tag-along table, "
+                                                        "so can't retrieve extra columns.  idcol=%s, stargalcol=%s, varcol=%s") %
+                                          ind->indexname % idcol % stargalcol % varcol);
+             msg += ", mags=[";
+             for (unsigned int i=0; i<nMag; i++) {
+                 if (i) {
+                     msg += ",";
+                 }
+                 msg += " '" + magcolVec[i] + "'";
+             }
+             msg += " ], magErrs=[";
+             for (unsigned int i=0; i<nMagErr; i++) {
+                 if (i) {
+                     msg += ",";
+                 }
+                 msg += " '" + magerrcolVec[i] + "'";
+             }
+             msg += " ]";
+             throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundException, msg);
+         }
 
 	 if (idcol) {
              id = static_cast<int64_t*>(fitstable_read_column_inds(tag, idcol, i64, starinds, nstars));
@@ -277,19 +305,21 @@ getCatalogImpl(std::vector<index_t*> inds,
              src->setId(id[i]);
          }
 
-	 for (unsigned int j = 0; j != nMag + 1; ++j) { // +1 for "flux" column
-	    // Dustin thinks converting to flux is 'LAME!';
-	    // Jim thinks it's nice for consistency (and photocal wants fluxes
-	    // as inputs, so we'll continue to go with that for now) even though
-	    // we don't need to anymore.
-	    // Dustin rebuts that photocal immediately converts those fluxes into mags,
-	    // so :-P
-	    double flux = pow(10.0, -0.4*mag[j][i]);
-	    src->set(fluxKey[j], flux);
-	    if (j < nMagErr) {
-	       src->set(fluxErrKey[j], -0.4*magerr[j][i]*flux*std::log(10.0));
-	    }
-	 }
+         if (nMag) {
+             for (unsigned int j = 0; j != nMag + 1; ++j) { // +1 for "flux" column
+                 // Dustin thinks converting to flux is 'LAME!';
+                 // Jim thinks it's nice for consistency (and photocal wants fluxes
+                 // as inputs, so we'll continue to go with that for now) even though
+                 // we don't need to anymore.
+                 // Dustin rebuts that photocal immediately converts those fluxes into mags,
+                 // so :-P
+                 double flux = pow(10.0, -0.4*mag[j][i]);
+                 src->set(fluxKey[j], flux);
+                 if (j < nMagErr) {
+                     src->set(fluxErrKey[j], -0.4*magerr[j][i]*flux*std::log(10.0));
+                 }
+             }
+         }
 
 	 bool ok = true;
 	 if (stargal) {
@@ -304,11 +334,11 @@ getCatalogImpl(std::vector<index_t*> inds,
       }
 
       free(id);
-      for (unsigned int j = 0; j != nMag; ++j) {
+      for (unsigned int j = 0; j < mag.size(); ++j) {
          free(mag[j]);
-	 if (j < magerr.size()) {
-             free(magerr[j]);
-         }
+      }
+      for (unsigned int j = 0; j < magerr.size(); ++j) {
+          free(magerr[j]);
       }
       free(stargal);
       free(var);

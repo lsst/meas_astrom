@@ -175,8 +175,12 @@ static time_t timer_callback(void* baton) {
        std::vector<std::string> magcolVec;
        std::vector<std::string> magerrcolVec;
 
-       magcolVec.push_back(std::string(magcol ? magcol : ""));
-       magerrcolVec.push_back(std::string(magerrcol ? magerrcol : ""));
+       if (magcol) {
+           magcolVec.push_back(std::string(magcol));
+       }
+       if (magerrcol) {
+           magerrcolVec.push_back(std::string(magerrcol));
+       }
 
        return lsst::meas::astrom::detail::getCatalogImpl(inds, ra, dec, radius,
                                                          idcol, magcolVec, magerrcolVec, stargalcol, varcol,
