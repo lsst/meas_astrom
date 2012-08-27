@@ -35,7 +35,6 @@ import lsst.afw.geom.ellipses as geomEllip
 import lsst.afw.cameraGeom as cameraGeom
 from lsst.meas.astrom.astrom import Astrometry
 import lsst.meas.algorithms as measAlg
-from lsst.meas.algorithms.starSelectorRegistry import starSelectorRegistry
 
 class CatalogStarSelectorConfig(pexConfig.Config):
     fluxLim = pexConfig.Field(
@@ -183,6 +182,7 @@ class CatalogStarSelector(object):
             matched = matches
     
         isGoodSource = CheckSource(sources, self._fluxLim, self._fluxMax, self._badStarPixelFlags)
+
         #
         # Go through and find all the PSFs in the catalogue
         #
@@ -228,9 +228,10 @@ class CatalogStarSelector(object):
                     ds9.dot(symb, source.getX() - mi.getX0(), source.getY() - mi.getY0(),
                             size=4, frame=frames["displayExposure"], ctype=ctype)
 
-        if pauseAtEnd:
+        if display and pauseAtEnd:
             raw_input("Continue? y[es] p[db] ")
 
         return psfCandidateList
 
-starSelectorRegistry.register("catalog", CatalogStarSelector)
+measAlg.starSelectorRegistry.register("catalog", CatalogStarSelector)
+

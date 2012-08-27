@@ -23,7 +23,9 @@ import lsst.utils
 
 import sip
 from config import MeasAstromConfig, AstrometryNetDataConfig
-import astrom
-from lsst.meas.astrom.astrom import Astrometry
+from . import astrom
+from .astrom import Astrometry
+
+from . import catalogStarSelector
 
 from .version import *
