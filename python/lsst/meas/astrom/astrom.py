@@ -194,7 +194,9 @@ class Astrometry(object):
         W,H = imageSize
         astrom.matchMetadata = _createMetadata(W, H, wcs, filterName)
         astrom.wcs = wcs
-        astrom.matches = matchList
+        astrom.matches = afwTable.ReferenceMatchVector()
+        for m in matchList:
+            astrom.matches.push_back(m)
         return astrom
 
     def determineWcs(self,
@@ -739,7 +741,6 @@ def readMatches(butler, dataId, sourcesName='icSrc', matchesName='icMatch'):
     """
     sources = butler.get(sourcesName, dataId)
     packedMatches = butler.get(matchesName, dataId)
-    
     astrom = Astrometry(MeasAstromConfig())
     return astrom.joinMatchListWithCatalog(packedMatches, sources)
 
