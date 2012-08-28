@@ -313,9 +313,11 @@ class PhotoCalTask(pipeBase.Task):
         """
         global scatterPlot, fig
         import lsstDebug
+
         display = lsstDebug.Info(__name__).display
         displaySources = display and lsstDebug.Info(__name__).displaySources
         scatterPlot = display and lsstDebug.Info(__name__).scatterPlot
+
         if scatterPlot:
             from matplotlib import pyplot
             try:
@@ -378,12 +380,19 @@ class PhotoCalTask(pipeBase.Task):
         """
 
         dmag = ref - src
+
         i = np.argsort(dmag)
         dmag = dmag[i]
+        
         if srcErr is not None:
             dmagErr = srcErr[i]
         else:
             dmagErr = np.ones(len(dmag))
+
+        # need to remove nan elements to avoid errors in stats calculation with numpy
+        ind_noNan = np.array([ i for i in range(len(dmag)) if (not np.isnan(dmag[i]) and not np.isnan(dmagErr[i])) ])
+        dmag = dmag[ind_noNan]
+        dmagErr = dmagErr[ind_noNan]
 
         IQ_TO_STDEV = 0.741301109252802;    # 1 sigma in units of interquartile (assume Gaussian)
 
