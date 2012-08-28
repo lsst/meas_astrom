@@ -3,6 +3,7 @@ import math
 
 import lsst.daf.base as dafBase
 import lsst.pex.logging as pexLog
+import lsst.pex.exceptions as pexExceptions
 import lsst.pex.config as pexConfig
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
@@ -183,14 +184,7 @@ class Astrometry(object):
 
         if self.config.calculateSip:
             sipwcs,matchList = self._calculateSipTerms(wcs, cat, sources, matchList)
-
-            # Remove this try block once #2184 is fixed.
-            try:
-                isUnchanged = (sipwcs == wcs)
-            except TypeError:
-                isUnchanged = False
-
-            if isUnchanged:
+            if sipwcs == wcs:
                 self._debug('Failed to find a SIP WCS better than the initial one.')
             else:
                 self._debug('%i reference objects match input sources using SIP WCS' % (len(matchList)))
@@ -200,7 +194,9 @@ class Astrometry(object):
         W,H = imageSize
         astrom.matchMetadata = _createMetadata(W, H, wcs, filterName)
         astrom.wcs = wcs
-        astrom.matches = matchList
+        astrom.matches = afwTable.ReferenceMatchVector()
+        for m in matchList:
+            astrom.matches.push_back(m)
         return astrom
 
     def determineWcs(self,
@@ -391,7 +387,7 @@ class Astrometry(object):
             try:
                 sipObject = astromSip.CreateWcsWithSip(matchList, wcs, sipOrder)
                 proposedWcs = sipObject.getNewWcs()
-            except LsstCppException, e:
+            except pexExceptions.LsstCppException, e:
                 self._warn('Failed to calculate distortion terms. Error: ' + str(e))
                 break
 
@@ -745,7 +741,6 @@ def readMatches(butler, dataId, sourcesName='icSrc', matchesName='icMatch'):
     """
     sources = butler.get(sourcesName, dataId)
     packedMatches = butler.get(matchesName, dataId)
-    
     astrom = Astrometry(MeasAstromConfig())
     return astrom.joinMatchListWithCatalog(packedMatches, sources)
 
