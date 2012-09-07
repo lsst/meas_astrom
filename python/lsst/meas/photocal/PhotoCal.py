@@ -30,8 +30,7 @@ import lsst.pex.logging as pexLog
 import lsst.pex.config as pexConf
 import lsst.pipe.base as pipeBase
 import lsst.afw.table as afwTable
-
-from lsst.meas.photocal.PhotometricMagnitude import PhotometricMagnitude
+import lsst.afw.image as afwImage
 
 try:
     import matplotlib.pyplot as pyplot
@@ -231,7 +230,7 @@ class PhotoCalTask(pipeBase.Task):
         @param[in]  matches   Input ReferenceMatchVector (will not be modified).
         
         @return Struct of:
-           photocal ---- PhotometricMagnitude object containing the zero point
+           calib ------- Calib object containing the zero point
            arrays ------ Magnitude arrays returned be extractMagArrays
            matches ----- Final ReferenceMatchVector, as returned by selectMathces.
         """
@@ -260,6 +259,7 @@ class PhotoCalTask(pipeBase.Task):
         useMedian = [True]
         niter = [20]                        # number of iterations
 
+        calib = afwImage.Calib()
         zp = None                           # initial guess
         for i in range(len(nsigma)):
             r = self.getZeroPoint(arrays.srcMag, arrays.refMag, arrays.magErr, zp0=zp,
@@ -268,10 +268,13 @@ class PhotoCalTask(pipeBase.Task):
             zp = r.zp
             self.log.info("Magnitude zero point: %f +/- %f from %d stars" % (r.zp, r.sigma, r.ngood))
 
-        photocal = PhotometricMagnitude(zeroFlux=1.0, zeroMag=zp)
+        flux0 = 10**(0.4*r.zp) # Flux of mag=0 star
+        flux0err = 0.4*math.log(10)*flux0*r.sigma # Error in flux0
         
+        calib.setFluxMag0(flux0, flux0err)
+
         return pipeBase.Struct(
-            photocal = photocal,
+            calib = calib,
             arrays = arrays,
             matches = matches
             )
