@@ -91,15 +91,12 @@ class CheckSource(object):
 class CatalogStarSelector(object):
     ConfigClass = CatalogStarSelectorConfig
 
-    def __init__(self, config=None, schema=None, key=None):
+    def __init__(self, config=None):
         """Construct a star selector that uses second moments
         
         This is a naive algorithm and should be used with caution.
         
         @param[in] config: An instance of CatalogStarSelectorConfig
-        @param[in,out] schema: An afw.table.Schema to register the selector's flag field.
-                               If None, the sources will not be modified.
-        @param[in] key: An existing Flag Key to use instead of registering a new field.
         """
         if not config:
             config = CatalogStarSelector.ConfigClass()
@@ -109,16 +106,6 @@ class CatalogStarSelector(object):
         self._fluxLim  = config.fluxLim
         self._fluxMax  = config.fluxMax
         self._badStarPixelFlags = config.badStarPixelFlags
-
-        if key is not None:
-            self._key = key
-            if schema is not None and key not in schema:
-                raise LookupError("The key passed to the star selector is not present in the schema")
-        elif schema is not None:
-            self._key = schema.addField("classification.catalogstar", type="Flag",
-                                        doc="selected as a star by CatalogStarSelector")
-        else:
-            self._key = None
             
     def selectStars(self, exposure, sources, matches=None):
         """Return a list of PSF candidates that represent likely stars
@@ -189,8 +176,6 @@ class CatalogStarSelector(object):
                             max = afwMath.makeStatistics(im, afwMath.MAX).getValue()
                             if not numpy.isfinite(max):
                                 continue
-                            if self._key is not None:
-                                source.set(self._key, True)
                             psfCandidateList.append(psfCandidate)
 
                             symb, ctype = "+", ds9.GREEN
