@@ -187,7 +187,7 @@ class Astrometry(object):
             assert(m.second in sources)
 
         if self.config.calculateSip:
-            sipwcs,matchList = self._calculateSipTerms(wcs, cat, sources, matchList)
+            sipwcs,matchList = self._calculateSipTerms(wcs, cat, sources, matchList, imageSize)
             if sipwcs == wcs:
                 self._debug('Failed to find a SIP WCS better than the initial one.')
             else:
@@ -381,16 +381,18 @@ class Astrometry(object):
                     (xc, yc, rdc.getLongitude().asDegrees(), rdc.getLatitude().asDegrees()))
         return wcs,qa
 
-    def _calculateSipTerms(self, origWcs, cat, sources, matchList):
+    def _calculateSipTerms(self, origWcs, cat, sources, matchList, imageSize):
         '''Iteratively calculate sip distortions and regenerate matchList based on improved wcs'''
         sipOrder = self.config.sipOrder
         wcs = origWcs
+        bbox = afwGeom.Box2I(afwGeom.Point2I(0,0), afwGeom.Extent2I(imageSize[0], imageSize[1]))
 
         i=0
         while True:
             try:
-                sipObject = astromSip.CreateWcsWithSip(matchList, wcs, sipOrder)
+                sipObject = astromSip.CreateWcsWithSip(matchList, wcs, sipOrder, bbox)
                 proposedWcs = sipObject.getNewWcs()
+                self.plotSolution(matchList, proposedWcs, imageSize)
             except pexExceptions.LsstCppException, e:
                 self._warn('Failed to calculate distortion terms. Error: ' + str(e))
                 break
@@ -409,6 +411,84 @@ class Astrometry(object):
             i += 1
 
         return wcs, matchList
+
+    def plotSolution(self, matchList, wcs, imageSize):
+        """Plot the solution, when debugging is turned on.
+
+        @param matchList   The list of matches
+        @param wcs         The Wcs
+        @param imageSize   2-tuple with the image size (W,H)
+        """
+        import lsstDebug
+        display = lsstDebug.Info(__name__).display 
+        if not display:
+            return
+
+        try:
+            import matplotlib.pyplot as plt
+            import numpy
+        except ImportError:
+            print >> sys.stderr, "Unable to import matplotlib: %s" % e
+            return
+
+        fig = plt.figure(1)
+        fig.clf()
+        try:
+            fig.canvas._tkcanvas._root().lift() # == Tk's raise, but raise is a python reserved word
+        except:                                 # protect against API changes
+            pass
+
+        num = len(matchList)
+        x = numpy.zeros(num)
+        y = numpy.zeros(num)
+        dx = numpy.zeros(num)
+        dy = numpy.zeros(num)
+        for i, m in enumerate(matchList):
+            x[i] = m.second.getX()
+            y[i] = m.second.getY()
+            pixel = wcs.skyToPixel(m.first.getCoord())
+            dx[i] = x[i] - pixel.getX()
+            dy[i] = y[i] - pixel.getY()
+
+        subplots = maUtils.makeSubplots(fig, 2, 2, xgutter=0.1, ygutter=0.1, pygutter=0.04)
+
+        def plotNext(x, y, xLabel, yLabel, xMax):
+            ax = subplots.next()
+            ax.set_autoscalex_on(False)
+            ax.set_xbound(lower=0, upper=xMax)
+            ax.scatter(x, y)
+            ax.set_xlabel(xLabel)
+            ax.set_ylabel(yLabel)
+            ax.axhline(0.0)
+
+        plotNext(x, dx, "x", "dx", imageSize[0])
+        plotNext(x, dy, "x", "dy", imageSize[0])
+        plotNext(y, dx, "y", "dx", imageSize[1])
+        plotNext(y, dy, "y", "dy", imageSize[1])
+
+        fig.show()
+
+        while True:
+            try:
+                reply = raw_input("Pausing for inspection, enter to continue... [hpQ] ").strip()
+            except EOFError:
+                reply = "n"
+
+            reply = reply.split()
+            if reply:
+                reply, args = reply[0], reply[1:]
+            else:
+                reply = ""
+
+            if reply in ("", "h", "p", "Q"):
+                if reply == "h":
+                    print "h[elp] p[db] Q[uit]"
+                    continue
+                elif reply == "p":
+                    import pdb; pdb.set_trace() 
+                elif reply == "Q":
+                    sys.exit(1)
+                break
 
     def _getMatchList(self, sources, cat, wcs):
         dist = self.config.catalogMatchDist * afwGeom.arcseconds
