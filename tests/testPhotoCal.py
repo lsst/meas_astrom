@@ -203,7 +203,7 @@ class PhotoCalTest(unittest.TestCase):
         config.outputField = None    # schema is fixed because we already loaded the data
         task = photocal.PhotoCalTask(config=config, schema=schema)
         pCal = task.run(matches, passband)
-        print pCal.photocal
+        print pCal.calib
 
         # These are all matches; we don't really expect to do that well.
         diff=[]
@@ -215,7 +215,7 @@ class PhotoCalTest(unittest.TestCase):
             instFlux = m[1].get(task.flux)    #Instrumental Flux
             if instFlux <= 0:
                 continue
-            mag = pCal.photocal.getMag(instFlux)     #Instrumental mag
+            mag = pCal.calib.getMagnitude(instFlux)     #Instrumental mag
             diff.append(mag - catMag)
         diff = np.array(diff)
 
@@ -225,7 +225,7 @@ class PhotoCalTest(unittest.TestCase):
         self.assertAlmostEqual(np.mean(diff), 0, 0)
 
         # Differences of matched objects that were used in the fit.
-        zp = pCal.photocal.getMag(1.)
+        zp = pCal.calib.getMagnitude(1.)
         log.logdebug('zeropoint: %g' % zp)
         fitdiff = pCal.arrays.srcMag + zp - pCal.arrays.refMag
         log.logdebug('number of sources used in fit: %i' % len(fitdiff))
