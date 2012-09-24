@@ -100,11 +100,6 @@ static time_t timer_callback(void* baton) {
 %template(VectorOfIndexPtr) std::vector<index_t*>;
 %newobject solver_new;
 %newobject index_load;
-/*
- %typemap(newfree) solver_t* {
- printf("I'm the newfree typemap for solver_t\n");
- };
- */
 %include "solver.h"
 %include "index.h"
 
@@ -120,15 +115,8 @@ static time_t timer_callback(void* baton) {
     }
     %}
 
-/* swig doesn't notice the typedef? grumble grumble.
- %extend index_t {
- ~index_t() {
- printf("Deleting index_t %s\n", $self->indexname);
- index_free($self);
- }
- }
- */
-
+// index_t is a typedef of index_s, but swig doesn't notice the typedef, grumble
+// grumble.
 %extend index_s {
     ~index_s() {
         //printf("Deleting index_s %s\n", $self->indexname);
@@ -151,14 +139,27 @@ static time_t timer_callback(void* baton) {
        getCatalog(std::vector<index_t*> inds,
 		  double ra, double dec, double radius,
 		  const char* idcol,
+		  std::vector<std::string> const& magnameVec,
 		  std::vector<std::string> const& magcolVec,
 		  std::vector<std::string> const& magerrcolVec,
 		  const char* stargalcol,
 		  const char* varcol,
 		  bool unique_ids=true)
     {
+        if ((magnameVec.size() != magcolVec.size()) || (magnameVec.size() != magerrcolVec.size())) {
+            throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterException,
+                              "Mag name, mag column, and mag error column vectors must be the same length.");
+        }
+        std::vector<lsst::meas::astrom::detail::mag_column_t> magcols;
+        for (size_t i=0; i<magnameVec.size(); ++i) {
+            lsst::meas::astrom::detail::mag_column_t mc;
+            mc.name = magnameVec[i];
+            mc.magcol = magcolVec[i];
+            mc.magerrcol = magerrcolVec[i];
+            magcols.push_back(mc);
+        }
         return lsst::meas::astrom::detail::getCatalogImpl(inds, ra, dec, radius,
-                                                          idcol, magcolVec, magerrcolVec, stargalcol, varcol,
+                                                          idcol, magcols, stargalcol, varcol,
                                                           unique_ids);
     }
 
@@ -172,15 +173,26 @@ static time_t timer_callback(void* baton) {
                    const char* varcol,
                    bool unique_ids=true)
     {
-       std::vector<std::string> magcolVec;
-       std::vector<std::string> magerrcolVec;
+        std::vector<lsst::meas::astrom::detail::mag_column_t> cols;
 
-       magcolVec.push_back(std::string(magcol ? magcol : ""));
-       magerrcolVec.push_back(std::string(magerrcol ? magerrcol : ""));
+        if (magcol || magerrcol) {
+            lsst::meas::astrom::detail::mag_column_t mc;
+            mc.name = (magcol ? magcol : magerrcol);
+            mc.magcol = (magcol ? magcol : "");
+            mc.magerrcol = (magerrcol ? magerrcol : "");
+            cols.push_back(mc);
 
-       return lsst::meas::astrom::detail::getCatalogImpl(inds, ra, dec, radius,
-                                                         idcol, magcolVec, magerrcolVec, stargalcol, varcol,
-                                                         unique_ids);
+            // Also add plain old "flux"/"flux.err" schema entries.
+            if (magcol) {
+                mc.name = "flux";
+                mc.magcol = magcol;
+                mc.magerrcol = (magerrcol ? magerrcol : "");
+                cols.push_back(mc);
+            }
+        }
+        return lsst::meas::astrom::detail::getCatalogImpl(inds, ra, dec, radius,
+                                                          idcol, cols, stargalcol, varcol,
+                                                          unique_ids);
     }
 
     PTR(lsst::daf::base::PropertyList) getSolveStats() {
