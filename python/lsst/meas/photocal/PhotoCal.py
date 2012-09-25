@@ -303,8 +303,8 @@ class PhotoCalTask(pipeBase.Task):
         """Do photometric calibration - select matches to use and (possibly iteratively) compute
         the zero point.
 
-        @param[in]  matches   Input ReferenceMatchVector (will not be modified).
-        @param[in]  exposure   Input ReferenceMatchVector (will not be modified).
+        @param[in]  exposure   Exposure upon which the sources in the matches were detected.
+        @param[in]  matches    Input ReferenceMatchVector (will not be modified).
         
         @return Struct of:
            photocal ---- PhotometricMagnitude object containing the zero point
