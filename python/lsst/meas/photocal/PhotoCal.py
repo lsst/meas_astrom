@@ -325,9 +325,6 @@ class PhotoCalTask(pipeBase.Task):
             except:
                 fig = pyplot.figure()
 
-        assert exposure, "No exposure provided"
-        assert matches, "No matches provided"
-
         if displaySources:
             frame = 1
             ds9.mtv(exposure, frame=frame, title="photocal")
