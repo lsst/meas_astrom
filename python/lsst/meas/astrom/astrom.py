@@ -32,14 +32,15 @@ class InitialAstrometry(object):
     
     '''
     def __init__(self):
-        self.matches = None
+        self.matches = afwTable.ReferenceMatchVector()
         self.wcs = None
+        self.matchMetadata = dafBase.PropertyList()
     def getMatches(self):
         return self.matches
     def getWcs(self):
         return self.wcs
     def getMatchMetadata(self):
-        return getattr(self, 'matchMetadata', None)
+        return self.matchMetadata
 
 class Astrometry(object):
     ConfigClass = MeasAstromConfig
@@ -848,4 +849,3 @@ def readMatches(butler, dataId, sourcesName='icSrc', matchesName='icMatch'):
     packedMatches = butler.get(matchesName, dataId)
     astrom = Astrometry(MeasAstromConfig())
     return astrom.joinMatchListWithCatalog(packedMatches, sources)
-
