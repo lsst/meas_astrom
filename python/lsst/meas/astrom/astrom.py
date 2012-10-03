@@ -32,14 +32,15 @@ class InitialAstrometry(object):
     
     '''
     def __init__(self):
-        self.matches = None
+        self.matches = afwTable.ReferenceMatchVector()
         self.wcs = None
+        self.matchMetadata = dafBase.PropertyList()
     def getMatches(self):
         return self.matches
     def getWcs(self):
         return self.wcs
     def getMatchMetadata(self):
-        return getattr(self, 'matchMetadata', None)
+        return self.matchMetadata
 
 class Astrometry(object):
     ConfigClass = MeasAstromConfig
@@ -149,6 +150,7 @@ class Astrometry(object):
         """
         # return value:
         astrom = InitialAstrometry()
+        astrom.matchMetadata = _createMetadata(W, H, wcs, filterName)
 
         if wcs is None:
             if exposure is None:
@@ -196,7 +198,6 @@ class Astrometry(object):
             astrom.sipMatches = matchList
 
         W,H = imageSize
-        astrom.matchMetadata = _createMetadata(W, H, wcs, filterName)
         astrom.wcs = wcs
         astrom.matches = afwTable.ReferenceMatchVector()
         for m in matchList:
