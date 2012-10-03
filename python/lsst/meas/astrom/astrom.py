@@ -150,7 +150,6 @@ class Astrometry(object):
         """
         # return value:
         astrom = InitialAstrometry()
-        astrom.matchMetadata = _createMetadata(W, H, wcs, filterName)
 
         if wcs is None:
             if exposure is None:
@@ -198,6 +197,7 @@ class Astrometry(object):
             astrom.sipMatches = matchList
 
         W,H = imageSize
+        astrom.matchMetadata = _createMetadata(W, H, wcs, filterName)
         astrom.wcs = wcs
         astrom.matches = afwTable.ReferenceMatchVector()
         for m in matchList:
