@@ -32,7 +32,7 @@ class InitialAstrometry(object):
     
     '''
     def __init__(self):
-        self.matches = afwTable.ReferenceMatchVector()
+        self.matches = None
         self.wcs = None
         self.matchMetadata = dafBase.PropertyList()
     def getMatches(self):
