@@ -28,13 +28,8 @@ import lsst.pex.logging as pexLog
 import lsst.pex.config as pexConf
 import lsst.pipe.base as pipeBase
 import lsst.afw.table as afwTable
-import lsst.afw.display.ds9 as ds9
 import lsst.afw.image as afwImage
-
-#try:
-#    import matplotlib.pyplot as pyplot
-#except ImportError:
-#    pyplot = None
+import lsst.afw.display.ds9 as ds9
 
 def checkSourceFlags(source, keys):
     """Return True if the given source has all good flags set and none of the bad flags set."""
@@ -70,6 +65,12 @@ class PhotoCalConfig(pexConf.Config):
         default=["flags.pixel.edge", "flags.pixel.interpolated.any", "flags.pixel.saturated.any"], 
         doc="List of source flag fields that will cause a source to be rejected when they are set."
         )
+    sigmaMax = pexConf.Field(dtype=float, default=0.25, optional=True,
+                              doc="maximum sigma to use when clipping")
+    nSigma = pexConf.Field(dtype=float, default=3.0, optional=False, doc="clip at nSigma")
+    useMedian = pexConf.Field(dtype=bool, default=True,
+                              doc="use median instead of mean to compute zeropoint")
+    nIter = pexConf.Field(dtype=int, default=20, optional=False, doc="number of iterations")
 
 class PhotoCalTask(pipeBase.Task):
     """Calculate the zero point of an exposure given a ReferenceMatchVector.
@@ -242,7 +243,19 @@ class PhotoCalTask(pipeBase.Task):
 
         if ct:                          # we have a colour term to worry about
             fluxNames = [ct.primary, ct.secondary]
-        else:
+            missingFluxes = []
+            for flux in fluxNames:
+                try:
+                    refSchema.find(flux).key
+                except KeyError:
+                    missingFluxes.append(flux)
+
+            if missingFluxes:
+                self.log.warn("Source catalog does not have fluxes for %s; ignoring color terms" %
+                              " ".join(missingFluxes))
+                ct = None
+                
+        if not ct:
             fluxNames = ["flux"]
 
         refFluxes = []
@@ -291,8 +304,8 @@ class PhotoCalTask(pipeBase.Task):
         """Do photometric calibration - select matches to use and (possibly iteratively) compute
         the zero point.
 
-        @param[in]  matches   Input ReferenceMatchVector (will not be modified).
-        @param[in]  exposure   Input ReferenceMatchVector (will not be modified).
+        @param[in]  exposure   Exposure upon which the sources in the matches were detected.
+        @param[in]  matches    Input ReferenceMatchVector (will not be modified).
         
         @return Struct of:
            calib ------- Calib object containing the zero point
@@ -313,9 +326,6 @@ class PhotoCalTask(pipeBase.Task):
             except:
                 fig = pyplot.figure()
 
-        assert exposure, "No exposure provided"
-        assert matches, "No matches provided"
-
         if displaySources:
             frame = 1
             ds9.mtv(exposure, frame=frame, title="photocal")
@@ -330,19 +340,12 @@ class PhotoCalTask(pipeBase.Task):
         # give good stars that got clipped by a bad first guess a second
         # chance.
         # FIXME: these should be config values
-        sigma_max = [0.25]                  # maximum sigma to use when clipping
-        nsigma = [3.0]                      # clip at nsigma
-        useMedian = [True]
-        niter = [20]                        # number of iterations
 
         calib = afwImage.Calib()
         zp = None                           # initial guess
-        for i in range(len(nsigma)):
-            r = self.getZeroPoint(arrays.srcMag, arrays.refMag, arrays.magErr, zp0=zp,
-                                  useMedian=useMedian[i], sigma_max=sigma_max[i],
-                                  nsigma=nsigma[i], niter=niter[i])
-            zp = r.zp
-            self.log.info("Magnitude zero point: %f +/- %f from %d stars" % (r.zp, r.sigma, r.ngood))
+        r = self.getZeroPoint(arrays.srcMag, arrays.refMag, arrays.magErr, zp0=zp)
+        zp = r.zp
+        self.log.info("Magnitude zero point: %f +/- %f from %d stars" % (r.zp, r.sigma, r.ngood))
 
         flux0 = 10**(0.4*r.zp) # Flux of mag=0 star
         flux0err = 0.4*math.log(10)*flux0*r.sigma # Error in flux0
@@ -358,19 +361,20 @@ class PhotoCalTask(pipeBase.Task):
             ngood = r.ngood,
             )
 
-    def getZeroPoint(self, src, ref, srcErr=None, zp0=None, 
-                     useMedian=True, sigma_max=None, nsigma=2, niter=3):
+    def getZeroPoint(self, src, ref, srcErr=None, zp0=None):
         """Flux calibration code, returning (ZeroPoint, Distribution Width, Number of stars)
 
-        We perform niter iterations of a simple sigma-clipping algorithm with a a couple of twists:
+        We perform nIter iterations of a simple sigma-clipping algorithm with a a couple of twists:
         1.  We use the median/interquartile range to estimate the position to clip around, and the
         "sigma" to use.
-        2.  We never allow sigma to go _above_ a critical value sigma_max --- if we do, a sufficiently
+        2.  We never allow sigma to go _above_ a critical value sigmaMax --- if we do, a sufficiently
         large estimate will prevent the clipping from ever taking effect.
         3.  Rather than start with the median we start with a crude mode.  This means that a set of magnitude
         residuals with a tight core and asymmetrical outliers will start in the core.  We use the width of
         this core to set our maximum sigma (see 2.)  
         """
+
+        sigmaMax = self.config.sigmaMax
 
         dmag = ref - src
 
@@ -391,7 +395,7 @@ class PhotoCalTask(pipeBase.Task):
 
         npt = len(dmag)
         ngood = npt
-        for i in range(niter):
+        for i in range(self.config.nIter):
             if i > 0:
                 npt = sum(good)
 
@@ -435,15 +439,15 @@ class PhotoCalTask(pipeBase.Task):
 
                     sig = (q3 - q1)/2.3 # estimate of standard deviation (based on FWHM; 2.358 for Gaussian)
 
-                    if sigma_max is None:
-                        sigma_max = 2*sig   # upper bound on st. dev. for clipping. multiplier is a heuristic
+                    if sigmaMax is None:
+                        sigmaMax = 2*sig   # upper bound on st. dev. for clipping. multiplier is a heuristic
 
                     self.log.logdebug("Photo calibration histogram: center = %.2f, sig = %.2f" 
                                       % (center, sig))
 
                 else:
-                    if sigma_max is None:
-                        sigma_max = dmag[-1] - dmag[0]
+                    if sigmaMax is None:
+                        sigmaMax = dmag[-1] - dmag[0]
 
                     center = np.median(dmag)
                     q1 = dmag[int(0.25*npt)]
@@ -452,7 +456,7 @@ class PhotoCalTask(pipeBase.Task):
 
             if center is None:              # usually equivalent to (i > 0)
                 gdmag = dmag[good]
-                if useMedian:
+                if self.config.useMedian:
                     center = np.median(gdmag)
                 else:
                     gdmagErr = dmagErr[good]
@@ -463,7 +467,7 @@ class PhotoCalTask(pipeBase.Task):
 
                 sig = IQ_TO_STDEV*(q3 - q1)     # estimate of standard deviation
 
-            good = abs(dmag - center) < nsigma*min(sig, sigma_max) # don't clip too softly
+            good = abs(dmag - center) < self.config.nSigma*min(sig, sigmaMax) # don't clip too softly
 
             #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 

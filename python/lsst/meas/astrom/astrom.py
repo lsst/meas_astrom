@@ -575,14 +575,25 @@ class Astrometry(object):
         idcolumn = self.andConfig.idColumn
 
         magCol = self.getCatalogFilterName(filterName)
-        magerrCol = self.andConfig.magErrorColumnMap.get(magCol, None)
+        magerrCol = self.andConfig.magErrorColumnMap.get(filterName, '')
 
         if allFluxes:
-            magCol = [magCol] + [x for x in self.andConfig.magColumnMap.keys() if x != magCol]
-            tmp = [self.andConfig.magErrorColumnMap.get(x, None) for x in \
-                       self.andConfig.magErrorColumnMap.keys()]
-            if magerrCol:
-                magerrCol = [magerrCol] + [x for x in tmp if x != magerrCol]
+            names = []
+            mcols = []
+            ecols = []
+            if magCol:
+                names.append('flux')
+                mcols.append(magCol)
+                ecols.append(magerrCol)
+
+            for col,mcol in self.andConfig.magColumnMap.items():
+                names.append(col)
+                mcols.append(mcol)
+                ecols.append(self.andConfig.magErrorColumnMap.get(col, ''))
+            margs = (names, mcols, ecols)
+
+        else:
+            margs = (magCol, magerrCol)
 
         '''
         Note about multiple astrometry_net index files and duplicate IDs:
@@ -611,8 +622,10 @@ class Astrometry(object):
           We may be able to backwards-compatibly build this from the flat indexFiles
           list if we assume things about the filenames.
         '''
-        cat = solver.getCatalog(self.inds, ra.asDegrees(), dec.asDegrees(), radius.asDegrees(),
-                                idcolumn, magCol, magerrCol, sgCol, varCol)
+        cat = solver.getCatalog(*((self.inds, ra.asDegrees(), dec.asDegrees(),
+                                   radius.asDegrees(), idcolumn,)
+                                  + margs
+                                  + (sgCol, varCol)))
         del solver
         return cat
 
