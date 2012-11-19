@@ -126,7 +126,7 @@ class CatalogStarSelector(object):
         pauseAtEnd = lsstDebug.Info(__name__).pauseAtEnd               # pause when done
 
         if matches is None:
-            raise pexExcept.LogicErrorException(
+            raise RuntimeError(
                 "Cannot use catalog star selector without running astrometry."
                 )
 
