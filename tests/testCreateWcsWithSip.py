@@ -64,7 +64,7 @@ class CreateWcsWithSipTestCase(unittest.TestCase):
         srcSchema = afwTable.SourceTable.makeMinimalSchema()
         key = srcSchema.addField("centroid", type="PointD")
         srcSchema.addField("centroid.flags", type="Flag")
-        srcSchema.addField("centroid.err", type="CovPointD")
+        srcSchema.addField("centroid.err", type="CovPointF")
         srcTable = afwTable.SourceTable.make(srcSchema)
         srcTable.defineCentroid("centroid")
         self.sourceMatchSet = []
