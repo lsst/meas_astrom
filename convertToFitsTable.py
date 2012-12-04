@@ -49,7 +49,7 @@ def main(inputName, outputName):
     schema = lsst.afw.table.SourceTable.makeMinimalSchema()
     centroidKey = schema.addField("centroid", type=lsst.afw.geom.Point2D)
     schema.addField("centroid.flags", type="Flag")
-    schema.addField("centroid.err", type="CovPointD")
+    schema.addField("centroid.err", type="CovPointF")
     psfFluxKey = schema.addField("flux.psf", type=float)
     schema.addField("flux.psf.flags", type="Flag")
     schema.addField("flux.psf.err", type=float)
