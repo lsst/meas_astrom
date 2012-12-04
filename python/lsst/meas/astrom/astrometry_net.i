@@ -29,6 +29,9 @@ Python interface to Astrometry.net
 #undef ATTRIB_FORMAT
 #undef FALSE
 #undef TRUE
+
+#undef logdebug
+#undef debug
     }
 
 #include <vector>
@@ -53,6 +56,7 @@ namespace afwTable = lsst::afw::table;
 namespace afwGeom  = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
 namespace dafBase  = lsst::daf::base;
+namespace pexLog   = lsst::pex::logging;
 
 struct timer_baton {
     solver_t* s;
@@ -62,25 +66,78 @@ struct timer_baton {
 static time_t timer_callback(void* baton) {
     struct timer_baton* tt = static_cast<struct timer_baton*>(baton);
     solver_t* solver = tt->s;
-
-    // Unfortunately, a bug in Astrometry.net 0.30 means the timeused is not updated before
-    // calling the timer callback.  Doh!
-
-    // solver.c : update_timeused (which is static) does:
-    double usertime, systime;
-    get_resource_stats(&usertime, &systime, NULL);
-    solver->timeused = std::max(0., (usertime + systime) - solver->starttime);
-    //printf("Timer callback; time used %f, limit %f\n", solver->timeused, tt->timelimit);
+    //printf("Timer callback; time used %f, limit %f\n",
+    //       solver->timeused, tt->timelimit);
     if (solver->timeused > tt->timelimit)
         solver->quit_now = 1;
     return 1;
 }
+
+struct log_baton {
+    pexLog::Log* log;
+    int levelmap[5];
+};
+
+static void an_log_callback(void* baton, enum log_level level,
+                            const char* file,
+                            int line, const char* func, const char* format,
+                            va_list va) {
+    struct log_baton* logbat = static_cast<struct log_baton*>(baton);
+    // translate between logging levels
+    int lsstlevel = logbat->levelmap[level];
+
+	va_list vb;
+	va_copy(vb, va);
+	// find out how long the formatted string will be
+    const int len = vsnprintf(NULL, 0, format, va) + 1; // "+ 1" for the '\0'
+    va_end(va);
+    // add the prefix
+    const char* fmt2 = "%s:%i(%s): ";
+    const int len2 = snprintf(NULL, 0, fmt2, file, line, func);
+	// allocate a string of the appropriate length
+    char msg[len + len2];
+    (void)snprintf(msg, len2 + 1, fmt2, file, line, func);
+    (void)vsnprintf(msg + len2, len, format, vb);
+    va_end(vb);
+    
+    logbat->log->log(lsstlevel, msg);
+}
+
+static struct log_baton* get_an_log_baton() {
+    static struct log_baton logbat;
+    return &logbat;
+}
+
+static void start_an_logging() {
+    struct log_baton* logbat = get_an_log_baton();
+    logbat->log = new pexLog::Log(pexLog::Log::getDefaultLog(), "astrometry_net");
+    logbat->levelmap[LOG_NONE ] = pexLog::Log::FATAL;
+    logbat->levelmap[LOG_ERROR] = pexLog::Log::FATAL;
+    logbat->levelmap[LOG_MSG  ] = pexLog::Log::INFO;
+    logbat->levelmap[LOG_VERB ] = pexLog::Log::DEBUG;
+    logbat->levelmap[LOG_ALL  ] = pexLog::Log::DEBUG;
+    log_use_function(an_log_callback, logbat);
+    log_init(LOG_VERB);
+    log_to(NULL);
+}
+
+static void stop_an_logging() {
+    struct log_baton* logbat = get_an_log_baton();
+    if (logbat->log) {
+        delete logbat->log;
+        logbat->log = NULL;
+    }
+    log_use_function(NULL, NULL);
+    log_to(stdout);
+}
+
     %}
 
 %init %{
     // Astrometry.net logging
     fits_use_error_system();
-    log_init(LOG_MSG);
+    //log_init(LOG_MSG);
+    start_an_logging();
     %}
 
 %include "boost_shared_ptr.i"
@@ -126,7 +183,15 @@ static time_t timer_callback(void* baton) {
 
 %extend solver_t {
 
+    /*
+     solver_t() {
+     solver_t* t = solver_new();
+     start_an_logging();
+     return t;
+     }
+     */
     ~solver_t() {
+        //stop_an_logging();
         // Working around a bug in Astrometry.net: doesn't take ownership of the
         // field.
         // unseemly familiarity with the innards... but valgrind-clean.
@@ -256,7 +321,6 @@ static time_t timer_callback(void* baton) {
     }
 
     void run(double cpulimit) {
-//        printf("Solver run...\n");
         solver_log_params($self);
         struct timer_baton tt;
         if (cpulimit > 0.) {
@@ -270,7 +334,6 @@ static time_t timer_callback(void* baton) {
             $self->timer_callback = NULL;
             $self->userdata = NULL;
         }
-//        printf("solver_run returned.\n");
     }
 
     std::vector<index_s*> getActiveIndexFiles() {
@@ -321,10 +384,7 @@ static time_t timer_callback(void* baton) {
     }
 
     void setMatchThreshold(double t) {
-        // AN 0.30:
-        $self->logratio_record_threshold = t;
-        // AN 0.40:
-        //solver_set_keep_logodds($self, t)
+        solver_set_keep_logodds($self, t);
     }
 
     void setPixelScaleRange(double lo, double hi) {
