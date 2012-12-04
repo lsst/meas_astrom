@@ -721,6 +721,7 @@ class Astrometry(object):
     def _getSolver(self):
         import astrometry_net as an
         solver = an.solver_new()
+        #solver = an.solver_t()
         # HACK, set huge default pixel scale range.
         lo,hi = 0.01, 3600.
         solver.setPixelScaleRange(lo, hi)
