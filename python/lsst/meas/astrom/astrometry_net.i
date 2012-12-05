@@ -73,10 +73,19 @@ static time_t timer_callback(void* baton) {
     return 1;
 }
 
+// This is the "baton" passed to the an_log_callback function.  Since
+// we just have a global singleton of these, it could just as well be a
+// global Log object instead.
 struct log_baton {
-    pexLog::Log* log;
+    PTR(pexLog::Log) log;
     int levelmap[5];
 };
+
+static struct log_baton* get_an_log_baton() {
+    // global
+    static struct log_baton logbat;
+    return &logbat;
+}
 
 static void an_log_callback(void* baton, enum log_level level,
                             const char* file,
@@ -99,18 +108,13 @@ static void an_log_callback(void* baton, enum log_level level,
     (void)snprintf(msg, len2 + 1, fmt2, file, line, func);
     (void)vsnprintf(msg + len2, len, format, vb);
     va_end(vb);
-    
-    logbat->log->log(lsstlevel, msg);
-}
 
-static struct log_baton* get_an_log_baton() {
-    static struct log_baton logbat;
-    return &logbat;
+    logbat->log->log(lsstlevel, msg);
 }
 
 static void start_an_logging() {
     struct log_baton* logbat = get_an_log_baton();
-    logbat->log = new pexLog::Log(pexLog::Log::getDefaultLog(), "astrometry_net");
+    logbat->log = PTR(pexLog::Log)(new pexLog::Log(pexLog::Log::getDefaultLog(), "astrometry_net"));
     logbat->levelmap[LOG_NONE ] = pexLog::Log::FATAL;
     logbat->levelmap[LOG_ERROR] = pexLog::Log::FATAL;
     logbat->levelmap[LOG_MSG  ] = pexLog::Log::INFO;
@@ -121,16 +125,19 @@ static void start_an_logging() {
     log_to(NULL);
 }
 
-static void stop_an_logging() {
+//static
+void stop_an_logging() {
     struct log_baton* logbat = get_an_log_baton();
     if (logbat->log) {
-        delete logbat->log;
-        logbat->log = NULL;
+        logbat->log.reset();
     }
     log_use_function(NULL, NULL);
     log_to(stdout);
 }
 
+void finalize() {
+    stop_an_logging();
+}
     %}
 
 %init %{
@@ -139,6 +146,9 @@ static void stop_an_logging() {
     //log_init(LOG_MSG);
     start_an_logging();
     %}
+
+void finalize();
+void stop_an_logging();
 
 %include "boost_shared_ptr.i"
 %include "lsst/p_lsstSwig.i"
