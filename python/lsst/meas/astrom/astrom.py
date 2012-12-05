@@ -92,7 +92,9 @@ class Astrometry(object):
             self.log = pexLog.Log(pexLog.Log.getDefaultLog(),
                                   'meas.astrom',
                                   logLevel)
-
+        # import astrometry_net as an
+        # an.set_an_log(pexLog.Log(self.log, 'meas.astrom.astrometry_net'))
+        
         if andConfig is None:
             # ASSUME SETUP IN EUPS
             dirnm = os.environ.get('ASTROMETRY_NET_DATA_DIR')

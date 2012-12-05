@@ -76,6 +76,13 @@ static time_t timer_callback(void* baton) {
 // Global logger to which Astrometry.net will go.
 static PTR(pexLog::Log) an_log;
 
+PTR(pexLog::Log) get_an_log() {
+    return an_log;
+}
+void set_an_log(PTR(pexLog::Log) newlog) {
+    an_log = newlog;
+}
+
 static void an_log_callback(void* baton, enum log_level level,
                             const char* file,
                             int line, const char* func, const char* format,
@@ -89,28 +96,30 @@ static void an_log_callback(void* baton, enum log_level level,
     levelmap[LOG_ALL  ] = pexLog::Log::DEBUG;
     int lsstlevel = levelmap[level];
 
-	va_list vb;
-	va_copy(vb, va);
-	// find out how long the formatted string will be
+    va_list vb;
+    // find out how long the formatted string will be
+    va_copy(vb, va);
     const int len = vsnprintf(NULL, 0, format, va) + 1; // "+ 1" for the '\0'
     va_end(va);
-    // add the prefix
-    const char* fmt2 = "%s:%i(%s): ";
-    const int len2 = snprintf(NULL, 0, fmt2, file, line, func);
-	// allocate a string of the appropriate length
-    char msg[len + len2];
-    (void)snprintf(msg, len2 + 1, fmt2, file, line, func);
-    (void)vsnprintf(msg + len2, len, format, vb);
+    // allocate a string of the appropriate length
+    char msg[len];
+    (void)vsnprintf(msg, len, format, vb);
     va_end(vb);
 
-    an_log->log(lsstlevel, msg);
+    dafBase::PropertySet ps;
+    ps.set("an_file", file);
+    ps.set("an_line", line);
+    ps.set("an_func", func);
+
+    an_log->log(lsstlevel, std::string(msg), ps);
 }
 
 static void start_an_logging() {
     an_log = PTR(pexLog::Log)(new pexLog::Log(pexLog::Log::getDefaultLog(),
-                                              "astrometry_net"));
-    log_use_function(an_log_callback, NULL);
+                                              "meas.astrom.astrometry_net"));
+    // NOTE, this has to happen before the log_use_function!
     log_init(LOG_VERB);
+    log_use_function(an_log_callback, NULL);
     log_to(NULL);
 }
 
@@ -123,21 +132,23 @@ static void stop_an_logging() {
 void finalize() {
     stop_an_logging();
 }
+
     %}
 
 %init %{
     // Astrometry.net logging
     fits_use_error_system();
-    //log_init(LOG_MSG);
     start_an_logging();
     %}
-
-void finalize();
 
 %include "boost_shared_ptr.i"
 %include "lsst/p_lsstSwig.i"
 %include "lsst/base.h"
 %import "lsst/daf/base/baseLib.i"
+
+void finalize();
+PTR(pexLog::Log) get_an_log();
+void set_an_log(PTR(pexLog::Log) newlog);
 
 %lsst_exceptions();
 
