@@ -77,7 +77,7 @@ class chooseFilterNameTest(unittest.TestCase):
         del self.exposure
         del self.astrom
         import lsst.meas.astrom.astrometry_net as an
-        an.stop_an_logging()
+        an.finalize()
                         
     def test1(self):
         """The exposures filtername is one of the filters stored in the catalogue"""

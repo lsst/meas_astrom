@@ -67,6 +67,8 @@ class CreateWcsWithSipCase(unittest.TestCase):
     def tearDown(self):
         del self.conf
         del self.astrom
+        import lsst.meas.astrom.astrometry_net as an
+        an.finalize()
 
     def testBigXy0(self):
         # test for ticket #2710
