@@ -57,6 +57,8 @@ class matchlistTestCase(unittest.TestCase):
         del self.imageSize
         del self.exposure
         del self.astrom
+        import lsst.meas.astrom.astrometry_net as an
+        an.finalize()
         
     def getAstrometrySolution(self):
         return self.astrom.determineWcs(self.srcSet, self.exposure, imageSize=self.imageSize)

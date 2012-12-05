@@ -77,7 +77,7 @@ class PhotoCalTest(unittest.TestCase):
         del self.conf
         del self.exposure
         import lsst.meas.astrom.astrometry_net as an
-        an.stop_an_logging()
+        an.finalize()
         
     def getAstrometrySolution(self, loglvl = Log.INFO):
         astrom = measAstrom.Astrometry(self.conf, logLevel=loglvl)

@@ -73,27 +73,21 @@ static time_t timer_callback(void* baton) {
     return 1;
 }
 
-// This is the "baton" passed to the an_log_callback function.  Since
-// we just have a global singleton of these, it could just as well be a
-// global Log object instead.
-struct log_baton {
-    PTR(pexLog::Log) log;
-    int levelmap[5];
-};
-
-static struct log_baton* get_an_log_baton() {
-    // global
-    static struct log_baton logbat;
-    return &logbat;
-}
+// Global logger to which Astrometry.net will go.
+static PTR(pexLog::Log) an_log;
 
 static void an_log_callback(void* baton, enum log_level level,
                             const char* file,
                             int line, const char* func, const char* format,
                             va_list va) {
-    struct log_baton* logbat = static_cast<struct log_baton*>(baton);
     // translate between logging levels
-    int lsstlevel = logbat->levelmap[level];
+    int levelmap[5];
+    levelmap[LOG_NONE ] = pexLog::Log::FATAL;
+    levelmap[LOG_ERROR] = pexLog::Log::FATAL;
+    levelmap[LOG_MSG  ] = pexLog::Log::INFO;
+    levelmap[LOG_VERB ] = pexLog::Log::DEBUG;
+    levelmap[LOG_ALL  ] = pexLog::Log::DEBUG;
+    int lsstlevel = levelmap[level];
 
 	va_list vb;
 	va_copy(vb, va);
@@ -109,30 +103,21 @@ static void an_log_callback(void* baton, enum log_level level,
     (void)vsnprintf(msg + len2, len, format, vb);
     va_end(vb);
 
-    logbat->log->log(lsstlevel, msg);
+    an_log->log(lsstlevel, msg);
 }
 
 static void start_an_logging() {
-    struct log_baton* logbat = get_an_log_baton();
-    logbat->log = PTR(pexLog::Log)(new pexLog::Log(pexLog::Log::getDefaultLog(), "astrometry_net"));
-    logbat->levelmap[LOG_NONE ] = pexLog::Log::FATAL;
-    logbat->levelmap[LOG_ERROR] = pexLog::Log::FATAL;
-    logbat->levelmap[LOG_MSG  ] = pexLog::Log::INFO;
-    logbat->levelmap[LOG_VERB ] = pexLog::Log::DEBUG;
-    logbat->levelmap[LOG_ALL  ] = pexLog::Log::DEBUG;
-    log_use_function(an_log_callback, logbat);
+    an_log = PTR(pexLog::Log)(new pexLog::Log(pexLog::Log::getDefaultLog(),
+                                              "astrometry_net"));
+    log_use_function(an_log_callback, NULL);
     log_init(LOG_VERB);
     log_to(NULL);
 }
 
-//static
-void stop_an_logging() {
-    struct log_baton* logbat = get_an_log_baton();
-    if (logbat->log) {
-        logbat->log.reset();
-    }
+static void stop_an_logging() {
     log_use_function(NULL, NULL);
     log_to(stdout);
+    an_log.reset();
 }
 
 void finalize() {
@@ -148,7 +133,6 @@ void finalize() {
     %}
 
 void finalize();
-void stop_an_logging();
 
 %include "boost_shared_ptr.i"
 %include "lsst/p_lsstSwig.i"
