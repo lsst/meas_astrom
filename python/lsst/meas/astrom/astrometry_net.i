@@ -139,11 +139,6 @@ static void stop_an_logging() {
 void finalize() {
     stop_an_logging();
 }
-
-//static void add_indices_to_solver(solver_t* solver, std::vector<index_t*> inds) {
-//}
-
-
     %}
 
 %init %{
@@ -192,18 +187,7 @@ void set_an_log(PTR(pexLog::Log) newlog);
     }
     %}
 
-%extend index_t {
-    ~index_t() {
-        //printf("Deleting index_t %s\n", $self->indexname);
-        printf("(not) Deleting index_t\n");
-        //index_free($self);
-    }
- }
-%extend multiindex_t {
-    ~multiindex_t() {
-        printf("(not) Deleting multiindex_t\n");
-    }
-
+ %extend multiindex_t {
     index_t* getIndex(int i) {
         return multiindex_get($self, i);
     }
@@ -217,7 +201,6 @@ void set_an_log(PTR(pexLog::Log) newlog);
         starxy_free($self->fieldxy);
         $self->fieldxy = NULL;
         solver_free($self);
-        printf("solver_t destructor\n");
     }
 
     lsst::afw::table::SimpleCatalog

@@ -104,6 +104,16 @@ class Astrometry(object):
         self.andConfig = andConfig
         self._readIndexFiles()
 
+    '''
+    Note about memory management of astrometry_net index files:
+    index_t* structs (which include memory maps and other resources)
+    are loaded either from single index files (listed in the
+    AstrometryNetDataConfig entry "indexFiles", or from multiindex
+    files (listed in "multiIndexFiles").  Singles are stored in .sinds,
+    multis in .minds.  These are loaded in _readIndexFiles(), called
+    from the constructor, and freed in _closeIndexFiles(), called from 
+    the __del__ destructor.
+    '''
     def _readIndexFiles(self):
         import astrometry_net as an
         # .sinds: single-file indices
