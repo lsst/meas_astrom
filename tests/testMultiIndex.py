@@ -76,31 +76,42 @@ class MultiIndexTest(unittest.TestCase):
                                        andConfig=andConfig)
         res = astrom.determineWcs(self.srcCat, self.exposure,
                                   imageSize=self.imageSize)
+        print 'Deleting Astrometry object'
+        del astrom
+        print 'done deleting astrometry object'
         return res
 
-    def testGetSolution(self, **kwargs):
+    def _testGetSolution(self, **kwargs):
         res = self.getAstrometrySolution(loglvl=Log.DEBUG, **kwargs)
         self.assertTrue(res is not None)
         self.assertTrue(len(res.getMatches()) > 50)
 
+    # This is the "vanilla" no-multiIndex setup
     def testMultiIndexA(self):
         andConfig = AstrometryNetDataConfig()
-        fn = os.path.join(self.an_data_dir, 'andConfig3.py')
+        fn = os.path.join(self.an_data_dir, 'andConfig2.py')
         andConfig.load(fn)
-        self.testGetSolution(andConfig=andConfig)
+        self._testGetSolution(andConfig=andConfig)
 
     def testMultiIndexB(self):
         andConfig = AstrometryNetDataConfig()
-        fn = os.path.join(self.an_data_dir, 'andConfig4.py')
+        fn = os.path.join(self.an_data_dir, 'andConfig3.py')
         andConfig.load(fn)
-        self.testGetSolution(andConfig=andConfig)
+        self._testGetSolution(andConfig=andConfig)
 
     def testMultiIndexC(self):
         andConfig = AstrometryNetDataConfig()
+        fn = os.path.join(self.an_data_dir, 'andConfig4.py')
+        andConfig.load(fn)
+        self._testGetSolution(andConfig=andConfig)
+
+    def testMultiIndexD(self):
+        andConfig = AstrometryNetDataConfig()
         fn = os.path.join(self.an_data_dir, 'andConfig5.py')
         andConfig.load(fn)
-        self.testGetSolution(andConfig=andConfig)
+        self._testGetSolution(andConfig=andConfig)
 
+        
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def suite():

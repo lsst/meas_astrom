@@ -7,7 +7,7 @@
 #include "lsst/afw/table/Source.h"
 
 extern "C" {
-    typedef struct index_s index_t;     // from astrometry.net's index.h
+//    typedef struct index_t index_t;     // from astrometry.net's index.h
 }
 
 namespace lsst {

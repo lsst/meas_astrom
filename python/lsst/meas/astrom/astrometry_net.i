@@ -140,6 +140,10 @@ void finalize() {
     stop_an_logging();
 }
 
+//static void add_indices_to_solver(solver_t* solver, std::vector<index_t*> inds) {
+//}
+
+
     %}
 
 %init %{
@@ -166,9 +170,15 @@ void set_an_log(PTR(pexLog::Log) newlog);
 %shared_ptr(lsst::afw::image::Wcs);
 %import "lsst/afw/image/Wcs.h"
 
-%template(VectorOfIndexPtr) std::vector<index_s*>;
+%template(VectorOfIndexPtr) std::vector<index_t*>;
+%template(VectorOfIndexSharedPtr) std::vector<PTR(index_t)>;
+%shared_ptr(index_t);
+%shared_ptr(multiindex_t);
+
 %newobject solver_new;
 %newobject index_load;
+%newobject multiindex_new;
+
 %include "solver.h"
 %include "index.h"
 %include "multiindex.h"
@@ -183,35 +193,32 @@ void set_an_log(PTR(pexLog::Log) newlog);
     void an_log_set_level(int lvl) {
         log_set_level((log_level)lvl);
     }
+
+    PTR(index_t) index_load_ptr(const char* fn, int flags, index_t* dest) {
+        return PTR(index_t)(index_load(fn, flags, dest));
+    }
+    PTR(multiindex_t) multiindex_new_ptr(const char* fn) {
+        return PTR(multiindex_t)(multiindex_new(fn));
+    }
+
     %}
 
-// index_t is a typedef of index_s, but swig doesn't notice the typedef (grumble
-// grumble), so we use index_s throughout.
-%extend index_s {
-    ~index_s() {
-        //printf("Deleting index_s %s\n", $self->indexname);
+%extend index_t {
+    ~index_t() {
+        printf("Deleting index_t %s\n", $self->indexname);
         index_free($self);
     }
  }
-%extend multiindex {
-    ~multiindex() {
-        printf("Deleting multi-index\n");
+%extend multiindex_t {
+    ~multiindex_t() {
+        printf("Deleting multiindex_t\n");
         multiindex_close($self);
     }
  }
 
 
 %extend solver_t {
-
-    /*
-     solver_t() {
-     solver_t* t = solver_new();
-     start_an_logging();
-     return t;
-     }
-     */
     ~solver_t() {
-        //stop_an_logging();
         // Working around a bug in Astrometry.net: doesn't take ownership of the
         // field.
         // unseemly familiarity with the innards... but valgrind-clean.
@@ -365,31 +372,65 @@ void set_an_log(PTR(pexLog::Log) newlog);
         return inds;
     }
 
-    void addIndices(std::vector<index_s*> inds) {
-        for (std::vector<index_s*>::iterator pind = inds.begin();
+    /*
+     void addIndices(std::vector<index_t*> inds) {
+     add_indices_to_solver($self, inds);
+     }
+
+        for (std::vector<index_t*>::iterator pind = inds.begin();
              pind != inds.end(); ++pind) {
-            lsst::meas::astrom::detail::IndexManager man(*pind);
-//            printf("Checking index \"%s\"\n", man.index->indexname);
-            if ($self->use_radec) {
+            index_t* ind = *pind;
+//            printf("Checking index \"%s\"\n", ind->indexname);
+            if (solver->use_radec) {
                 double ra,dec,radius;
-                xyzarr2radecdeg($self->centerxyz, &ra, &dec);
-                radius = distsq2deg($self->r2);
-                if (!index_is_within_range(man.index, ra, dec, radius)) {
+                xyzarr2radecdeg(solver->centerxyz, &ra, &dec);
+                radius = distsq2deg(solver->r2);
+                if (!index_is_within_range(ind, ra, dec, radius)) {
                                      //printf("Not within RA,Dec range\n");
                     continue;
                 }
             }
             // qlo,qhi in arcsec
             double qlo, qhi;
-            solver_get_quad_size_range_arcsec($self, &qlo, &qhi);
-            if (!index_overlaps_scale_range(man.index, qlo, qhi)) {
+            solver_get_quad_size_range_arcsec(solver, &qlo, &qhi);
+            if (!index_overlaps_scale_range(ind, qlo, qhi)) {
 //                printf("Not within quad scale range\n");
                 continue;
             }
 //            printf("Adding index.\n");
-            if (index_reload(man.index)) {
-                throw LSST_EXCEPT(lsst::pex::exceptions::IoErrorException,
-                                  "Failed to index_reload() an astrometry_net_data index file -- out of file descriptors?");
+            if (index_reload(ind)) {
+                assert(0);
+            }
+            solver_add_index(solver, ind);
+        }
+    
+
+     */
+
+    void addIndices(std::vector<PTR(index_t)> inds) {
+        for (std::vector<PTR(index_t)>::iterator pind = inds.begin();
+             pind != inds.end(); ++pind) {
+            index_t* ind = (*pind).get();
+            //            printf("Checking index \"%s\"\n", ind->indexname);
+            if ($self->use_radec) {
+                double ra,dec,radius;
+                xyzarr2radecdeg($self->centerxyz, &ra, &dec);
+                radius = distsq2deg($self->r2);
+                if (!index_is_within_range(ind, ra, dec, radius)) {
+                    //printf("Not within RA,Dec range\n");
+                    continue;
+                }
+            }
+            // qlo,qhi in arcsec
+            double qlo, qhi;
+            solver_get_quad_size_range_arcsec($self, &qlo, &qhi);
+            if (!index_overlaps_scale_range(ind, qlo, qhi)) {
+                //                printf("Not within quad scale range\n");
+                continue;
+            }
+            //            printf("Adding index.\n");
+            if (index_reload(ind)) {
+                assert(0);
             }
 
             solver_add_index($self, man.index);

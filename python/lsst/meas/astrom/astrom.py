@@ -123,6 +123,7 @@ class Astrometry(object):
             fn = fn2
             self.log.logdebug('Path: %s' % fn)
             ind = an.index_load(fn, an.INDEX_ONLY_LOAD_METADATA, None);
+ of index_t*
             if ind:
                 self.sinds.append(ind)
                 self.inds.append(ind)
@@ -878,8 +879,10 @@ class Astrometry(object):
             solver.setParity(parity)
             self.log.logdebug('Searching for match with parity = ' + str(parity))
 
+        print 'inds:', self.inds
         solver.addIndices(self.inds)
         active = solver.getActiveIndexFiles()
+        print 'Active:', active
         self.log.logdebug('Searching for match in %i of %i index files: [ ' %
                           (len(active), len(self.inds)) +
                           ', '.join(ind.indexname for ind in active) + ' ]')
