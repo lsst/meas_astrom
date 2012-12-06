@@ -109,6 +109,8 @@ class Astrometry(object):
 
     def _readIndexFiles(self):
         import astrometry_net as an
+        self.sinds = []
+        self.minds = []
         self.inds = []
         nMissing = 0
         for fn in self.andConfig.indexFiles:
@@ -122,17 +124,41 @@ class Astrometry(object):
             self.log.logdebug('Path: %s' % fn)
             ind = an.index_load(fn, an.INDEX_ONLY_LOAD_METADATA, None);
             if ind:
+                self.sinds.append(ind)
                 self.inds.append(ind)
                 self.log.logdebug('  index %i, hp %i (nside %i), nstars %i, nquads %i' %
                                   (ind.indexid, ind.healpix, ind.hpnside, ind.nstars, ind.nquads))
             else:
                 raise RuntimeError('Failed to read index file: "%s"' % fn)
 
+        for fns in self.andConfig.multiIndexFiles:
+            self.log.log(self.log.DEBUG, 'Adding multi-index files %s' % str(fns))
+            # FIXME -- should be in config validation
+            assert(len(fns) > 0)
+            fn = fns[0]
+            self.log.log(self.log.DEBUG, 'Reading stars from multiindex file "%s"' % fn)
+            fn = self._getIndexPath(fn)
+            self.log.log(self.log.DEBUG, 'Path: %s' % fn)
+            mi = an.multiindex_new(fn)
+            if mi is None:
+                raise RuntimeError('Failed to read stars from multiindex filename "%s"' % fn0)
+            # including the first one...
+            for i,fn in enumerate(fns):
+                self.log.log(self.log.DEBUG, 'Reading index from multiindex file "%s"' % fn)
+                fn = self._getIndexPath(fn)
+                self.log.log(self.log.DEBUG, 'Path: %s' % fn)
+                if an.multiindex_add_index(mi, fn):
+                    raise RuntimeError('Failed to read index from multiindex filename "%s"' % fn)
+                #self.log.log(self.log.DEBUG, '  index %i, hp %i (nside %i), nstars %i, nquads %i' %
+                #            (ind.indexid, ind.healpix, ind.hpnside, ind.nstars, ind.nquads))
+                self.inds.append(an.multiindex_get(mi, i))
+            self.minds.append(mi)
+
         if not self.inds:
             self.log.warn('Unable to find any index files')
         elif nMissing > 0:
             self.log.warn('Unable to find %d index files' % nMissing)
-            
+
     def _debug(self, s):
         self.log.log(self.log.DEBUG, s)
     def _warn(self, s):

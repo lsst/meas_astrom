@@ -207,7 +207,7 @@ class PhotoCalTest(unittest.TestCase):
         pCal = task.run(self.exposure, matches)
         print pCal.calib
 
-        # These are all matches; we don't really expect to do that well.
+        # These are *all* the matches; we don't really expect to do that well.
         diff=[]
         for m in matches:
             catFlux = m[0].get("flux")     #Catalogue flux

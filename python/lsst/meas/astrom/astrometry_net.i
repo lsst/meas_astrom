@@ -20,6 +20,7 @@ Python interface to Astrometry.net
     extern "C" {
 #include "solver.h"
 #include "index.h"
+#include "multiindex.h"
 #include "starkd.h"
 #include "fitsioutils.h"
 #include "fitstable.h"
@@ -106,6 +107,11 @@ static void an_log_callback(void* baton, enum log_level level,
     (void)vsnprintf(msg, len, format, vb);
     va_end(vb);
 
+    // trim trailing \n
+    if (msg[len-2] == '\n') {
+        msg[len-2] = '\0';
+    }
+
     dafBase::PropertySet ps;
     ps.set("an_file", file);
     ps.set("an_line", line);
@@ -117,6 +123,7 @@ static void an_log_callback(void* baton, enum log_level level,
 static void start_an_logging() {
     an_log = PTR(pexLog::Log)(new pexLog::Log(pexLog::Log::getDefaultLog(),
                                               "meas.astrom.astrometry_net"));
+    an_log->markPersistent();
     // NOTE, this has to happen before the log_use_function!
     log_init(LOG_VERB);
     log_use_function(an_log_callback, NULL);
@@ -164,6 +171,7 @@ void set_an_log(PTR(pexLog::Log) newlog);
 %newobject index_load;
 %include "solver.h"
 %include "index.h"
+%include "multiindex.h"
 
 %inline %{
     void an_log_init(int level) {
@@ -185,6 +193,13 @@ void set_an_log(PTR(pexLog::Log) newlog);
         index_free($self);
     }
  }
+%extend multiindex {
+    ~multiindex() {
+        printf("Deleting multi-index\n");
+        multiindex_close($self);
+    }
+ }
+
 
 %extend solver_t {
 
