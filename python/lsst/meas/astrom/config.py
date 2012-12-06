@@ -2,7 +2,16 @@ import math
 import lsst.pex.config as pexConfig
 import lsst.afw.geom as afwGeom
 
+from lsst.pex.config import ListField, Field
+class NestableListField(ListField):
+    def __init__(self, doc, dtype, **kwargs):
+        oldtypes = Field.supportedTypes
+        newtypes = oldtypes + (list,)
+        Field.supportedTypes = newtypes
+        super(NestableListField, self).__init__(doc, dtype, **kwargs)
+        Field.supportedTypes = oldtypes
 
+        
 class AstrometryNetDataConfig(pexConfig.Config):
     from lsst.pex.config import Field, ListField, DictField
 
@@ -38,15 +47,13 @@ class AstrometryNetDataConfig(pexConfig.Config):
         itemtype=str,
         default={})
 
-    # ?
-    # availableFilters = Field(
-    #     list,
-    #     '''Filter column names''',
-    #     default=[])
-
     indexFiles = ListField(dtype=str, default=[],
                            doc='''Astrometry.net index filenames''')
 
+    multiIndexFiles = NestableListField(dtype=list, default=[],
+                                        doc='''Astrometry.net multi-index filename lists.  Each item in this list must itself be a list of filenames.  The first filename is the Astrometry.net index file that contains the star kd-tree and tag-along tables AND the first index.  Subsequent filenames must be files containing just the non-star index parts.''')
+
+    
 class MeasAstromConfig(pexConfig.Config):
     from lsst.pex.config import Field, RangeField, DictField
 
