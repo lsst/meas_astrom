@@ -120,27 +120,17 @@ class Astrometry(object):
             self.minds.append(mi)
 
     def __del__(self):
-        print 'Astrometry.__del__'
-        print 'Closing index files...'
         self._closeIndexFiles()
-        print 'Closed index files.'
 
     def _closeIndexFiles(self):
-        print '_closeIndexFiles'
         import astrometry_net as an
         for ind in self.sinds:
-             print 'Closing index', ind
              an.index_close(ind)
-        print 'dropping self.sinds'
         self.sinds = []
         for mind in self.minds:
-            print 'Closing multi-index', mind
             an.multiindex_close(mind)
-        print 'dropping self.minds'
         self.minds = []
-        print 'dropping self.inds[]'
         self.inds = []
-        print 'done _closeIndexFiles()'
         
     def _debug(self, s):
         self.log.log(self.log.DEBUG, s)
@@ -728,10 +718,8 @@ class Astrometry(object):
             solver.setParity(parity)
             self.log.logdebug('Searching for match with parity = ' + str(parity))
 
-        print 'inds:', self.inds
         solver.addIndices(self.inds)
         active = solver.getActiveIndexFiles()
-        print 'Active:', active
         self.log.logdebug('Searching for match in %i of %i index files: [ ' %
                           (len(active), len(self.inds)) +
                           ', '.join(ind.indexname for ind in active) + ' ]')
