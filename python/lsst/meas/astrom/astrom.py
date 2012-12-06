@@ -85,7 +85,8 @@ class Astrometry(object):
             self.log.log(self.log.DEBUG, 'Adding index file %s' % fn)
             fn = self._getIndexPath(fn)
             self.log.log(self.log.DEBUG, 'Path: %s' % fn)
-            ind = an.index_load(fn, an.INDEX_ONLY_LOAD_METADATA, None);
+            ind = an.index_load_ptr(fn, an.INDEX_ONLY_LOAD_METADATA, None);
+            print 'Loaded index', ind
             if ind:
                 self.sinds.append(ind)
                 self.inds.append(ind)
@@ -116,7 +117,34 @@ class Astrometry(object):
                 #            (ind.indexid, ind.healpix, ind.hpnside, ind.nstars, ind.nquads))
                 self.inds.append(an.multiindex_get(mi, i))
             self.minds.append(mi)
-            
+
+    def __del__(self):
+        print 'Astrometry.__del__'
+        print 'Closing index files...'
+        self._closeIndexFiles()
+        print 'Closed index files.'
+
+    def _closeIndexFiles(self):
+        print '_closeIndexFiles'
+        #import astrometry_net as an
+        # for ind in self.sinds:
+        #     print 'Closing index', ind
+        #     an.index_close(ind)
+        # self.sinds = []
+        # for mind in self.minds:
+        #     print 'Closing multi-index', mind
+        #     an.multiindex_close(mind)
+        # self.minds = []
+        # print 'dropping self.inds[]'
+        # self.inds = []
+        print 'dropping self.sinds'
+        self.sinds = []
+        print 'dropping self.inds'
+        self.inds = []
+        print 'dropping self.minds'
+        self.minds = []
+        print 'done _closeIndexFiles()'
+        
     def _debug(self, s):
         self.log.log(self.log.DEBUG, s)
     def _warn(self, s):
@@ -698,8 +726,10 @@ class Astrometry(object):
             solver.setParity(parity)
             self.log.logdebug('Searching for match with parity = ' + str(parity))
 
+        print 'inds:', self.inds
         solver.addIndices(self.inds)
         active = solver.getActiveIndexFiles()
+        print 'Active:', active
         self.log.logdebug('Searching for match in %i of %i index files: [ ' %
                           (len(active), len(self.inds)) +
                           ', '.join(ind.indexname for ind in active) + ' ]')
