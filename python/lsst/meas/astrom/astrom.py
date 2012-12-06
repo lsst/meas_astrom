@@ -61,9 +61,6 @@ class Astrometry(object):
             self.log = pexLog.Log(pexLog.Log.getDefaultLog(),
                                   'meas.astrom',
                                   logLevel)
-        # import astrometry_net as an
-        # an.set_an_log(pexLog.Log(self.log, 'meas.astrom.astrometry_net'))
-        
         if andConfig is None:
             # ASSUME SETUP IN EUPS
             dirnm = os.environ.get('ASTROMETRY_NET_DATA_DIR')
@@ -78,15 +75,18 @@ class Astrometry(object):
 
     def _readIndexFiles(self):
         import astrometry_net as an
+        # .sinds: single-file indices
         self.sinds = []
+        # .minds: multi-indices,
         self.minds = []
+        # .inds: all indices, from single- or multi-index source
         self.inds = []
+
         for fn in self.andConfig.indexFiles:
             self.log.log(self.log.DEBUG, 'Adding index file %s' % fn)
             fn = self._getIndexPath(fn)
             self.log.log(self.log.DEBUG, 'Path: %s' % fn)
-            ind = an.index_load_ptr(fn, an.INDEX_ONLY_LOAD_METADATA, None);
-            print 'Loaded index', ind
+            ind = an.index_load(fn, an.INDEX_ONLY_LOAD_METADATA, None)
             if ind:
                 self.sinds.append(ind)
                 self.inds.append(ind)
@@ -113,9 +113,10 @@ class Astrometry(object):
                 self.log.log(self.log.DEBUG, 'Path: %s' % fn)
                 if an.multiindex_add_index(mi, fn):
                     raise RuntimeError('Failed to read index from multiindex filename "%s"' % fn)
-                #self.log.log(self.log.DEBUG, '  index %i, hp %i (nside %i), nstars %i, nquads %i' %
-                #            (ind.indexid, ind.healpix, ind.hpnside, ind.nstars, ind.nquads))
-                self.inds.append(an.multiindex_get(mi, i))
+                ind = an.multiindex_get(mi, i)
+                self.log.log(self.log.DEBUG, '  index %i, hp %i (nside %i), nstars %i, nquads %i' %
+                                (ind.indexid, ind.healpix, ind.hpnside, ind.nstars, ind.nquads))
+                self.inds.append(ind)
             self.minds.append(mi)
 
     def __del__(self):
@@ -126,23 +127,19 @@ class Astrometry(object):
 
     def _closeIndexFiles(self):
         print '_closeIndexFiles'
-        #import astrometry_net as an
-        # for ind in self.sinds:
-        #     print 'Closing index', ind
-        #     an.index_close(ind)
-        # self.sinds = []
-        # for mind in self.minds:
-        #     print 'Closing multi-index', mind
-        #     an.multiindex_close(mind)
-        # self.minds = []
-        # print 'dropping self.inds[]'
-        # self.inds = []
+        import astrometry_net as an
+        for ind in self.sinds:
+             print 'Closing index', ind
+             an.index_close(ind)
         print 'dropping self.sinds'
         self.sinds = []
-        print 'dropping self.inds'
-        self.inds = []
+        for mind in self.minds:
+            print 'Closing multi-index', mind
+            an.multiindex_close(mind)
         print 'dropping self.minds'
         self.minds = []
+        print 'dropping self.inds[]'
+        self.inds = []
         print 'done _closeIndexFiles()'
         
     def _debug(self, s):
@@ -673,7 +670,12 @@ class Astrometry(object):
           We may be able to backwards-compatibly build this from the flat indexFiles
           list if we assume things about the filenames.
         '''
-        cat = solver.getCatalog(*((self.inds, ra.asDegrees(), dec.asDegrees(),
+        inds = []
+        for mi in self.minds:
+            inds.append(mi.getIndex(0))
+        for ind in self.sinds:
+            inds.append(ind)
+        cat = solver.getCatalog(*((inds, ra.asDegrees(), dec.asDegrees(),
                                    radius.asDegrees(), idcolumn,)
                                   + margs
                                   + (sgCol, varCol)))
