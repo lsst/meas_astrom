@@ -76,9 +76,7 @@ class MultiIndexTest(unittest.TestCase):
                                        andConfig=andConfig)
         res = astrom.determineWcs(self.srcCat, self.exposure,
                                   imageSize=self.imageSize)
-        print 'Deleting Astrometry object'
         del astrom
-        print 'done deleting astrometry object'
         return res
 
     def _testGetSolution(self, **kwargs):
