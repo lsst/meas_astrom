@@ -66,8 +66,11 @@ class Astrometry(object):
             dirnm = os.environ.get('ASTROMETRY_NET_DATA_DIR')
             if dirnm is None:
                 raise RuntimeError("astrometry_net_data is not setup")
+
             andConfig = AstrometryNetDataConfig()
             fn = os.path.join(dirnm, 'andConfig.py')
+            if not os.path.exists(fn):
+                raise RuntimeError('astrometry_net_data config file \"%s\" required but not found' % fn)
             andConfig.load(fn)
 
         self.andConfig = andConfig

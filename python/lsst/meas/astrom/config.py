@@ -2,57 +2,101 @@ import math
 import lsst.pex.config as pexConfig
 import lsst.afw.geom as afwGeom
 
-from lsst.pex.config import ListField, Field
-class NestableListField(ListField):
-    def __init__(self, doc, dtype, **kwargs):
-        oldtypes = Field.supportedTypes
-        newtypes = oldtypes + (list,)
-        Field.supportedTypes = newtypes
-        super(NestableListField, self).__init__(doc, dtype, **kwargs)
-        Field.supportedTypes = oldtypes
-
+def checkMagMap(X):
+    if not isinstance(X, dict):
+        raise RuntimeError('Mag maps must be dicts')
+    for k,v in X.items():
+        if not isinstance(k, str):
+            raise RuntimeError('Mag maps must be dicts mapping str->str: got bad key \"%s\"' % str(k))
+        if not isinstance(v, str):
+            raise RuntimeError('Mag maps must be dicts mapping str->str: got bad value \"%s\"' % str(v))
+        if not (len(k) > 0 and len(v) > 0):
+            raise RuntimeError('Mag maps items must be non-empty: got bad values \"%s\" -> \"%s\"' % (str(k), str(v)))
         
-class AstrometryNetDataConfig(pexConfig.Config):
-    from lsst.pex.config import Field, ListField, DictField
+def checkIndexList(X):
+    if not isinstance(X, list):
+        raise RuntimeError('indexList config item must be a list')
+    for k in X:
+        if not isinstance(k, str):
+            raise RuntimeError('indexList config items must be strings: got bad one \"%s\"' % str(k))
+        if len(k) == 0:
+            raise RuntimeError('indexList config items must be non-empty strings')
 
-    idColumn = Field(
-        '''Column name of the ID number''',
-        str,
-        default='id')
+def checkMultiIndexList(X):
+    if not isinstance(X, list):
+        raise RuntimeError('multiIndexList config item must be a list')
+    for k in X:
+        if not isinstance(k, list):
+            raise RuntimeError('multiIndexList config items must be lists: got bad one \"%s\"' % str(k))
+        if len(k) == 0:
+            raise RuntimeError('multiIndexList config items must be non-empty lists')
+        for kk in k:
+            if not isinstance(kk, str):
+                raise RuntimeError('multiIndexList config items must be strings: got bad one \"%s\"' % str(kk))
+            if len(kk) == 0:
+                raise RuntimeError('multiIndexList config items must be non-empty strings')
 
-    defaultMagColumn = Field(
-        '''Default mag column name''',
-        str,
-        default='mag')
+# We used to have AstrometryNetDataConfig() use the pex_config
+# mechanism, but we need nested lists, so we do this home-brew version
+# instead:
 
-    starGalaxyColumn = Field(
-        '''Column name of the star/galaxy flag''',
-        str,
-        default=None)
+class AstrometryNetDataConfig(object):
+    fields = [
+        ('idColumn', str, 'id', None,
+         'Column name (in the index files) of the ID number of reference sources'),
+        ('defaultMagColumn', str, 'mag', None,
+         'Default column name (in the index files) of the reference source mag'),
+        ('starGalaxyColumn', str, None, None,
+         'Column name of the star/galaxy flag'),
+        ('variableColumn', str, None, None,
+         'Column name of the star variability flag'),
+        ('magErrorColumnMap', dict, {}, checkMagMap,
+         'Mapping from LSST filter name to mag error column name'),
+        ('magColumnMap', dict, {}, checkMagMap,
+         'Mapping from LSST filter name to mag column name'),
+        ('indexFiles', list, [], checkIndexList,
+          'List of Astrometry.net index filenames'),
+        ('multiIndexFiles', list, [], checkMultiIndexList,
+         'Astrometry.net multi-index filename lists.  Each item in this list must itself be a list of filenames.  The first filename is the Astrometry.net index file that contains the star kd-tree and tag-along tables AND the first index.  Subsequent filenames must be files containing just the non-star index parts.'),
+         ]
 
-    variableColumn = Field(
-        '''Column name of the star variability flag''',
-        str,
-        default=None)
+    def load(self, fn):
+        # Hold on to your socks!
+        loc = dict(root=self)
+        execfile(fn, globals(), loc)
+    
+    def __init__(self, **kwargs):
+        self.setDefaults()
+        for k,v in kwargs.items():
+            self.set(k, v)
 
-    magErrorColumnMap = DictField(
-        doc='''Mapping from LSST filter name to mag error column name''',
-        keytype=str,
-        itemtype=str,
-        default={})
+    def setDefaults(self):
+        for nm,typ,deef,check,doc in AstrometryNetDataConfig.fields:
+            self.set(nm, deef)
 
-    magColumnMap = DictField(
-        doc='''Mapping from LSST filter name to mag column name''',
-        keytype=str,
-        itemtype=str,
-        default={})
+    def set(self, k, v):
+        setattr(self, k, v)
 
-    indexFiles = ListField(dtype=str, default=[],
-                           doc='''Astrometry.net index filenames''')
+    def __setattr__(self, k, v):
+        for nm,typ,deef,check,doc in AstrometryNetDataConfig.fields:
+            if k != nm:
+                continue
+            if typ is not None:
+                if v is None:
+                    pass
+                elif not isinstance(v, typ):
+                    raise RuntimeError(('Attempted to set AstrometryNetDataConfig'
+                                        ' field \"%s\" to type %s, but need type %s') %
+                                        (nm, str(typ), str(type(v))))
+            if check is not None:
+                check(v)
+            # Looks ok; set it!
+            object.__setattr__(self, nm, v)
+            return
 
-    multiIndexFiles = NestableListField(dtype=list, default=[],
-                                        doc='''Astrometry.net multi-index filename lists.  Each item in this list must itself be a list of filenames.  The first filename is the Astrometry.net index file that contains the star kd-tree and tag-along tables AND the first index.  Subsequent filenames must be files containing just the non-star index parts.''')
-
+        raise RuntimeError('Attempted to set invalid AstrometryNetDataConfig'
+                           ' field \"%s\"' % k)
+        
     
 class MeasAstromConfig(pexConfig.Config):
     from lsst.pex.config import Field, RangeField, DictField
