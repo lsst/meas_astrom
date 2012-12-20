@@ -30,13 +30,12 @@ import math
 import unittest
 import eups
 import lsst.meas.astrom            as measAstrom
-import lsst.meas.algorithms.utils  as measAlgUtil
 import lsst.afw.detection          as afwDet
 import lsst.afw.table              as afwTable
 import lsst.afw.math               as afwMath
 import lsst.afw.image              as afwImg
 import lsst.utils.tests            as utilsTests
-import lsst.pex.policy             as pexPolicy
+import lsst.pex.config             as pexConfig
 from lsst.pex.logging import Log
 from lsst.pex.exceptions import LsstCppException
 
@@ -70,7 +69,7 @@ class MultiIndexTest(unittest.TestCase):
         del self.srcCat
         del self.conf
         del self.exposure
-        
+
     def getAstrometrySolution(self, loglvl = Log.INFO, andConfig=None):
         astrom = measAstrom.Astrometry(self.conf, logLevel=loglvl,
                                        andConfig=andConfig)
