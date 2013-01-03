@@ -111,6 +111,8 @@ getCatalogImpl(std::vector<index_t*> inds,
        }
    }
 
+   afwTable::Key<int> indexKey = schema.addField<int>("andIndex", "astrometry.net index identifier");
+
    afwTable::Key<afwTable::Flag> stargalKey;
    if (stargalcol) {
       stargalKey = schema.addField<afwTable::Flag>(
@@ -141,6 +143,7 @@ getCatalogImpl(std::vector<index_t*> inds,
       //printf("index \"%s\" is within range\n", ind->indexname);
       // Ensure the index is loaded...
       index_reload(ind);
+      int indexid = ind->indexid;       // Index identifier
 
       // Find nearby stars
       double *radecs = NULL;
@@ -250,6 +253,7 @@ getCatalogImpl(std::vector<index_t*> inds,
 
       for (int i=0; i<nstars; i++) {
 	 PTR(afwTable::SimpleRecord) src = cat.addNew();
+         src->set(indexKey, indexid);
 
 	 // Note that all coords in afwTable catalogs are ICRS; hopefully that's what the 
 	 // reference catalogs are (and that's what the code assumed before JFB modified it).

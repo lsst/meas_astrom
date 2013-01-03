@@ -71,6 +71,7 @@ class XYAstromTest(unittest.TestCase):
             self.assertTrue(dec <=  math.pi)
             self.assertEqual(ra,  ref[i].getRa().asRadians())
             self.assertEqual(dec, ref[i].getDec().asRadians())
+            self.assertEqual(ref[i].get("andIndex"), -1364614477) # All sources come from the same index file
         self.assertFalse(allzero)
 
 def suite():
