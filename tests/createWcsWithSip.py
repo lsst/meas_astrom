@@ -67,7 +67,21 @@ class CreateWcsWithSipCase(unittest.TestCase):
     def tearDown(self):
         del self.conf
         del self.astrom
-        
+
+    def assertMetadata(self, md):
+        self.assertEqual(md.get("ASTROMETRY_NET_DATA_DIR"), datapath)
+        self.assertEqual(md.valueCount("ASTROMETRY_NET_INDEX_DIR"), 1)
+        self.assertEqual(md.get("ASTROMETRY_NET_INDEX_DIR"), "")
+        self.assertEqual(md.valueCount("ASTROMETRY_NET_INDEX"), 1)
+        self.assertEqual(md.get("ASTROMETRY_NET_INDEX"), 120222100)
+        self.assertEqual(md.get("ANDCONFIG_IDCOL"), "id")
+        self.assertEqual(md.get("ANDCONFIG_SGCOL"), "star")
+        self.assertEqual(md.get("ANDCONFIG_VARCOL"), "None")
+        self.assertEqual(md.get("FILTER"), "None")
+        self.assertEqual(md.get("ANDCONFIG_FILTER"), "None")
+        self.assertEqual(md.get("ANDCONFIG_MAGCOL"), "r")
+        self.assertEqual(md.get("ANDCONFIG_MAGERRCOL"), "r_err")
+
     def testLinearXDistort(self):
         print "linearXDistort"
         self.singleTestInstance(self.filename, distort.linearXDistort)
@@ -85,6 +99,11 @@ class CreateWcsWithSipCase(unittest.TestCase):
         img = distort.distortList(cat, distortFunc)
         res = self.astrom.determineWcs2(img, imageSize=(1000,1000))
         imgWcs = res.getWcs()
+
+        self.assertMetadata(res.matchMetadata)
+        md = measAst.MatchMetadata.fromHeader(res.matchMetadata)
+        self.assertMetadata(md.toPropertyList(imgWcs, 1000, 1000, [120222100]))
+        measAst.MatchMetadata(None, self.astrom.config, self.astrom.andConfig).compare(md, throw=True)
 
         #Create a wcs with sip
         cat = cat.cast(afwTable.SimpleCatalog, False)

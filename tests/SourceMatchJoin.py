@@ -71,7 +71,6 @@ class matchlistTestCase(unittest.TestCase):
         normalized.table.setMetadata(matchmeta)
 
         matches2 = self.astrom.joinMatchListWithCatalog(normalized, self.srcSet)
-
         self.assertEqual(len(matches2), len(matches))
         for i in xrange(len(matches)):
             self.assertEqual(matches2[i].second.table, matches[i].second.table)
@@ -81,6 +80,12 @@ class matchlistTestCase(unittest.TestCase):
             self.assertEqual(matches2[i].first.getRa().asDegrees(), matches[i].first.getRa().asDegrees())
             self.assertEqual(matches2[i].first.getDec().asDegrees(), matches[i].first.getDec().asDegrees())
             self.assertEqual(matches2[i].first.get("flux"), matches[i].first.get("flux"))
+
+        matchmeta.remove("ASTROMETRY_NET_DATA_DIR")
+        def thisShouldRaise():
+            self.astrom.joinMatchListWithCatalog(normalized, self.srcSet, throw=True)
+
+        self.assertRaises(ValueError, thisShouldRaise)
 
     def testJoinAllFluxes(self):
         """Test that we can read all the fluxes back from an a.n.d catalogue"""

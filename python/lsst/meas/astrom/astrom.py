@@ -161,7 +161,6 @@ class Astrometry(object):
                                                           filterName=filterName)
         pixelMargin = 50.
         cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName, pixelMargin, x0=x0, y0=y0)
-
         catids = [src.getId() for src in cat]
         uids = set(catids)
         self.log.logdebug('%i reference sources; %i unique IDs' % (len(catids), len(uids)))
@@ -191,8 +190,12 @@ class Astrometry(object):
             astrom.sipWcs = sipwcs
             astrom.sipMatches = matchList
 
+        indexKey = cat.getTable().getSchema().find("andIndex").key
+        indexes = set(s.get(indexKey) for s in cat)
+
         W,H = imageSize
-        astrom.matchMetadata = _createMetadata(W, H, wcs, filterName)
+        md = MatchMetadata(filterName, self.config, self.andConfig)
+        astrom.matchMetadata = md.toPropertyList(wcs, W, H, indexes)
         astrom.wcs = wcs
         astrom.matches = afwTable.ReferenceMatchVector()
         for m in matchList:
@@ -516,21 +519,26 @@ class Astrometry(object):
         matchList = astromSip.cleanBadPoints.clean(matchList, wcs, nsigma=clean)
         return matchList
 
-    def getCatalogFilterName(self, filterName):
+    def getColumnName(self, filterName, columnMap, default=None):
         '''
         Returns the column name in the astrometry_net_data index file that will be used
         for the given filter name.
-        '''
-        return self._mapFilterName(filterName, self.andConfig.defaultMagColumn)
 
-    def _mapFilterName(self, filterName, default=None):
+        @param filterName   Name of filter used in exposure
+        @param columnMap    Dict that maps filter names to column names
+        @param default      Default column name
+        '''
         filterName = self.config.filterMap.get(filterName, filterName) # Exposure filter --> desired filter
         try:
-            return self.andConfig.magColumnMap[filterName] # Desired filter --> a_n_d column name
+            return columnMap[filterName] # Desired filter --> a_n_d column name
         except KeyError:
-            self.log.warn("No mag column in configuration for filter '%s'; using default '%s'" %
+            self.log.warn("No column in configuration for filter '%s'; using default '%s'" %
                           (filterName, default))
             return default
+
+    def getCatalogFilterName(self, filterName):
+        """Deprecated method for retrieving the magnitude column name from the filter name"""
+        return self.getColumnName(filterName, self.andConfig.magColumnMap, self.andConfig.defaultMagColumn)
 
     def getReferenceSourcesForWcs(self, wcs, imageSize, filterName, pixelMargin=50,
                                   x0=0, y0=0, trim=True, allFluxes=True):
@@ -569,8 +577,9 @@ class Astrometry(object):
         varCol = self.andConfig.variableColumn
         idcolumn = self.andConfig.idColumn
 
-        magCol = self.getCatalogFilterName(filterName)
-        magerrCol = self.andConfig.magErrorColumnMap.get(filterName, '')
+        magCol = self.getColumnName(filterName, self.andConfig.magColumnMap, self.andConfig.defaultMagColumn)
+        magerrCol = self.getColumnName(filterName, self.andConfig.magErrorColumnMap,
+                                       self.andConfig.defaultMagErrorColumn)
 
         if allFluxes:
             names = []
@@ -745,7 +754,7 @@ class Astrometry(object):
                 keep.append(s)
         return keep
 
-    def joinMatchListWithCatalog(self, packedMatches, sourceCat, allFluxes=False):
+    def joinMatchListWithCatalog(self, packedMatches, sourceCat, allFluxes=False, throw=False):
         '''
         This function is required to reconstitute a ReferenceMatchVector after being
         unpersisted.  The persisted form of a ReferenceMatchVector is the 
@@ -769,14 +778,17 @@ class Astrometry(object):
                                   the catalog will be sorted by ID.
         @param[in] allFluxes      Include all fluxes (and their errors) available in the catalog
                                   in the returned reference objects
+        @param[in] throw          Raise an exception if there's a problem in the metadata?
         
         @return An lsst.afw.table.ReferenceMatchVector of denormalized matches.
         '''
         matchmeta = packedMatches.table.getMetadata()
-        version = matchmeta.getInt('SMATCHV')
-        if version != 1:
-            raise ValueError('SourceMatchVector version number is %i, not 1.' % version)
         filterName = matchmeta.getString('FILTER').strip()
+
+        mdStored = MatchMetadata.fromHeader(matchmeta)
+        mdNew = MatchMetadata(filterName, self.config, self.andConfig)
+        mdNew.compare(mdStored, log=self.log, throw=throw)
+
         # all in deg.
         ra = matchmeta.getDouble('RA') * afwGeom.degrees
         dec = matchmeta.getDouble('DEC') * afwGeom.degrees
@@ -790,39 +802,140 @@ class Astrometry(object):
         return afwTable.unpackMatches(packedMatches, refCat, sourceCat)
 
 
-def _createMetadata(width, height, wcs, filterName):
+class MatchMetadata(object):
+    """Metadata for the matching process
+
+    The metadata will ultimately be saved in the FITS header of the packed matches FITS table.  We want to
+    save what is required so we can regenerate the reference catalogue using just the source identifiers from
+    the packed matches table.  To that end, we really want to save the ASTROMETRY_NET_DATA_DIR environment
+    variable (which is the default location for the index files), the MeasAstromConfig.filterMap and the
+    AstrometryNetDataConfig we used (which may be in the default location as "andConfig.py" or not).  Ideally,
+    preserving the AstrometryNetDataConfig properly would involve something like putting a pickle of it into
+    the FITS header, but that's probabaly not a good idea.  Instead, we resort to dumping the values of fields
+    we know about.  The intent is not to be able to recreate the AstrometryNetDataConfig (though perhaps that
+    might be done if one is desperate) so much as to be able to help us find the right one on the file system,
+    and to warn of potential problems from using a different setup.
     """
-    Create match metadata entries required for regenerating the catalog
+    def __init__(self, filterName, config, andConfig):
+        """
+        Create match metadata entries required for regenerating the catalog
 
-    @param width Width of the image (pixels)
-    @param height Height of the image (pixels)
-    @param filterName Name of filter, used for magnitudes
-    @return Metadata
-    """
-    meta = dafBase.PropertyList()
+        @param filterName Name of filter, used for magnitudes
+        @param config The configuration for meas_astrom
+        @param andConfig The configuration for the astrometry.net catalogue
+        """
+        self.version = 2
+        self.andDir = os.environ.get('ASTROMETRY_NET_DATA_DIR', None)
+        self.indexDirs = set([os.path.dirname(i) for i in andConfig.indexFiles])
+        self.filterName = filterName
+        self.useFilter = config.filterMap.get(filterName, None)
+        self.magCol = andConfig.magColumnMap.get(filterName, andConfig.defaultMagColumn)
+        self.magErrCol = andConfig.magErrorColumnMap.get(filterName, andConfig.defaultMagErrorColumn)
+        self.idColumn = andConfig.idColumn
+        self.starGalaxyColumn = andConfig.starGalaxyColumn
+        self.variableColumn = andConfig.variableColumn
 
-    #andata = os.environ.get('ASTROMETRY_NET_DATA_DIR')
-    #if andata is None:
-    #    meta.add('ANEUPS', 'none', 'ASTROMETRY_NET_DATA_DIR')
-    #else:
-    #    andata = os.path.basename(andata)
-    #    meta.add('ANEUPS', andata, 'ASTROMETRY_NET_DATA_DIR')
 
-    # cache: field center and size.  These may be off by 1/2 or 1 or 3/2 pixels.
-    cx,cy = 0.5 + width/2., 0.5 + height/2.
-    radec = wcs.pixelToSky(cx, cy).toIcrs()
-    meta.add('RA', radec.getRa().asDegrees(), 'field center in degrees')
-    meta.add('DEC', radec.getDec().asDegrees(), 'field center in degrees')
-    imgSize = wcs.pixelScale() * math.hypot(width, height)/2.
-    meta.add('RADIUS', imgSize.asDegrees(),
-             'field radius in degrees, approximate')
-    meta.add('SMATCHV', 1, 'SourceMatchVector version number')
-    if filterName is not None:
-        meta.add('FILTER', filterName, 'LSST filter name for tagalong data')
-    #meta.add('STARGAL', stargalName, 'star/galaxy name for tagalong data')
-    #meta.add('VARIABLE', variableName, 'variability name for tagalong data')
-    #meta.add('MAGERR', magerrName, 'magnitude error name for tagalong data')
-    return meta
+    def toPropertyList(self, wcs, width, height, indexIdList=[]):
+        """Generate a PropertyList (FITS header) with the metadata
+
+        @param wcs Astrometric solution, used to get RA,Dec
+        @param width Width of the image (pixels)
+        @param height Height of the image (pixels)
+        @param indexIdList List of astrometry.net index identifiers
+        @return PropertyList
+        """
+        meta = dafBase.PropertyList()
+        meta.add('SMATCHV', 2, 'SourceMatchVector version number')
+        meta.add("ASTROMETRY_NET_DATA_DIR", str(self.andDir), "EUPS directory for astrometry_net_data")
+        for i in self.indexDirs:
+            meta.add("ASTROMETRY_NET_INDEX_DIR", i, "Explicit index directory")
+        for i in indexIdList:
+            meta.add("ASTROMETRY_NET_INDEX", i, "astrometry.net index identifier")
+        meta.add("ANDCONFIG_IDCOL", str(self.idColumn), "Identifier column")
+        meta.add("ANDCONFIG_SGCOL", str(self.starGalaxyColumn), "Star/galaxy column")
+        meta.add("ANDCONFIG_VARCOL", str(self.variableColumn), "Variability column")
+        meta.add("FILTER", str(self.filterName), "Filter name")
+        meta.add("ANDCONFIG_FILTER", str(self.useFilter), "Used filter name")
+        meta.add("ANDCONFIG_MAGCOL", str(self.magCol), "Mag column")
+        meta.add("ANDCONFIG_MAGERRCOL", str(self.magErrCol), "Mag err column")
+
+        # cache: field center and size.  These may be off by 1/2 or 1 or 3/2 pixels.
+        cx,cy = 0.5 + width/2., 0.5 + height/2.
+        radec = wcs.pixelToSky(cx, cy).toIcrs()
+        meta.add('RA', radec.getRa().asDegrees(), 'field center in degrees')
+        meta.add('DEC', radec.getDec().asDegrees(), 'field center in degrees')
+        imgSize = wcs.pixelScale() * math.hypot(width, height)/2.
+        meta.add('RADIUS', imgSize.asDegrees(),
+                 'field radius in degrees, approximate')
+
+        return meta
+
+    @classmethod
+    def fromHeader(cls, header):
+        """Construct a MatchMetadata from a FITS header"""
+        self = MatchMetadata.__new__(MatchMetadata)
+        self.version = header.get("SMATCHV")
+        supported = (1, 2)
+        if self.version not in supported:
+            raise ValueError('SourceMatchVector version number is %i, not supported (%s)' % 
+                             (self.version, supported))
+
+        def getHeader(name):
+            try:
+                return header.get(name).strip()
+            except:
+                return None
+
+        self.andDir = getHeader("ASTROMETRY_NET_DATA_DIR")
+        self.idColumn = getHeader("ANDCONFIG_IDCOL")
+        self.starGalaxyColumn = getHeader("ANDCONFIG_SGCOL")
+        self.variableColumn = getHeader("ANDCONFIG_VARCOL")
+        self.filterName = getHeader("FILTER")
+        self.useFilter = getHeader("ANDCONFIG_FILTER")
+        self.magCol = getHeader("ANDCONFIG_MAGCOL")
+        self.magErrCol = getHeader("ANDCONFIG_MAGERRCOL")
+        try:
+            self.indexDirs = set(s.strip() for s in header.getArrayString("ASTROMETRY_NET_INDEX_DIR"))
+        except:
+            self.indexDirs = None
+
+        return self
+
+    def _compare(self, other, name, comment, log=None, throw=False):
+        """Compare an element of the metadata
+
+        @param other   Other metadata container to compare with
+        @param name    Name of element to compare
+        @param comment Description of the element (for error messages)
+        @param log     Log to which to print warnings
+        @param throw   Throw/raise an exception if something doesn't match?
+        """
+        this = getattr(self, name)
+        that = getattr(other, name)
+        if not (this == that or (that == "None" and this is None) or (this == "None" and that is None)):
+            description = "Match metadata %s (%s) doesn't match: %s vs %s" % (name, comment, str(this),
+                                                                              str(that))
+            if log is not None:
+                log.warn(description)
+            if throw:
+                raise ValueError(description)
+
+    def compare(self, other, *args, **kwargs):
+        """Compare this metadata with another"""
+        if other.version < 2:
+            # No comparison possible because nothing was recorded
+            return
+        self._compare(other, "andDir", "EUPS directory for astrometry_net_data", *args, **kwargs)
+        self._compare(other, "indexDirs", "explicit index directories", *args, **kwargs)
+        self._compare(other, "idColumn", "identifier column", *args, **kwargs)
+        self._compare(other, "starGalaxyColumn", "star/galaxy column", *args, **kwargs)
+        self._compare(other, "variableColumn", "variability column", *args, **kwargs)
+        self._compare(other, "filterName", "filter name", *args, **kwargs)
+        self._compare(other, "useFilter", "used filter name", *args, **kwargs)
+        self._compare(other, "magCol", "mag column", *args, **kwargs)
+        self._compare(other, "magErrCol", "mag err column", *args, **kwargs)
+
 
 def readMatches(butler, dataId, sourcesName='icSrc', matchesName='icMatch'):
     """Read matches, sources and catalogue; combine.

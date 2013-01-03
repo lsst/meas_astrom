@@ -1,4 +1,5 @@
 root.defaultMagColumn = 'r'
+root.defaultMagErrorColumn = 'r_err'
 root.starGalaxyColumn = 'star'
 #root.variableColumn = 'variable'
 filters = ('u','g','r','i','z')

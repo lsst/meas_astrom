@@ -16,6 +16,11 @@ class AstrometryNetDataConfig(pexConfig.Config):
         str,
         default='mag')
 
+    defaultMagErrorColumn = Field(
+        '''Default mag error column name''',
+        str,
+        default='')
+
     starGalaxyColumn = Field(
         '''Column name of the star/galaxy flag''',
         str,
