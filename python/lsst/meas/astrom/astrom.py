@@ -719,9 +719,11 @@ class Astrometry(object):
             fn2 = os.path.join(andir, fn)
             if os.path.exists(fn2):
                 return fn2
-        fn2 = os.path.abspath(fn)
-        return fn2
-                    
+
+        if os.path.exists(fn):
+            return os.path.abspath(fn)
+        else:
+            return None
 
     def _getSolver(self):
         import astrometry_net as an
