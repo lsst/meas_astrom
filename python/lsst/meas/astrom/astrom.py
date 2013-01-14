@@ -77,9 +77,15 @@ class Astrometry(object):
     def _readIndexFiles(self):
         import astrometry_net as an
         self.inds = []
+        nMissing = 0
         for fn in self.andConfig.indexFiles:
             self.log.log(self.log.DEBUG, 'Adding index file %s' % fn)
-            fn = self._getIndexPath(fn)
+            fn2 = self._getIndexPath(fn)
+            if fn2 is None:
+                self.log.log(self.log.DEBUG, 'Unable to find index file %s' % fn)
+                nMissing += 1
+                continue
+            fn = fn2
             self.log.log(self.log.DEBUG, 'Path: %s' % fn)
             ind = an.index_load(fn, an.INDEX_ONLY_LOAD_METADATA, None);
             if ind:
@@ -89,6 +95,11 @@ class Astrometry(object):
             else:
                 raise RuntimeError('Failed to read index file: "%s"' % fn)
 
+        if not self.inds:
+            self.log.log(self.log.WARN, 'Unable to find any index files')
+        elif nMissing > 0:
+            self.log.log(self.log.WARN, 'Unable to find %d index files' % nMissing)
+            
     def _debug(self, s):
         self.log.log(self.log.DEBUG, s)
     def _warn(self, s):
