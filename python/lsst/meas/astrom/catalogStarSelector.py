@@ -55,6 +55,11 @@ class CatalogStarSelectorConfig(pexConfig.Config):
         dtype = str,
         default = ["flags.pixel.edge", "flags.pixel.interpolated.center", "flags.pixel.saturated.center"],
         )
+    badStarFlagPrefixes = pexConfig.ListField(
+        doc = "Which prefixes to the above flags do you want to apply",
+        dtype = str,
+        default = ["", "initial."],
+        )
     kernelSize = pexConfig.Field(
         doc = "size of the kernel to create",
         dtype = int,
@@ -69,9 +74,8 @@ class CatalogStarSelectorConfig(pexConfig.Config):
 class CheckSource(object):
     """A functor to check whether a source has any flags set that should cause it to be labeled bad."""
 
-    def __init__(self, table, fluxLim, fluxMax, badStarPixelFlags):
-        badStarPixelFlags = badStarPixelFlags[:]
-        badStarPixelFlags += ["initial.%s" % k for k in badStarPixelFlags]
+    def __init__(self, table, fluxLim, fluxMax, badStarPixelFlags, prefixes):
+        badStarPixelFlags = ["%s%s" % (p,k) for k in badStarPixelFlags for p in prefixes]
 
         self.keys = [table.getSchema().find(name).key for name in badStarPixelFlags]
         self.keys.append(table.getCentroidFlagKey())
@@ -106,6 +110,7 @@ class CatalogStarSelector(object):
         self._fluxLim  = config.fluxLim
         self._fluxMax  = config.fluxMax
         self._badStarPixelFlags = config.badStarPixelFlags
+        self._badStarFlagPrefixes = config.badStarFlagPrefixes
             
     def selectStars(self, exposure, sources, matches=None):
         """Return a list of PSF candidates that represent likely stars
@@ -145,7 +150,7 @@ class CatalogStarSelector(object):
         filterName = exposure.getFilter().getName()
         calib = exposure.getCalib()
     
-        isGoodSource = CheckSource(sources, self._fluxLim, self._fluxMax, self._badStarPixelFlags)
+        isGoodSource = CheckSource(sources, self._fluxLim, self._fluxMax, self._badStarPixelFlags, self._badStarFlagPrefixes)
 
         #
         # Go through and find all the PSFs in the catalogue
