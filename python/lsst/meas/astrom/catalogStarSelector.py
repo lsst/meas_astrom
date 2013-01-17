@@ -70,7 +70,7 @@ class CheckSource(object):
     """A functor to check whether a source has any flags set that should cause it to be labeled bad."""
 
     def __init__(self, table, fluxLim, fluxMax, badStarPixelFlags, prefixes):
-        if hasattr(prefixes, "__contains__"):
+        if not hasattr(prefixes, "__contains__"):
             raise TypeError("Argument to CheckSource.__init__ must be iterable (and not a string)")
 
         badStarPixelFlags = ["%s%s" % (p,k) for k in badStarPixelFlags for p in prefixes]
