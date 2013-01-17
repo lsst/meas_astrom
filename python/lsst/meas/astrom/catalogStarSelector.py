@@ -55,11 +55,6 @@ class CatalogStarSelectorConfig(pexConfig.Config):
         dtype = str,
         default = ["flags.pixel.edge", "flags.pixel.interpolated.center", "flags.pixel.saturated.center"],
         )
-    badStarFlagPrefixes = pexConfig.ListField(
-        doc = "Which prefixes to the above flags do you want to apply",
-        dtype = str,
-        default = ["", "initial."],
-        )
     kernelSize = pexConfig.Field(
         doc = "size of the kernel to create",
         dtype = int,
@@ -75,6 +70,9 @@ class CheckSource(object):
     """A functor to check whether a source has any flags set that should cause it to be labeled bad."""
 
     def __init__(self, table, fluxLim, fluxMax, badStarPixelFlags, prefixes):
+        if hasattr(prefixes, "__contains__"):
+            raise TypeError("Argument to CheckSource.__init__ must be iterable (and not a string)")
+
         badStarPixelFlags = ["%s%s" % (p,k) for k in badStarPixelFlags for p in prefixes]
 
         self.keys = [table.getSchema().find(name).key for name in badStarPixelFlags]
@@ -110,9 +108,8 @@ class CatalogStarSelector(object):
         self._fluxLim  = config.fluxLim
         self._fluxMax  = config.fluxMax
         self._badStarPixelFlags = config.badStarPixelFlags
-        self._badStarFlagPrefixes = config.badStarFlagPrefixes
             
-    def selectStars(self, exposure, sources, matches=None, flagPrefixes=None):
+    def selectStars(self, exposure, sources, matches=None, flagPrefixes=["", "initial."]):
         """Return a list of PSF candidates that represent likely stars
         
         A list of PSF candidates may be used by a PSF fitter to construct a PSF.
@@ -122,9 +119,9 @@ class CatalogStarSelector(object):
         @param[in] matches: a match vector as produced by meas_astrom; not actually optional
                             (passing None just allows us to handle the exception better here
                             than in calling code)
-        @param[in] flagPrefixes: a list of prefixes that should be applied to bad pixel flag names
-                             stored in self._badStarPixelFlags.  overrides self._badStarFlagPrefixes 
-                             if not None
+        @param[in] flagPrefixes: contains a list of prefixes that
+                             should be applied to bad pixel flag names
+                             stored in self._badStarPixelFlags
         
         @return psfCandidateList: a list of PSF candidates.
         """
@@ -153,11 +150,7 @@ class CatalogStarSelector(object):
         filterName = exposure.getFilter().getName()
         calib = exposure.getCalib()
     
-        if flagPrefixes is None:
-            badStarFlagPrefixes = self._badStarFlagPrefixes
-        else:
-            badStarFlagPrefixes = flagPrefixes
-        isGoodSource = CheckSource(sources, self._fluxLim, self._fluxMax, self._badStarPixelFlags, badStarFlagPrefixes)
+        isGoodSource = CheckSource(sources, self._fluxLim, self._fluxMax, self._badStarPixelFlags, flagPrefixes)
 
         #
         # Go through and find all the PSFs in the catalogue
