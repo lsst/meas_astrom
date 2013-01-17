@@ -112,7 +112,7 @@ class CatalogStarSelector(object):
         self._badStarPixelFlags = config.badStarPixelFlags
         self._badStarFlagPrefixes = config.badStarFlagPrefixes
             
-    def selectStars(self, exposure, sources, matches=None):
+    def selectStars(self, exposure, sources, matches=None, flagPrefixes=None):
         """Return a list of PSF candidates that represent likely stars
         
         A list of PSF candidates may be used by a PSF fitter to construct a PSF.
@@ -122,6 +122,9 @@ class CatalogStarSelector(object):
         @param[in] matches: a match vector as produced by meas_astrom; not actually optional
                             (passing None just allows us to handle the exception better here
                             than in calling code)
+        @param[in] flagPrefixes: a list of prefixes that should be applied to bad pixel flag names
+                             stored in self._badStarPixelFlags.  overrides self._badStarFlagPrefixes 
+                             if not None
         
         @return psfCandidateList: a list of PSF candidates.
         """
@@ -150,7 +153,11 @@ class CatalogStarSelector(object):
         filterName = exposure.getFilter().getName()
         calib = exposure.getCalib()
     
-        isGoodSource = CheckSource(sources, self._fluxLim, self._fluxMax, self._badStarPixelFlags, self._badStarFlagPrefixes)
+        if flagPrefixes is None:
+            badStarFlagPrefixes = self._badStarFlagPrefixes
+        else:
+            badStarFlagPrefixes = flagPrefixes
+        isGoodSource = CheckSource(sources, self._fluxLim, self._fluxMax, self._badStarPixelFlags, badStarFlagPrefixes)
 
         #
         # Go through and find all the PSFs in the catalogue
