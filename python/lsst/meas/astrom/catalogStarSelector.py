@@ -21,7 +21,7 @@
 #
 import collections
 import math
-
+import types
 import numpy
 
 import lsst.pex.config as pexConfig
@@ -70,8 +70,8 @@ class CheckSource(object):
     """A functor to check whether a source has any flags set that should cause it to be labeled bad."""
 
     def __init__(self, table, fluxLim, fluxMax, badStarPixelFlags, prefixes):
-        if not hasattr(prefixes, "__contains__"):
-            raise TypeError("Argument to CheckSource.__init__ must be iterable (and not a string)")
+        if not isinstance(prefixes, collections.Iterable) or type(prefixes) == types.StringType:
+            raise TypeError("Argument to CheckSource.__init__ must be iterable and not a string")
 
         badStarPixelFlags = ["%s%s" % (p,k) for k in badStarPixelFlags for p in prefixes]
 
