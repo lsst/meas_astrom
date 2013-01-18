@@ -69,12 +69,7 @@ class CatalogStarSelectorConfig(pexConfig.Config):
 class CheckSource(object):
     """A functor to check whether a source has any flags set that should cause it to be labeled bad."""
 
-    def __init__(self, table, fluxLim, fluxMax, badStarPixelFlags, prefixes):
-        if not isinstance(prefixes, collections.Iterable) or type(prefixes) == types.StringType:
-            raise TypeError("Argument to CheckSource.__init__ must be iterable and not a string")
-
-        badStarPixelFlags = ["%s%s" % (p,k) for k in badStarPixelFlags for p in prefixes]
-
+    def __init__(self, table, fluxLim, fluxMax, badStarPixelFlags):
         self.keys = [table.getSchema().find(name).key for name in badStarPixelFlags]
         self.keys.append(table.getCentroidFlagKey())
         self.fluxLim = fluxLim
@@ -109,7 +104,7 @@ class CatalogStarSelector(object):
         self._fluxMax  = config.fluxMax
         self._badStarPixelFlags = config.badStarPixelFlags
             
-    def selectStars(self, exposure, sources, matches=None, flagPrefixes=["", "initial."]):
+    def selectStars(self, exposure, sources, matches=None):
         """Return a list of PSF candidates that represent likely stars
         
         A list of PSF candidates may be used by a PSF fitter to construct a PSF.
@@ -119,9 +114,6 @@ class CatalogStarSelector(object):
         @param[in] matches: a match vector as produced by meas_astrom; not actually optional
                             (passing None just allows us to handle the exception better here
                             than in calling code)
-        @param[in] flagPrefixes: contains a list of prefixes that
-                             should be applied to bad pixel flag names
-                             stored in self._badStarPixelFlags
         
         @return psfCandidateList: a list of PSF candidates.
         """
@@ -150,7 +142,7 @@ class CatalogStarSelector(object):
         filterName = exposure.getFilter().getName()
         calib = exposure.getCalib()
     
-        isGoodSource = CheckSource(sources, self._fluxLim, self._fluxMax, self._badStarPixelFlags, flagPrefixes)
+        isGoodSource = CheckSource(sources, self._fluxLim, self._fluxMax, self._badStarPixelFlags)
 
         #
         # Go through and find all the PSFs in the catalogue
