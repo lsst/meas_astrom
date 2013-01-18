@@ -19,9 +19,7 @@
 # the GNU General Public License along with this program.  If not, 
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
-import collections
 import math
-import types
 import numpy
 
 import lsst.pex.config as pexConfig
