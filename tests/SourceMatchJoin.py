@@ -45,7 +45,7 @@ class matchlistTestCase(unittest.TestCase):
         path = os.path.join(mypath, "examples")
         self.srcSet = afwTable.SourceCatalog.readFits(os.path.join(path, "v695833-e0-c000.xy.fits"))
         self.imageSize = (2048, 4612) # approximate
-        self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci"))
+        self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci.fits"))
 
         conf = measAstrom.MeasAstromConfig()
         loglvl = Log.INFO
