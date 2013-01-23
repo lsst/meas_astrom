@@ -386,7 +386,7 @@ class Astrometry(object):
         i=0
         while True:
             try:
-                sipObject = astromSip.CreateWcsWithSip(matchList, wcs, sipOrder, bbox)
+                sipObject = astromSip.makeCreateWcsWithSip(matchList, wcs, sipOrder, bbox)
                 proposedWcs = sipObject.getNewWcs()
                 self.plotSolution(matchList, proposedWcs, imageSize)
             except pexExceptions.LsstCppException, e:

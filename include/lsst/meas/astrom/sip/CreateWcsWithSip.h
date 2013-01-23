@@ -81,6 +81,7 @@ namespace sip {
 /// 
 /// Note that the matches must be one-to-one; this is ensured by passing closest=true to matchRaDec.
 ///
+template<class MatchT>
 class CreateWcsWithSip {
 public:
 
@@ -88,7 +89,7 @@ public:
     typedef boost::shared_ptr<CreateWcsWithSip const> ConstPtr;
 
     CreateWcsWithSip(
-        afw::table::ReferenceMatchVector const & matches,
+        std::vector<MatchT> const & matches,
         CONST_PTR(afw::image::Wcs) linearWcs,
         int const order,
         afw::geom::Box2I const& bbox = afw::geom::Box2I(),
@@ -108,7 +109,7 @@ public:
 
 private:
     
-    afw::table::ReferenceMatchVector const _matches;
+    std::vector<MatchT> const _matches;
     afw::geom::Box2I mutable _bbox;
     int _ngrid;                         // grid size to calculate inverse SIP coefficients (1-D)
     CONST_PTR(afw::image::Wcs) _linearWcs;
@@ -127,7 +128,18 @@ private:
     
     afw::geom::Point2D _getCrvalAsGeomPoint();
 };    
-    
+
+/// Factory function for CreateWcsWithSip
+template<class MatchT>
+CreateWcsWithSip<MatchT> makeCreateWcsWithSip(
+    std::vector<MatchT> const & matches,
+    CONST_PTR(afw::image::Wcs) linearWcs,
+    int const order,
+    afw::geom::Box2I const& bbox = afw::geom::Box2I(),
+    int const ngrid=0
+) {
+    return CreateWcsWithSip<MatchT>(matches, linearWcs, order, bbox, ngrid);
+}
 
 }}}}
 
