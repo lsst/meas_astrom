@@ -570,7 +570,7 @@ class Astrometry(object):
         idcolumn = self.andConfig.idColumn
 
         magCol = self.getCatalogFilterName(filterName)
-        magerrCol = self.andConfig.magErrorColumnMap.get(filterName, '')
+        magerrCol = self.andConfig.magErrorColumnMap.get(magCol, '')
 
         if allFluxes:
             names = []
