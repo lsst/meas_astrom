@@ -33,13 +33,8 @@
 #include "Eigen/Core"
 #include "Eigen/SVD"
 
-#include "lsst/pex/exceptions/Runtime.h"
-#include "lsst/pex/logging/Trace.h"
+#include "lsst/pex/exceptions.h"
 #include "lsst/afw/math/FunctionLibrary.h"
-
-namespace except = lsst::pex::exceptions;
-namespace pexLogging = lsst::pex::logging;
-
 
 namespace lsst { 
 namespace meas { 
@@ -112,19 +107,19 @@ template<class FittingFunc> LeastSqFitter1d<FittingFunc>::LeastSqFitter1d(const 
     _x(x), _y(y), _s(s), _order(order) {
     
     if (order == 0) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "Fit order must be >= 1");        
+        throw LSST_EXCEPT(pex::exceptions::RuntimeErrorException, "Fit order must be >= 1");
     }
     
     _nData = _x.size();
     if  (_nData != static_cast<int>(_y.size())) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "x and y vectors of different lengths");        
+        throw LSST_EXCEPT(pex::exceptions::RuntimeErrorException, "x and y vectors of different lengths");
     }
     if (_nData != static_cast<int>(_s.size())) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "x and s vectors of different lengths");        
+        throw LSST_EXCEPT(pex::exceptions::RuntimeErrorException, "x and s vectors of different lengths");
     }
 
     if (_nData < _order) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "Fewer data points than parameters");        
+        throw LSST_EXCEPT(pex::exceptions::RuntimeErrorException, "Fewer data points than parameters");
     }
 
     initFunctions();

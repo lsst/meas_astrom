@@ -58,8 +58,8 @@ Python interface to lsst::afw::meas::astrom::sip classes
 %declareNumPyConverters(Eigen::Matrix2d);
 %declareNumPyConverters(Eigen::MatrixXd);
 
-%import "lsst/afw/math/mathLib.i"
-%import "lsst/afw/image/imageLib.i"
+%import "lsst/afw/math/function.i"
+%import "lsst/afw/image/image_fwd.i"
 %import "lsst/afw/table/Source.i"
 %import "lsst/afw/table/Match.i"
 
