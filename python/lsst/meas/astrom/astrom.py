@@ -516,21 +516,27 @@ class Astrometry(object):
         matchList = astromSip.cleanBadPoints.clean(matchList, wcs, nsigma=clean)
         return matchList
 
-    def getCatalogFilterName(self, filterName):
+    def getColumnName(self, filterName, columnMap, default=None):
         '''
         Returns the column name in the astrometry_net_data index file that will be used
         for the given filter name.
-        '''
-        return self._mapFilterName(filterName, self.andConfig.defaultMagColumn)
 
-    def _mapFilterName(self, filterName, default=None):
+        @param filterName   Name of filter used in exposure
+        @param columnMap    Dict that maps filter names to column names
+        @param default      Default column name
+        '''
         filterName = self.config.filterMap.get(filterName, filterName) # Exposure filter --> desired filter
         try:
-            return self.andConfig.magColumnMap[filterName] # Desired filter --> a_n_d column name
+            return columnMap[filterName] # Desired filter --> a_n_d column name
         except KeyError:
-            self.log.warn("No mag column in configuration for filter '%s'; using default '%s'" %
+            self.log.warn("No column in configuration for filter '%s'; using default '%s'" %
                           (filterName, default))
             return default
+
+    def getCatalogFilterName(self, filterName):
+        """Deprecated method for retrieving the magnitude column name from the filter name"""
+        return self.getColumnName(filterName, self.andConfig.magColumnMap, self.andConfig.defaultMagColumn)
+
 
     def getReferenceSourcesForWcs(self, wcs, imageSize, filterName, pixelMargin=50,
                                   x0=0, y0=0, trim=True, allFluxes=True):
@@ -569,8 +575,9 @@ class Astrometry(object):
         varCol = self.andConfig.variableColumn
         idcolumn = self.andConfig.idColumn
 
-        magCol = self.getCatalogFilterName(filterName)
-        magerrCol = self.andConfig.magErrorColumnMap.get(magCol, '')
+        magCol = self.getColumnName(filterName, self.andConfig.magColumnMap, self.andConfig.defaultMagColumn)
+        magerrCol = self.getColumnName(filterName, self.andConfig.magErrorColumnMap,
+                                       self.andConfig.defaultMagErrorColumn)
 
         if allFluxes:
             names = []
