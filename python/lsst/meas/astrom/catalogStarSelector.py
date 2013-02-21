@@ -19,9 +19,7 @@
 # the GNU General Public License along with this program.  If not, 
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
-import collections
 import math
-
 import numpy
 
 import lsst.pex.config as pexConfig
@@ -70,9 +68,6 @@ class CheckSource(object):
     """A functor to check whether a source has any flags set that should cause it to be labeled bad."""
 
     def __init__(self, table, fluxLim, fluxMax, badStarPixelFlags):
-        badStarPixelFlags = badStarPixelFlags[:]
-        badStarPixelFlags += ["initial.%s" % k for k in badStarPixelFlags]
-
         self.keys = [table.getSchema().find(name).key for name in badStarPixelFlags]
         self.keys.append(table.getCentroidFlagKey())
         self.fluxLim = fluxLim
@@ -126,7 +121,7 @@ class CatalogStarSelector(object):
         pauseAtEnd = lsstDebug.Info(__name__).pauseAtEnd               # pause when done
 
         if matches is None:
-            raise pexExcept.LogicErrorException(
+            raise RuntimeError(
                 "Cannot use catalog star selector without running astrometry."
                 )
 

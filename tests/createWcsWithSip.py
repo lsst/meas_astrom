@@ -89,7 +89,7 @@ class CreateWcsWithSipCase(unittest.TestCase):
         #Create a wcs with sip
         cat = cat.cast(afwTable.SimpleCatalog, False)
         matchList = self.matchSrcAndCatalogue(cat, img, imgWcs)
-        sipObject = sip.CreateWcsWithSip(matchList, imgWcs, 3)
+        sipObject = sip.makeCreateWcsWithSip(matchList, imgWcs, 3)
 
         #print 'Put in TAN Wcs:'
         #print imgWcs.getFitsMetadata().toString()

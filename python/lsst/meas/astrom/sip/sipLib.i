@@ -73,3 +73,11 @@ Python interface to lsst::afw::meas::astrom::sip classes
 
 %template(LeastSqFitter2dPoly) lsst::meas::astrom::sip::LeastSqFitter2d< lsst::afw::math::PolynomialFunction1<double> >;
 
+
+%define %declareCreateWcsWithSip(SUFFIX, MATCH)
+%template(CreateWcsWithSip##SUFFIX) lsst::meas::astrom::sip::CreateWcsWithSip<MATCH>;
+%template(makeCreateWcsWithSip) lsst::meas::astrom::sip::makeCreateWcsWithSip<MATCH>;
+%enddef
+
+%declareCreateWcsWithSip(Reference, lsst::afw::table::ReferenceMatch);
+%declareCreateWcsWithSip(Source, lsst::afw::table::SourceMatch);
