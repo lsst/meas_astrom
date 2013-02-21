@@ -31,11 +31,6 @@ import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.afw.display.ds9 as ds9
 
-try:
-    import matplotlib.pyplot as pyplot
-except ImportError:
-    pyplot = None
-
 def checkSourceFlags(source, keys):
     """Return True if the given source has all good flags set and none of the bad flags set."""
     for k in keys.goodFlags:
