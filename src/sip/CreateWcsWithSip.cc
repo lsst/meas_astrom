@@ -247,6 +247,10 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
     crpix[1] -= mu[0]*CDinv(1,0) + nu[0]*CDinv(1,1);
 
     afwGeom::Point2D crval = _getCrvalAsGeomPoint();
+
+    // FIXME --- dstn is not sure this is a good idea!  You have least-squares
+    // solved the equations including the SIP terms -- just dropping the polynomial
+    // terms is not guaranteed to give you a good (or even sensible) linear part!
     _linearWcs = afwImg::Wcs::Ptr( new afwImg::Wcs(crval, crpix, CD));
 
     //Get Sip terms
@@ -287,6 +291,9 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
     float const dx = _bbox.getWidth()/(_ngrid - 1);
     int const y0 = _bbox.getMinY();
     float const dy = _bbox.getHeight()/(_ngrid - 1);
+
+    printf("Reverse matrices: x0,y0 %i,%i, W,H %i,%i, ngrid %i, dx,dy %g,%g\n",
+           x0, y0, _bbox.getWidth(), _bbox.getHeight(), _ngrid, dx, dy);
 
     afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
     int k = 0;
@@ -329,6 +336,11 @@ template<class MatchT>
 double CreateWcsWithSip<MatchT>::getScatterInPixels() {
     vector<double> val;
     val.reserve(_matches.size());
+
+    // DEBUG -- check round-tripping
+    vector<double> rtdist;
+    rtdist.reserve(_matches.size());
+
     
     for (
         typename std::vector<MatchT>::const_iterator ptr = _matches.begin();
@@ -348,7 +360,17 @@ double CreateWcsWithSip<MatchT>::getScatterInPixels() {
         double catY = xy[1];
         
         val.push_back(::hypot(imgX - catX, imgY - catY));
+
+        // DEBUG
+        CONST_PTR(afwCoord::Coord) rd = _newWcs->pixelToSky(imgX, imgY);
+        xy = _newWcs->skyToPixel(*rd);
+        rtdist.push_back(::hypot(imgX - xy[0], imgY - xy[1]));
+
    }
+
+    printf("Round-trip source pixel positions: median %g, mean %g pixels\n",
+           afwMath::makeStatistics(rtdist, afwMath::MEDIAN).getValue(),
+           afwMath::makeStatistics(rtdist, afwMath::MEAN).getValue());
     
     return afwMath::makeStatistics(val, afwMath::MEDIAN).getValue();
 }
@@ -359,6 +381,10 @@ template<class MatchT>
 afwGeom::Angle CreateWcsWithSip<MatchT>::getScatterOnSky() {
     vector<double> val;
     val.reserve(_matches.size());
+
+    // DEBUG -- check round-tripping
+    vector<double> rtdist;
+    rtdist.reserve(_matches.size());
 
     for (
         typename std::vector<MatchT>::const_iterator ptr = _matches.begin();
@@ -374,8 +400,16 @@ afwGeom::Angle CreateWcsWithSip<MatchT>::getScatterOnSky() {
         afwGeom::Angle sep = catRadec.angularSeparation(*imgRadec);
         val.push_back(sep.asDegrees());
 
+        // DEBUG
+        CONST_PTR(afwCoord::Coord) rd = _newWcs->pixelToSky(_newWcs->skyToPixel(catRec->getCoord()));
+        rtdist.push_back(catRec->getCoord().angularSeparation(*rd).asArcseconds());
+
     }
     assert(val.size() > 0);
+
+    printf("Round-trip catalog RA,Dec positions: median %g, mean %g arcsec\n",
+           afwMath::makeStatistics(rtdist, afwMath::MEDIAN).getValue(),
+           afwMath::makeStatistics(rtdist, afwMath::MEAN).getValue());
 
     return afwMath::makeStatistics(val, afwMath::MEDIAN).getValue()*afwGeom::degrees;
 }

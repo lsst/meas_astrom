@@ -394,8 +394,9 @@ class Astrometry(object):
                 break
 
             matchSize = len(matchList)
-            self._debug('Sip iteration %i: %i objects match. rms scatter is %g arcsec or %g pixels' %
+            self._debug('SIP iteration %i: %i objects match.  Median scatter is %g arcsec = %g pixels' %
                         (i, matchSize, sipObject.getScatterOnSky().asArcseconds(), sipObject.getScatterInPixels()))
+            self._debug('Proposed WCS: ' + proposedWcs.getFitsMetadata().toString())
             # use new WCS to get new matchlist.
             proposedMatchlist = self._getMatchList(sources, cat, proposedWcs)
             if len(proposedMatchlist) <= matchSize:
