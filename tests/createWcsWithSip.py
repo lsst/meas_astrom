@@ -67,6 +67,34 @@ class CreateWcsWithSipCase(unittest.TestCase):
     def tearDown(self):
         del self.conf
         del self.astrom
+
+    def testBigXy0(self):
+        print 'Big xy0'
+
+        from lsst.pex.logging import Log
+        log = Log.getDefaultLog()
+        log.setThreshold(Log.DEBUG);
+
+        self.astrom.log = log
+
+        x0,y0 = 200000, 500000
+        cx = 500
+        a2 = 1e-5
+        cat = afwTable.SourceCatalog.readFits(self.filename)
+        print 'Catalog size', len(cat)
+        # Source x,y positions are ~ (500,1500) x (500,1500)
+        xKey = cat.table.getCentroidKey().getX()
+        yKey = cat.table.getCentroidKey().getY()
+        for src in cat:
+            x = src.get(xKey) - 500
+            dx = x - cx
+            x += a2 * (dx**2)
+            src.set(xKey, x + x0)
+            src.set(yKey, src.get(yKey) - 500 + y0)
+        res = self.astrom.determineWcs2(cat, imageSize=(1000,1000),
+                                        x0=x0, y0=y0)
+        print 'Got result', res
+        print 'SIP:', res.getSipWcs().getFitsMetadata().toString()
         
     def testLinearXDistort(self):
         print "linearXDistort"

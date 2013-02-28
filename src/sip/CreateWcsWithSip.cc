@@ -31,6 +31,7 @@
 #include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
 #include "lsst/afw/math/Statistics.h"
 #include "lsst/afw/image/TanWcs.h"
+#include "lsst/pex/logging/Log.h"
 
 namespace lsst { 
 namespace meas { 
@@ -39,12 +40,13 @@ namespace sip {
 
 using namespace std;
 
-namespace except = lsst::pex::exceptions;
+namespace except   = lsst::pex::exceptions;
 namespace afwCoord = lsst::afw::coord;
-namespace afwGeom = lsst::afw::geom;
-namespace afwImg = lsst::afw::image;
-namespace afwDet = lsst::afw::detection;
-namespace afwMath = lsst::afw::math;
+namespace afwGeom  = lsst::afw::geom;
+namespace afwImg   = lsst::afw::image;
+namespace afwDet   = lsst::afw::detection;
+namespace afwMath  = lsst::afw::math;
+namespace pexLog   = lsst::pex::logging;
 
 namespace {
 /*
@@ -115,6 +117,7 @@ CreateWcsWithSip<MatchT>::CreateWcsWithSip(
     lsst::afw::geom::Box2I const& bbox,
     int const ngrid
 ):
+    _log(pexLog::Log(pexLog::Log::getDefaultLog(), "meas.astrom.sip")),
     _matches(matches),
     _bbox(bbox),
     _ngrid(ngrid),
@@ -292,24 +295,31 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
     int const y0 = _bbox.getMinY();
     float const dy = _bbox.getHeight()/(_ngrid - 1);
 
-    printf("Reverse matrices: x0,y0 %i,%i, W,H %i,%i, ngrid %i, dx,dy %g,%g\n",
-           x0, y0, _bbox.getWidth(), _bbox.getHeight(), _ngrid, dx, dy);
-
     afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
+
+    _log.debugf("_calcReverseMatrices: x0,y0 %i,%i, W,H %i,%i, ngrid %i, dx,dy %g,%g, CRPIX %g,%g",
+                x0, y0, _bbox.getWidth(), _bbox.getHeight(), _ngrid, dx, dy, crpix[0], crpix[1]);
+
     int k = 0;
     for (int i = 0; i < _ngrid; ++i) {
         float const y = y0 + i*dy;
         for (int j = 0; j < _ngrid; ++j, ++k) {
             float const x = x0 + j*dx;
+
             // u and v are intermediate pixel coordinates on a grid of positions
             u[k] = x - crpix[0];
             v[k] = y - crpix[1];
-            // U and V are the true, undistorted intermediate pixel positions as calculated
-            // using the new Tan-Sip forward coefficients (to sky) and the linear Wcs (back to pixels)
-            afwCoord::Coord::ConstPtr c = _newWcs->pixelToSky(x, y);
-            afwGeom::Point2D p = _linearWcs->skyToPixel(*c);
-            U[k] = p[0] - crpix[0];
-            V[k] = p[1] - crpix[1];
+
+            // U and V are the result of applying the "forward" (A,B) SIP coefficients
+            afwGeom::Point2D xy = _newWcs->undistortPixel(afwGeom::Point2D(x, y));
+            U[k] = xy[0] - crpix[0];
+            V[k] = xy[1] - crpix[1];
+
+            if ((i == 0 || i == (_ngrid-1) || i == (_ngrid/2)) &&
+                (j == 0 || j == (_ngrid-1) || j == (_ngrid/2))) {
+                _log.debugf("  x,y %g,%g, u,v %g,%g, U,V %g,%g", x, y, u[k], v[k], U[k], V[k]);
+            }
+
             delta1[k] = u[k] - U[k];
             delta2[k] = v[k] - V[k];
         }
@@ -325,7 +335,6 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
     for(int j=0; j< tmpA.rows(); ++j) {
         std::pair<int, int> pq = indexToPQ(j, ord);
         int p = pq.first, q = pq.second;
-
         _sipAp(p, q) = tmpA[j];
         _sipBp(p, q) = tmpB[j];   
     } 
@@ -334,17 +343,29 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
 ///Get the scatter in position in pixel space 
 template<class MatchT>
 double CreateWcsWithSip<MatchT>::getScatterInPixels() {
+    return _calcScatterPixels(_newWcs, _matches);
+}
+
+template<class MatchT>
+double CreateWcsWithSip<MatchT>::getOriginalScatterInPixels() {
+    return _calcScatterPixels(_linearWcs, _matches);
+}
+
+template<class MatchT>
+double CreateWcsWithSip<MatchT>::_calcScatterPixels(
+    CONST_PTR(afw::image::Wcs) wcs,
+    std::vector<MatchT> const & matches) {
+
     vector<double> val;
-    val.reserve(_matches.size());
+    val.reserve(matches.size());
 
     // DEBUG -- check round-tripping
     vector<double> rtdist;
-    rtdist.reserve(_matches.size());
-
+    rtdist.reserve(matches.size());
     
     for (
-        typename std::vector<MatchT>::const_iterator ptr = _matches.begin();
-        ptr != _matches.end();
+        typename std::vector<MatchT>::const_iterator ptr = matches.begin();
+        ptr != matches.end();
         ++ptr
     ) {
         afw::table::ReferenceMatch const & match = *ptr;
@@ -355,22 +376,22 @@ double CreateWcsWithSip<MatchT>::getScatterInPixels() {
         double imgX = srcRec->getX();
         double imgY = srcRec->getY();
         
-        afwGeom::Point2D xy = _newWcs->skyToPixel(catRec->getCoord());
+        afwGeom::Point2D xy = wcs->skyToPixel(catRec->getCoord());
         double catX = xy[0];
         double catY = xy[1];
         
         val.push_back(::hypot(imgX - catX, imgY - catY));
 
         // DEBUG
-        CONST_PTR(afwCoord::Coord) rd = _newWcs->pixelToSky(imgX, imgY);
-        xy = _newWcs->skyToPixel(*rd);
+        CONST_PTR(afwCoord::Coord) rd = wcs->pixelToSky(imgX, imgY);
+        xy = wcs->skyToPixel(*rd);
         rtdist.push_back(::hypot(imgX - xy[0], imgY - xy[1]));
 
    }
 
-    printf("Round-trip source pixel positions: median %g, mean %g pixels\n",
-           afwMath::makeStatistics(rtdist, afwMath::MEDIAN).getValue(),
-           afwMath::makeStatistics(rtdist, afwMath::MEAN).getValue());
+    _log.debugf("Round-trip source pixel positions: median %g, mean %g pixels",
+                afwMath::makeStatistics(rtdist, afwMath::MEDIAN).getValue(),
+                afwMath::makeStatistics(rtdist, afwMath::MEAN).getValue());
     
     return afwMath::makeStatistics(val, afwMath::MEDIAN).getValue();
 }
@@ -379,16 +400,28 @@ double CreateWcsWithSip<MatchT>::getScatterInPixels() {
 ///Get the scatter in (celestial) position
 template<class MatchT>
 afwGeom::Angle CreateWcsWithSip<MatchT>::getScatterOnSky() {
+    return _calcScatterSky(_newWcs, _matches);
+}
+
+template<class MatchT>
+afwGeom::Angle CreateWcsWithSip<MatchT>::getOriginalScatterOnSky() {
+    return _calcScatterSky(_linearWcs, _matches);
+}
+
+template<class MatchT>
+afwGeom::Angle CreateWcsWithSip<MatchT>::_calcScatterSky(
+    CONST_PTR(afw::image::Wcs) wcs,
+    std::vector<MatchT> const & matches) {
     vector<double> val;
-    val.reserve(_matches.size());
+    val.reserve(matches.size());
 
     // DEBUG -- check round-tripping
     vector<double> rtdist;
-    rtdist.reserve(_matches.size());
+    rtdist.reserve(matches.size());
 
     for (
-        typename std::vector<MatchT>::const_iterator ptr = _matches.begin();
-        ptr != _matches.end();
+        typename std::vector<MatchT>::const_iterator ptr = matches.begin();
+        ptr != matches.end();
         ++ptr
     ) {
         afw::table::ReferenceMatch const & match = *ptr;
@@ -396,20 +429,20 @@ afwGeom::Angle CreateWcsWithSip<MatchT>::getScatterOnSky() {
         PTR(afw::table::SimpleRecord) catRec = match.first;
         PTR(afw::table::SourceRecord) srcRec = match.second;
         afwCoord::IcrsCoord catRadec = catRec->getCoord();
-        CONST_PTR(afwCoord::Coord) imgRadec = _newWcs->pixelToSky(srcRec->getCentroid());
+        CONST_PTR(afwCoord::Coord) imgRadec = wcs->pixelToSky(srcRec->getCentroid());
         afwGeom::Angle sep = catRadec.angularSeparation(*imgRadec);
         val.push_back(sep.asDegrees());
 
         // DEBUG
-        CONST_PTR(afwCoord::Coord) rd = _newWcs->pixelToSky(_newWcs->skyToPixel(catRec->getCoord()));
+        CONST_PTR(afwCoord::Coord) rd = wcs->pixelToSky(wcs->skyToPixel(catRec->getCoord()));
         rtdist.push_back(catRec->getCoord().angularSeparation(*rd).asArcseconds());
 
     }
     assert(val.size() > 0);
 
-    printf("Round-trip catalog RA,Dec positions: median %g, mean %g arcsec\n",
-           afwMath::makeStatistics(rtdist, afwMath::MEDIAN).getValue(),
-           afwMath::makeStatistics(rtdist, afwMath::MEAN).getValue());
+    _log.debugf("Round-trip catalog RA,Dec positions: median %g, mean %g arcsec",
+                afwMath::makeStatistics(rtdist, afwMath::MEDIAN).getValue(),
+                afwMath::makeStatistics(rtdist, afwMath::MEAN).getValue());
 
     return afwMath::makeStatistics(val, afwMath::MEDIAN).getValue()*afwGeom::degrees;
 }

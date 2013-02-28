@@ -36,6 +36,7 @@
 #include "lsst/afw/geom/Box.h"
 #include "lsst/afw/geom/Point.h"
 #include "lsst/afw/geom/Angle.h"
+#include "lsst/pex/logging/Log.h"
 
 namespace lsst { 
     namespace afw {
@@ -44,6 +45,7 @@ namespace lsst {
             class TanWcs;
         }
     }
+
 namespace meas { 
 namespace astrom { 
 namespace sip {
@@ -100,6 +102,9 @@ public:
     double getScatterInPixels();
     afw::geom::Angle getScatterOnSky();
 
+    double getOriginalScatterInPixels();
+    afw::geom::Angle getOriginalScatterOnSky();
+
     /// Get the number of terms in the SIP matrix
     int getOrder() const { return  _sipA.rows(); }
     /// Return the number of points in the catalogue
@@ -108,6 +113,8 @@ public:
     int getNGrid() const { return _ngrid; }
 
 private:
+
+    lsst::pex::logging::Log _log;
     
     std::vector<MatchT> const _matches;
     afw::geom::Box2I mutable _bbox;
@@ -122,6 +129,11 @@ private:
     Eigen::MatrixXd _sipAp, _sipBp;
 
     PTR(afw::image::TanWcs) _newWcs;
+
+    double _calcScatterPixels(CONST_PTR(afw::image::Wcs) wcs,
+                              std::vector<MatchT> const & matches);
+    afw::geom::Angle _calcScatterSky(CONST_PTR(afw::image::Wcs) wcs,
+                                     std::vector<MatchT> const & matches);
     
     void _calculateForwardMatrices();
     void _calculateReverseMatrices();

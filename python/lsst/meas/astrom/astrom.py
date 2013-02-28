@@ -26,19 +26,35 @@ class InitialAstrometry(object):
        sipWcs (Wcs)
        sipMatches (MatchList)
     astrom.matchMetadata (PropertyList)
-    astrom.wcs (= sipWcs, if available, or tanWcs)
-    astrom.matches (= sipMatches if available, else tanMatches)
-    
     '''
     def __init__(self):
-        self.matches = None
-        self.wcs = None
+        pass
+    
     def getMatches(self):
-        return self.matches
+        m = self.getSipMatches()
+        if m is not None:
+            return m
+        return self.getTanMatches()
+    def getTanMatches(self):
+        return self.tanMatches
+    def getSipMatches(self):
+        return getattr(self, 'sipMatches', None)
+
     def getWcs(self):
-        return self.wcs
+        w = self.getSipWcs()
+        if w is not None:
+            return w
+        return self.getTanWcs()
+    def getTanWcs(self):
+        return self.tanWcs
+    def getSipWcs(self):
+        return getattr(self, 'sipWcs', None)
+
     def getMatchMetadata(self):
         return getattr(self, 'matchMetadata', None)
+    def getSolveQaMetadata(self):
+        return getattr(self, 'solveQa', None)
+        
 
 class Astrometry(object):
     ConfigClass = MeasAstromConfig
@@ -97,20 +113,28 @@ class Astrometry(object):
     def setAndConfig(self, andconfig):
         self.andConfig = andconfig
 
-    def _getImageParams(self, wcs, exposure, filterName=None, imageSize=None):
-        x0,y0 = 0, 0
+    def _getImageParams(self, wcs, exposure, filterName=None, imageSize=None,
+                        x0=None, y0=None):
         if exposure is not None:
-            x0,y0 = exposure.getX0(), exposure.getY0()
-            self._debug('Got exposure x0,y0 = %i,%i' % (x0,y0))
+            ex0,ey0 = exposure.getX0(), exposure.getY0()
+            if x0 is None:
+                x0 = ex0
+            if y0 is None:
+                y0 = ey0
+            self._debug('Got exposure x0,y0 = %i,%i' % (ex0,ey0))
             if filterName is None:
                 filterName = exposure.getFilter().getName()
                 self._debug('Setting filterName = "%s" from exposure metadata' % str(filterName))
             if imageSize is None:
                 imageSize = (exposure.getWidth(), exposure.getHeight())
                 self._debug('Setting image size = (%i, %i) from exposure metadata' % (imageSize))
+        if x0 is None:
+            x0 = 0
+        if y0 is None:
+            y0 = 0
         return filterName, imageSize, x0, y0
 
-    def useKnownWcs(self, sources, wcs=None, exposure=None, filterName=None, imageSize=None):
+    def useKnownWcs(self, sources, wcs=None, exposure=None, filterName=None, imageSize=None, x0=None, y0=None):
         """
         Returns an InitialAstrometry object, just like determineWcs,
         but assuming the given input WCS is correct.
@@ -158,7 +182,8 @@ class Astrometry(object):
                 
         filterName,imageSize,x0,y0 = self._getImageParams(exposure=exposure, wcs=wcs,
                                                           imageSize=imageSize,
-                                                          filterName=filterName)
+                                                          filterName=filterName,
+                                                          x0=x0, y0=y0)
         pixelMargin = 50.
         cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName, pixelMargin, x0=x0, y0=y0)
 
@@ -183,7 +208,7 @@ class Astrometry(object):
             assert(m.second in sources)
 
         if self.config.calculateSip:
-            sipwcs,matchList = self._calculateSipTerms(wcs, cat, sources, matchList, imageSize)
+            sipwcs,matchList = self._calculateSipTerms(wcs, cat, sources, matchList, imageSize, x0=x0, y0=y0)
             if sipwcs == wcs:
                 self._debug('Failed to find a SIP WCS better than the initial one.')
             else:
@@ -192,11 +217,8 @@ class Astrometry(object):
             astrom.sipMatches = matchList
 
         W,H = imageSize
+        wcs = astrom.getWcs()
         astrom.matchMetadata = _createMetadata(W, H, wcs, filterName)
-        astrom.wcs = wcs
-        astrom.matches = afwTable.ReferenceMatchVector()
-        for m in matchList:
-            astrom.matches.push_back(m)
         return astrom
 
     def determineWcs(self,
@@ -286,7 +308,8 @@ class Astrometry(object):
         '''
         wcs,qa = self.getBlindWcsSolution(sources, **kwargs)
         kw = {}
-        for key in ['exposure', 'filterName', 'imageSize']:
+        # Keys passed to useKnownWcs
+        for key in ['exposure', 'filterName', 'imageSize', 'x0', 'y0']:
             if key in kwargs:
                 kw[key] = kwargs[key]
         astrom = self.useKnownWcs(sources, wcs=wcs, **kw)
@@ -298,6 +321,7 @@ class Astrometry(object):
                             exposure=None,
                             wcs=None,
                             imageSize=None,
+                            x0=None, y0=None,
                             radecCenter=None,
                             searchRadius=None,
                             pixelScale=None,
@@ -314,7 +338,8 @@ class Astrometry(object):
 
         filterName,imageSize,x0,y0 = self._getImageParams(exposure=exposure, wcs=wcs,
                                                           imageSize=imageSize,
-                                                          filterName=filterName)
+                                                          filterName=filterName,
+                                                          x0=x0, y0=y0)
 
         if exposure is not None:
             if wcs is None:
@@ -377,33 +402,43 @@ class Astrometry(object):
                     (xc, yc, rdc.getLongitude().asDegrees(), rdc.getLatitude().asDegrees()))
         return wcs,qa
 
-    def _calculateSipTerms(self, origWcs, cat, sources, matchList, imageSize):
+    def _calculateSipTerms(self, origWcs, cat, sources, matchList, imageSize,
+                           x0=0, y0=0):
         '''Iteratively calculate sip distortions and regenerate matchList based on improved wcs'''
         sipOrder = self.config.sipOrder
         wcs = origWcs
-        bbox = afwGeom.Box2I(afwGeom.Point2I(0,0), afwGeom.Extent2I(imageSize[0], imageSize[1]))
+        bbox = afwGeom.Box2I(afwGeom.Point2I(x0,y0), afwGeom.Extent2I(imageSize[0], imageSize[1]))
 
         i=0
+        lastScatPix = None
         while True:
             try:
                 sipObject = astromSip.makeCreateWcsWithSip(matchList, wcs, sipOrder, bbox)
+                if lastScatPix is None:
+                    lastScatPix = sipObject.getOriginalScatterInPixels()
                 proposedWcs = sipObject.getNewWcs()
+                scatPix = sipObject.getScatterInPixels()
                 self.plotSolution(matchList, proposedWcs, imageSize)
             except pexExceptions.LsstCppException, e:
                 self._warn('Failed to calculate distortion terms. Error: ' + str(e))
                 break
 
             matchSize = len(matchList)
-            self._debug('SIP iteration %i: %i objects match.  Median scatter is %g arcsec = %g pixels' %
-                        (i, matchSize, sipObject.getScatterOnSky().asArcseconds(), sipObject.getScatterInPixels()))
-            self._debug('Proposed WCS: ' + proposedWcs.getFitsMetadata().toString())
+            self._debug('SIP iteration %i: %i objects match.  Median scatter is %g arcsec = %g pixels (vs previous: %g pixels)' %
+                        (i, matchSize, sipObject.getScatterOnSky().asArcseconds(), scatPix, lastScatPix))
+            #self._debug('Proposed WCS: ' + proposedWcs.getFitsMetadata().toString())
             # use new WCS to get new matchlist.
             proposedMatchlist = self._getMatchList(sources, cat, proposedWcs)
-            if len(proposedMatchlist) <= matchSize:
-                # We're regressing, so stop
+
+            # Hack convergence tests
+            if len(proposedMatchlist) < matchSize:
                 break
+            if len(proposedMatchlist) == matchSize and scatPix >= lastScatPix:
+                break
+
             wcs = proposedWcs
             matchList = proposedMatchlist
+            lastScatPix = scatPix
             matchSize = len(matchList)
             i += 1
 
@@ -651,8 +686,8 @@ class Astrometry(object):
             self.log.logdebug('Keeping %i of %i sources with finite X,Y positions and PSF flux' %
                               (len(goodsources), len(sources)))
         self._debug(('Feeding sources in range x=[%.1f, %.1f], y=[%.1f, %.1f] ' +
-                     '(after subtracting x0,y0) to Astrometry.net') %
-                    (xybb.getMinX(), xybb.getMaxX(), xybb.getMinY(), xybb.getMaxY()))
+                     '(after subtracting x0,y0 = %.1f,%.1f) to Astrometry.net') %
+                    (xybb.getMinX(), xybb.getMaxX(), xybb.getMinY(), xybb.getMaxY(), x0, y0))
         # setStars sorts them by PSF flux.
         solver.setStars(goodsources, x0, y0)
         solver.setMaxStars(self.config.maxStars)
