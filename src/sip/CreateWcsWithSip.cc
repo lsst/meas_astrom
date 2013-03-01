@@ -306,7 +306,6 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
             u = x - crpix[0];
             v = y - crpix[1];
 
-            /*
             // U and V are the result of applying the "forward" (A,B) SIP coefficients
             // NOTE that the "undistortPixel()" function accepts 1-indexed (FITS-style)
             // coordinates, and here we are treating "x" and "y" as LSST-style.
@@ -315,13 +314,6 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
             // the FITS-style 1-index from "xy"
             U[k] = xy[0] - 1 - crpix[0];
             V[k] = xy[1] - 1 - crpix[1];
-             */
-            // U and V are the true, undistorted intermediate pixel positions as calculated
-            // using the new Tan-Sip forward coefficients (to sky) and the linear Wcs (back to pixels)
-            afwCoord::Coord::ConstPtr c = _newWcs->pixelToSky(x, y);
-            afwGeom::Point2D p = _linearWcs->skyToPixel(*c);
-            U[k] = p[0] - crpix[0];
-            V[k] = p[1] - crpix[1];
 
             if ((i == 0 || i == (_ngrid-1) || i == (_ngrid/2)) &&
                 (j == 0 || j == (_ngrid-1) || j == (_ngrid/2))) {
