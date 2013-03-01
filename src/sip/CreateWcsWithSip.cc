@@ -149,7 +149,7 @@ CreateWcsWithSip<MatchT>::CreateWcsWithSip(
     }
 
     if (_ngrid <= 0) {
-        _ngrid = 3*_sipOrder;           // should be plenty
+        _ngrid = 5*_sipOrder;           // should be plenty
     }
 
     /*
@@ -209,9 +209,8 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
     ) {
         afw::table::ReferenceMatch const & match = *ptr;
 
-        // iwc's store the intermediate world coordinate positions of catalogue objects
+        // iwc: intermediate world coordinate positions of catalogue objects
         afwCoord::IcrsCoord c = match.first->getCoord();
-
         afwGeom::Point2D p = _linearWcs->skyToIntermediateWorldCoord(c);
         iwc1[i] = p[0];
         iwc2[i] = p[1];
@@ -230,7 +229,7 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
     // Use mu and nu to refine CD
 
     // Given the implementation of indexToPQ(), the refined values
-    // of the elements of the CD matrices are in elements 1 and "_sipOrder" of mu and nu.
+    // of the elements of the CD matrices are in elements 1 and "_sipOrder" of mu and nu
     // If the implementation of indexToPQ() changes, these assertions
     // will catch that change.
     assert ((indexToPQ(0,   ord) == std::pair<int, int>(0, 0)));
@@ -251,9 +250,6 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
 
     afwGeom::Point2D crval = _getCrvalAsGeomPoint();
 
-    // FIXME --- dstn is not sure this is a good idea!  You have least-squares
-    // solved the equations including the SIP terms -- just dropping the polynomial
-    // terms is not guaranteed to give you a good (or even sensible) linear part!
     _linearWcs = afwImg::Wcs::Ptr( new afwImg::Wcs(crval, crpix, CD));
 
     //Get Sip terms
@@ -283,45 +279,57 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
 
 template<class MatchT>
 void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
-    // Assumes FITS (1-indexed) coordinates.
     int const ngrid2 = _ngrid*_ngrid;
 
-    Eigen::VectorXd u(ngrid2), v(ngrid2);
+    //Eigen::VectorXd u(ngrid2), v(ngrid2);
     Eigen::VectorXd U(ngrid2), V(ngrid2);
     Eigen::VectorXd delta1(ngrid2), delta2(ngrid2);
     
     int const x0 = _bbox.getMinX();
-    float const dx = _bbox.getWidth()/(_ngrid - 1);
+    double const dx = _bbox.getWidth()/(double)(_ngrid - 1);
     int const y0 = _bbox.getMinY();
-    float const dy = _bbox.getHeight()/(_ngrid - 1);
+    double const dy = _bbox.getHeight()/(double)(_ngrid - 1);
 
-    afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
+    // wcs->getPixelOrigin() returns LSST-style (0-indexed) pixel coords.
+    afwGeom::Point2D crpix = _newWcs->getPixelOrigin();
 
     _log.debugf("_calcReverseMatrices: x0,y0 %i,%i, W,H %i,%i, ngrid %i, dx,dy %g,%g, CRPIX %g,%g",
                 x0, y0, _bbox.getWidth(), _bbox.getHeight(), _ngrid, dx, dy, crpix[0], crpix[1]);
 
     int k = 0;
     for (int i = 0; i < _ngrid; ++i) {
-        float const y = y0 + i*dy;
+        double const y = y0 + i*dy;
         for (int j = 0; j < _ngrid; ++j, ++k) {
-            float const x = x0 + j*dx;
-
+            double const x = x0 + j*dx;
+            double u,v;
             // u and v are intermediate pixel coordinates on a grid of positions
-            u[k] = x - crpix[0];
-            v[k] = y - crpix[1];
+            u = x - crpix[0];
+            v = y - crpix[1];
 
+            /*
             // U and V are the result of applying the "forward" (A,B) SIP coefficients
-            afwGeom::Point2D xy = _newWcs->undistortPixel(afwGeom::Point2D(x, y));
-            U[k] = xy[0] - crpix[0];
-            V[k] = xy[1] - crpix[1];
+            // NOTE that the "undistortPixel()" function accepts 1-indexed (FITS-style)
+            // coordinates, and here we are treating "x" and "y" as LSST-style.
+            afwGeom::Point2D xy = _newWcs->undistortPixel(afwGeom::Point2D(x + 1, y + 1));
+            // "crpix", on the other hand, is LSST-style 0-indexed, so we have to remove
+            // the FITS-style 1-index from "xy"
+            U[k] = xy[0] - 1 - crpix[0];
+            V[k] = xy[1] - 1 - crpix[1];
+             */
+            // U and V are the true, undistorted intermediate pixel positions as calculated
+            // using the new Tan-Sip forward coefficients (to sky) and the linear Wcs (back to pixels)
+            afwCoord::Coord::ConstPtr c = _newWcs->pixelToSky(x, y);
+            afwGeom::Point2D p = _linearWcs->skyToPixel(*c);
+            U[k] = p[0] - crpix[0];
+            V[k] = p[1] - crpix[1];
 
             if ((i == 0 || i == (_ngrid-1) || i == (_ngrid/2)) &&
                 (j == 0 || j == (_ngrid-1) || j == (_ngrid/2))) {
-                _log.debugf("  x,y %g,%g, u,v %g,%g, U,V %g,%g", x, y, u[k], v[k], U[k], V[k]);
+                _log.debugf("  x,y (%.1f, %.1f), u,v (%.1f, %.1f), U,V (%.1f, %.1f)", x, y, u, v, U[k], V[k]);
             }
 
-            delta1[k] = u[k] - U[k];
-            delta2[k] = v[k] - V[k];
+            delta1[k] = u - U[k];
+            delta2[k] = v - V[k];
         }
     }
 
