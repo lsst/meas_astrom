@@ -347,7 +347,7 @@ double CreateWcsWithSip<MatchT>::getScatterInPixels() {
 }
 
 template<class MatchT>
-double CreateWcsWithSip<MatchT>::getOriginalScatterInPixels() {
+double CreateWcsWithSip<MatchT>::getLinearScatterInPixels() {
     return _calcScatterPixels(_linearWcs, _matches);
 }
 
@@ -355,44 +355,24 @@ template<class MatchT>
 double CreateWcsWithSip<MatchT>::_calcScatterPixels(
     CONST_PTR(afw::image::Wcs) wcs,
     std::vector<MatchT> const & matches) {
-
     vector<double> val;
     val.reserve(matches.size());
 
-    // DEBUG -- check round-tripping
-    vector<double> rtdist;
-    rtdist.reserve(matches.size());
-    
     for (
         typename std::vector<MatchT>::const_iterator ptr = matches.begin();
         ptr != matches.end();
         ++ptr
     ) {
         afw::table::ReferenceMatch const & match = *ptr;
-
-        PTR(afw::table::SimpleRecord) catRec = match.first;
-        PTR(afw::table::SourceRecord) srcRec = match.second;
-        
-        double imgX = srcRec->getX();
-        double imgY = srcRec->getY();
-        
-        afwGeom::Point2D xy = wcs->skyToPixel(catRec->getCoord());
+        PTR(afw::table::SimpleRecord) cat = match.first;
+        PTR(afw::table::SourceRecord) src = match.second;
+        double imgX = src->getX();
+        double imgY = src->getY();
+        afwGeom::Point2D xy = wcs->skyToPixel(cat->getCoord());
         double catX = xy[0];
         double catY = xy[1];
-        
         val.push_back(::hypot(imgX - catX, imgY - catY));
-
-        // DEBUG
-        CONST_PTR(afwCoord::Coord) rd = wcs->pixelToSky(imgX, imgY);
-        xy = wcs->skyToPixel(*rd);
-        rtdist.push_back(::hypot(imgX - xy[0], imgY - xy[1]));
-
    }
-
-    _log.debugf("Round-trip source pixel positions: median %g, mean %g pixels",
-                afwMath::makeStatistics(rtdist, afwMath::MEDIAN).getValue(),
-                afwMath::makeStatistics(rtdist, afwMath::MEAN).getValue());
-    
     return afwMath::makeStatistics(val, afwMath::MEDIAN).getValue();
 }
     
@@ -404,7 +384,7 @@ afwGeom::Angle CreateWcsWithSip<MatchT>::getScatterOnSky() {
 }
 
 template<class MatchT>
-afwGeom::Angle CreateWcsWithSip<MatchT>::getOriginalScatterOnSky() {
+afwGeom::Angle CreateWcsWithSip<MatchT>::getLinearScatterOnSky() {
     return _calcScatterSky(_linearWcs, _matches);
 }
 
@@ -415,35 +395,20 @@ afwGeom::Angle CreateWcsWithSip<MatchT>::_calcScatterSky(
     vector<double> val;
     val.reserve(matches.size());
 
-    // DEBUG -- check round-tripping
-    vector<double> rtdist;
-    rtdist.reserve(matches.size());
-
     for (
         typename std::vector<MatchT>::const_iterator ptr = matches.begin();
         ptr != matches.end();
         ++ptr
     ) {
         afw::table::ReferenceMatch const & match = *ptr;
-
-        PTR(afw::table::SimpleRecord) catRec = match.first;
-        PTR(afw::table::SourceRecord) srcRec = match.second;
-        afwCoord::IcrsCoord catRadec = catRec->getCoord();
-        CONST_PTR(afwCoord::Coord) imgRadec = wcs->pixelToSky(srcRec->getCentroid());
+        PTR(afw::table::SimpleRecord) cat = match.first;
+        PTR(afw::table::SourceRecord) src = match.second;
+        afwCoord::IcrsCoord catRadec = cat->getCoord();
+        CONST_PTR(afwCoord::Coord) imgRadec = wcs->pixelToSky(src->getCentroid());
         afwGeom::Angle sep = catRadec.angularSeparation(*imgRadec);
         val.push_back(sep.asDegrees());
-
-        // DEBUG
-        CONST_PTR(afwCoord::Coord) rd = wcs->pixelToSky(wcs->skyToPixel(catRec->getCoord()));
-        rtdist.push_back(catRec->getCoord().angularSeparation(*rd).asArcseconds());
-
     }
     assert(val.size() > 0);
-
-    _log.debugf("Round-trip catalog RA,Dec positions: median %g, mean %g arcsec",
-                afwMath::makeStatistics(rtdist, afwMath::MEDIAN).getValue(),
-                afwMath::makeStatistics(rtdist, afwMath::MEAN).getValue());
-
     return afwMath::makeStatistics(val, afwMath::MEDIAN).getValue()*afwGeom::degrees;
 }
 

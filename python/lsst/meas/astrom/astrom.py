@@ -17,18 +17,20 @@ import numpy as np # for isfinite()
 # Object returned by determineWcs.
 class InitialAstrometry(object):
     '''
-    Fields set by determineWcs():
+    getWcs(): sipWcs or tanWcs
+    getMatches(): sipMatches or tanMatches
 
+    Other fields are:
     solveQa (PropertyList)
     tanWcs (Wcs)
     tanMatches (MatchList)
-    if sip:
-       sipWcs (Wcs)
-       sipMatches (MatchList)
-    astrom.matchMetadata (PropertyList)
+    sipWcs (Wcs)
+    sipMatches (MatchList)
+    matchMetadata (PropertyList)
     '''
     def __init__(self):
-        pass
+        self.tanWcs = None
+        self.tanMatches = None
     
     def getMatches(self):
         m = self.getSipMatches()
@@ -201,7 +203,8 @@ class Astrometry(object):
 
         self._debug('%i reference objects match input sources using input WCS' % (len(matchList)))
         astrom.tanMatches = matchList
-
+        astrom.tanWcs = wcs
+        
         srcids = [s.getId() for s in sources]
         for m in matchList:
             assert(m.second.getId() in srcids)
@@ -213,11 +216,15 @@ class Astrometry(object):
                 self._debug('Failed to find a SIP WCS better than the initial one.')
             else:
                 self._debug('%i reference objects match input sources using SIP WCS' % (len(matchList)))
-            astrom.sipWcs = sipwcs
-            astrom.sipMatches = matchList
-
+                astrom.sipWcs = sipwcs
+                astrom.sipMatches = matchList
+                
         W,H = imageSize
         wcs = astrom.getWcs()
+        # _getMatchList() modifies the source list RA,Dec coordinates.
+        # Here, we make them consistent with the WCS we are returning.
+        for src in sources:
+            src.updateCoord(wcs)
         astrom.matchMetadata = _createMetadata(W, H, wcs, filterName)
         return astrom
 
@@ -407,7 +414,8 @@ class Astrometry(object):
         '''Iteratively calculate sip distortions and regenerate matchList based on improved wcs'''
         sipOrder = self.config.sipOrder
         wcs = origWcs
-        bbox = afwGeom.Box2I(afwGeom.Point2I(x0,y0), afwGeom.Extent2I(imageSize[0], imageSize[1]))
+        bbox = afwGeom.Box2I(afwGeom.Point2I(x0,y0),
+                             afwGeom.Extent2I(imageSize[0], imageSize[1]))
 
         i=0
         lastScatPix = None
@@ -415,7 +423,7 @@ class Astrometry(object):
             try:
                 sipObject = astromSip.makeCreateWcsWithSip(matchList, wcs, sipOrder, bbox)
                 if lastScatPix is None:
-                    lastScatPix = sipObject.getOriginalScatterInPixels()
+                    lastScatPix = sipObject.getLinearScatterInPixels()
                 proposedWcs = sipObject.getNewWcs()
                 scatPix = sipObject.getScatterInPixels()
                 self.plotSolution(matchList, proposedWcs, imageSize)
@@ -851,7 +859,7 @@ def _createMetadata(width, height, wcs, filterName):
     #    andata = os.path.basename(andata)
     #    meta.add('ANEUPS', andata, 'ASTROMETRY_NET_DATA_DIR')
 
-    # cache: field center and size.  These may be off by 1/2 or 1 or 3/2 pixels.
+    # cache: field center and size.
     cx,cy = 0.5 + width/2., 0.5 + height/2.
     radec = wcs.pixelToSky(cx, cy).toIcrs()
     meta.add('RA', radec.getRa().asDegrees(), 'field center in degrees')

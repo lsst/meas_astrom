@@ -102,8 +102,8 @@ public:
     double getScatterInPixels();
     afw::geom::Angle getScatterOnSky();
 
-    double getOriginalScatterInPixels();
-    afw::geom::Angle getOriginalScatterOnSky();
+    double getLinearScatterInPixels();
+    afw::geom::Angle getLinearScatterOnSky();
 
     /// Get the number of terms in the SIP matrix
     int getOrder() const { return  _sipA.rows(); }
@@ -120,9 +120,8 @@ private:
     afw::geom::Box2I mutable _bbox;
     int _ngrid;                         // grid size to calculate inverse SIP coefficients (1-D)
     CONST_PTR(afw::image::Wcs) _linearWcs;
-    CONST_PTR(afw::image::Wcs) _origWcs;
-    //size is number of input points. _sipOrder is polynomial order for forward transform.
-    //_reverseSipOrder is order for reverse transform, not necessarily the same.
+    // _sipOrder is polynomial order for forward transform.
+    // _reverseSipOrder is order for reverse transform, not necessarily the same.
     int const _sipOrder, _reverseSipOrder;      
 
     Eigen::MatrixXd _sipA, _sipB;
