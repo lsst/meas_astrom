@@ -409,6 +409,54 @@ class Astrometry(object):
                     (xc, yc, rdc.getLongitude().asDegrees(), rdc.getLatitude().asDegrees()))
         return wcs,qa
 
+    def getSipWcsFromWcs(self, wcs, tanWcs, imageSize, x0=0, y0=0, ngrid=20):
+        '''
+        This function allows one to get a TAN-SIP WCS, starting from a
+        TAN WCS and an existing other WCS.  It uses your WCS to compute a fake
+        grid of corresponding "stars" in pixel and sky coords, and feeds that
+        to the regular SIP code.
+
+        How do you get that TAN WCS?  It should be (but isn't yet) a
+        function in this class.  determineWcs() or linearizing are options.
+        '''
+        # Ugh, build src and ref tables
+        srcSchema = afwTable.SourceTable.makeMinimalSchema()
+        key = srcSchema.addField("centroid", type="PointD")
+        srcTable = afwTable.SourceTable.make(srcSchema)
+        srcTable.defineCentroid("centroid")
+        srcs = srcTable
+        refs = afwTable.SimpleTable.make(afwTable.SimpleTable.makeMinimalSchema())
+        cref = []
+        csrc = []
+        (W,H) = imageSize
+        for xx in np.linspace(0., W, ngrid):
+            for yy in np.linspace(0, H, ngrid):
+                src = srcs.makeRecord()
+                src.set(key.getX(), x0 + xx)
+                src.set(key.getY(), y0 + yy)
+                csrc.append(src)
+                rd = wcs.pixelToSky(afwGeom.Point2D(xx + x0, yy + y0))
+                ref = refs.makeRecord()
+                ref.setCoord(rd)
+                cref.append(ref)
+
+        return self.getSipWcsFromCorrespondences(tanWcs, cref, csrc, (W,H),
+                                                 x0=x0, y0=y0)
+
+    
+    def getSipWcsFromCorrespondences(self, origWcs, cat, sources, imageSize,
+                                     x0=0, y0=0):
+        sipOrder = self.config.sipOrder
+        bbox = afwGeom.Box2I(afwGeom.Point2I(x0,y0),
+                             afwGeom.Extent2I(imageSize[0], imageSize[1]))
+        matchList = []
+        for ci,si in zip(cat, sources):
+            matchList.append(afwTable.ReferenceMatch(ci, si, 0.))
+
+        sipObject = astromSip.makeCreateWcsWithSip(matchList, origWcs, sipOrder, bbox)
+        print 'Got SIP solution: pixel scatter', sipObject.getScatterInPixels()
+        return sipObject.getNewWcs()
+    
     def _calculateSipTerms(self, origWcs, cat, sources, matchList, imageSize,
                            x0=0, y0=0):
         '''Iteratively calculate sip distortions and regenerate matchList based on improved wcs'''
@@ -432,12 +480,12 @@ class Astrometry(object):
                 break
 
             matchSize = len(matchList)
-            self._debug('SIP iteration %i: %i objects match.  Median scatter is %g arcsec = %g pixels (vs previous: %g pixels)' %
-                        (i, matchSize, sipObject.getScatterOnSky().asArcseconds(), scatPix, lastScatPix))
-            #self._debug('Proposed WCS: ' + proposedWcs.getFitsMetadata().toString())
             # use new WCS to get new matchlist.
             proposedMatchlist = self._getMatchList(sources, cat, proposedWcs)
 
+            self._debug('SIP iteration %i: %i objects match.  Median scatter is %g arcsec = %g pixels (vs previous: %i matches, %g pixels)' %
+                        (i, len(proposedMatchlist), sipObject.getScatterOnSky().asArcseconds(), scatPix, matchSize, lastScatPix))
+            #self._debug('Proposed WCS: ' + proposedWcs.getFitsMetadata().toString())
             # Hack convergence tests
             if len(proposedMatchlist) < matchSize:
                 break
