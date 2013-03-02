@@ -77,18 +77,29 @@ class Astrometry(object):
     def _readIndexFiles(self):
         import astrometry_net as an
         self.inds = []
+        nMissing = 0
         for fn in self.andConfig.indexFiles:
-            self.log.log(self.log.DEBUG, 'Adding index file %s' % fn)
-            fn = self._getIndexPath(fn)
-            self.log.log(self.log.DEBUG, 'Path: %s' % fn)
+            self.log.logdebug('Adding index file %s' % fn)
+            fn2 = self._getIndexPath(fn)
+            if fn2 is None:
+                self.log.logdebug('Unable to find index file %s' % fn)
+                nMissing += 1
+                continue
+            fn = fn2
+            self.log.logdebug('Path: %s' % fn)
             ind = an.index_load(fn, an.INDEX_ONLY_LOAD_METADATA, None);
             if ind:
                 self.inds.append(ind)
-                self.log.log(self.log.DEBUG, '  index %i, hp %i (nside %i), nstars %i, nquads %i' %
-                             (ind.indexid, ind.healpix, ind.hpnside, ind.nstars, ind.nquads))
+                self.log.logdebug('  index %i, hp %i (nside %i), nstars %i, nquads %i' %
+                                  (ind.indexid, ind.healpix, ind.hpnside, ind.nstars, ind.nquads))
             else:
                 raise RuntimeError('Failed to read index file: "%s"' % fn)
 
+        if not self.inds:
+            self.log.warn('Unable to find any index files')
+        elif nMissing > 0:
+            self.log.warn('Unable to find %d index files' % nMissing)
+            
     def _debug(self, s):
         self.log.log(self.log.DEBUG, s)
     def _warn(self, s):
@@ -721,9 +732,11 @@ class Astrometry(object):
             fn2 = os.path.join(andir, fn)
             if os.path.exists(fn2):
                 return fn2
-        fn2 = os.path.abspath(fn)
-        return fn2
-                    
+
+        if os.path.exists(fn):
+            return os.path.abspath(fn)
+        else:
+            return None
 
     def _getSolver(self):
         import astrometry_net as an
