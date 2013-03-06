@@ -29,9 +29,12 @@ import glob
 import math
 import unittest
 
-import matplotlib
-matplotlib.use('Agg')
-import pylab as plt
+try:                                    # used in plotPhotoCal
+    import matplotlib
+    matplotlib.use('Agg')
+    import pylab as plt
+except ImportError:
+    plt = None
 
 import numpy as np
 
@@ -209,7 +212,7 @@ class PhotoCalTest(unittest.TestCase):
             if catFlux <= 0:
                 continue
             catMag = -2.5*np.log10(catFlux) #Cat mag
-            instFlux = m[1].get(task.flux)    #Instrumental Flux
+            instFlux = m[1].getPsfFlux()    #Instrumental Flux
             if instFlux <= 0:
                 continue
             mag = pCal.calib.getMagnitude(instFlux)     #Instrumental mag

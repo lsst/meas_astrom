@@ -22,8 +22,6 @@
 import math, os, sys
 import numpy as np
 
-import lsst.meas.astrom as measAst
-import lsst.meas.astrom.sip as sip
 from lsst.meas.photocal.colorterms import Colorterm
 import lsst.meas.algorithms.utils as malgUtil
 import lsst.pex.logging as pexLog
@@ -33,10 +31,17 @@ import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.afw.display.ds9 as ds9
 
-try:
-    import matplotlib.pyplot as pyplot
-except ImportError:
-    pyplot = None
+def checkSourceFlags(source, keys):
+    """Return True if the given source has all good flags set and none of the bad flags set.
+
+    @param[in] source    SourceRecord object to process.
+    @param[in] keys      Struct of source catalog keys, as returned by PhotCalTask.getKeys()
+    """
+    for k in keys.goodFlags:
+        if not source.get(k): return False
+    for k in keys.badFlags:
+        if source.get(k): return False
+    return True
 
 class PhotoCalConfig(pexConf.Config):
 
@@ -83,27 +88,23 @@ class PhotoCalTask(pipeBase.Task):
         photometric calibration.
         """
         pipeBase.Task.__init__(self, **kwds)
-        self.flux = schema.find(self.config.fluxField).key
-        self.fluxErr = schema.find(self.config.fluxField + ".err").key
-        self.goodFlags = [schema.find(name).key for name in self.config.goodFlags]
-        self.badFlags = [schema.find(self.config.fluxField + ".flags").key]
-        self.badFlags.extend(schema.find(name).key for name in self.config.badFlags)
         if self.config.outputField is not None:
             self.output = schema.addField(self.config.outputField, type="Flag",
                                           doc="set if source was used in photometric calibration")
         else:
             self.output = None
 
-    def checkSourceFlags(self, source):
-        """Return True if the given source has all good flags set and none of the bad flags set."""
-        for k in self.goodFlags:
-            if not source.get(k): return False
-        for k in self.badFlags:
-            if source.get(k): return False
-        return True
+    def getKeys(self, schema):
+        """Return a struct containing the source catalog keys for fields used by PhotoCalTask."""
+        flux = schema.find(self.config.fluxField).key
+        fluxErr = schema.find(self.config.fluxField + ".err").key
+        goodFlags = [schema.find(name).key for name in self.config.goodFlags]
+        badFlags = [schema.find(self.config.fluxField + ".flags").key]
+        badFlags.extend(schema.find(name).key for name in self.config.badFlags)
+        return pipeBase.Struct(flux=flux, fluxErr=fluxErr, goodFlags=goodFlags, badFlags=badFlags)
 
     @pipeBase.timeMethod
-    def selectMatches(self, matches, frame=None):
+    def selectMatches(self, matches, keys, frame=None):
         """Select reference/source matches according the criteria specified in the config.
 
         if frame is non-None, display information about trimmed objects on that ds9 frame:
@@ -117,7 +118,9 @@ class PhotoCalTask(pipeBase.Task):
 
         An exception will be raised if there are no valid matches.
 
-        @param[in] Input ReferenceMatchVector (not modified)
+        @param[in] matches ReferenceMatchVector (not modified)
+        @param[in] keys    Struct of source catalog keys, as returned by getKeys()
+        @param[in] frame   ds9 frame number to use for debugging display
         @return Output ReferenceMatchVector
         """
 
@@ -126,7 +129,7 @@ class PhotoCalTask(pipeBase.Task):
             raise ValueError("No input matches")
 
         # Only use stars for which the flags indicate the photometry is good.
-        afterFlagCutInd = [i for i, m in enumerate(matches) if self.checkSourceFlags(m.second)]
+        afterFlagCutInd = [i for i, m in enumerate(matches) if checkSourceFlags(m.second, keys)]
         afterFlagCut = [matches[i] for i in afterFlagCutInd]
         self.log.logdebug("Number of matches after source flag cuts: %d" % (len(afterFlagCut)))
 
@@ -187,9 +190,9 @@ class PhotoCalTask(pipeBase.Task):
             fluxLimit = 10.0**(-self.config.magLimit/2.5)
 
             afterMagCutInd = [i for i, m in enumerate(matches) if (m.first.get(fluxKey) > fluxLimit
-                                                                   and m.second.get(self.flux) > 0.0)]
+                                                                   and m.second.get(keys.flux) > 0.0)]
         else:
-            afterMagCutInd = [i for i, m in enumerate(matches) if m.second.get(self.flux) > 0.0]
+            afterMagCutInd = [i for i, m in enumerate(matches) if m.second.get(keys.flux) > 0.0]
 
         afterMagCut = [matches[i] for i in afterMagCutInd]
 
@@ -222,16 +225,17 @@ class PhotoCalTask(pipeBase.Task):
         return result
 
     @pipeBase.timeMethod
-    def extractMagArrays(self, matches, filterName):
+    def extractMagArrays(self, matches, filterName, keys):
         """Extract magnitude and magnitude error arrays from the given matches.
 
-        @param[in]  ReferenceMatchVector object containing reference/source matches
-        @param[in]  Name of filter being calibrated
+        @param[in] matches    ReferenceMatchVector object containing reference/source matches
+        @param[in] filterName Name of filter being calibrated
+        @param[in] keys       Struct of source catalog keys, as returned by getKeys()
         
         @return Struct containing srcMag, refMag, srcMagErr, refMagErr, and errMag arrays.
         """
-        srcFlux = np.array([m.second.get(self.flux) for m in matches])
-        srcFluxErr = np.array([m.second.get(self.fluxErr) for m in matches])
+        srcFlux = np.array([m.second.get(keys.flux) for m in matches])
+        srcFluxErr = np.array([m.second.get(keys.fluxErr) for m in matches])
         if not np.all(np.isfinite(srcFluxErr)):
             self.log.warn("Source catalog does not have flux uncertainties; using sqrt(flux).")
             srcFluxErr = np.sqrt(srcFlux)
@@ -336,8 +340,9 @@ class PhotoCalTask(pipeBase.Task):
         else:
             frame = None
 
-        matches = self.selectMatches(matches, frame=frame)
-        arrays = self.extractMagArrays(matches, exposure.getFilter().getName())
+        keys = self.getKeys(matches[0].second.schema)
+        matches = self.selectMatches(matches, keys, frame=frame)
+        arrays = self.extractMagArrays(matches, exposure.getFilter().getName(), keys)
 
         # Fit for zeropoint.  We can run the code more than once, so as to
         # give good stars that got clipped by a bad first guess a second
