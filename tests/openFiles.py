@@ -43,11 +43,8 @@ class OpenFilesTest(unittest.TestCase):
 
     def setUp(self):
         print 'NOFILE rlimit:', resource.getrlimit(resource.RLIMIT_NOFILE)
-        resource.setrlimit(resource.RLIMIT_NOFILE, (25, -1))
+        resource.setrlimit(resource.RLIMIT_NOFILE, (10, -1))
         print 'NOFILE rlimit:', resource.getrlimit(resource.RLIMIT_NOFILE)
-
-        #R = resource.getrusage(resource.RUSAGE_SELF)
-        #print 'NOFILE usage:', 
 
         conf = measAstrom.MeasAstromConfig()
         mypath = os.path.dirname(os.path.dirname(__file__))
@@ -56,7 +53,6 @@ class OpenFilesTest(unittest.TestCase):
         self.srcCat.table.defineApFlux("flux.psf")
         # The .xy.fits file has sources in the range ~ [0,2000],[0,4500]
         self.imageSize = (2048, 4612) # approximate
-        #self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci"))
 
         andpath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
         os.environ['ASTROMETRY_NET_DATA_DIR'] = andpath
@@ -75,6 +71,9 @@ class OpenFilesTest(unittest.TestCase):
         
         
     def test1(self):
+        res = self.astrom.determineWcs2(self.srcCat, imageSize=self.imageSize,
+                                        filterName='i')
+        print 'Got result', res
         res = self.astrom.determineWcs2(self.srcCat, imageSize=self.imageSize,
                                         filterName='i')
         print 'Got result', res

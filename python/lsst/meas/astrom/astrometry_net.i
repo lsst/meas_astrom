@@ -309,7 +309,6 @@ static time_t timer_callback(void* baton) {
                                   "Failed to index_reload() an astrometry_net_data index file -- out of file descriptors?");
             }
 
-            /*
             // Change once astrometry.net-0.40+ is in...
             if (ind->quads->fb->fid) {
                 if (fclose(ind->quads->fb->fid)) {
@@ -338,7 +337,7 @@ static time_t timer_callback(void* baton) {
                 }
                 io->fid = NULL;
             }
-             */
+
             solver_add_index($self, ind);
         }
     }
