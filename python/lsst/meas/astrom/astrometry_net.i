@@ -310,9 +310,14 @@ static time_t timer_callback(void* baton) {
             }
 
             // Change once astrometry.net-0.40+ is in...
+            /*
+             if (index_close_fds(ind)) {
+             throw LSST_EXCEPT(lsst::pex::exceptions::IoErrorException,
+             "Failed to index_close_fds() an astrometry_net_data file");
+             }
+             */
             if (ind->quads->fb->fid) {
                 if (fclose(ind->quads->fb->fid)) {
-                    //SYSERROR("Failed to fclose() astrometry_net_data quadfile");
                     throw LSST_EXCEPT(lsst::pex::exceptions::IoErrorException,
                                       "Failed to fclose() an astrometry_net_data quadfile");
                 }
