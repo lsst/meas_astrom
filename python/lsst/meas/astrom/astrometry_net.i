@@ -305,8 +305,40 @@ static time_t timer_callback(void* baton) {
             }
 //            printf("Adding index.\n");
             if (index_reload(ind)) {
-                assert(0);
+                throw LSST_EXCEPT(lsst::pex::exceptions::IoErrorException,
+                                  "Failed to index_reload() an astrometry_net_data index file -- out of file descriptors?");
             }
+
+            /*
+            // Change once astrometry.net-0.40+ is in...
+            if (ind->quads->fb->fid) {
+                if (fclose(ind->quads->fb->fid)) {
+                    //SYSERROR("Failed to fclose() astrometry_net_data quadfile");
+                    throw LSST_EXCEPT(lsst::pex::exceptions::IoErrorException,
+                                      "Failed to fclose() an astrometry_net_data quadfile");
+                }
+                ind->quads->fb->fid = NULL;
+            }
+
+            kdtree_fits_t* io;
+            io = (kdtree_fits_t*)ind->codekd->tree->io;
+            if (io->fid) {
+                if (fclose(io->fid)) {
+                    throw LSST_EXCEPT(lsst::pex::exceptions::IoErrorException,
+                                      "Failed to fclose() an astrometry_net_data code kdtree");
+                }
+                io->fid = NULL;
+            }
+                
+            io = (kdtree_fits_t*)ind->starkd->tree->io;
+            if (io->fid) {
+                if (fclose(io->fid)) {
+                    throw LSST_EXCEPT(lsst::pex::exceptions::IoErrorException,
+                                      "Failed to fclose() an astrometry_net_data star kdtree");
+                }
+                io->fid = NULL;
+            }
+             */
             solver_add_index($self, ind);
         }
     }
