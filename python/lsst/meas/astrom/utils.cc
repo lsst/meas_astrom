@@ -184,7 +184,7 @@ getCatalogImpl(std::vector<index_t*> inds,
                      "', mag='" + magcols[i].magcol +
                      "', magerr='" + magcols[i].magerrcol + "'";
              }
-             msg += " ]";
+             msg += " ].  You may need to edit the $ASTROMETRY_NET_DATA_DIR/andConfig.py file to set idColumn=None, etc.";
              throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundException, msg);
          }
 
