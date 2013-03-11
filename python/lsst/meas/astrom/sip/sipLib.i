@@ -60,8 +60,8 @@ Python interface to lsst::afw::meas::astrom::sip classes
 
 %import "lsst/afw/math/mathLib.i"
 %import "lsst/afw/image/imageLib.i"
-%import "lsst/afw/table/Source.i"
-%import "lsst/afw/table/Match.i"
+%import "lsst/afw/table/tableLib.i"
+%import "lsst/afw/table/match.i"
 
 %lsst_exceptions();
 

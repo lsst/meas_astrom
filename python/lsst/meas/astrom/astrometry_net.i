@@ -92,7 +92,7 @@ static time_t timer_callback(void* baton) {
 
 %template(VectorOfString) std::vector<std::string>;
 
-%import "lsst/afw/table/Source.i"
+%import "lsst/afw/table/tableLib.i"
 
 %shared_ptr(lsst::afw::image::Wcs);
 %import "lsst/afw/image/Wcs.h"
