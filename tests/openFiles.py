@@ -42,8 +42,9 @@ import lsst.pex.logging as pexLog
 class OpenFilesTest(unittest.TestCase):
 
     def setUp(self):
-        print 'NOFILE rlimit:', resource.getrlimit(resource.RLIMIT_NOFILE)
-        resource.setrlimit(resource.RLIMIT_NOFILE, (10, -1))
+        limits = resource.getrlimit(resource.RLIMIT_NOFILE)
+        print 'NOFILE rlimit:', limits
+        resource.setrlimit(resource.RLIMIT_NOFILE, (10, limits[1]))
         print 'NOFILE rlimit:', resource.getrlimit(resource.RLIMIT_NOFILE)
 
         conf = measAstrom.MeasAstromConfig()
