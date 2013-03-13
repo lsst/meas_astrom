@@ -14,78 +14,62 @@ import lsst.pex.logging as pexLog
 
 import pyfits
 
-def main():
-    mydir = os.path.dirname(__file__)
+'''
+This file was produced by dstn trying to reproduce and diagnose the
+error reported in ticket #2710, ie, that computing SIP polynomials
+wasn't working for sources with positions very far from the origin.
 
-    # Read sources
-    # fitscopy coaddSources.fits"[col x=centroid_sdss[1]; y=centroid_sdss[2]; flux=flux_psf]" xy.fits
-    fn = os.path.join(mydir, 'xy2710.fits')
-    P = pyfits.open(fn)[1].data
-    x = P['x']
-    y = P['y']
-    f = P['flux']
-    srcSchema = afwTable.SourceTable.makeMinimalSchema()
-    key = srcSchema.addField("centroid", type="PointD")
-    srcSchema.addField("centroid.flags", type="Flag")
-    srcSchema.addField("centroid.err", type="CovPointF")
-    fkey = srcSchema.addField("flux", type=float)
-    srcTable = afwTable.SourceTable.make(srcSchema)
-    srcTable.defineCentroid("centroid")
-    srcTable.definePsfFlux("flux")
-    srcs = afwTable.SourceCatalog(srcTable)
-    for xi,yi,fi in zip(x,y,f):
-        #src = srcTable.makeRecord()
-        #src = srcs.makeRecord()
-        src = srcs.addNew()
-        if not (np.isfinite(xi) and np.isfinite(yi)):
-            continue
-        #print 'x,y', xi,yi
-        src.set(key.getX(), xi)
-        src.set(key.getY(), yi)
-        src.set(fkey, fi)
-    # for src in srcs:
-    # print src.getX(), src.getY()
-        
-    x0,y0 = 335750, 223750
-    W,H = 8500, 12500
-    imargs = dict(imageSize=(W,H), filterName='i', x0=x0, y0=y0)
-    
-    # Read original WCS
-    fn = os.path.join(mydir, 't2710.wcs')
-    #    print help(afwImage.Wcs.readFits)
-    hdr = afwImage.readMetadata(fn)
-    wcs0 = afwImage.makeWcs(hdr)
-    #wcs0 = afwImage.Wcs.readFits(fn, 0)
-    #print 'WCS0:', wcs0
-    #print 'wcs0:', wcs0.getFitsMetadata().toString()
+The how-to-reproduce data included a "coaddSources.fits" table of
+source positions produced by the standard afwTable tools, and a 1 GB
+exposure containing a STG WCS.  I extracted the x,y, and flux columns
+from the source table into xy2710.fits; I was also testing with stock
+astrometry.net tools.  I pulled out the original WCS header into
+t2710.wcs to avoid adding a 1 GB file here.  I also pulled out the
+image offset x0,y0 size W,H, and filter.
 
-    # They call measAstrom.determineWcs() to get a new WCS with SIP distortion
-    conf = measAstrom.MeasAstromConfig(sipOrder=4)
+One gotcha: you need an astrometry_net more recent than 0.30, because
+I'm using the "spherematch" module there to match up sources.
+'''
 
+def showSipSolutions(srcs, wcs0, andDir, x0, y0, W, H, filterName,
+                     plotPrefix):
+                     
+    '''
+    srcs: afw Catalog of sources
+    wcs0: original WCS
+    andDir: astrometry_net_data directory
+    '''
+    imargs = dict(imageSize=(W,H), filterName=filterName, x0=x0, y0=y0)
+
+    # Set up astrometry_net_data
+    os.environ['ASTROMETRY_NET_DATA_DIR'] = andDir
     andConfig = measAstrom.AstrometryNetDataConfig()
-    anddir = os.path.join(mydir, 'astrometry_net_data', 'ticket2710')
-    os.environ['ASTROMETRY_NET_DATA_DIR'] = anddir
-    fn = os.path.join(anddir, 'andConfig.py')
+    fn = os.path.join(andDir, 'andConfig.py')
     andConfig.load(fn)
 
+    # Set up meas_astrom
+    conf = measAstrom.MeasAstromConfig(sipOrder=4)
     ast = measAstrom.Astrometry(conf, andConfig, logLevel=pexLog.Log.DEBUG)
 
+    # What reference sources are in the original WCS
     refs = ast.getReferenceSourcesForWcs(wcs0, **imargs)
     print 'Got', len(refs), 'reference objects for initial WCS'
 
-
+    # How does a straight TAN solution look?
     conf2 = measAstrom.MeasAstromConfig(sipOrder=4, calculateSip=False)
     ast2 = measAstrom.Astrometry(conf2, andConfig, logLevel=pexLog.Log.DEBUG)
     solve = ast2.determineWcs2(srcs, **imargs)
     tanwcs = solve.getTanWcs()
 
+    # How about if we fit a SIP WCS using the *original* WCS?
     wcs2 = ast.getSipWcsFromWcs(wcs0, tanwcs, (W,H), x0=x0, y0=y0)
 
-
+    # (We determineWcs() for a SIP solution below...)
+    
+    # Make some plots in pixel space by pushing ref sources through WCSes
     rx0,ry0 = [],[]
     rx2,ry2 = [],[]
     rx3,ry3 = [],[]
-
     for src in refs:
         xy = wcs0.skyToPixel(src.getCoord())
         rx0.append(xy[0])
@@ -106,12 +90,15 @@ def main():
     rx3 = np.array(rx3)
     ry3 = np.array(ry3)
 
-
+    x = np.array([src.getX() for src in srcs])
+    y = np.array([src.getY() for src in srcs])
+    
     from astrometry.libkd.spherematch import match
     from astrometry.util.plotutils import plothist,PlotSequence
 
-    ps = PlotSequence('t2710')
+    ps = PlotSequence(plotPrefix)
 
+    # Match up various sources...
     R = 2.
     
     II,d = match(np.vstack((x,y)).T, np.vstack((rx0,ry0)).T, R)
@@ -126,7 +113,6 @@ def main():
     plt.xlabel('delta-X (pixels)')
     plt.ylabel('delta-Y (pixels)')
     ps.savefig()
-
 
     II,d = match(np.vstack((x,y)).T, np.vstack((rx2,ry2)).T, R)
     I = II[:,0]
@@ -181,12 +167,11 @@ def main():
     plt.title('TAN matches')
     ps.savefig()
 
-
-
+    # Get SIP solution (4th order)
+    
     solve = ast.determineWcs2(srcs, **imargs)
     wcs1 = solve.getSipWcs()
     #print 'wcs1:', wcs1.getFitsMetadata().toString()
-
 
     matches = solve.getSipMatches()
     msx,msy = [],[]
@@ -206,8 +191,6 @@ def main():
     plt.plot(mrx, mry, 'gx')
     plt.title('SIP matches')
     ps.savefig()
-
-
     
     rx1,ry1 = [],[]
     for src in refs:
@@ -238,10 +221,53 @@ def main():
     plt.xlabel('delta-X (pixels)')
     plt.ylabel('delta-Y (pixels)')
     ps.savefig()
-    
-    
-    
 
-if __name__ == '__main__':
-    main()
+
+def readSourcesFromXyTable(xyfn):
+    '''
+    Read sources from a plain FITS table of x,y,flux and put
+    into an afw Catalog.
+    '''
+    P = pyfits.open(xyfn)[1].data
+    x = P['x']
+    y = P['y']
+    f = P['flux']
+    srcSchema = afwTable.SourceTable.makeMinimalSchema()
+    key = srcSchema.addField("centroid", type="PointD")
+    srcSchema.addField("centroid.flags", type="Flag")
+    srcSchema.addField("centroid.err", type="CovPointF")
+    fkey = srcSchema.addField("flux", type=float)
+    srcTable = afwTable.SourceTable.make(srcSchema)
+    srcTable.defineCentroid("centroid")
+    srcTable.definePsfFlux("flux")
+    srcs = afwTable.SourceCatalog(srcTable)
+    for xi,yi,fi in zip(x,y,f):
+        src = srcs.addNew()
+        if not (np.isfinite(xi) and np.isfinite(yi)):
+            continue
+        src.set(key.getX(), xi)
+        src.set(key.getY(), yi)
+        src.set(fkey, fi)
+    return srcs
     
+if __name__ == '__main__':
+    mydir = os.path.dirname(__file__)
+    # fitscopy coaddSources.fits"[col x=centroid_sdss[1]; y=centroid_sdss[2]; flux=flux_psf]" xy.fits
+    xyfn = os.path.join(mydir, 'xy2710.fits')
+    sources = readSourcesFromXyTable(xyfn)
+
+    x0,y0 = 335750, 223750
+    W,H = 8500, 12500
+    filterName = 'i'    
+
+    # Read original WCS
+    fn = os.path.join(mydir, 't2710.wcs')
+    hdr = afwImage.readMetadata(fn)
+    wcs0 = afwImage.makeWcs(hdr)
+
+    anddir = os.path.join(mydir, 'astrometry_net_data', 'ticket2710')
+
+    plotPrefix = 't2710'
+
+    showSipSolutions(sources, wcs0, anddir, x0, y0, W, H, filterName,
+                     plotPrefix)
