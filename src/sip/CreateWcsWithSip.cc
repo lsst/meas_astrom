@@ -340,20 +340,21 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
     } 
 }
 
-///Get the scatter in position in pixel space 
 template<class MatchT>
 double CreateWcsWithSip<MatchT>::getScatterInPixels() {
-    return _calcScatterPixels(_newWcs, _matches);
+    assert(_newWcs);
+    return _getScatterPixels(*_newWcs, _matches);
 }
 
 template<class MatchT>
 double CreateWcsWithSip<MatchT>::getLinearScatterInPixels() {
-    return _calcScatterPixels(_linearWcs, _matches);
+    assert(_linearWcs);
+    return _getScatterPixels(*_linearWcs, _matches);
 }
 
 template<class MatchT>
-double CreateWcsWithSip<MatchT>::_calcScatterPixels(
-    CONST_PTR(afw::image::Wcs) wcs,
+double CreateWcsWithSip<MatchT>::_getScatterPixels(
+    afw::image::Wcs const& wcs,
     std::vector<MatchT> const & matches) {
     vector<double> val;
     val.reserve(matches.size());
@@ -368,7 +369,7 @@ double CreateWcsWithSip<MatchT>::_calcScatterPixels(
         PTR(afw::table::SourceRecord) src = match.second;
         double imgX = src->getX();
         double imgY = src->getY();
-        afwGeom::Point2D xy = wcs->skyToPixel(cat->getCoord());
+        afwGeom::Point2D xy = wcs.skyToPixel(cat->getCoord());
         double catX = xy[0];
         double catY = xy[1];
         val.push_back(::hypot(imgX - catX, imgY - catY));
@@ -377,20 +378,21 @@ double CreateWcsWithSip<MatchT>::_calcScatterPixels(
 }
     
 
-///Get the scatter in (celestial) position
 template<class MatchT>
 afwGeom::Angle CreateWcsWithSip<MatchT>::getScatterOnSky() {
-    return _calcScatterSky(_newWcs, _matches);
+    assert(_newWcs);
+    return _getScatterSky(*_newWcs, _matches);
 }
 
 template<class MatchT>
 afwGeom::Angle CreateWcsWithSip<MatchT>::getLinearScatterOnSky() {
-    return _calcScatterSky(_linearWcs, _matches);
+    assert(_linearWcs);
+    return _getScatterSky(*_linearWcs, _matches);
 }
 
 template<class MatchT>
-afwGeom::Angle CreateWcsWithSip<MatchT>::_calcScatterSky(
-    CONST_PTR(afw::image::Wcs) wcs,
+afwGeom::Angle CreateWcsWithSip<MatchT>::_getScatterSky(
+    afw::image::Wcs const & wcs,
     std::vector<MatchT> const & matches) {
     vector<double> val;
     val.reserve(matches.size());
@@ -404,7 +406,7 @@ afwGeom::Angle CreateWcsWithSip<MatchT>::_calcScatterSky(
         PTR(afw::table::SimpleRecord) cat = match.first;
         PTR(afw::table::SourceRecord) src = match.second;
         afwCoord::IcrsCoord catRadec = cat->getCoord();
-        CONST_PTR(afwCoord::Coord) imgRadec = wcs->pixelToSky(src->getCentroid());
+        CONST_PTR(afwCoord::Coord) imgRadec = wcs.pixelToSky(src->getCentroid());
         afwGeom::Angle sep = catRadec.angularSeparation(*imgRadec);
         val.push_back(sep.asDegrees());
     }

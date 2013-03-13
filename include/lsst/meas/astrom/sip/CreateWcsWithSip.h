@@ -99,10 +99,33 @@ public:
     );
 
     PTR(afw::image::TanWcs) getNewWcs() { return _newWcs; }
+
+    /*
+     Returns the median separation between points in this object's match list,
+     projecting reference sources from RA,Dec to pixels using the SIP WCS, and
+     comparing with the matched source pixel positions.
+     */
     double getScatterInPixels();
+
+    /*
+     Returns the median separation between points in this object's match list,
+     projecting sources from pixel space to RA,Dec using the SIP WCS, and
+     comparing with the reference source RA,Dec positions.
+     */
     afw::geom::Angle getScatterOnSky();
 
+    /*
+     Returns the median separation between points in this object's match list,
+     projecting reference sources from RA,Dec to pixels using the input TAN
+     (linear) WCS, and comparing with the matched source pixel positions.
+     */
     double getLinearScatterInPixels();
+
+    /*
+     Returns the median separation between points in this object's match list,
+     projecting sources from pixel space to RA,Dec using the input TAN (linear)
+     WCS, and comparing with the reference source RA,Dec positions.
+     */
     afw::geom::Angle getLinearScatterOnSky();
 
     /// Get the number of terms in the SIP matrix
@@ -129,10 +152,10 @@ private:
 
     PTR(afw::image::TanWcs) _newWcs;
 
-    double _calcScatterPixels(CONST_PTR(afw::image::Wcs) wcs,
-                              std::vector<MatchT> const & matches);
-    afw::geom::Angle _calcScatterSky(CONST_PTR(afw::image::Wcs) wcs,
-                                     std::vector<MatchT> const & matches);
+    double _getScatterPixels(afw::image::Wcs const& wcs,
+                             std::vector<MatchT> const & matches);
+    afw::geom::Angle _getScatterSky(afw::image::Wcs const& wcs,
+                                    std::vector<MatchT> const & matches);
     
     void _calculateForwardMatrices();
     void _calculateReverseMatrices();
