@@ -38,8 +38,6 @@ namespace meas {
 namespace astrom { 
 namespace sip {
 
-using namespace std;
-
 namespace except   = lsst::pex::exceptions;
 namespace afwCoord = lsst::afw::coord;
 namespace afwGeom  = lsst::afw::geom;
@@ -281,7 +279,6 @@ template<class MatchT>
 void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
     int const ngrid2 = _ngrid*_ngrid;
 
-    //Eigen::VectorXd u(ngrid2), v(ngrid2);
     Eigen::VectorXd U(ngrid2), V(ngrid2);
     Eigen::VectorXd delta1(ngrid2), delta2(ngrid2);
     
@@ -356,7 +353,7 @@ template<class MatchT>
 double CreateWcsWithSip<MatchT>::_getScatterPixels(
     afw::image::Wcs const& wcs,
     std::vector<MatchT> const & matches) {
-    vector<double> val;
+    std::vector<double> val;
     val.reserve(matches.size());
 
     for (
@@ -394,7 +391,7 @@ template<class MatchT>
 afwGeom::Angle CreateWcsWithSip<MatchT>::_getScatterSky(
     afw::image::Wcs const & wcs,
     std::vector<MatchT> const & matches) {
-    vector<double> val;
+    std::vector<double> val;
     val.reserve(matches.size());
 
     for (
