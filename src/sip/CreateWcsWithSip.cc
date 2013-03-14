@@ -112,7 +112,7 @@ leastSquaresSolve(Eigen::VectorXd b, Eigen::MatrixXd A) {
 template<class MatchT>
 CreateWcsWithSip<MatchT>::CreateWcsWithSip(
     std::vector<MatchT> const & matches,
-    CONST_PTR(lsst::afw::image::Wcs) linearWcs,
+    lsst::afw::image::Wcs const& linearWcs,
     int const order,
     lsst::afw::geom::Box2I const& bbox,
     int const ngrid
@@ -121,7 +121,7 @@ CreateWcsWithSip<MatchT>::CreateWcsWithSip(
     _matches(matches),
     _bbox(bbox),
     _ngrid(ngrid),
-    _linearWcs(linearWcs->clone()),
+    _linearWcs(linearWcs.clone()),
     _sipOrder(order+1),
     _reverseSipOrder(order+2), //Higher order for reverse transform
     _sipA(Eigen::MatrixXd::Zero(_sipOrder, _sipOrder)),
@@ -342,13 +342,13 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
 
 template<class MatchT>
 double CreateWcsWithSip<MatchT>::getScatterInPixels() {
-    assert(_newWcs);
+    assert(_newWcs.get());
     return _getScatterPixels(*_newWcs, _matches);
 }
 
 template<class MatchT>
 double CreateWcsWithSip<MatchT>::getLinearScatterInPixels() {
-    assert(_linearWcs);
+    assert(_linearWcs.get());
     return _getScatterPixels(*_linearWcs, _matches);
 }
 
@@ -380,13 +380,13 @@ double CreateWcsWithSip<MatchT>::_getScatterPixels(
 
 template<class MatchT>
 afwGeom::Angle CreateWcsWithSip<MatchT>::getScatterOnSky() {
-    assert(_newWcs);
+    assert(_newWcs.get());
     return _getScatterSky(*_newWcs, _matches);
 }
 
 template<class MatchT>
 afwGeom::Angle CreateWcsWithSip<MatchT>::getLinearScatterOnSky() {
-    assert(_linearWcs);
+    assert(_linearWcs.get());
     return _getScatterSky(*_linearWcs, _matches);
 }
 

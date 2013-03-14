@@ -92,7 +92,7 @@ public:
 
     CreateWcsWithSip(
         std::vector<MatchT> const & matches,
-        CONST_PTR(afw::image::Wcs) linearWcs,
+        afw::image::Wcs const & linearWcs,
         int const order,
         afw::geom::Box2I const& bbox = afw::geom::Box2I(),
         int const ngrid=0
@@ -167,7 +167,7 @@ private:
 template<class MatchT>
 CreateWcsWithSip<MatchT> makeCreateWcsWithSip(
     std::vector<MatchT> const & matches,
-    CONST_PTR(afw::image::Wcs) linearWcs,
+    afw::image::Wcs const& linearWcs,
     int const order,
     afw::geom::Box2I const& bbox = afw::geom::Box2I(),
     int const ngrid=0
