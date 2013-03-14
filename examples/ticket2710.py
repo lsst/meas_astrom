@@ -59,10 +59,10 @@ def showSipSolutions(srcs, wcs0, andDir, x0, y0, W, H, filterName,
     conf2 = measAstrom.MeasAstromConfig(sipOrder=4, calculateSip=False)
     ast2 = measAstrom.Astrometry(conf2, andConfig, logLevel=pexLog.Log.DEBUG)
     solve = ast2.determineWcs2(srcs, **imargs)
-    tanwcs = solve.getTanWcs()
+    tanwcs = solve.tanWcs
 
     # How about if we fit a SIP WCS using the *original* WCS?
-    wcs2 = ast.getSipWcsFromWcs(wcs0, tanwcs, (W,H), x0=x0, y0=y0)
+    wcs2 = ast.getSipWcsFromWcs(wcs0, (W,H), x0=x0, y0=y0)
 
     # (We determineWcs() for a SIP solution below...)
     
@@ -146,7 +146,7 @@ def showSipSolutions(srcs, wcs0, andDir, x0, y0, W, H, filterName,
     ps.savefig()
 
     
-    matches = solve.getTanMatches()
+    matches = solve.tanMatches
     msx,msy = [],[]
     mrx,mry = [],[]
     for m in matches:
@@ -170,10 +170,10 @@ def showSipSolutions(srcs, wcs0, andDir, x0, y0, W, H, filterName,
     # Get SIP solution (4th order)
     
     solve = ast.determineWcs2(srcs, **imargs)
-    wcs1 = solve.getSipWcs()
+    wcs1 = solve.sipWcs
     #print 'wcs1:', wcs1.getFitsMetadata().toString()
 
-    matches = solve.getSipMatches()
+    matches = solve.sipMatches
     msx,msy = [],[]
     mrx,mry = [],[]
     for m in matches:

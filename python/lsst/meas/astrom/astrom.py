@@ -7,6 +7,7 @@ import lsst.pex.exceptions as pexExceptions
 import lsst.pex.config as pexConfig
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
+import lsst.afw.image as afwImage
 import lsst.meas.algorithms.utils as maUtils
 
 from .config import MeasAstromConfig, AstrometryNetDataConfig
@@ -53,7 +54,7 @@ class InitialAstrometry(object):
     matches = property(getMatches)
     wcs = property(getWcs)
     
-    ### "Not very pythonic!" complains Paul!
+    ### "Not very pythonic!" complains Paul.
     # Consider these methods deprecated; if you want these elements, just
     # .grab them.
     def getSipWcs(self):
@@ -425,15 +426,19 @@ class Astrometry(object):
                     (xc, yc, rdc.getLongitude().asDegrees(), rdc.getLatitude().asDegrees()))
         return wcs,qa
 
-    def getSipWcsFromWcs(self, wcs, tanWcs, imageSize, x0=0, y0=0, ngrid=20):
+    def getSipWcsFromWcs(self, wcs, imageSize, x0=0, y0=0, ngrid=20,
+                         linearizeAtCenter=True):
         '''
-        This function allows one to get a TAN-SIP WCS, starting from a
-        TAN WCS and an existing other WCS.  It uses your WCS to compute a fake
-        grid of corresponding "stars" in pixel and sky coords, and feeds that
+        This function allows one to get a TAN-SIP WCS, starting from
+        an existing WCS.  It uses your WCS to compute a fake grid of
+        corresponding "stars" in pixel and sky coords, and feeds that
         to the regular SIP code.
 
-        How do you get that TAN WCS?  It should be (but isn't yet) a
-        function in this class.  determineWcs() or linearizing are options.
+        linearizeCenter: if True, get a linear approximation of the input
+          WCS at the image center and use that as the TAN initialization for
+          the TAN-SIP solution.  You probably want this if your WCS has its
+          CRPIX outside the image bounding box.
+          
         '''
         # Ugh, build src and ref tables
         srcSchema = afwTable.SourceTable.makeMinimalSchema()
@@ -456,7 +461,23 @@ class Astrometry(object):
                 ref.setCoord(rd)
                 cref.append(ref)
 
-        return self.getSipWcsFromCorrespondences(tanWcs, cref, csrc, (W,H),
+        if linearizeAtCenter:
+            # Linearize the original WCS around the image center to create a
+            # TAN WCS.
+            # Reference pixel in LSST coords
+            crpix = afwGeom.Point2D(x0 + W/2. - 0.5, y0 + H/2. - 0.5)
+            crval = wcs.pixelToSky(crpix)
+            crval = crval.getPosition(afwGeom.degrees)
+            # Linearize *AT* crval to get effective CD at crval.
+            # (we use the default skyUnit of degrees as per WCS standard)
+            aff = wcs.linearizePixelToSky(crval)
+            cd = aff.getLinear().getMatrix()
+            print 'CRVAL:', crval
+            print 'CRPIX:', crpix
+            print 'CD', cd
+            wcs = afwImage.Wcs(crval, crpix, cd)
+                
+        return self.getSipWcsFromCorrespondences(wcs, cref, csrc, (W,H),
                                                  x0=x0, y0=y0)
 
     
