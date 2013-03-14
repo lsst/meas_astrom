@@ -94,7 +94,7 @@ class CreateWcsWithSipCase(unittest.TestCase):
         res = self.astrom.determineWcs2(cat, imageSize=(1000,1000),
                                         x0=x0, y0=y0)
         print 'Got result', res
-        print 'SIP:', res.getSipWcs().getFitsMetadata().toString()
+        print 'SIP:', res.sipWcs.getFitsMetadata().toString()
         
     def testLinearXDistort(self):
         print "linearXDistort"

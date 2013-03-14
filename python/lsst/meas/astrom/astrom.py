@@ -31,33 +31,45 @@ class InitialAstrometry(object):
     def __init__(self):
         self.tanWcs = None
         self.tanMatches = None
-    
+        self.sipWcs = None
+        self.sipMatches = None
+        self.matchMetadata = None
+        self.solveQa = None
+        
     def getMatches(self):
-        m = self.getSipMatches()
-        if m is not None:
-            return m
-        return self.getTanMatches()
-    def getTanMatches(self):
-        return self.tanMatches
-    def getSipMatches(self):
-        return getattr(self, 'sipMatches', None)
+        '''
+        Get "sipMatches" -- MatchList using the SIP WCS solution, if it
+        exists, or "tanMatches" -- MatchList using the TAN WCS solution
+        otherwise.
+        '''
+        return self.sipMatches or self.tanMatches
 
     def getWcs(self):
-        w = self.getSipWcs()
-        if w is not None:
-            return w
-        return self.getTanWcs()
+        '''
+        Returns the SIP WCS, if one was found, or a TAN WCS
+        '''
+        return self.sipWcs or self.tanWcs
+
+    matches = property(getMatches)
+    wcs = property(getWcs)
+    
+    ### "Not very pythonic!" complains Paul!
+    # Consider these methods deprecated; if you want these elements, just
+    # .grab them.
+    def getSipWcs(self):
+        return self.sipWcs
     def getTanWcs(self):
         return self.tanWcs
-    def getSipWcs(self):
-        return getattr(self, 'sipWcs', None)
-
+    def getSipMatches(self):
+        return self.sipMatches
+    def getTanMatches(self):
+        return self.tanMatches
     def getMatchMetadata(self):
-        return getattr(self, 'matchMetadata', None)
+        return self.matchMetadata
     def getSolveQaMetadata(self):
-        return getattr(self, 'solveQa', None)
-        
-
+        return self.solveQa
+    
+    
 class Astrometry(object):
     ConfigClass = MeasAstromConfig
 
