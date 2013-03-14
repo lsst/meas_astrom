@@ -69,14 +69,11 @@ class CreateWcsWithSipCase(unittest.TestCase):
         del self.astrom
 
     def testBigXy0(self):
-        print 'Big xy0'
-
+        # test for ticket #2710
         from lsst.pex.logging import Log
         log = Log.getDefaultLog()
         log.setThreshold(Log.DEBUG);
-
         self.astrom.log = log
-
         x0,y0 = 200000, 500000
         cx = 500
         a2 = 1e-5
@@ -95,6 +92,17 @@ class CreateWcsWithSipCase(unittest.TestCase):
                                         x0=x0, y0=y0)
         print 'Got result', res
         print 'SIP:', res.sipWcs.getFitsMetadata().toString()
+
+        wcs = res.wcs
+        for src in cat:
+            rd = wcs.pixelToSky(src.getCentroid())
+            xy = wcs.skyToPixel(rd)
+            #print 'src', src.getX(), src.getY()
+            #print 'rd', rd
+            #print 'xy', xy
+            #print 'dx,dy', xy[0] - src.getX(), xy[1] - src.getY()
+            self.assertTrue(abs(xy[0] - src.getX()) < 0.1)
+            self.assertTrue(abs(xy[1] - src.getY()) < 0.1)
         
     def testLinearXDistort(self):
         print "linearXDistort"
