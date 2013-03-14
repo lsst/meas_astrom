@@ -165,8 +165,12 @@ class Astrometry(object):
         sources: list of detected sources in this image.
         wcs: your known WCS
         exposure: the exposure holding metadata for this image.
-        filterName:
-
+        filterName: string, filter name, eg "i"
+        x0,y0: image origin / offset; these coordinates along with the
+           "imageSize" determine the bounding-box in pixel coordinates of
+           the image in question; this is used for finding reference sources
+           in the image, among other things.
+        
         You MUST provide a WCS, either by providing the 'wcs' kwarg
         (an lsst.image.Wcs object), or by providing the 'exposure' on
         which we will call 'exposure.getWcs()'.
@@ -180,7 +184,7 @@ class Astrometry(object):
         the 'exposure'; we will call 'exposure.getWidth()' and
         'exposure.getHeight()'.
 
-        Note, when modifying this function, that it is also called
+        Note, when modifying this function, that it is also called by
         'determineWcs' (via 'determineWcs2'), since the steps are all
         the same.
         """
@@ -458,6 +462,25 @@ class Astrometry(object):
     
     def getSipWcsFromCorrespondences(self, origWcs, cat, sources, imageSize,
                                      x0=0, y0=0):
+        '''
+        Produces a SIP solution given a list of known correspondences.
+        Unlike _calculateSipTerms, this does not iterate the solution;
+        it assumes you have given it a good sets of corresponding stars.
+
+        NOTE that "cat" and "sources" are assumed to be the same length;
+        entries "cat[i]" and "sources[i]" are assumed to be correspondences.
+
+        origWcs: the WCS to linearize in order to get the TAN part of the
+           TAN-SIP WCS.
+
+        cat: reference source catalog
+
+        sources: image sources
+
+        imageSize, x0, y0: these describe the bounding-box of the image,
+            which is used when computing reverse SIP polynomials.
+
+        '''
         sipOrder = self.config.sipOrder
         bbox = afwGeom.Box2I(afwGeom.Point2I(x0,y0),
                              afwGeom.Extent2I(imageSize[0], imageSize[1]))
@@ -466,12 +489,27 @@ class Astrometry(object):
             matchList.append(afwTable.ReferenceMatch(ci, si, 0.))
 
         sipObject = astromSip.makeCreateWcsWithSip(matchList, origWcs, sipOrder, bbox)
-        print 'Got SIP solution: pixel scatter', sipObject.getScatterInPixels()
         return sipObject.getNewWcs()
     
     def _calculateSipTerms(self, origWcs, cat, sources, matchList, imageSize,
                            x0=0, y0=0):
-        '''Iteratively calculate sip distortions and regenerate matchList based on improved wcs'''
+        '''
+        Iteratively calculate SIP distortions and regenerate matchList based on improved WCS.
+
+        origWcs: original WCS object, probably (but not necessarily) a TAN WCS;
+           this is used to set the baseline when determining whether a SIP
+           solution is any better; it will be returned if no better SIP solution
+           can be found.
+
+        matchList: list of supposedly matched sources, using the "origWcs".
+
+        cat: reference source catalog
+
+        sources: sources in the image to be solved
+
+        imageSize, x0, y0: these determine the bounding-box of the image,
+           which is used when finding reverse SIP coefficients.
+        '''
         sipOrder = self.config.sipOrder
         wcs = origWcs
         bbox = afwGeom.Box2I(afwGeom.Point2I(x0,y0),
