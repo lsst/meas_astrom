@@ -44,6 +44,7 @@ namespace afwGeom  = lsst::afw::geom;
 namespace afwImg   = lsst::afw::image;
 namespace afwDet   = lsst::afw::detection;
 namespace afwMath  = lsst::afw::math;
+namespace afwTable = lsst::afw::table;
 namespace pexLog   = lsst::pex::logging;
 
 namespace {
@@ -110,9 +111,9 @@ leastSquaresSolve(Eigen::VectorXd b, Eigen::MatrixXd A) {
 template<class MatchT>
 CreateWcsWithSip<MatchT>::CreateWcsWithSip(
     std::vector<MatchT> const & matches,
-    lsst::afw::image::Wcs const& linearWcs,
+    afwImg::Wcs const& linearWcs,
     int const order,
-    lsst::afw::geom::Box2I const& bbox,
+    afwGeom::Box2I const& bbox,
     int const ngrid
 ):
     _log(pexLog::Log(pexLog::Log::getDefaultLog(), "meas.astrom.sip")),
@@ -133,11 +134,11 @@ CreateWcsWithSip<MatchT>::CreateWcsWithSip(
     }
 
     if (_sipOrder > 9) {
-        throw LSST_EXCEPT(lsst::pex::exceptions::LengthErrorException,
+        throw LSST_EXCEPT(except::LengthErrorException,
                           str(boost::format("SIP forward order %d exceeds the IAU limit of 9") % _sipOrder));
     }
     if (_reverseSipOrder > 9) {
-        throw LSST_EXCEPT(lsst::pex::exceptions::LengthErrorException,
+        throw LSST_EXCEPT(except::LengthErrorException,
                           str(boost::format("SIP reverse order %d exceeds the IAU limit of 9") %
                               _reverseSipOrder));
     }
@@ -163,7 +164,7 @@ CreateWcsWithSip<MatchT>::CreateWcsWithSip(
             ptr != _matches.end();
             ++ptr
         ) {
-            lsst::afw::table::SourceRecord const & src = *ptr->second;
+            afwTable::SourceRecord const & src = *ptr->second;
             _bbox.include(afwGeom::PointI(src.getX(), src.getY()));
         }
         float const borderFrac = 1/::sqrt(_matches.size()); // fractional border to add to exact BBox
@@ -205,7 +206,7 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
         ptr != _matches.end();
         ++ptr, ++i
     ) {
-        afw::table::ReferenceMatch const & match = *ptr;
+        afwTable::ReferenceMatch const & match = *ptr;
 
         // iwc: intermediate world coordinate positions of catalogue objects
         afwCoord::IcrsCoord c = match.first->getCoord();
@@ -351,7 +352,7 @@ double CreateWcsWithSip<MatchT>::getLinearScatterInPixels() {
 
 template<class MatchT>
 double CreateWcsWithSip<MatchT>::_getScatterPixels(
-    afw::image::Wcs const& wcs,
+    afwImg::Wcs const& wcs,
     std::vector<MatchT> const & matches) {
     std::vector<double> val;
     val.reserve(matches.size());
@@ -361,9 +362,9 @@ double CreateWcsWithSip<MatchT>::_getScatterPixels(
         ptr != matches.end();
         ++ptr
     ) {
-        afw::table::ReferenceMatch const & match = *ptr;
-        PTR(afw::table::SimpleRecord) cat = match.first;
-        PTR(afw::table::SourceRecord) src = match.second;
+        afwTable::ReferenceMatch const & match = *ptr;
+        PTR(afwTable::SimpleRecord) cat = match.first;
+        PTR(afwTable::SourceRecord) src = match.second;
         double imgX = src->getX();
         double imgY = src->getY();
         afwGeom::Point2D xy = wcs.skyToPixel(cat->getCoord());
@@ -389,7 +390,7 @@ afwGeom::Angle CreateWcsWithSip<MatchT>::getLinearScatterOnSky() {
 
 template<class MatchT>
 afwGeom::Angle CreateWcsWithSip<MatchT>::_getScatterSky(
-    afw::image::Wcs const & wcs,
+    afwImg::Wcs const & wcs,
     std::vector<MatchT> const & matches) {
     std::vector<double> val;
     val.reserve(matches.size());
@@ -399,9 +400,9 @@ afwGeom::Angle CreateWcsWithSip<MatchT>::_getScatterSky(
         ptr != matches.end();
         ++ptr
     ) {
-        afw::table::ReferenceMatch const & match = *ptr;
-        PTR(afw::table::SimpleRecord) cat = match.first;
-        PTR(afw::table::SourceRecord) src = match.second;
+        afwTable::ReferenceMatch const & match = *ptr;
+        PTR(afwTable::SimpleRecord) cat = match.first;
+        PTR(afwTable::SourceRecord) src = match.second;
         afwCoord::IcrsCoord catRadec = cat->getCoord();
         CONST_PTR(afwCoord::Coord) imgRadec = wcs.pixelToSky(src->getCentroid());
         afwGeom::Angle sep = catRadec.angularSeparation(*imgRadec);
@@ -422,8 +423,8 @@ afwGeom::Point2D CreateWcsWithSip<MatchT>::_getCrvalAsGeomPoint() {
 #define INSTANTIATE(MATCH) \
     template class CreateWcsWithSip<MATCH>;
 
-INSTANTIATE(lsst::afw::table::ReferenceMatch);
-INSTANTIATE(lsst::afw::table::SourceMatch);
+INSTANTIATE(afwTable::ReferenceMatch);
+INSTANTIATE(afwTable::SourceMatch);
 
 }}}}
 
