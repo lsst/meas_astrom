@@ -64,8 +64,8 @@ class matchlistTestCase(unittest.TestCase):
     def testJoin(self):
         res = self.getAstrometrySolution()
 
-        matches = res.getMatches()
-        matchmeta = res.getMatchMetadata()
+        matches = res.matches
+        matchmeta = res.matchMetadata
 
         normalized = afwTable.packMatches(matches)
         normalized.table.setMetadata(matchmeta)
@@ -86,8 +86,8 @@ class matchlistTestCase(unittest.TestCase):
         """Test that we can read all the fluxes back from an a.n.d catalogue"""
         res = self.getAstrometrySolution()
 
-        matches = res.getMatches()
-        matchmeta = res.getMatchMetadata()
+        matches = res.matches
+        matchmeta = res.matchMetadata
 
         normalized = afwTable.packMatches(matches)
         normalized.table.setMetadata(matchmeta)
