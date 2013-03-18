@@ -32,7 +32,11 @@ import lsst.afw.image as afwImage
 import lsst.afw.display.ds9 as ds9
 
 def checkSourceFlags(source, keys):
-    """Return True if the given source has all good flags set and none of the bad flags set."""
+    """Return True if the given source has all good flags set and none of the bad flags set.
+
+    @param[in] source    SourceRecord object to process.
+    @param[in] keys      Struct of source catalog keys, as returned by PhotCalTask.getKeys()
+    """
     for k in keys.goodFlags:
         if not source.get(k): return False
     for k in keys.badFlags:
@@ -91,6 +95,10 @@ class PhotoCalTask(pipeBase.Task):
             self.output = None
 
     def getKeys(self, schema):
+<<<<<<< HEAD
+=======
+        """Return a struct containing the source catalog keys for fields used by PhotoCalTask."""
+>>>>>>> lsst/next
         flux = schema.find(self.config.fluxField).key
         fluxErr = schema.find(self.config.fluxField + ".err").key
         goodFlags = [schema.find(name).key for name in self.config.goodFlags]
@@ -113,7 +121,9 @@ class PhotoCalTask(pipeBase.Task):
 
         An exception will be raised if there are no valid matches.
 
-        @param[in] Input ReferenceMatchVector (not modified)
+        @param[in] matches ReferenceMatchVector (not modified)
+        @param[in] keys    Struct of source catalog keys, as returned by getKeys()
+        @param[in] frame   ds9 frame number to use for debugging display
         @return Output ReferenceMatchVector
         """
 
@@ -221,8 +231,9 @@ class PhotoCalTask(pipeBase.Task):
     def extractMagArrays(self, matches, filterName, keys):
         """Extract magnitude and magnitude error arrays from the given matches.
 
-        @param[in]  ReferenceMatchVector object containing reference/source matches
-        @param[in]  Name of filter being calibrated
+        @param[in] matches    ReferenceMatchVector object containing reference/source matches
+        @param[in] filterName Name of filter being calibrated
+        @param[in] keys       Struct of source catalog keys, as returned by getKeys()
         
         @return Struct containing srcMag, refMag, srcMagErr, refMagErr, and errMag arrays.
         """
