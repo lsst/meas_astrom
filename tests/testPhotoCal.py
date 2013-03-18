@@ -89,12 +89,12 @@ class PhotoCalTest(unittest.TestCase):
     def testGetSolution(self):
         res = self.getAstrometrySolution(loglvl=Log.DEBUG)
         self.assertTrue(res is not None)
-        self.assertTrue(len(res.getMatches()) > 50)
+        self.assertTrue(len(res.matches) > 50)
 
     def plotPhotoCal(self):
         res = self.getAstrometrySolution(loglvl=Log.DEBUG)
         print 'Result:', res
-        M = res.getMatches()
+        M = res.matches
         #print 'Matches:', M
         print 'N matches:', len(M)
         assert(len(M) > 50)
@@ -186,8 +186,8 @@ class PhotoCalTest(unittest.TestCase):
 
     def test1(self):
         res = self.getAstrometrySolution()
-        matches = res.getMatches()
-        metadata = res.getMatchMetadata()
+        matches = res.matches
+        metadata = res.matchMetadata
         passband = metadata.get('FILTER')
 
         print 'Test1'
