@@ -95,10 +95,7 @@ class PhotoCalTask(pipeBase.Task):
             self.output = None
 
     def getKeys(self, schema):
-<<<<<<< HEAD
-=======
         """Return a struct containing the source catalog keys for fields used by PhotoCalTask."""
->>>>>>> lsst/next
         flux = schema.find(self.config.fluxField).key
         fluxErr = schema.find(self.config.fluxField + ".err").key
         goodFlags = [schema.find(name).key for name in self.config.goodFlags]
