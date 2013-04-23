@@ -8,6 +8,7 @@ import lsst.pex.config as pexConfig
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
+from lsst.meas.photocal.colorterms import Colorterm
 import lsst.meas.algorithms.utils as maUtils
 
 from .config import MeasAstromConfig, AstrometryNetDataConfig
@@ -34,9 +35,9 @@ class InitialAstrometry(object):
         self.tanMatches = None
         self.sipWcs = None
         self.sipMatches = None
-        self.matchMetadata = None
+        self.matchMetadata = dafBase.PropertyList()
         self.solveQa = None
-        
+
     def getMatches(self):
         '''
         Get "sipMatches" -- MatchList using the SIP WCS solution, if it
@@ -108,18 +109,29 @@ class Astrometry(object):
     def _readIndexFiles(self):
         import astrometry_net as an
         self.inds = []
+        nMissing = 0
         for fn in self.andConfig.indexFiles:
-            self.log.log(self.log.DEBUG, 'Adding index file %s' % fn)
-            fn = self._getIndexPath(fn)
-            self.log.log(self.log.DEBUG, 'Path: %s' % fn)
+            self.log.logdebug('Adding index file %s' % fn)
+            fn2 = self._getIndexPath(fn)
+            if fn2 is None:
+                self.log.logdebug('Unable to find index file %s' % fn)
+                nMissing += 1
+                continue
+            fn = fn2
+            self.log.logdebug('Path: %s' % fn)
             ind = an.index_load(fn, an.INDEX_ONLY_LOAD_METADATA, None);
             if ind:
                 self.inds.append(ind)
-                self.log.log(self.log.DEBUG, '  index %i, hp %i (nside %i), nstars %i, nquads %i' %
-                             (ind.indexid, ind.healpix, ind.hpnside, ind.nstars, ind.nquads))
+                self.log.logdebug('  index %i, hp %i (nside %i), nstars %i, nquads %i' %
+                                  (ind.indexid, ind.healpix, ind.hpnside, ind.nstars, ind.nquads))
             else:
                 raise RuntimeError('Failed to read index file: "%s"' % fn)
 
+        if not self.inds:
+            self.log.warn('Unable to find any index files')
+        elif nMissing > 0:
+            self.log.warn('Unable to find %d index files' % nMissing)
+            
     def _debug(self, s):
         self.log.log(self.log.DEBUG, s)
     def _warn(self, s):
@@ -204,8 +216,11 @@ class Astrometry(object):
                                                           filterName=filterName,
                                                           x0=x0, y0=y0)
         pixelMargin = 50.
-        cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName, pixelMargin, x0=x0, y0=y0)
 
+        cat = self.getReferenceSourcesForWcs(
+            wcs, imageSize, filterName, pixelMargin, x0=x0, y0=y0,
+            allFluxes = (True if Colorterm.getColorterm(filterName) else False)
+            )
         catids = [src.getId() for src in cat]
         uids = set(catids)
         self.log.logdebug('%i reference sources; %i unique IDs' % (len(catids), len(uids)))
@@ -884,9 +899,11 @@ class Astrometry(object):
             fn2 = os.path.join(andir, fn)
             if os.path.exists(fn2):
                 return fn2
-        fn2 = os.path.abspath(fn)
-        return fn2
-                    
+
+        if os.path.exists(fn):
+            return os.path.abspath(fn)
+        else:
+            return None
 
     def _getSolver(self):
         import astrometry_net as an
@@ -1007,4 +1024,3 @@ def readMatches(butler, dataId, sourcesName='icSrc', matchesName='icMatch'):
     packedMatches = butler.get(matchesName, dataId)
     astrom = Astrometry(MeasAstromConfig())
     return astrom.joinMatchListWithCatalog(packedMatches, sources)
-

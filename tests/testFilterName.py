@@ -50,7 +50,7 @@ class chooseFilterNameTest(unittest.TestCase):
         #Load sample input from disk
         mypath = eups.productDir("meas_astrom")
         path = os.path.join(mypath, "examples")
-        self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci"))
+        self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci.fits"))
         
         # Set the filter properties.
         afwImg.Filter.reset()
