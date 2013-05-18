@@ -155,7 +155,7 @@ class Astrometry(object):
         the 'exposure'; we will call 'exposure.getWidth()' and
         'exposure.getHeight()'.
 
-        Note, when modifying this function, that it is also called
+        Note, when modifying this function, that it is also called by
         'determineWcs' (via 'determineWcs2'), since the steps are all
         the same.
         """
