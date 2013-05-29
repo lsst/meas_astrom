@@ -285,13 +285,13 @@ static time_t timer_callback(void* baton) {
     void addIndices(std::vector<index_t*> inds) {
         for (std::vector<index_t*>::iterator pind = inds.begin();
              pind != inds.end(); ++pind) {
-            index_t* ind = *pind;
-//            printf("Checking index \"%s\"\n", ind->indexname);
+            lsst::meas::astrom::detail::IndexManager man(*pind);
+//            printf("Checking index \"%s\"\n", man.index->indexname);
             if ($self->use_radec) {
                 double ra,dec,radius;
                 xyzarr2radecdeg($self->centerxyz, &ra, &dec);
                 radius = distsq2deg($self->r2);
-                if (!index_is_within_range(ind, ra, dec, radius)) {
+                if (!index_is_within_range(man.index, ra, dec, radius)) {
                                      //printf("Not within RA,Dec range\n");
                     continue;
                 }
@@ -299,51 +299,17 @@ static time_t timer_callback(void* baton) {
             // qlo,qhi in arcsec
             double qlo, qhi;
             solver_get_quad_size_range_arcsec($self, &qlo, &qhi);
-            if (!index_overlaps_scale_range(ind, qlo, qhi)) {
+            if (!index_overlaps_scale_range(man.index, qlo, qhi)) {
 //                printf("Not within quad scale range\n");
                 continue;
             }
 //            printf("Adding index.\n");
-            if (index_reload(ind)) {
+            if (index_reload(man.index)) {
                 throw LSST_EXCEPT(lsst::pex::exceptions::IoErrorException,
                                   "Failed to index_reload() an astrometry_net_data index file -- out of file descriptors?");
             }
 
-            // Change once astrometry.net-0.40+ is in...
-            /*
-             if (index_close_fds(ind)) {
-             throw LSST_EXCEPT(lsst::pex::exceptions::IoErrorException,
-             "Failed to index_close_fds() an astrometry_net_data file");
-             }
-             */
-            if (ind->quads->fb->fid) {
-                if (fclose(ind->quads->fb->fid)) {
-                    throw LSST_EXCEPT(lsst::pex::exceptions::IoErrorException,
-                                      "Failed to fclose() an astrometry_net_data quadfile");
-                }
-                ind->quads->fb->fid = NULL;
-            }
-
-            kdtree_fits_t* io;
-            io = (kdtree_fits_t*)ind->codekd->tree->io;
-            if (io->fid) {
-                if (fclose(io->fid)) {
-                    throw LSST_EXCEPT(lsst::pex::exceptions::IoErrorException,
-                                      "Failed to fclose() an astrometry_net_data code kdtree");
-                }
-                io->fid = NULL;
-            }
-                
-            io = (kdtree_fits_t*)ind->starkd->tree->io;
-            if (io->fid) {
-                if (fclose(io->fid)) {
-                    throw LSST_EXCEPT(lsst::pex::exceptions::IoErrorException,
-                                      "Failed to fclose() an astrometry_net_data star kdtree");
-                }
-                io->fid = NULL;
-            }
-
-            solver_add_index($self, ind);
+            solver_add_index($self, man.index);
         }
     }
 
