@@ -7,8 +7,8 @@ import lsst.pex.exceptions as pexExceptions
 import lsst.pex.config as pexConfig
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
-from lsst.meas.photocal.colorterms import Colorterm
 import lsst.afw.image as afwImage
+from lsst.meas.photocal.colorterms import Colorterm
 import lsst.meas.algorithms.utils as maUtils
 
 from .config import MeasAstromConfig, AstrometryNetDataConfig
@@ -35,9 +35,9 @@ class InitialAstrometry(object):
         self.tanMatches = None
         self.sipWcs = None
         self.sipMatches = None
-        self.matchMetadata = None
+        self.matchMetadata = dafBase.PropertyList()
         self.solveQa = None
-        
+
     def getMatches(self):
         '''
         Get "sipMatches" -- MatchList using the SIP WCS solution, if it
