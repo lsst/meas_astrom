@@ -64,6 +64,12 @@ def printOpenFiles():
 
 
 class OpenFilesTest(unittest.TestCase):
+    """This tests that the astrometry functions can run with a greatly reduced open file limit
+
+    There is no specific assert; we're just testing that things can run.  If they can't, then
+    the code will fail (often catastrophically with a segfault), so there's no need to check
+    specific success conditions.
+    """
 
     def setUp(self):
         limits = resource.getrlimit(resource.RLIMIT_NOFILE)
