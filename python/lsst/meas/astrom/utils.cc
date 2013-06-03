@@ -133,35 +133,6 @@ getCatalogImpl(std::vector<index_t*> inds,
        cat = afwTable::SimpleCatalog(afwTable::SimpleTable::make(schema));
    }
 
-   /// RAII manager for astrometry.net indices
-   struct IndexManager {
-       index_t* index;
-       IndexManager(index_t* ind) : index(ind) {}
-       ~IndexManager() {
-           // Change once astrometry.net-0.40+ is in...
-           /*
-             if (index_close_fds(ind)) {
-             throw LSST_EXCEPT(lsst::pex::exceptions::IoErrorException,
-             "Failed to index_close_fds() an astrometry_net_data file");
-             }
-           */
-           _close(index->quads->fb->fid);
-           _close(index->codekd->tree->io);
-           _close(index->starkd->tree->io);
-       }
-       void _close(FILE* & fid) {
-           if (fid) {
-               if (fclose(fid)) {
-                   std::cerr << "Error closing an astrometry_net_data quadfile" << std::endl;
-               }
-               fid = NULL;
-           }
-       }
-       void _close(void* io) {
-           _close(reinterpret_cast<kdtree_fits_t*>(io)->fid);
-       }
-   };
-
    // for unique_ids: keep track of the IDs we have already added to the result set.
    std::set<boost::int64_t> uids;
 
