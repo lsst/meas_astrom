@@ -39,7 +39,37 @@ import lsst.afw.image as afwImg
 import lsst.pex.logging as pexLog
 
 
+# http://stackoverflow.com/a/7142094/834250
+def getOpenFiles():
+    '''
+    return the filenames for open file descriptors for current process
+
+    .. warning: will only work on UNIX-like os-es.
+    '''
+    import subprocess
+    import os
+
+    pid = os.getpid()
+    output = subprocess.check_output(["/usr/sbin/lsof", '-w', '-Ffn', "-p", str(pid)])
+
+    procs = [out for out in output.split('\n') if out and out[0] in "fn"]
+    assert len(procs) % 2 == 0 # Expect an even number of lines: f and n pairs
+    procs = [(procs[2*i], procs[2*i+1]) for i in range(len(procs)//2)]
+    nameList = [name[1:] for desc,name in procs if desc[0] == 'f' and desc[1:].isdigit()]
+    return nameList
+
+def printOpenFiles():
+    names = getOpenFiles()
+    print "Open files (%d): %s" % (len(names), names)
+
+
 class OpenFilesTest(unittest.TestCase):
+    """This tests that the astrometry functions can run with a greatly reduced open file limit
+
+    There is no specific assert; we're just testing that things can run.  If they can't, then
+    the code will fail (often catastrophically with a segfault), so there's no need to check
+    specific success conditions.
+    """
 
     def setUp(self):
         limits = resource.getrlimit(resource.RLIMIT_NOFILE)
@@ -47,38 +77,53 @@ class OpenFilesTest(unittest.TestCase):
         resource.setrlimit(resource.RLIMIT_NOFILE, (10, limits[1]))
         print 'NOFILE rlimit:', resource.getrlimit(resource.RLIMIT_NOFILE)
 
-        conf = measAstrom.MeasAstromConfig()
-        mypath = os.path.dirname(os.path.dirname(__file__))
-        path = os.path.join(mypath, "examples")
+        self.mypath = os.path.dirname(os.path.dirname(__file__))
+        path = os.path.join(self.mypath, "examples")
         self.srcCat = afwTable.SourceCatalog.readFits(os.path.join(path, "v695833-e0-c000.xy.fits"))
         self.srcCat.table.defineApFlux("flux.psf")
         # The .xy.fits file has sources in the range ~ [0,2000],[0,4500]
         self.imageSize = (2048, 4612) # approximate
 
-        andpath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
+    def getAstrom(self):
+        andpath = os.path.join(self.mypath, 'tests', 'astrometry_net_data', 'photocal')
         os.environ['ASTROMETRY_NET_DATA_DIR'] = andpath
         andcfn = os.path.join(andpath, 'andConfigOpenFiles.py')
 
         andconfig = measAstrom.AstrometryNetDataConfig()
         andconfig.load(andcfn)
 
-        self.astrom = measAstrom.Astrometry(config=conf, andConfig=andconfig,
-                                            logLevel=pexLog.Log.DEBUG)
+        conf = measAstrom.MeasAstromConfig()
+        return measAstrom.Astrometry(config=conf, andConfig=andconfig,)
+                                            #logLevel=pexLog.Log.DEBUG)
 
     def tearDown(self):
-        del self.astrom
         del self.imageSize
         del self.srcCat
-        
-        
-    def test1(self):
-        res = self.astrom.determineWcs2(self.srcCat, imageSize=self.imageSize,
-                                        filterName='i')
-        print 'Got result', res
-        res = self.astrom.determineWcs2(self.srcCat, imageSize=self.imageSize,
-                                        filterName='i')
-        print 'Got result', res
-    
+
+
+    def runDetermineWcs(self):
+        astrom = self.getAstrom()
+        result = astrom.determineWcs2(self.srcCat, imageSize=self.imageSize, filterName='i')
+        print 'Got result from determineWcs:', result
+        #printOpenFiles()
+        return result.wcs
+
+    def runUseKnownWcs(self, wcs):
+        astrom = self.getAstrom()
+        result = astrom.useKnownWcs(self.srcCat, wcs=wcs, filterName='i', imageSize=self.imageSize)
+        print "Got result from useKnownWcs:", result
+        #printOpenFiles()
+
+    def testDetermineWcs(self):
+        self.runDetermineWcs()
+        self.runDetermineWcs()
+        self.runDetermineWcs()
+
+    def testUseKnownWcs(self):
+        wcs = self.runDetermineWcs()
+        self.runUseKnownWcs(wcs)
+        self.runUseKnownWcs(wcs)
+        self.runUseKnownWcs(wcs)
 
 def suite():
     """Returns a suite containing all the test cases in this module."""

@@ -138,25 +138,26 @@ getCatalogImpl(std::vector<index_t*> inds,
 
    for (std::vector<index_t*>::iterator pind = inds.begin();
 	pind != inds.end(); ++pind) {
-      index_t* ind = (*pind);
+      IndexManager man(*pind);
       //printf("checking index \"%s\"\n", ind->indexname);
-      if (!index_is_within_range(ind, ra, dec, radius + margin)) {
+      if (!index_is_within_range(man.index, ra, dec, radius + margin)) {
 	 //printf(" skipping: not within range\n");
 	 continue;
       }
       //printf("index \"%s\" is within range\n", ind->indexname);
       // Ensure the index is loaded...
-      index_reload(ind);
+      index_reload(man.index);
 
       // Find nearby stars
       double *radecs = NULL;
       int *starinds = NULL;
       int nstars = 0;
-      startree_search_for(ind->starkd, xyz, r2, NULL,
+      startree_search_for(man.index->starkd, xyz, r2, NULL,
 			  &radecs, &starinds, &nstars);
       //printf("found %i in \"%s\"\n", nstars, ind->indexname);
-      if (nstars == 0)
-	 continue;
+      if (nstars == 0) {
+          continue;
+      }
 
       std::vector<float*> mag;
       std::vector<float*> magerr;
@@ -166,7 +167,7 @@ getCatalogImpl(std::vector<index_t*> inds,
       bool* stargal = NULL;
       bool* var = NULL;
       if (idcol || nMag || stargalcol || varcol) {
-	 fitstable_t* tag = startree_get_tagalong(ind->starkd);
+	 fitstable_t* tag = startree_get_tagalong(man.index->starkd);
 	 tfits_type flt = fitscolumn_float_type();
 	 tfits_type boo = fitscolumn_boolean_type();
 	 tfits_type i64 = fitscolumn_i64_type();
@@ -174,7 +175,7 @@ getCatalogImpl(std::vector<index_t*> inds,
          if (!tag) {
              std::string msg = boost::str(boost::format("astrometry_net_data index file %s does not contain a tag-along table, "
                                                         "so can't retrieve extra columns.  idcol=%s, stargalcol=%s, varcol=%s") %
-                                          ind->indexname % idcol % stargalcol % varcol);
+                                          man.index->indexname % idcol % stargalcol % varcol);
              msg += ", mag columns=[";
              for (unsigned int i=0; i<nMag; i++) {
                  if (i) {
@@ -193,7 +194,7 @@ getCatalogImpl(std::vector<index_t*> inds,
              if (!id) {
                  throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundException,
                                    str(boost::format("Unable to read data for %s from %s") %
-                                       idcol % ind->indexname));
+                                       idcol % man.index->indexname));
              }
          }
 	 if (id && unique_ids) {
@@ -236,10 +237,10 @@ getCatalogImpl(std::vector<index_t*> inds,
 
          for (mc = magcols.begin(); mc != magcols.end(); ++mc) {
              char const* col = mc->magcol.c_str();
-             mag.push_back(read_column(tag, col, flt, starinds, nstars, ind->indexname));
+             mag.push_back(read_column(tag, col, flt, starinds, nstars, man.index->indexname));
              if (mc->hasErr()) {
                  char const* col = mc->magerrcol.c_str();
-                 magerr.push_back(read_column(tag, col, flt, starinds, nstars, ind->indexname));
+                 magerr.push_back(read_column(tag, col, flt, starinds, nstars, man.index->indexname));
              }
          }
 	 if (stargalcol) {
@@ -254,7 +255,7 @@ getCatalogImpl(std::vector<index_t*> inds,
             if (!stargal) {
                 throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundException,
                                   str(boost::format("Unable to read data for %s from %s") %
-                                      stargalcol % ind->indexname));
+                                      stargalcol % man.index->indexname));
             }
 	    for (int j=0; j<nstars; j++) {
 	       stargal[j] = (sg[j] > 0);
@@ -266,7 +267,7 @@ getCatalogImpl(std::vector<index_t*> inds,
             if (!var) {
                 throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundException,
                                   str(boost::format("Unable to read data for %s from %s") %
-                                      varcol % ind->indexname));
+                                      varcol % man.index->indexname));
             }
 	 }
       }
