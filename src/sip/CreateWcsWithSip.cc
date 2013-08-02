@@ -98,9 +98,7 @@ calculateCMatrix(Eigen::VectorXd const& axis1, Eigen::VectorXd const& axis2, int
 ///\returns x, an m x 1 vector of best fit params
 Eigen::VectorXd
 leastSquaresSolve(Eigen::VectorXd b, Eigen::MatrixXd A) {
-    if (A.rows() != b.rows()) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "vector b of wrong size");        
-    }
+    assert(A.rows() == b.rows());
     Eigen::VectorXd par = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
     return par;
 }
@@ -130,21 +128,21 @@ CreateWcsWithSip<MatchT>::CreateWcsWithSip(
     _newWcs()
 {
     if  (order < 2) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "Sip matrices are at least 2nd order");        
+        throw LSST_EXCEPT(except::OutOfRangeException, "SIP must be at least 2nd order");        
     }
-
     if (_sipOrder > 9) {
-        throw LSST_EXCEPT(except::LengthErrorException,
-                          str(boost::format("SIP forward order %d exceeds the IAU limit of 9") % _sipOrder));
+        throw LSST_EXCEPT(except::OutOfRangeException,
+                          str(boost::format("SIP forward order %d exceeds the convention limit of 9") %
+                              _sipOrder));
     }
     if (_reverseSipOrder > 9) {
-        throw LSST_EXCEPT(except::LengthErrorException,
-                          str(boost::format("SIP reverse order %d exceeds the IAU limit of 9") %
+        throw LSST_EXCEPT(except::OutOfRangeException,
+                          str(boost::format("SIP reverse order %d exceeds the convention limit of 9") %
                               _reverseSipOrder));
     }
     
     if (_matches.size() < std::size_t(_sipOrder)) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "Number of matches less than requested sip order");
+        throw LSST_EXCEPT(except::LengthErrorException, "Number of matches less than requested sip order");
     }
 
     if (_ngrid <= 0) {
