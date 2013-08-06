@@ -20,9 +20,9 @@ namespace detail {
         std::string magcol;
         std::string magerrcol;
 
-		bool hasErr() const {
-			return (magerrcol.size() > 0);
-		}
+        bool hasErr() const {
+            return (magerrcol.size() > 0);
+        }
     } mag_column_t;
 
 
@@ -71,11 +71,11 @@ struct IndexManager {
  */
 lsst::afw::table::SimpleCatalog
 getCatalogImpl(std::vector<index_t*> inds,
-			   double ra, double dec, double radius,
-			   const char* idcol,
-			   std::vector<mag_column_t> const& magcols,
-			   const char* stargalcol,
-			   const char* varcol,
-			   bool unique_ids);
+               double ra, double dec, double radius,
+               const char* idcol,
+               std::vector<mag_column_t> const& magcols,
+               const char* stargalcol,
+               const char* varcol,
+               bool unique_ids);
 }}}}
 #endif

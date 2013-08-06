@@ -137,14 +137,14 @@ static time_t timer_callback(void* baton) {
 
     lsst::afw::table::SimpleCatalog
        getCatalog(std::vector<index_t*> inds,
-		  double ra, double dec, double radius,
-		  const char* idcol,
-		  std::vector<std::string> const& magnameVec,
-		  std::vector<std::string> const& magcolVec,
-		  std::vector<std::string> const& magerrcolVec,
-		  const char* stargalcol,
-		  const char* varcol,
-		  bool unique_ids=true)
+                  double ra, double dec, double radius,
+                  const char* idcol,
+                  std::vector<std::string> const& magnameVec,
+                  std::vector<std::string> const& magcolVec,
+                  std::vector<std::string> const& magerrcolVec,
+                  const char* stargalcol,
+                  const char* varcol,
+                  bool unique_ids=true)
     {
         if ((magnameVec.size() != magcolVec.size()) || (magnameVec.size() != magerrcolVec.size())) {
             throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterException,
