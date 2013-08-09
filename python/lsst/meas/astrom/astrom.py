@@ -1011,16 +1011,18 @@ def _createMetadata(width, height, wcs, filterName):
     #meta.add('MAGERR', magerrName, 'magnitude error name for tagalong data')
     return meta
 
-def readMatches(butler, dataId, sourcesName='icSrc', matchesName='icMatch'):
+def readMatches(butler, dataId, sourcesName='icSrc', matchesName='icMatch', config=MeasAstromConfig(),
+                sourcesFlags=afwTable.SOURCE_IO_NO_FOOTPRINTS):
     """Read matches, sources and catalogue; combine.
 
     @param butler Data butler
     @param dataId Data identifier for butler
     @param sourcesName Name for sources from butler
     @param matchesName Name for matches from butler
+    @param sourcesFlags Flags to pass for source retrieval
     @returns Matches
     """
-    sources = butler.get(sourcesName, dataId)
+    sources = butler.get(sourcesName, dataId, flags=sourcesFlags)
     packedMatches = butler.get(matchesName, dataId)
-    astrom = Astrometry(MeasAstromConfig())
+    astrom = Astrometry(config)
     return astrom.joinMatchListWithCatalog(packedMatches, sources)

@@ -269,9 +269,11 @@ class PhotoCalTask(pipeBase.Task):
         refFluxes = []
         refFluxErrors = []
         for flux in fluxNames:
-            refFlux = np.array([m.first.get(refSchema.find(flux).key) for m in matches])
+            fluxKey = refSchema.find(flux).key
+            refFlux = np.array([m.first.get(fluxKey) for m in matches])
             try:
-                refFluxErr = np.array([m.first.get(refSchema.find(flux + ".err").key) for m in matches])
+                fluxErrKey = refSchema.find(flux + ".err").key
+                refFluxErr = np.array([m.first.get(fluxErrKey) for m in matches])
             except KeyError:
                 # Catalogue may not have flux uncertainties; HACK
                 self.log.warn("Reference catalog does not have flux uncertainties for %s; using sqrt(flux)."
