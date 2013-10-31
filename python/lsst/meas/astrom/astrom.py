@@ -257,7 +257,7 @@ class Astrometry(object):
         # Here, we make them consistent with the WCS we are returning.
         for src in sources:
             src.updateCoord(wcs)
-        astrom.matchMetadata = _createMetadata(W, H, wcs, filterName)
+        astrom.matchMetadata = _createMetadata(W, H, x0, y0, wcs, filterName)
         return astrom
 
     def determineWcs(self,
@@ -977,12 +977,14 @@ class Astrometry(object):
         return afwTable.unpackMatches(packedMatches, refCat, sourceCat)
 
 
-def _createMetadata(width, height, wcs, filterName):
+def _createMetadata(width, height, x0, y0, wcs, filterName):
     """
     Create match metadata entries required for regenerating the catalog
 
     @param width Width of the image (pixels)
     @param height Height of the image (pixels)
+    @param x0 x offset of image origin from parent (pixels)
+    @param y0 y offset of image origin from parent (pixels)
     @param filterName Name of filter, used for magnitudes
     @return Metadata
     """
@@ -996,7 +998,7 @@ def _createMetadata(width, height, wcs, filterName):
     #    meta.add('ANEUPS', andata, 'ASTROMETRY_NET_DATA_DIR')
 
     # cache: field center and size.
-    cx,cy = 0.5 + width/2., 0.5 + height/2.
+    cx,cy = x0 + 0.5 + width/2., y0 + 0.5 + height/2.
     radec = wcs.pixelToSky(cx, cy).toIcrs()
     meta.add('RA', radec.getRa().asDegrees(), 'field center in degrees')
     meta.add('DEC', radec.getDec().asDegrees(), 'field center in degrees')
