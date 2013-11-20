@@ -97,7 +97,7 @@ static time_t timer_callback(void* baton) {
 %shared_ptr(lsst::afw::image::Wcs);
 %import "lsst/afw/image/Wcs.h"
 
-%template(VectorOfIndexPtr) std::vector<index_t*>;
+%template(VectorOfIndexPtr) std::vector<index_s*>;
 %newobject solver_new;
 %newobject index_load;
 %include "solver.h"
@@ -115,8 +115,8 @@ static time_t timer_callback(void* baton) {
     }
     %}
 
-// index_t is a typedef of index_s, but swig doesn't notice the typedef, grumble
-// grumble.
+// index_t is a typedef of index_s, but swig doesn't notice the typedef (grumble
+// grumble), so we use index_s throughout.
 %extend index_s {
     ~index_s() {
         //printf("Deleting index_s %s\n", $self->indexname);
@@ -136,7 +136,7 @@ static time_t timer_callback(void* baton) {
     }
 
     lsst::afw::table::SimpleCatalog
-       getCatalog(std::vector<index_t*> inds,
+       getCatalog(std::vector<index_s*> inds,
                   double ra, double dec, double radius,
                   const char* idcol,
                   std::vector<std::string> const& magnameVec,
@@ -164,7 +164,7 @@ static time_t timer_callback(void* baton) {
     }
 
     lsst::afw::table::SimpleCatalog
-        getCatalog(std::vector<index_t*> inds,
+        getCatalog(std::vector<index_s*> inds,
                    double ra, double dec, double radius,
                    const char* idcol,
                    const char* magcol,
@@ -210,7 +210,7 @@ static time_t timer_callback(void* baton) {
         qa->set("meas_astrom*an*time_used", $self->timeused);
         qa->set("meas_astrom*an*best_logodds", $self->best_logodds);
         if ($self->best_index) {
-            index_t* ind = $self->best_index;
+            index_s* ind = $self->best_index;
             qa->set("meas_astrom*an*best_index*id", ind->indexid);
             qa->set("meas_astrom*an*best_index*hp", ind->healpix);
             qa->set("meas_astrom*an*best_index*nside", ind->hpnside);
@@ -273,8 +273,8 @@ static time_t timer_callback(void* baton) {
 //        printf("solver_run returned.\n");
     }
 
-    std::vector<index_t*> getActiveIndexFiles() {
-        std::vector<index_t*> inds;
+    std::vector<index_s*> getActiveIndexFiles() {
+        std::vector<index_s*> inds;
         int N = solver_n_indices($self);
         for (int i=0; i<N; i++) {
             inds.push_back(solver_get_index($self, i));
@@ -282,8 +282,8 @@ static time_t timer_callback(void* baton) {
         return inds;
     }
 
-    void addIndices(std::vector<index_t*> inds) {
-        for (std::vector<index_t*>::iterator pind = inds.begin();
+    void addIndices(std::vector<index_s*> inds) {
+        for (std::vector<index_s*>::iterator pind = inds.begin();
              pind != inds.end(); ++pind) {
             lsst::meas::astrom::detail::IndexManager man(*pind);
 //            printf("Checking index \"%s\"\n", man.index->indexname);
