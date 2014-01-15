@@ -103,7 +103,7 @@ class GetRefSources(unittest.TestCase):
                 self.assertLess(np.abs(rme- 0.56685),    1e-5)
 
 
-        cat2 = self.astrom.getReferenceSources(ra, dec, rad, "g", allFluxes=True)
+        cat2 = self.astrom.getReferenceSources(ra, dec, rad, "g")
         self.assertEqual(len(cat2), len(cat))
 
         schema = cat2.getSchema()
@@ -168,7 +168,7 @@ class GetRefSources(unittest.TestCase):
             with self.assertRaises(KeyError):
                 ekey = schema.find(band + '.err')
 
-        cat = astrom.getReferenceSources(ra, dec, rad, "r", allFluxes=True)
+        cat = astrom.getReferenceSources(ra, dec, rad, "r")
         print 'cat', cat
         print len(cat)
         self.assertEqual(len(cat), 13)
@@ -198,7 +198,7 @@ class GetRefSources(unittest.TestCase):
                         52.68 * afwGeom.degrees,
                         0.15 * afwGeom.degrees)
 
-        cat = astrom.getReferenceSources(ra, dec, rad, "my_r", allFluxes=True)
+        cat = astrom.getReferenceSources(ra, dec, rad, "my_r")
         print 'cat', cat
         print len(cat)
         self.assertEqual(len(cat), 13)
@@ -228,7 +228,7 @@ class GetRefSources(unittest.TestCase):
                         52.68 * afwGeom.degrees,
                         0.15 * afwGeom.degrees)
 
-        cat = astrom.getReferenceSources(ra, dec, rad, "my_r", allFluxes=True)
+        cat = astrom.getReferenceSources(ra, dec, rad, "my_r")
         print 'cat', cat
         print len(cat)
         self.assertEqual(len(cat), 13)

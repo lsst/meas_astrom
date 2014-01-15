@@ -92,7 +92,7 @@ class matchlistTestCase(unittest.TestCase):
         normalized = afwTable.packMatches(matches)
         normalized.table.setMetadata(matchmeta)
 
-        matches2 = self.astrom.joinMatchListWithCatalog(normalized, self.srcSet, allFluxes=True)
+        matches2 = self.astrom.joinMatchListWithCatalog(normalized, self.srcSet)
         self.assertTrue(len(matches2) > 0)
         ref = matches2[0][0]
         self.assertEqual(ref.get("flux"), ref.get("i"))
