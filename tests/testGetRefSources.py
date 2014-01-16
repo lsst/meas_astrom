@@ -145,6 +145,27 @@ class GetRefSources(unittest.TestCase):
             print
         self.assertEqual(nchecked, 6)
 
+    def testNotAllFluxes(self):
+        """Check that not all fluxes are returned when self.config.allFluxes=False.
+
+        The default behavior (self.config.allFluxes=True) is checked by testGetSources.
+        """
+        ra, dec, rad = (214.87 * afwGeom.degrees,
+                        52.68 * afwGeom.degrees,
+                        0.15 * afwGeom.degrees)
+        self.astrom.config.allFluxes = False
+        cat = self.astrom.getReferenceSources(ra, dec, rad, "r")
+        self.assertEqual(len(cat), 13)
+        schema = cat.getSchema()
+
+        # All these should pass without errors
+        for name in ("r", "r.err"):
+            schema.find(name)
+
+        # All these should raise an exception
+        for name in ("u", "g", "i", "z"):
+            self.assertRaises(KeyError, schema.find, name)
+            self.assertRaises(KeyError, schema.find, name + ".err")
 
     def testNoMagErrs(self):
         andconfig = measAstrom.AstrometryNetDataConfig()
