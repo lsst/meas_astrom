@@ -103,11 +103,13 @@ leastSquaresSolve(Eigen::VectorXd b, Eigen::MatrixXd A) {
     Eigen::VectorXd par = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
     return par;
 }
-}
+
+} // anonymous namespace
 
 ///Constructor
-CreateWcsWithSip::CreateWcsWithSip(
-    afw::table::ReferenceMatchVector const & matches,
+template<class MatchT>
+CreateWcsWithSip<MatchT>::CreateWcsWithSip(
+    std::vector<MatchT> const & matches,
     CONST_PTR(lsst::afw::image::Wcs) linearWcs,
     int const order,
     lsst::afw::geom::Box2I const& bbox,
@@ -156,7 +158,7 @@ CreateWcsWithSip::CreateWcsWithSip(
      */
     if (_bbox.isEmpty() && !_matches.empty() > 0) {
         for (
-            afw::table::ReferenceMatchVector::const_iterator ptr = _matches.begin();
+            typename std::vector<MatchT>::const_iterator ptr = _matches.begin();
             ptr != _matches.end();
             ++ptr
         ) {
@@ -185,8 +187,9 @@ CreateWcsWithSip::CreateWcsWithSip(
 
 }
 
+template<class MatchT>
 void
-CreateWcsWithSip::_calculateForwardMatrices()
+CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
 {
     // Assumes FITS (1-indexed) coordinates.
     afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
@@ -197,7 +200,7 @@ CreateWcsWithSip::_calculateForwardMatrices()
 
     int i = 0;
     for (
-        afw::table::ReferenceMatchVector::const_iterator ptr = _matches.begin();
+        typename std::vector<MatchT>::const_iterator ptr = _matches.begin();
         ptr != _matches.end();
         ++ptr, ++i
     ) {
@@ -271,7 +274,8 @@ CreateWcsWithSip::_calculateForwardMatrices()
     }
 }
 
-void CreateWcsWithSip::_calculateReverseMatrices() {
+template<class MatchT>
+void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
     // Assumes FITS (1-indexed) coordinates.
     int const ngrid2 = _ngrid*_ngrid;
 
@@ -321,12 +325,13 @@ void CreateWcsWithSip::_calculateReverseMatrices() {
 }
 
 ///Get the scatter in position in pixel space 
-double CreateWcsWithSip::getScatterInPixels() {
+template<class MatchT>
+double CreateWcsWithSip<MatchT>::getScatterInPixels() {
     vector<double> val;
     val.reserve(_matches.size());
     
     for (
-        afw::table::ReferenceMatchVector::const_iterator ptr = _matches.begin();
+        typename std::vector<MatchT>::const_iterator ptr = _matches.begin();
         ptr != _matches.end();
         ++ptr
     ) {
@@ -350,12 +355,13 @@ double CreateWcsWithSip::getScatterInPixels() {
     
 
 ///Get the scatter in (celestial) position
-afwGeom::Angle CreateWcsWithSip::getScatterOnSky() {
+template<class MatchT>
+afwGeom::Angle CreateWcsWithSip<MatchT>::getScatterOnSky() {
     vector<double> val;
     val.reserve(_matches.size());
 
     for (
-        afw::table::ReferenceMatchVector::const_iterator ptr = _matches.begin();
+        typename std::vector<MatchT>::const_iterator ptr = _matches.begin();
         ptr != _matches.end();
         ++ptr
     ) {
@@ -375,10 +381,19 @@ afwGeom::Angle CreateWcsWithSip::getScatterOnSky() {
 }
 
 
-afwGeom::Point2D CreateWcsWithSip::_getCrvalAsGeomPoint() {
+template<class MatchT>
+afwGeom::Point2D CreateWcsWithSip<MatchT>::_getCrvalAsGeomPoint() {
     afwCoord::Fk5Coord coo = _linearWcs->getSkyOrigin()->toFk5();
     return coo.getPosition(afwGeom::degrees);
 }
 
-        
+
+#define INSTANTIATE(MATCH) \
+    template class CreateWcsWithSip<MATCH>;
+
+INSTANTIATE(lsst::afw::table::ReferenceMatch);
+INSTANTIATE(lsst::afw::table::SourceMatch);
+
 }}}}
+
+

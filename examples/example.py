@@ -156,11 +156,11 @@ if success:
         maxSipOrder=5
         
         sipObject = None
-        sipObject = sip.CreateWcsWithSip(matchList, wcs, maxScatter, maxSipOrder)
+        sipObject = sip.makeCreateWcsWithSip(matchList, wcs, maxScatter, maxSipOrder)
     else:
         #Alternatively, you can specify the number of terms in the correction directly
         order=4
-        sipObject = sup.CreateWcsWithSip(matchList, wcs, order)
+        sipObject = sup.makeCreateWcsWithSip(matchList, wcs, order)
         
     distortedWcs = sipObject.getNewWcs()            
     

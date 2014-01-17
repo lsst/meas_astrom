@@ -41,8 +41,15 @@ import lsst.afw.image as afwImage
 import lsst.afw.table as afwTable
 import lsst.meas.astrom.sip as astromSip
 
-class CreateWcsWithSipTestCase(unittest.TestCase):
-    """A test case for Calib"""
+class BaseTestCase(unittest.TestCase):
+    """A test case for CreateWcsWithSip
+
+    Use involves setting a couple class attributes:
+    * CatTableClass: Reference catalog Table class, e.g., SimpleTable
+    * MatchClass: Match class (which should be compatible with the CatTableClass), e.g., ReferenceMatch
+    """
+    CatTableClass = None
+    MatchClass = None
 
     def setUp(self):
         crval = afwCoord.Coord(afwGeom.PointD(44., 45.))
@@ -123,7 +130,7 @@ class CreateWcsWithSipTestCase(unittest.TestCase):
             x, y = func(src.getX(), src.getY())
             src.set("centroid.x", x); src.set("centroid.y", y)
 
-        self.sipObject = astromSip.CreateWcsWithSip(self.sourceMatchSet, self.wcs, order)
+        self.sipObject = astromSip.makeCreateWcsWithSip(self.sourceMatchSet, self.wcs, order)
 
         if False:
             print name
@@ -158,6 +165,13 @@ class CreateWcsWithSipTestCase(unittest.TestCase):
         if False:
             afwImage.ImageF().writeFits("bad%d.fits" % order, self.sipObject.getNewWcs().getFitsMetadata())
 
+
+def makeTestCase(_CatTableClass, _MatchClass):
+    class CreateWcsWithSipTestCase(BaseTestCase):
+        CatTableClass = _CatTableClass
+        MatchClass = _MatchClass
+    return CreateWcsWithSipTestCase
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def suite():
@@ -165,7 +179,9 @@ def suite():
     tests.init()
 
     suites = []
-    suites += unittest.makeSuite(CreateWcsWithSipTestCase)
+#    suites += unittest.makeSuite(CreateWcsWithSipTestCase)
+    suites += unittest.makeSuite(makeTestCase(afwTable.SimpleTable, afwTable.ReferenceMatch))
+    suites += unittest.makeSuite(makeTestCase(afwTable.SourceTable, afwTable.SourceMatch))
     suites += unittest.makeSuite(tests.MemoryTestCase)
     return unittest.TestSuite(suites)
 

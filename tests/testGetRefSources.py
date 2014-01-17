@@ -182,13 +182,48 @@ class GetRefSources(unittest.TestCase):
             with self.assertRaises(KeyError):
                 ekey = schema.find(band + '.err')
 
+    def testRequestForeignFilter(self):
+        """The user requests a filter not in the astrometry.net catalog.
+
+        In that case, he's got a mapping in the MeasAstromConfig to point
+        to an alternative filter he'll take instead (e.g., g instead of B).
+        He should therefore expect the returned catalog to contain references
+        to the bands that are in the catalog.
+        """
+        bands = ['u','g','r','i','z']
+        andconfig = measAstrom.AstrometryNetDataConfig()
+        andconfig.load(os.path.join(self.datapath, 'andConfig2.py'))
+        self.conf.filterMap = dict(('my_'+b, b) for b in bands)
+        astrom = measAstrom.Astrometry(self.conf, andConfig=andconfig)
+
+        ra, dec, rad = (214.87 * afwGeom.degrees,
+                        52.68 * afwGeom.degrees,
+                        0.15 * afwGeom.degrees)
+
+        cat = astrom.getReferenceSources(ra, dec, rad, "my_r", allFluxes=True)
+        print 'cat', cat
+        print len(cat)
+        self.assertEqual(len(cat), 13)
+        schema = cat.getSchema()
+        print 'schema', schema
+
+        for nm in bands + ['flux']:
+            key = schema.find(nm)
+            ekey = schema.find(nm + '.err')
+
 
     def testDifferentMagNames(self):
+        """The astrometry.net catalog's magnitude columns are not named after filters.
+
+        In that case, the AstrometryNetDataConfig has a mapping to point to the correct
+        columns.  We should expect that the returned catalog refers to the bands
+        requested (not the implementation-dependent column names).
+        """
         andconfig = measAstrom.AstrometryNetDataConfig()
         andconfig.load(os.path.join(self.datapath, 'andConfig2.py'))
         bands = ['u','g','r','i','z']
         andconfig.magColumnMap = dict([('my_'+b, b) for b in bands])
-        andconfig.magErrorColumnMap = dict([('my_'+b, b) for b in bands])
+        andconfig.magErrorColumnMap = dict([('my_'+b, b + "_err") for b in bands])
         astrom = measAstrom.Astrometry(self.conf, andConfig=andconfig)
 
         ra, dec, rad = (214.87 * afwGeom.degrees,
