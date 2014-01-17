@@ -47,7 +47,7 @@ Python interface to Astrometry.net
 #include "lsst/daf/persistence.h"
 #include "lsst/daf/base/Persistable.h"
 #include "lsst/daf/base/PropertyList.h"
-#include "lsst/afw/table/Source.h"
+#include "lsst/afw/table.h"
 #include "lsst/afw/image/Wcs.h"
 #include "lsst/afw/image/TanWcs.h"
 #include "lsst/afw/geom.h"
