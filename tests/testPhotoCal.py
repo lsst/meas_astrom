@@ -62,7 +62,7 @@ class PhotoCalTest(unittest.TestCase):
         
         # The .xy.fits file has sources in the range ~ [0,2000],[0,4500]
         self.imageSize = (2048, 4612) # approximate
-        self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci"))
+        self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci.fits"))
 
         # Set up local astrometry_net_data
         datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')

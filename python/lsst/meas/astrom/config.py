@@ -46,6 +46,8 @@ class AstrometryNetDataConfig(object):
          'Column name (in the index files) of the ID number of reference sources'),
         ('defaultMagColumn', str, 'mag', None,
          'Default column name (in the index files) of the reference source mag'),
+        ('defaultMagErrorColumn', str, '', None,
+         'Default column name (in the index files) of the reference source mag error'),
         ('starGalaxyColumn', str, None, None,
          'Column name of the star/galaxy flag'),
         ('variableColumn', str, None, None,
