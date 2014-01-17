@@ -156,8 +156,8 @@ class Astrometry(object):
             mi = an.multiindex_new(fn)
             if mi is None:
                 raise RuntimeError('Failed to read stars from multiindex filename "%s"' % fn0)
-            # including the first one...
-            for i,fn in enumerate(fns):
+            # NOT including the first one... (the first one is assumed to ONLY contains the star kd-tree)
+            for i,fn in enumerate(fns[1:]):
                 self.log.log(self.log.DEBUG, 'Reading index from multiindex file "%s"' % fn)
                 fn = self._getIndexPath(fn)
                 self.log.log(self.log.DEBUG, 'Path: %s' % fn)
