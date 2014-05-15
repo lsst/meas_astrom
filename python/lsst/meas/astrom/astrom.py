@@ -137,6 +137,7 @@ class Astrometry(object):
             fn = fn2
             self.log.logdebug('Path: %s' % fn)
             ind = an.index_load(fn, an.INDEX_ONLY_LOAD_METADATA, None);
+
             if ind:
                 self.sinds.append(ind)
                 self.inds.append(ind)
@@ -151,7 +152,12 @@ class Astrometry(object):
             assert(len(fns) > 0)
             fn = fns[0]
             self.log.log(self.log.DEBUG, 'Reading stars from multiindex file "%s"' % fn)
-            fn = self._getIndexPath(fn)
+            fn2 = self._getIndexPath(fn)
+            if fn2 is None:
+                self.log.logdebug('Unable to find star part of multiindex file %s' % fn)
+                nMissing += 1
+                continue
+            fn = fn2
             self.log.log(self.log.DEBUG, 'Path: %s' % fn)
             mi = an.multiindex_new(fn)
             if mi is None:
@@ -159,7 +165,12 @@ class Astrometry(object):
             # NOT including the first one... (the first one is assumed to ONLY contains the star kd-tree)
             for i,fn in enumerate(fns[1:]):
                 self.log.log(self.log.DEBUG, 'Reading index from multiindex file "%s"' % fn)
-                fn = self._getIndexPath(fn)
+                fn2 = self._getIndexPath(fn)
+                if fn2 is None:
+                    self.log.logdebug('Unable to find index part of multiindex file %s' % fn)
+                    nMissing += 1
+                    continue
+                fn = fn2
                 self.log.log(self.log.DEBUG, 'Path: %s' % fn)
                 if an.multiindex_add_index(mi, fn):
                     raise RuntimeError('Failed to read index from multiindex filename "%s"' % fn)

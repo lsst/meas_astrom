@@ -165,7 +165,7 @@ void set_an_log(PTR(pexLog::Log) newlog);
 %shared_ptr(lsst::afw::image::Wcs);
 %import "lsst/afw/image/Wcs.h"
 
-%template(VectorOfIndexPtr) std::vector<index_t*>;
+%template(VectorOfIndexPtr) std::vector<index_s*>;
 
 %newobject solver_new;
 %newobject index_load;
@@ -188,8 +188,16 @@ void set_an_log(PTR(pexLog::Log) newlog);
     %}
 
  %extend multiindex_t {
-    index_t* getIndex(int i) {
+    index_s* getIndex(int i) {
         return multiindex_get($self, i);
+    }
+
+// index_t is a typedef of index_s, but swig doesn't notice the typedef (grumble
+// grumble), so we use index_s throughout.
+%extend index_s {
+    ~index_s() {
+        //printf("Deleting index_s %s\n", $self->indexname);
+        index_free($self);
     }
 }
 
@@ -348,30 +356,29 @@ void set_an_log(PTR(pexLog::Log) newlog);
         return inds;
     }
 
-    void addIndices(std::vector<index_t*> inds) {
-        for (std::vector<index_t*>::iterator pind = inds.begin();
+    void addIndices(std::vector<index_s*> inds) {
+        for (std::vector<index_s*>::iterator pind = inds.begin();
              pind != inds.end(); ++pind) {
-            index_t* ind = *pind;
-            //            printf("Checking index \"%s\"\n", ind->indexname);
+            lsst::meas::astrom::detail::IndexManager man(*pind);
             if ($self->use_radec) {
                 double ra,dec,radius;
                 xyzarr2radecdeg($self->centerxyz, &ra, &dec);
                 radius = distsq2deg($self->r2);
-                if (!index_is_within_range(ind, ra, dec, radius)) {
-                    //printf("Not within RA,Dec range\n");
+                if (!index_is_within_range(man.index, ra, dec, radius)) {
                     continue;
                 }
             }
             // qlo,qhi in arcsec
             double qlo, qhi;
             solver_get_quad_size_range_arcsec($self, &qlo, &qhi);
-            if (!index_overlaps_scale_range(ind, qlo, qhi)) {
-                //                printf("Not within quad scale range\n");
+            if (!index_overlaps_scale_range(man.index, qlo, qhi)) {
+//                printf("Not within quad scale range\n");
                 continue;
             }
-            //            printf("Adding index.\n");
-            if (index_reload(ind)) {
-                assert(0);
+//            printf("Adding index.\n");
+            if (index_reload(man.index)) {
+                throw LSST_EXCEPT(lsst::pex::exceptions::IoErrorException,
+                                  "Failed to index_reload() an astrometry_net_data index file -- out of file descriptors?");
             }
 
             solver_add_index($self, man.index);
