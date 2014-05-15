@@ -105,7 +105,7 @@ class GetRefSources(unittest.TestCase):
                 self.assertLess(np.abs(rme- 0.56685),    1e-5)
 
 
-        cat2 = self.astrom.getReferenceSources(ra, dec, rad, "g", allFluxes=True)
+        cat2 = self.astrom.getReferenceSources(ra, dec, rad, "g")
         self.assertEqual(len(cat2), len(cat))
 
         schema = cat2.getSchema()
@@ -147,6 +147,27 @@ class GetRefSources(unittest.TestCase):
             print
         self.assertEqual(nchecked, 6)
 
+    def testNotAllFluxes(self):
+        """Check that not all fluxes are returned when self.config.allFluxes=False.
+
+        The default behavior (self.config.allFluxes=True) is checked by testGetSources.
+        """
+        ra, dec, rad = (214.87 * afwGeom.degrees,
+                        52.68 * afwGeom.degrees,
+                        0.15 * afwGeom.degrees)
+        self.astrom.config.allFluxes = False
+        cat = self.astrom.getReferenceSources(ra, dec, rad, "r")
+        self.assertEqual(len(cat), 13)
+        schema = cat.getSchema()
+
+        # All these should pass without errors
+        for name in ("r", "r.err"):
+            schema.find(name)
+
+        # All these should raise an exception
+        for name in ("u", "g", "i", "z"):
+            self.assertRaises(KeyError, schema.find, name)
+            self.assertRaises(KeyError, schema.find, name + ".err")
 
     def testNoMagErrs(self):
         andconfig = measAstrom.AstrometryNetDataConfig()
@@ -170,7 +191,7 @@ class GetRefSources(unittest.TestCase):
             with self.assertRaises(KeyError):
                 ekey = schema.find(band + '.err')
 
-        cat = astrom.getReferenceSources(ra, dec, rad, "r", allFluxes=True)
+        cat = astrom.getReferenceSources(ra, dec, rad, "r")
         print 'cat', cat
         print len(cat)
         self.assertEqual(len(cat), 13)
@@ -200,7 +221,7 @@ class GetRefSources(unittest.TestCase):
                         52.68 * afwGeom.degrees,
                         0.15 * afwGeom.degrees)
 
-        cat = astrom.getReferenceSources(ra, dec, rad, "my_r", allFluxes=True)
+        cat = astrom.getReferenceSources(ra, dec, rad, "my_r")
         print 'cat', cat
         print len(cat)
         self.assertEqual(len(cat), 13)
@@ -230,7 +251,7 @@ class GetRefSources(unittest.TestCase):
                         52.68 * afwGeom.degrees,
                         0.15 * afwGeom.degrees)
 
-        cat = astrom.getReferenceSources(ra, dec, rad, "my_r", allFluxes=True)
+        cat = astrom.getReferenceSources(ra, dec, rad, "my_r")
         print 'cat', cat
         print len(cat)
         self.assertEqual(len(cat), 13)

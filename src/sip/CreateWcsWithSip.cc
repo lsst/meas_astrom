@@ -31,20 +31,21 @@
 #include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
 #include "lsst/afw/math/Statistics.h"
 #include "lsst/afw/image/TanWcs.h"
+#include "lsst/pex/logging/Log.h"
 
 namespace lsst { 
 namespace meas { 
 namespace astrom { 
 namespace sip {
 
-using namespace std;
-
-namespace except = lsst::pex::exceptions;
+namespace except   = lsst::pex::exceptions;
 namespace afwCoord = lsst::afw::coord;
-namespace afwGeom = lsst::afw::geom;
-namespace afwImg = lsst::afw::image;
-namespace afwDet = lsst::afw::detection;
-namespace afwMath = lsst::afw::math;
+namespace afwGeom  = lsst::afw::geom;
+namespace afwImg   = lsst::afw::image;
+namespace afwDet   = lsst::afw::detection;
+namespace afwMath  = lsst::afw::math;
+namespace afwTable = lsst::afw::table;
+namespace pexLog   = lsst::pex::logging;
 
 namespace {
 /*
@@ -97,9 +98,7 @@ calculateCMatrix(Eigen::VectorXd const& axis1, Eigen::VectorXd const& axis2, int
 ///\returns x, an m x 1 vector of best fit params
 Eigen::VectorXd
 leastSquaresSolve(Eigen::VectorXd b, Eigen::MatrixXd A) {
-    if (A.rows() != b.rows()) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "vector b of wrong size");        
-    }
+    assert(A.rows() == b.rows());
     Eigen::VectorXd par = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
     return par;
 }
@@ -110,15 +109,16 @@ leastSquaresSolve(Eigen::VectorXd b, Eigen::MatrixXd A) {
 template<class MatchT>
 CreateWcsWithSip<MatchT>::CreateWcsWithSip(
     std::vector<MatchT> const & matches,
-    CONST_PTR(lsst::afw::image::Wcs) linearWcs,
+    afwImg::Wcs const& linearWcs,
     int const order,
-    lsst::afw::geom::Box2I const& bbox,
+    afwGeom::Box2I const& bbox,
     int const ngrid
 ):
+    _log(pexLog::Log(pexLog::Log::getDefaultLog(), "meas.astrom.sip")),
     _matches(matches),
     _bbox(bbox),
     _ngrid(ngrid),
-    _linearWcs(linearWcs->clone()),
+    _linearWcs(linearWcs.clone()),
     _sipOrder(order+1),
     _reverseSipOrder(order+2), //Higher order for reverse transform
     _sipA(Eigen::MatrixXd::Zero(_sipOrder, _sipOrder)),
@@ -128,25 +128,25 @@ CreateWcsWithSip<MatchT>::CreateWcsWithSip(
     _newWcs()
 {
     if  (order < 2) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "Sip matrices are at least 2nd order");        
+        throw LSST_EXCEPT(except::OutOfRangeException, "SIP must be at least 2nd order");        
     }
-
     if (_sipOrder > 9) {
-        throw LSST_EXCEPT(lsst::pex::exceptions::LengthErrorException,
-                          str(boost::format("SIP forward order %d exceeds the IAU limit of 9") % _sipOrder));
+        throw LSST_EXCEPT(except::OutOfRangeException,
+                          str(boost::format("SIP forward order %d exceeds the convention limit of 9") %
+                              _sipOrder));
     }
     if (_reverseSipOrder > 9) {
-        throw LSST_EXCEPT(lsst::pex::exceptions::LengthErrorException,
-                          str(boost::format("SIP reverse order %d exceeds the IAU limit of 9") %
+        throw LSST_EXCEPT(except::OutOfRangeException,
+                          str(boost::format("SIP reverse order %d exceeds the convention limit of 9") %
                               _reverseSipOrder));
     }
     
     if (_matches.size() < std::size_t(_sipOrder)) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "Number of matches less than requested sip order");
+        throw LSST_EXCEPT(except::LengthErrorException, "Number of matches less than requested sip order");
     }
 
     if (_ngrid <= 0) {
-        _ngrid = 3*_sipOrder;           // should be plenty
+        _ngrid = 5*_sipOrder;           // should be plenty
     }
 
     /*
@@ -162,7 +162,7 @@ CreateWcsWithSip<MatchT>::CreateWcsWithSip(
             ptr != _matches.end();
             ++ptr
         ) {
-            lsst::afw::table::SourceRecord const & src = *ptr->second;
+            afwTable::SourceRecord const & src = *ptr->second;
             _bbox.include(afwGeom::PointI(src.getX(), src.getY()));
         }
         float const borderFrac = 1/::sqrt(_matches.size()); // fractional border to add to exact BBox
@@ -204,11 +204,10 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
         ptr != _matches.end();
         ++ptr, ++i
     ) {
-        afw::table::ReferenceMatch const & match = *ptr;
+        afwTable::ReferenceMatch const & match = *ptr;
 
-        // iwc's store the intermediate world coordinate positions of catalogue objects
+        // iwc: intermediate world coordinate positions of catalogue objects
         afwCoord::IcrsCoord c = match.first->getCoord();
-
         afwGeom::Point2D p = _linearWcs->skyToIntermediateWorldCoord(c);
         iwc1[i] = p[0];
         iwc2[i] = p[1];
@@ -227,7 +226,7 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
     // Use mu and nu to refine CD
 
     // Given the implementation of indexToPQ(), the refined values
-    // of the elements of the CD matrices are in elements 1 and "_sipOrder" of mu and nu.
+    // of the elements of the CD matrices are in elements 1 and "_sipOrder" of mu and nu
     // If the implementation of indexToPQ() changes, these assertions
     // will catch that change.
     assert ((indexToPQ(0,   ord) == std::pair<int, int>(0, 0)));
@@ -247,6 +246,7 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
     crpix[1] -= mu[0]*CDinv(1,0) + nu[0]*CDinv(1,1);
 
     afwGeom::Point2D crval = _getCrvalAsGeomPoint();
+
     _linearWcs = afwImg::Wcs::Ptr( new afwImg::Wcs(crval, crpix, CD));
 
     //Get Sip terms
@@ -276,35 +276,48 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
 
 template<class MatchT>
 void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
-    // Assumes FITS (1-indexed) coordinates.
     int const ngrid2 = _ngrid*_ngrid;
 
-    Eigen::VectorXd u(ngrid2), v(ngrid2);
     Eigen::VectorXd U(ngrid2), V(ngrid2);
     Eigen::VectorXd delta1(ngrid2), delta2(ngrid2);
     
     int const x0 = _bbox.getMinX();
-    float const dx = _bbox.getWidth()/(_ngrid - 1);
+    double const dx = _bbox.getWidth()/(double)(_ngrid - 1);
     int const y0 = _bbox.getMinY();
-    float const dy = _bbox.getHeight()/(_ngrid - 1);
+    double const dy = _bbox.getHeight()/(double)(_ngrid - 1);
 
-    afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
+    // wcs->getPixelOrigin() returns LSST-style (0-indexed) pixel coords.
+    afwGeom::Point2D crpix = _newWcs->getPixelOrigin();
+
+    _log.debugf("_calcReverseMatrices: x0,y0 %i,%i, W,H %i,%i, ngrid %i, dx,dy %g,%g, CRPIX %g,%g",
+                x0, y0, _bbox.getWidth(), _bbox.getHeight(), _ngrid, dx, dy, crpix[0], crpix[1]);
+
     int k = 0;
     for (int i = 0; i < _ngrid; ++i) {
-        float const y = y0 + i*dy;
+        double const y = y0 + i*dy;
         for (int j = 0; j < _ngrid; ++j, ++k) {
-            float const x = x0 + j*dx;
+            double const x = x0 + j*dx;
+            double u,v;
             // u and v are intermediate pixel coordinates on a grid of positions
-            u[k] = x - crpix[0];
-            v[k] = y - crpix[1];
-            // U and V are the true, undistorted intermediate pixel positions as calculated
-            // using the new Tan-Sip forward coefficients (to sky) and the linear Wcs (back to pixels)
-            afwCoord::Coord::ConstPtr c = _newWcs->pixelToSky(x, y);
-            afwGeom::Point2D p = _linearWcs->skyToPixel(*c);
-            U[k] = p[0] - crpix[0];
-            V[k] = p[1] - crpix[1];
-            delta1[k] = u[k] - U[k];
-            delta2[k] = v[k] - V[k];
+            u = x - crpix[0];
+            v = y - crpix[1];
+
+            // U and V are the result of applying the "forward" (A,B) SIP coefficients
+            // NOTE that the "undistortPixel()" function accepts 1-indexed (FITS-style)
+            // coordinates, and here we are treating "x" and "y" as LSST-style.
+            afwGeom::Point2D xy = _newWcs->undistortPixel(afwGeom::Point2D(x + 1, y + 1));
+            // "crpix", on the other hand, is LSST-style 0-indexed, so we have to remove
+            // the FITS-style 1-index from "xy"
+            U[k] = xy[0] - 1 - crpix[0];
+            V[k] = xy[1] - 1 - crpix[1];
+
+            if ((i == 0 || i == (_ngrid-1) || i == (_ngrid/2)) &&
+                (j == 0 || j == (_ngrid-1) || j == (_ngrid/2))) {
+                _log.debugf("  x,y (%.1f, %.1f), u,v (%.1f, %.1f), U,V (%.1f, %.1f)", x, y, u, v, U[k], V[k]);
+            }
+
+            delta1[k] = u - U[k];
+            delta2[k] = v - V[k];
         }
     }
 
@@ -318,65 +331,82 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
     for(int j=0; j< tmpA.rows(); ++j) {
         std::pair<int, int> pq = indexToPQ(j, ord);
         int p = pq.first, q = pq.second;
-
         _sipAp(p, q) = tmpA[j];
         _sipBp(p, q) = tmpB[j];   
     } 
 }
 
-///Get the scatter in position in pixel space 
 template<class MatchT>
 double CreateWcsWithSip<MatchT>::getScatterInPixels() {
-    vector<double> val;
-    val.reserve(_matches.size());
-    
+    assert(_newWcs.get());
+    return _getScatterPixels(*_newWcs, _matches);
+}
+
+template<class MatchT>
+double CreateWcsWithSip<MatchT>::getLinearScatterInPixels() {
+    assert(_linearWcs.get());
+    return _getScatterPixels(*_linearWcs, _matches);
+}
+
+template<class MatchT>
+double CreateWcsWithSip<MatchT>::_getScatterPixels(
+    afwImg::Wcs const& wcs,
+    std::vector<MatchT> const & matches) {
+    std::vector<double> val;
+    val.reserve(matches.size());
+
     for (
-        typename std::vector<MatchT>::const_iterator ptr = _matches.begin();
-        ptr != _matches.end();
+        typename std::vector<MatchT>::const_iterator ptr = matches.begin();
+        ptr != matches.end();
         ++ptr
     ) {
-        afw::table::ReferenceMatch const & match = *ptr;
-
-        PTR(afw::table::SimpleRecord) catRec = match.first;
-        PTR(afw::table::SourceRecord) srcRec = match.second;
-        
-        double imgX = srcRec->getX();
-        double imgY = srcRec->getY();
-        
-        afwGeom::Point2D xy = _newWcs->skyToPixel(catRec->getCoord());
+        afwTable::ReferenceMatch const & match = *ptr;
+        PTR(afwTable::SimpleRecord) cat = match.first;
+        PTR(afwTable::SourceRecord) src = match.second;
+        double imgX = src->getX();
+        double imgY = src->getY();
+        afwGeom::Point2D xy = wcs.skyToPixel(cat->getCoord());
         double catX = xy[0];
         double catY = xy[1];
-        
         val.push_back(::hypot(imgX - catX, imgY - catY));
    }
-    
     return afwMath::makeStatistics(val, afwMath::MEDIAN).getValue();
 }
     
 
-///Get the scatter in (celestial) position
 template<class MatchT>
 afwGeom::Angle CreateWcsWithSip<MatchT>::getScatterOnSky() {
-    vector<double> val;
-    val.reserve(_matches.size());
+    assert(_newWcs.get());
+    return _getScatterSky(*_newWcs, _matches);
+}
+
+template<class MatchT>
+afwGeom::Angle CreateWcsWithSip<MatchT>::getLinearScatterOnSky() {
+    assert(_linearWcs.get());
+    return _getScatterSky(*_linearWcs, _matches);
+}
+
+template<class MatchT>
+afwGeom::Angle CreateWcsWithSip<MatchT>::_getScatterSky(
+    afwImg::Wcs const & wcs,
+    std::vector<MatchT> const & matches) {
+    std::vector<double> val;
+    val.reserve(matches.size());
 
     for (
-        typename std::vector<MatchT>::const_iterator ptr = _matches.begin();
-        ptr != _matches.end();
+        typename std::vector<MatchT>::const_iterator ptr = matches.begin();
+        ptr != matches.end();
         ++ptr
     ) {
-        afw::table::ReferenceMatch const & match = *ptr;
-
-        PTR(afw::table::SimpleRecord) catRec = match.first;
-        PTR(afw::table::SourceRecord) srcRec = match.second;
-        afwCoord::IcrsCoord catRadec = catRec->getCoord();
-        CONST_PTR(afwCoord::Coord) imgRadec = _newWcs->pixelToSky(srcRec->getCentroid());
+        afwTable::ReferenceMatch const & match = *ptr;
+        PTR(afwTable::SimpleRecord) cat = match.first;
+        PTR(afwTable::SourceRecord) src = match.second;
+        afwCoord::IcrsCoord catRadec = cat->getCoord();
+        CONST_PTR(afwCoord::Coord) imgRadec = wcs.pixelToSky(src->getCentroid());
         afwGeom::Angle sep = catRadec.angularSeparation(*imgRadec);
         val.push_back(sep.asDegrees());
-
     }
     assert(val.size() > 0);
-
     return afwMath::makeStatistics(val, afwMath::MEDIAN).getValue()*afwGeom::degrees;
 }
 
@@ -391,8 +421,8 @@ afwGeom::Point2D CreateWcsWithSip<MatchT>::_getCrvalAsGeomPoint() {
 #define INSTANTIATE(MATCH) \
     template class CreateWcsWithSip<MATCH>;
 
-INSTANTIATE(lsst::afw::table::ReferenceMatch);
-INSTANTIATE(lsst::afw::table::SourceMatch);
+INSTANTIATE(afwTable::ReferenceMatch);
+INSTANTIATE(afwTable::SourceMatch);
 
 }}}}
 

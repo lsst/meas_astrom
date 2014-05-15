@@ -42,7 +42,8 @@ Python interface to lsst::afw::meas::astrom::sip classes
 #include "lsst/afw/math.h"
 #include "lsst/afw/image.h"
 #include "lsst/afw/cameraGeom.h"
-#include "lsst/afw/table.h"
+#include "lsst/afw/table/Source.h"
+#include "lsst/afw/table/Match.h"
 
 #define PY_ARRAY_UNIQUE_SYMBOL LSST_MEAS_ASTROM_NUMPY_API
 #include "numpy/arrayobject.h"
@@ -59,7 +60,8 @@ Python interface to lsst::afw::meas::astrom::sip classes
 
 %import "lsst/afw/math/mathLib.i"
 %import "lsst/afw/image/imageLib.i"
-%import "lsst/afw/table/tableLib.i"
+%import "lsst/afw/table/Source.i"
+%import "lsst/afw/table/Match.i"
 
 %lsst_exceptions();
 
