@@ -205,42 +205,38 @@ void set_an_log(PTR(pexLog::Log) newlog);
         return index_is_within_range(multiindex_get($self, 0), ra, dec, radius);
     }
 
-    int _reload() {
-        return multiindex_reload_starkd($self);
-    }
-
     void unload() {
-        multiindex_unload($mind);
+        multiindex_unload($self);
     }
 
     ~multiindex_t() {
         multiindex_free($self);
     }
-}
 
-%pythoncode %{
-def multiindex_reload(self):
-    if self._reload():
-        raise RuntimeError('Failed to reload multi-index star file %s' % self.fits.filename)
-multiindex_t.reload = multiindex_reload
-%}
+    char* get_name() {
+        return $self->fits->filename;
+    }
+
+    %pythoncode %{
+    def reload(self):
+        if multiindex_reload_starkd(self):
+            raise RuntimeError('Failed to reload multi-index star file %s' % self.name)
+    __swig_getmethods__['name'] = get_name
+    if _newclass: x = property(get_name)
+    %}
+}
 
 %extend index_t {
     int overlapsScaleRange(double qlo, double qhi) {
         return index_overlaps_scale_range($self, qlo, qhi);
     }
 
-    int _reload() {
-        return index_reload($self);
-    }
+    %pythoncode %{
+    def reload(self):
+        if index_reload(self):
+            raise RuntimeError('Failed to reload multi-index file %s' % self.indexname)
+    %}
 }
-
-%pythoncode %{
-def index_reload(self):
-    if self._reload():
-        raise RuntimeError('Failed to reload multi-index file %s' % self.indexname)
-index_t.reload = index_reload
-%}
 
 %extend solver_t {
     ~solver_t() {
