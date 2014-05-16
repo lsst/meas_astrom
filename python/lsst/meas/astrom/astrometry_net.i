@@ -168,8 +168,6 @@ void set_an_log(PTR(pexLog::Log) newlog);
 %template(VectorOfIndexPtr) std::vector<index_t*>;
 
 %newobject solver_new;
-// FIXME -- no longer need this
-//%newobject index_load;
 %newobject multiindex_new;
 
 %include "solver.h"
@@ -223,6 +221,13 @@ void set_an_log(PTR(pexLog::Log) newlog);
             raise RuntimeError('Failed to reload multi-index star file %s' % self.name)
     __swig_getmethods__['name'] = get_name
     if _newclass: x = property(get_name)
+
+    def __len__(self):
+        return multiindex_n(self)
+    def __getitem__(self, i):
+        if i < 0 or i > multiindex_n(self):
+            raise IndexError('Index %i out of bound for multiindex_t' % i)
+        return multiindex_get(self, i)
     %}
 }
 
