@@ -165,10 +165,11 @@ void set_an_log(PTR(pexLog::Log) newlog);
 %shared_ptr(lsst::afw::image::Wcs);
 %import "lsst/afw/image/Wcs.h"
 
-%template(VectorOfIndexPtr) std::vector<index_s*>;
+%template(VectorOfIndexPtr) std::vector<index_t*>;
 
 %newobject solver_new;
-%newobject index_load;
+// FIXME -- no longer need this
+//%newobject index_load;
 %newobject multiindex_new;
 
 %include "solver.h"
@@ -185,21 +186,43 @@ void set_an_log(PTR(pexLog::Log) newlog);
     void an_log_set_level(int lvl) {
         log_set_level((log_level)lvl);
     }
-    %}
+%}
 
- %extend multiindex_t {
-    index_s* getIndex(int i) {
+%extend multiindex_t {
+    // FIXME -- implement list-like __len__ and __getitem__ ?
+
+    index_t* getIndex(int i) {
         return multiindex_get($self, i);
     }
 
-// index_t is a typedef of index_s, but swig doesn't notice the typedef (grumble
-// grumble), so we use index_s throughout.
-%extend index_s {
-    ~index_s() {
-        //printf("Deleting index_s %s\n", $self->indexname);
-        index_free($self);
+    int nIndices() {
+        return multiindex_n($self);
+    }
+
+    // An index being within range is a property of the star kd-tree, hence of
+    // the multi-index as a whole
+    int isWithinRange(double ra, double dec, double radius) {
+        return index_is_within_range(multiindex_get($self, 0), ra, dec, radius);
+    }
+
+    ~multiindex_t() {
+        printf("Deleting multiindex_t\n");
+        free($self);
     }
 }
+
+%extend index_t {
+    int overlapsScaleRange(double qlo, double qhi) {
+        return index_overlaps_scale_range($self, qlo, qhi);
+    }
+
+    int reload() {
+        return index_reload($self);
+    }
+}
+
+// for getQuadSizeRangeArcsec
+%apply double *OUTPUT { double *qlo, double *qhi };
 
 %extend solver_t {
     ~solver_t() {
@@ -212,7 +235,7 @@ void set_an_log(PTR(pexLog::Log) newlog);
     }
 
     lsst::afw::table::SimpleCatalog
-       getCatalog(std::vector<index_s*> inds,
+       getCatalog(std::vector<index_t*> inds,
                   double ra, double dec, double radius,
                   const char* idcol,
                   std::vector<std::string> const& magnameVec,
@@ -240,7 +263,7 @@ void set_an_log(PTR(pexLog::Log) newlog);
     }
 
     lsst::afw::table::SimpleCatalog
-        getCatalog(std::vector<index_s*> inds,
+        getCatalog(std::vector<index_t*> inds,
                    double ra, double dec, double radius,
                    const char* idcol,
                    const char* magcol,
@@ -286,7 +309,7 @@ void set_an_log(PTR(pexLog::Log) newlog);
         qa->set("meas_astrom*an*time_used", $self->timeused);
         qa->set("meas_astrom*an*best_logodds", $self->best_logodds);
         if ($self->best_index) {
-            index_s* ind = $self->best_index;
+            index_t* ind = $self->best_index;
             qa->set("meas_astrom*an*best_index*id", ind->indexid);
             qa->set("meas_astrom*an*best_index*hp", ind->healpix);
             qa->set("meas_astrom*an*best_index*nside", ind->hpnside);
@@ -347,17 +370,39 @@ void set_an_log(PTR(pexLog::Log) newlog);
         }
     }
 
-    std::vector<index_s*> getActiveIndexFiles() {
-        std::vector<index_s*> inds;
+    /*
+    std::vector<index_t*> getActiveIndexFiles() {
+        std::vector<index_t*> inds;
         int N = solver_n_indices($self);
         for (int i=0; i<N; i++) {
             inds.push_back(solver_get_index($self, i));
         }
         return inds;
     }
+     */
 
-    void addIndices(std::vector<index_s*> inds) {
-        for (std::vector<index_s*>::iterator pind = inds.begin();
+    void getQuadSizeRangeArcsec(double *qlo, double *qhi) {
+        solver_get_quad_size_range_arcsec($self, qlo, qhi);
+    }
+
+    double getQuadSizeLow() {
+        double qlo,qhi;
+        solver_get_quad_size_range_arcsec($self, &qlo, &qhi);
+        return qlo;
+    }
+    double getQuadSizeHigh() {
+        double qlo,qhi;
+        solver_get_quad_size_range_arcsec($self, &qlo, &qhi);
+        return qhi;
+    }
+
+    void addIndex(index_t* ind) {
+        solver_add_index($self, ind);
+    }
+
+    /*
+    void addIndices(std::vector<index_t*> inds) {
+        for (std::vector<index_t*>::iterator pind = inds.begin();
              pind != inds.end(); ++pind) {
             lsst::meas::astrom::detail::IndexManager man(*pind);
             if ($self->use_radec) {
@@ -384,6 +429,7 @@ void set_an_log(PTR(pexLog::Log) newlog);
             solver_add_index($self, man.index);
         }
     }
+     */
 
     void setParity(bool p) {
         if (p)
