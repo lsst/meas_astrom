@@ -90,23 +90,80 @@ class MultiIndexTest(unittest.TestCase):
         andConfig.load(fn)
         self._testGetSolution(andConfig=andConfig)
 
+    # This is a multiIndex setup with two indices
     def testMultiIndexB(self):
         andConfig = AstrometryNetDataConfig()
         fn = os.path.join(self.an_data_dir, 'andConfig3.py')
         andConfig.load(fn)
         self._testGetSolution(andConfig=andConfig)
 
+    # This is a multiIndex setup with two indices, one that has no star kdtree
     def testMultiIndexC(self):
         andConfig = AstrometryNetDataConfig()
         fn = os.path.join(self.an_data_dir, 'andConfig4.py')
         andConfig.load(fn)
         self._testGetSolution(andConfig=andConfig)
 
+    # This one has a multiIndex and a normal index.
     def testMultiIndexD(self):
         andConfig = AstrometryNetDataConfig()
         fn = os.path.join(self.an_data_dir, 'andConfig5.py')
         andConfig.load(fn)
         self._testGetSolution(andConfig=andConfig)
+
+    # This one has a multiIndex with stars-only and index-only parts
+    def testMultiIndexE(self):
+        andConfig = AstrometryNetDataConfig()
+        fn = os.path.join(self.an_data_dir, 'andConfig6.py')
+        andConfig.load(fn)
+        self._testGetSolution(andConfig=andConfig)
+
+
+    # Test that creating an Astrometry object with many index files
+    # does not use up a lot of memory or file descriptors.
+    def testResources(self):
+        from astrometry.util import ttime
+        mem0 = ttime.get_memusage()
+        fd0 = ttime.count_file_descriptors()
+        print
+        print 'Mem0:'
+        print ttime.memusage()
+        print 'FD0:', fd0
+
+        andConfig = AstrometryNetDataConfig()
+        fn = os.path.join(self.an_data_dir, 'andConfig6.py')
+        andConfig.load(fn)
+        andConfig.multiIndexFiles = andConfig.multiIndexFiles * 100
+        print len(andConfig.multiIndexFiles), 'multi-index files'
+
+        astrom = measAstrom.Astrometry(self.conf, logLevel=Log.INFO,
+                                       andConfig=andConfig)
+
+        mem1 = ttime.get_memusage()
+        fd1 = ttime.count_file_descriptors()
+        print
+        print 'Mem1:'
+        print ttime.memusage()
+        print 'FD1:', fd1
+
+        res = astrom.determineWcs(self.srcCat, self.exposure,
+                                  imageSize=self.imageSize)
+
+        mem2 = ttime.get_memusage()
+        fd2 = ttime.count_file_descriptors()
+        print
+        print 'Mem2:'
+        print ttime.memusage()
+        print 'FD2:', fd2
+
+        del astrom
+
+        mem3 = ttime.get_memusage()
+        fd3 = ttime.count_file_descriptors()
+        print
+        print 'Mem3:'
+        print ttime.memusage()
+        print 'FD3:', fd3
 
         
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
