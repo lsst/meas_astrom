@@ -205,24 +205,42 @@ void set_an_log(PTR(pexLog::Log) newlog);
         return index_is_within_range(multiindex_get($self, 0), ra, dec, radius);
     }
 
+    int _reload() {
+        return multiindex_reload_starkd($self);
+    }
+
+    void unload() {
+        multiindex_unload($mind);
+    }
+
     ~multiindex_t() {
-        printf("Deleting multiindex_t\n");
-        free($self);
+        multiindex_free($self);
     }
 }
+
+%pythoncode %{
+def multiindex_reload(self):
+    if self._reload():
+        raise RuntimeError('Failed to reload multi-index star file %s' % self.fits.filename)
+multiindex_t.reload = multiindex_reload
+%}
 
 %extend index_t {
     int overlapsScaleRange(double qlo, double qhi) {
         return index_overlaps_scale_range($self, qlo, qhi);
     }
 
-    int reload() {
+    int _reload() {
         return index_reload($self);
     }
 }
 
-// for getQuadSizeRangeArcsec
-%apply double *OUTPUT { double *qlo, double *qhi };
+%pythoncode %{
+def index_reload(self):
+    if self._reload():
+        raise RuntimeError('Failed to reload multi-index file %s' % self.indexname)
+index_t.reload = index_reload
+%}
 
 %extend solver_t {
     ~solver_t() {
@@ -370,21 +388,6 @@ void set_an_log(PTR(pexLog::Log) newlog);
         }
     }
 
-    /*
-    std::vector<index_t*> getActiveIndexFiles() {
-        std::vector<index_t*> inds;
-        int N = solver_n_indices($self);
-        for (int i=0; i<N; i++) {
-            inds.push_back(solver_get_index($self, i));
-        }
-        return inds;
-    }
-     */
-
-    void getQuadSizeRangeArcsec(double *qlo, double *qhi) {
-        solver_get_quad_size_range_arcsec($self, qlo, qhi);
-    }
-
     double getQuadSizeLow() {
         double qlo,qhi;
         solver_get_quad_size_range_arcsec($self, &qlo, &qhi);
@@ -399,37 +402,6 @@ void set_an_log(PTR(pexLog::Log) newlog);
     void addIndex(index_t* ind) {
         solver_add_index($self, ind);
     }
-
-    /*
-    void addIndices(std::vector<index_t*> inds) {
-        for (std::vector<index_t*>::iterator pind = inds.begin();
-             pind != inds.end(); ++pind) {
-            lsst::meas::astrom::detail::IndexManager man(*pind);
-            if ($self->use_radec) {
-                double ra,dec,radius;
-                xyzarr2radecdeg($self->centerxyz, &ra, &dec);
-                radius = distsq2deg($self->r2);
-                if (!index_is_within_range(man.index, ra, dec, radius)) {
-                    continue;
-                }
-            }
-            // qlo,qhi in arcsec
-            double qlo, qhi;
-            solver_get_quad_size_range_arcsec($self, &qlo, &qhi);
-            if (!index_overlaps_scale_range(man.index, qlo, qhi)) {
-//                printf("Not within quad scale range\n");
-                continue;
-            }
-//            printf("Adding index.\n");
-            if (index_reload(man.index)) {
-                throw LSST_EXCEPT(lsst::pex::exceptions::IoErrorException,
-                                  "Failed to index_reload() an astrometry_net_data index file -- out of file descriptors?");
-            }
-
-            solver_add_index($self, man.index);
-        }
-    }
-     */
 
     void setParity(bool p) {
         if (p)

@@ -75,20 +75,29 @@ class Astrometry(object):
     ConfigClass = MeasAstromConfig
 
     '''
-    About Astrometry.net index files (astrometry_net_data): 
-    '''
+    About Astrometry.net index files (astrometry_net_data):
 
-    '''
-    Note about memory management of astrometry_net index files:
-    index_t* structs (which include memory maps and other resources)
-    are loaded either from single index files (listed in the
-    AstrometryNetDataConfig entry "indexFiles", or from multiindex
-    files (listed in "multiIndexFiles").  Singles are stored in .sinds,
-    multis in .minds.  These are loaded in _readIndexFiles(), called
-    from the constructor, and freed in _closeIndexFiles(), called from 
-    the __del__ destructor.
-    '''
+    There are three components of an index file: a list of stars
+    (stored as a star kd-tree), a list of quadrangles of stars ("quad
+    file") and a list of the shapes ("codes") of those quadrangles,
+    stored as a code kd-tree.
 
+    Each index covers a region of the sky, defined by healpix nside
+    and number, and a range of angular scales.  In LSST, we share the
+    list of stars in a part of the sky between multiple indexes.  That
+    is, the star kd-tree is shared between multiple indices (quads and
+    code kd-trees).  In the astrometry.net code, this is called a
+    "multiindex".
+
+    It is possible to "unload" and "reload" multiindex (and index)
+    objects.  When "unloaded", they consume no FILE or mmap resources.
+
+    The multiindex object holds the star kd-tree and gives each index
+    object it holds a pointer to it, so it is necessary to
+    multiindex_reload_starkd() before reloading the indices it holds.
+    The multiindex_unload() method, on the other hand, unloads its
+    starkd and unloads each index it holds.
+    '''
 
     def __init__(self,
                  config,
@@ -123,34 +132,6 @@ class Astrometry(object):
         self.andConfig = andConfig
         self._readIndexFiles()
 
-    # RAII
-
-    ## FIXME -- push this into SWIG multiindex_t ?
-    class _OpenMultiindexFile(object):
-        def __init__(self, fn):
-            import astrometry_net as an
-            mi = an.multiindex_new(fn)
-            if mi is None:
-                raise RuntimeError('Failed to read stars from multiindex filename "%s"' % fn)
-            self.mind = mi
-        def __del__(self):
-            print 'Closing & freeing multiindex file'
-            import astrometry_net as an
-            an.multiindex_close(self.mind)
-            self.mind = None
-
-    class _LoadMultiindexFile(object):
-        def __init__(self, mind):
-            import astrometry_net as an
-            self.mind = mind
-            print 'Loading multiindex file'
-            an.multiindex_reload_starkd(self.mind)
-        def __del__(self):
-            import astrometry_net as an
-            print 'Unloading multiindex file'
-            an.multiindex_unload(self.mind)
-            self.mind = None
-
     def _readIndexFiles(self):
         import astrometry_net as an
         # .minds: multi-index objects
@@ -179,7 +160,9 @@ class Astrometry(object):
             fn = fn2
             self.log.log(self.log.DEBUG, 'Path: %s' % fn)
 
-            omi = Astrometry._OpenMultiindexFile(fn)
+            mi = an.multiindex_new(fn)
+            if mi is None:
+                raise RuntimeError('Failed to read stars from multiindex filename "%s"' % fn)
             for i,fn in enumerate(fns[1:]):
                 self.log.log(self.log.DEBUG, 'Reading index from multiindex file "%s"' % fn)
                 fn2 = self._getIndexPath(fn)
@@ -189,13 +172,13 @@ class Astrometry(object):
                     continue
                 fn = fn2
                 self.log.log(self.log.DEBUG, 'Path: %s' % fn)
-                if an.multiindex_add_index(omi.mind, fn, an.INDEX_ONLY_LOAD_METADATA):
+                if an.multiindex_add_index(mi, fn, an.INDEX_ONLY_LOAD_METADATA):
                     raise RuntimeError('Failed to read index from multiindex filename "%s"' % fn)
-                ind = omi.mind.getIndex(0)
+                ind = mi.getIndex(0)
                 self.log.log(self.log.DEBUG, '  index %i, hp %i (nside %i), nstars %i, nquads %i' %
                                 (ind.indexid, ind.healpix, ind.hpnside, ind.nstars, ind.nquads))
-            an.multiindex_unload_starkd(omi.mind)
-            self.minds.append(omi)
+            an.multiindex_unload_starkd(mi)
+            self.minds.append(mi)
         
     def _debug(self, s):
         self.log.log(self.log.DEBUG, s)
@@ -860,16 +843,17 @@ class Astrometry(object):
         minds = self._getMIndexesWithinRange(*radecrad)
 
         # Load the mindex files within range
-        loaded = [Astrometry._LoadMultiindexFile(omi.mind) for omi in minds]
+        for mi in minds:
+            mi.reload()
 
         # We just want to pass the star kd-trees, so just pass the
         # first element of each multi-index.
-        inds = [omi.mind.getIndex(0) for omi in minds]
+        inds = [mi.getIndex(0) for mi in minds]
 
         cat = solver.getCatalog(*((inds,) + radecrad + (idcolumn,)
                                   + margs + (sgCol, varCol)))
-        # Unload
-        del loaded
+        for mi in minds:
+            mi.unload()
         del solver
         return cat
 
@@ -926,24 +910,21 @@ class Astrometry(object):
             minds = self._getMIndexesWithinRange(*radecrad)
         else:
             minds = self.minds
-        #qlo,qhi = solver.getQuadSizeRangeArcsec()
         qlo,qhi = solver.getQuadSizeLow(), solver.getQuadSizeHigh()
-        print 'Quad size range', qlo,qhi
         loaded = []
-        ntotal = sum([omi.mind.nIndices() for omi in self.minds])
+        ntotal = sum([mi.nIndices() for mi in self.minds])
         active = []
-        for omi in minds:
-            mi = omi.mind
+        for mi in minds:
             loadedmi = False
             for i in range(mi.nIndices()):
                 ind = mi.getIndex(i)
                 if not ind.overlapsScaleRange(qlo, qhi):
                     continue
                 if not loadedmi:
-                    loaded.append(Astrometry._LoadMultiindexFile(mi))
+                    mi.reload()
+                    loaded.append(mi)
                     loadedmi = True
-                if ind.reload():
-                    raise RuntimeError('Failed to reload index file %s' % ind.indexname)
+                ind.reload()
                 active.append(ind.indexname)
                 solver.addIndex(ind)
 
@@ -952,8 +933,8 @@ class Astrometry(object):
         cpulimit = self.config.maxCpuTime
         solver.run(cpulimit)
 
-        # unload index files
-        del loaded
+        for mi in loaded:
+            mi.unload()
 
         if solver.didSolve():
             self.log.logdebug('Solved!')
@@ -1001,12 +982,11 @@ class Astrometry(object):
         ra,dec,radius: [deg], spatial cut based on the healpix of the index
 
         Returns list of multiindex objects within range.
-        (actually, _OpenMultiindexFile objects)
         '''
         good = []
-        for omi in self.minds:
-            if omi.mind.isWithinRange(ra, dec, radius):
-                good.append(omi)
+        for mi in self.minds:
+            if mi.isWithinRange(ra, dec, radius):
+                good.append(mi)
         return good
 
     def _getSolver(self):
