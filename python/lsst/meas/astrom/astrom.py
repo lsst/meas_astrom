@@ -99,6 +99,20 @@ class Astrometry(object):
     starkd and unloads each index it holds.
     '''
 
+    class _LoadedMIndexes(object):
+        def __init__(self, minds):
+            self.minds = minds
+        def __enter__(self):
+            for mind in self.minds:
+                print 'Loading', mind
+                print 'Loading', mind.name
+                mind.reload()
+            return self.minds
+        def __exit__(self, typ, val, trace):
+            for mind in self.minds:
+                print 'Unloading', mind.name
+                mind.unload()
+
     def __init__(self,
                  config,
                  andConfig=None,
@@ -842,18 +856,13 @@ class Astrometry(object):
         radecrad = (ra.asDegrees(), dec.asDegrees(), radius.asDegrees())
         minds = self._getMIndexesWithinRange(*radecrad)
 
-        # Load the mindex files within range
-        for mi in minds:
-            mi.reload()
+        with Astrometry._LoadedMIndexes(minds):
+            # We just want to pass the star kd-trees, so just pass the
+            # first element of each multi-index.
+            inds = [mi.getIndex(0) for mi in minds]
 
-        # We just want to pass the star kd-trees, so just pass the
-        # first element of each multi-index.
-        inds = [mi.getIndex(0) for mi in minds]
-
-        cat = solver.getCatalog(*((inds,) + radecrad + (idcolumn,)
-                                  + margs + (sgCol, varCol)))
-        for mi in minds:
-            mi.unload()
+            cat = solver.getCatalog(*((inds,) + radecrad + (idcolumn,)
+                                      + margs + (sgCol, varCol)))
         del solver
         return cat
 
@@ -911,30 +920,29 @@ class Astrometry(object):
         else:
             minds = self.minds
         qlo,qhi = solver.getQuadSizeLow(), solver.getQuadSizeHigh()
-        loaded = []
         ntotal = sum([mi.nIndices() for mi in self.minds])
-        active = []
+
+        toload_mind = set()
+        toload_ind = []
         for mi in minds:
-            loadedmi = False
             for i in range(mi.nIndices()):
                 ind = mi.getIndex(i)
                 if not ind.overlapsScaleRange(qlo, qhi):
                     continue
-                if not loadedmi:
-                    mi.reload()
-                    loaded.append(mi)
-                    loadedmi = True
+                toload_mind.add(mi)
+                toload_ind.append(ind)
+
+        with Astrometry._LoadedMIndexes(toload_mind):
+            active = []
+            for ind in toload_ind:
                 ind.reload()
                 active.append(ind.indexname)
                 solver.addIndex(ind)
 
-        self.log.logdebug('Searching for match in %i of %i index files: [ %s ]' %
-                          (len(active), ntotal, ', '.join(active)))
-        cpulimit = self.config.maxCpuTime
-        solver.run(cpulimit)
-
-        for mi in loaded:
-            mi.unload()
+                self.log.logdebug('Searching for match in %i of %i index files: [ %s ]' %
+                                  (len(active), ntotal, ', '.join(active)))
+            cpulimit = self.config.maxCpuTime
+            solver.run(cpulimit)
 
         if solver.didSolve():
             self.log.logdebug('Solved!')
