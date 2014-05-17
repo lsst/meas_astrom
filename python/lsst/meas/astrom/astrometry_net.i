@@ -187,16 +187,6 @@ void set_an_log(PTR(pexLog::Log) newlog);
 %}
 
 %extend multiindex_t {
-    // FIXME -- implement list-like __len__ and __getitem__ ?
-
-    index_t* getIndex(int i) {
-        return multiindex_get($self, i);
-    }
-
-    int nIndices() {
-        return multiindex_n($self);
-    }
-
     // An index being within range is a property of the star kd-tree, hence of
     // the multi-index as a whole
     int isWithinRange(double ra, double dec, double radius) {
