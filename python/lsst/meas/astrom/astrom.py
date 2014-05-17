@@ -198,6 +198,22 @@ class Astrometry(object):
     def _warn(self, s):
         self.log.log(self.log.WARN, s)
 
+    def memusage(self, prefix=''):
+        # Not logging at DEBUG: do nothing
+        if self.log.getThreshold() > pexLog.Log.DEBUG:
+            return
+        from astrometry.util.ttime import get_memusage
+        mu = get_memusage()
+        ss = []
+        for key in ['VmPeak', 'VmSize', 'VmRSS', 'VmData']:
+            if key in mu:
+                ss.append(key + ': ' + ' '.join(mu[key]))
+        if 'mmaps' in mu:
+            ss.append('Mmaps: %i' % len(mu['mmaps']))
+        if 'mmaps_total' in mu:
+            ss.append('Mmaps: %i kB' % (mu['mmaps_total'] / 1024))
+        self.log.logdebug(prefix + 'Memory: ' + ', '.join(ss))
+
     def setAndConfig(self, andconfig):
         self.andConfig = andconfig
 
@@ -931,8 +947,6 @@ class Astrometry(object):
                 toload_mind.add(mi)
                 toload_ind.append(ind)
 
-        from astrometry.util.ttime import memusage
-
         with Astrometry._LoadedMIndexes(toload_mind):
             active = []
             for ind in toload_ind:
@@ -943,12 +957,14 @@ class Astrometry(object):
                 self.log.logdebug('Searching for match in %i of %i index files: [ %s ]' %
                                   (len(active), ntotal, ', '.join(active)))
 
-            memusage()
+            self.memusage('Index files loaded: ')
 
             cpulimit = self.config.maxCpuTime
             solver.run(cpulimit)
 
-        memusage()
+            self.memusage('Solving finished: ')
+
+        self.memusage('Index files unloaded: ')
 
         if solver.didSolve():
             self.log.logdebug('Solved!')

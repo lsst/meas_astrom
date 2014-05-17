@@ -121,6 +121,8 @@ class MultiIndexTest(unittest.TestCase):
 
     # Test that creating an Astrometry object with many index files
     # does not use up a lot of memory or file descriptors.
+    # FIXME -- there are no tests on memory usage -- not clear exactly
+    # what to enforce.
     def testResources(self):
         from astrometry.util import ttime
         mem0 = ttime.get_memusage()
@@ -146,6 +148,10 @@ class MultiIndexTest(unittest.TestCase):
         print ttime.memusage()
         print 'FD1:', fd1
 
+        # Number of used file descriptors should not grow.  Magic 10
+        # is just margin from other things going on in the python process
+        self.assertTrue(fd1 < (fd0 + 10))
+
         res = astrom.determineWcs(self.srcCat, self.exposure,
                                   imageSize=self.imageSize)
 
@@ -155,6 +161,10 @@ class MultiIndexTest(unittest.TestCase):
         print 'Mem2:'
         print ttime.memusage()
         print 'FD2:', fd2
+
+        # Number of used file descriptors should not grow.  Magic 10
+        # is just margin from other things going on in the python process
+        self.assertTrue(fd2 < (fd0 + 10))
 
         del astrom
 
