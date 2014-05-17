@@ -160,7 +160,7 @@ void set_an_log(PTR(pexLog::Log) newlog);
 
 %template(VectorOfString) std::vector<std::string>;
 
-%import "lsst/afw/table/tableLib.i"
+%import "lsst/afw/table/Source.i"
 
 %shared_ptr(lsst::afw::image::Wcs);
 %import "lsst/afw/image/Wcs.h"
@@ -168,7 +168,6 @@ void set_an_log(PTR(pexLog::Log) newlog);
 %template(VectorOfIndexPtr) std::vector<index_t*>;
 
 %newobject solver_new;
-%newobject index_load;
 %newobject multiindex_new;
 
 %include "solver.h"
@@ -185,12 +184,63 @@ void set_an_log(PTR(pexLog::Log) newlog);
     void an_log_set_level(int lvl) {
         log_set_level((log_level)lvl);
     }
-    %}
+%}
 
- %extend multiindex_t {
+%extend multiindex_t {
+    // FIXME -- implement list-like __len__ and __getitem__ ?
+
     index_t* getIndex(int i) {
         return multiindex_get($self, i);
     }
+
+    int nIndices() {
+        return multiindex_n($self);
+    }
+
+    // An index being within range is a property of the star kd-tree, hence of
+    // the multi-index as a whole
+    int isWithinRange(double ra, double dec, double radius) {
+        return index_is_within_range(multiindex_get($self, 0), ra, dec, radius);
+    }
+
+    void unload() {
+        multiindex_unload($self);
+    }
+
+    ~multiindex_t() {
+        multiindex_free($self);
+    }
+
+    char* get_name() {
+        return $self->fits->filename;
+    }
+
+    %pythoncode %{
+    def reload(self):
+        if multiindex_reload_starkd(self):
+            raise RuntimeError('Failed to reload multi-index star file %s' % self.name)
+    __swig_getmethods__['name'] = get_name
+    if _newclass: x = property(get_name)
+
+    def __len__(self):
+        return multiindex_n(self)
+    def __getitem__(self, i):
+        if i < 0 or i > multiindex_n(self):
+            raise IndexError('Index %i out of bound for multiindex_t' % i)
+        return multiindex_get(self, i)
+    %}
+}
+
+%extend index_t {
+    int overlapsScaleRange(double qlo, double qhi) {
+        return index_overlaps_scale_range($self, qlo, qhi);
+    }
+
+    %pythoncode %{
+    def reload(self):
+        if index_reload(self):
+            raise RuntimeError('Failed to reload multi-index file %s' % self.indexname)
+    %}
 }
 
 %extend solver_t {
@@ -205,14 +255,14 @@ void set_an_log(PTR(pexLog::Log) newlog);
 
     lsst::afw::table::SimpleCatalog
        getCatalog(std::vector<index_t*> inds,
-		  double ra, double dec, double radius,
-		  const char* idcol,
-		  std::vector<std::string> const& magnameVec,
-		  std::vector<std::string> const& magcolVec,
-		  std::vector<std::string> const& magerrcolVec,
-		  const char* stargalcol,
-		  const char* varcol,
-		  bool unique_ids=true)
+                  double ra, double dec, double radius,
+                  const char* idcol,
+                  std::vector<std::string> const& magnameVec,
+                  std::vector<std::string> const& magcolVec,
+                  std::vector<std::string> const& magerrcolVec,
+                  const char* stargalcol,
+                  const char* varcol,
+                  bool unique_ids=true)
     {
         if ((magnameVec.size() != magcolVec.size()) || (magnameVec.size() != magerrcolVec.size())) {
             throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterException,
@@ -339,42 +389,19 @@ void set_an_log(PTR(pexLog::Log) newlog);
         }
     }
 
-    std::vector<index_t*> getActiveIndexFiles() {
-        std::vector<index_t*> inds;
-        int N = solver_n_indices($self);
-        for (int i=0; i<N; i++) {
-            inds.push_back(solver_get_index($self, i));
-        }
-        return inds;
+    double getQuadSizeLow() {
+        double qlo,qhi;
+        solver_get_quad_size_range_arcsec($self, &qlo, &qhi);
+        return qlo;
+    }
+    double getQuadSizeHigh() {
+        double qlo,qhi;
+        solver_get_quad_size_range_arcsec($self, &qlo, &qhi);
+        return qhi;
     }
 
-    void addIndices(std::vector<index_t*> inds) {
-        for (std::vector<index_t*>::iterator pind = inds.begin();
-             pind != inds.end(); ++pind) {
-            index_t* ind = *pind;
-            //            printf("Checking index \"%s\"\n", ind->indexname);
-            if ($self->use_radec) {
-                double ra,dec,radius;
-                xyzarr2radecdeg($self->centerxyz, &ra, &dec);
-                radius = distsq2deg($self->r2);
-                if (!index_is_within_range(ind, ra, dec, radius)) {
-                    //printf("Not within RA,Dec range\n");
-                    continue;
-                }
-            }
-            // qlo,qhi in arcsec
-            double qlo, qhi;
-            solver_get_quad_size_range_arcsec($self, &qlo, &qhi);
-            if (!index_overlaps_scale_range(ind, qlo, qhi)) {
-                //                printf("Not within quad scale range\n");
-                continue;
-            }
-            //            printf("Adding index.\n");
-            if (index_reload(ind)) {
-                assert(0);
-            }
-            solver_add_index($self, ind);
-        }
+    void addIndex(index_t* ind) {
+        solver_add_index($self, ind);
     }
 
     void setParity(bool p) {

@@ -183,3 +183,5 @@ class MeasAstromConfig(pexConfig.Config):
         keytype=str, itemtype=str,
         default={},
         optional=True)
+
+    allFluxes = Field(dtype=bool, default=True, doc="Retrieve all available fluxes (and errors) from catalog?")

@@ -54,16 +54,16 @@ read_column(fitstable_t* tag,
 
     
 /*
- * Implementation for index_s::getCatalog method
+ * Implementation for index_t::getCatalog method
  */
 afwTable::SimpleCatalog
 getCatalogImpl(std::vector<index_t*> inds,
-	       double ra, double dec, double radius,
-	       char const* idcol,
+               double ra, double dec, double radius,
+               char const* idcol,
                std::vector<mag_column_t> const& magcols,
-	       char const* stargalcol,
-	       char const* varcol,
-	       bool unique_ids)
+               char const* stargalcol,
+               char const* varcol,
+               bool unique_ids)
 {
     /*
      If unique_ids == true: return only reference sources with unique IDs;
@@ -95,7 +95,7 @@ getCatalogImpl(std::vector<index_t*> inds,
    double r2 = deg2distsq(radius);
 
    afwTable::Schema schema = afwTable::SimpleTable::makeMinimalSchema(); // contains ID, ra, dec.
-   std::vector<afwTable::Key<double> > fluxKey;	// these are double for consistency with measured fluxes;
+   std::vector<afwTable::Key<double> > fluxKey;    // these are double for consistency with measured fluxes;
    std::vector<afwTable::Key<double> > fluxErrKey; // may be unnecessary, but less surprising.
    fluxKey.reserve(nMag);
    fluxErrKey.reserve(nMag);
@@ -113,44 +113,43 @@ getCatalogImpl(std::vector<index_t*> inds,
 
    afwTable::Key<afwTable::Flag> stargalKey;
    if (stargalcol) {
-      stargalKey = schema.addField<afwTable::Flag>(
-	 "stargal", "set if the reference object is a star");
+       stargalKey = schema.addField<afwTable::Flag>(
+                                                    "stargal", "set if the reference object is a star");
    }
    afwTable::Key<afwTable::Flag> varKey;
    if (varcol) {
-      varKey = schema.addField<afwTable::Flag>("var", "set if the reference object is variable");
+       varKey = schema.addField<afwTable::Flag>("var", "set if the reference object is variable");
    }
    afwTable::Key<afwTable::Flag> photometricKey = schema.addField<afwTable::Flag>(
       "photometric", "set if the reference object can be used in photometric calibration"
       );
-            
-   // make catalog with no IdFactory, since IDs are external
-   afwTable::SimpleCatalog cat(afwTable::SimpleTable::make(schema, PTR(afwTable::IdFactory)()));
+
+   afwTable::SimpleCatalog cat;
+   if (idcol) {
+       // make catalog with no IdFactory, since IDs are external
+       cat = afwTable::SimpleCatalog(afwTable::SimpleTable::make(schema, PTR(afwTable::IdFactory)()));
+   } else {
+       // let the catalog assign IDs
+       cat = afwTable::SimpleCatalog(afwTable::SimpleTable::make(schema));
+   }
 
    // for unique_ids: keep track of the IDs we have already added to the result set.
    std::set<boost::int64_t> uids;
 
    for (std::vector<index_t*>::iterator pind = inds.begin();
-	pind != inds.end(); ++pind) {
-      index_t* ind = (*pind);
-      //printf("checking index \"%s\"\n", ind->indexname);
-      if (!index_is_within_range(ind, ra, dec, radius + margin)) {
-	 //printf(" skipping: not within range\n");
-	 continue;
-      }
-      //printf("index \"%s\" is within range\n", ind->indexname);
-      // Ensure the index is loaded...
-      index_reload(ind);
+        pind != inds.end(); ++pind) {
 
+       index_t* ind = (*pind);
       // Find nearby stars
       double *radecs = NULL;
       int *starinds = NULL;
       int nstars = 0;
       startree_search_for(ind->starkd, xyz, r2, NULL,
-			  &radecs, &starinds, &nstars);
+                          &radecs, &starinds, &nstars);
       //printf("found %i in \"%s\"\n", nstars, ind->indexname);
-      if (nstars == 0)
-	 continue;
+      if (nstars == 0) {
+          continue;
+      }
 
       std::vector<float*> mag;
       std::vector<float*> magerr;
@@ -160,12 +159,29 @@ getCatalogImpl(std::vector<index_t*> inds,
       bool* stargal = NULL;
       bool* var = NULL;
       if (idcol || nMag || stargalcol || varcol) {
-	 fitstable_t* tag = startree_get_tagalong(ind->starkd);
-	 tfits_type flt = fitscolumn_float_type();
-	 tfits_type boo = fitscolumn_boolean_type();
-	 tfits_type i64 = fitscolumn_i64_type();
+          fitstable_t* tag = startree_get_tagalong(ind->starkd);
+          tfits_type flt = fitscolumn_float_type();
+          tfits_type boo = fitscolumn_boolean_type();
+          tfits_type i64 = fitscolumn_i64_type();
 
-	 if (idcol) {
+         if (!tag) {
+             std::string msg = boost::str(boost::format("astrometry_net_data index file %s does not contain a tag-along table, "
+                                                        "so can't retrieve extra columns.  idcol=%s, stargalcol=%s, varcol=%s") %
+                                          ind->indexname % idcol % stargalcol % varcol);
+             msg += ", mag columns=[";
+             for (unsigned int i=0; i<nMag; i++) {
+                 if (i) {
+                     msg += ",";
+                 }
+                 msg += " name='" + magcols[i].name +
+                     "', mag='" + magcols[i].magcol +
+                     "', magerr='" + magcols[i].magerrcol + "'";
+             }
+             msg += " ].  You may need to edit the $ASTROMETRY_NET_DATA_DIR/andConfig.py file to set idColumn=None, etc.";
+             throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundException, msg);
+         }
+
+         if (idcol) {
              id = static_cast<int64_t*>(fitstable_read_column_inds(tag, idcol, i64, starinds, nstars));
              if (!id) {
                  throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundException,
@@ -173,43 +189,43 @@ getCatalogImpl(std::vector<index_t*> inds,
                                        idcol % ind->indexname));
              }
          }
-	 if (id && unique_ids) {
-	    // remove duplicate IDs.
+         if (id && unique_ids) {
+             // remove duplicate IDs.
 
-	    // FIXME -- this shouldn't be necessary once we get astrometry_net 0.40
-	    // multi-index functionality in place.
+             // FIXME -- this shouldn't be necessary once we get astrometry_net 0.40
+             // multi-index functionality in place.
 
-	    if (uids.empty()) {
-	       uids = std::set<boost::int64_t>(id, id+nstars);
-	    } else {
-	       int nkeep = 0;
-	       for (int i=0; i<nstars; i++) {
-		  //std::pair<std::set<boost::int64_t>::iterator, bool> 
-		  if (uids.insert(id[i]).second) {
-		     // inserted; keep this one.
-		     if (nkeep != i) {
-			// compact the arrays.
-			starinds[nkeep] = starinds[i];
-			radecs[nkeep*2+0] = radecs[i*2+0];
-			radecs[nkeep*2+1] = radecs[i*2+1];
-			id[nkeep] = id[i];
-		     }
-		     nkeep++;
-		  } else {
-		     // did not insert (this id has already been found);
-		     // drop this star.
-		  }
-	       }
-	       nstars = nkeep;
-	       // if they were all duplicate IDs...
-	       if (nstars == 0) {
-		  free(starinds);
-		  free(radecs);
-		  free(id);
-		  continue;
-	       }
-	    }
-	 }
+             if (uids.empty()) {
+                 uids = std::set<boost::int64_t>(id, id+nstars);
+             } else {
+                 int nkeep = 0;
+                 for (int i=0; i<nstars; i++) {
+                     //std::pair<std::set<boost::int64_t>::iterator, bool> 
+                     if (uids.insert(id[i]).second) {
+                         // inserted; keep this one.
+                         if (nkeep != i) {
+                             // compact the arrays.
+                             starinds[nkeep] = starinds[i];
+                             radecs[nkeep*2+0] = radecs[i*2+0];
+                             radecs[nkeep*2+1] = radecs[i*2+1];
+                             id[nkeep] = id[i];
+                         }
+                         nkeep++;
+                     } else {
+                         // did not insert (this id has already been found);
+                         // drop this star.
+                     }
+                 }
+                 nstars = nkeep;
+                 // if they were all duplicate IDs...
+                 if (nstars == 0) {
+                     free(starinds);
+                     free(radecs);
+                     free(id);
+                     continue;
+                 }
+             }
+         }
 
          for (mc = magcols.begin(); mc != magcols.end(); ++mc) {
              char const* col = mc->magcol.c_str();
@@ -219,50 +235,50 @@ getCatalogImpl(std::vector<index_t*> inds,
                  magerr.push_back(read_column(tag, col, flt, starinds, nstars, ind->indexname));
              }
          }
-	 if (stargalcol) {
-	    /*  There is something weird going on with handling of bools; maybe "T" vs "F"?
-		stargal = static_cast<bool*>(fitstable_read_column_inds(tag, stargalcol, boo, starinds, nstars));
-		for (int j=0; j<nstars; j++) {
-		printf("  sg %i = %i, vs %i\n", j, (int)sg[j], stargal[j] ? 1:0);
-		}
-	    */
-	    uint8_t* sg = static_cast<uint8_t*>(fitstable_read_column_inds(tag, stargalcol, fitscolumn_u8_type(), starinds, nstars));
-	    stargal = static_cast<bool*>(malloc(nstars));
+         if (stargalcol) {
+             /*  There is something weird going on with handling of bools; maybe "T" vs "F"?
+                 stargal = static_cast<bool*>(fitstable_read_column_inds(tag, stargalcol, boo, starinds, nstars));
+                 for (int j=0; j<nstars; j++) {
+                 printf("  sg %i = %i, vs %i\n", j, (int)sg[j], stargal[j] ? 1:0);
+                 }
+             */
+             uint8_t* sg = static_cast<uint8_t*>(fitstable_read_column_inds(tag, stargalcol, fitscolumn_u8_type(), starinds, nstars));
+             stargal = static_cast<bool*>(malloc(nstars));
             if (!stargal) {
                 throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundException,
                                   str(boost::format("Unable to read data for %s from %s") %
                                       stargalcol % ind->indexname));
             }
-	    for (int j=0; j<nstars; j++) {
-	       stargal[j] = (sg[j] > 0);
-	    }
-	    free(sg);
-	 }
-	 if (varcol) {
-	    var = static_cast<bool*>(fitstable_read_column_inds(tag, varcol, boo, starinds, nstars));
-            if (!var) {
+            for (int j=0; j<nstars; j++) {
+                stargal[j] = (sg[j] > 0);
+            }
+            free(sg);
+         }
+         if (varcol) {
+             var = static_cast<bool*>(fitstable_read_column_inds(tag, varcol, boo, starinds, nstars));
+             if (!var) {
                 throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundException,
                                   str(boost::format("Unable to read data for %s from %s") %
                                       varcol % ind->indexname));
             }
-	 }
+         }
       }
 
       for (int i=0; i<nstars; i++) {
-	 PTR(afwTable::SimpleRecord) src = cat.addNew();
+          PTR(afwTable::SimpleRecord) src = cat.addNew();
 
-	 // Note that all coords in afwTable catalogs are ICRS; hopefully that's what the 
-	 // reference catalogs are (and that's what the code assumed before JFB modified it).
-	 src->setCoord(
-	    afwCoord::IcrsCoord(
-	       radecs[i * 2 + 0] * afwGeom::degrees,
-	       radecs[i * 2 + 1] * afwGeom::degrees
-	       )
-	    );
+          // Note that all coords in afwTable catalogs are ICRS; hopefully that's what the 
+          // reference catalogs are (and that's what the code assumed before JFB modified it).
+          src->setCoord(
+              afwCoord::IcrsCoord(
+                  radecs[i * 2 + 0] * afwGeom::degrees,
+                  radecs[i * 2 + 1] * afwGeom::degrees
+              )
+         );
 
-	 if (id) {
+          if (id) {
              src->setId(id[i]);
-         }
+          }
 
          assert(fluxKey.size() == nMag);
          // only non-empty error columns are populated in these vectors.
@@ -291,16 +307,16 @@ getCatalogImpl(std::vector<index_t*> inds,
          }
          assert(ej == fluxErrKey.size());
 
-	 bool ok = true;
-	 if (stargal) {
-	    src->set(stargalKey, stargal[i]);
-	    ok &= stargal[i];
-	 }
-	 if (var) {
-	    src->set(varKey, var[i]);
-	    ok &= (!var[i]);
-	 }
-	 src->set(photometricKey, ok);
+         bool ok = true;
+         if (stargal) {
+             src->set(stargalKey, stargal[i]);
+             ok &= stargal[i];
+         }
+         if (var) {
+             src->set(varKey, var[i]);
+             ok &= (!var[i]);
+         }
+         src->set(photometricKey, ok);
       }
 
       free(id);

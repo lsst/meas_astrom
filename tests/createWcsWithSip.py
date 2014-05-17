@@ -67,8 +67,45 @@ class CreateWcsWithSipCase(unittest.TestCase):
     def tearDown(self):
         del self.conf
         del self.astrom
+
         import lsst.meas.astrom.astrometry_net as an
         an.finalize()
+
+    def testBigXy0(self):
+        # test for ticket #2710
+        from lsst.pex.logging import Log
+        log = Log.getDefaultLog()
+        log.setThreshold(Log.DEBUG);
+        self.astrom.log = log
+        x0,y0 = 200000, 500000
+        cx = 500
+        a2 = 1e-5
+        cat = afwTable.SourceCatalog.readFits(self.filename)
+        print 'Catalog size', len(cat)
+        # Source x,y positions are ~ (500,1500) x (500,1500)
+        xKey = cat.table.getCentroidKey().getX()
+        yKey = cat.table.getCentroidKey().getY()
+        for src in cat:
+            x = src.get(xKey) - 500
+            dx = x - cx
+            x += a2 * (dx**2)
+            src.set(xKey, x + x0)
+            src.set(yKey, src.get(yKey) - 500 + y0)
+        res = self.astrom.determineWcs2(cat, imageSize=(1000,1000),
+                                        x0=x0, y0=y0)
+        print 'Got result', res
+        print 'SIP:', res.sipWcs.getFitsMetadata().toString()
+
+        wcs = res.wcs
+        for src in cat:
+            rd = wcs.pixelToSky(src.getCentroid())
+            xy = wcs.skyToPixel(rd)
+            #print 'src', src.getX(), src.getY()
+            #print 'rd', rd
+            #print 'xy', xy
+            #print 'dx,dy', xy[0] - src.getX(), xy[1] - src.getY()
+            self.assertTrue(abs(xy[0] - src.getX()) < 0.1)
+            self.assertTrue(abs(xy[1] - src.getY()) < 0.1)
         
     def testLinearXDistort(self):
         print "linearXDistort"

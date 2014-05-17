@@ -36,6 +36,7 @@
 #include "lsst/afw/geom/Box.h"
 #include "lsst/afw/geom/Point.h"
 #include "lsst/afw/geom/Angle.h"
+#include "lsst/pex/logging/Log.h"
 
 namespace lsst { 
     namespace afw {
@@ -44,6 +45,7 @@ namespace lsst {
             class TanWcs;
         }
     }
+
 namespace meas { 
 namespace astrom { 
 namespace sip {
@@ -90,15 +92,41 @@ public:
 
     CreateWcsWithSip(
         std::vector<MatchT> const & matches,
-        CONST_PTR(afw::image::Wcs) linearWcs,
+        afw::image::Wcs const & linearWcs,
         int const order,
         afw::geom::Box2I const& bbox = afw::geom::Box2I(),
         int const ngrid=0
     );
 
     PTR(afw::image::TanWcs) getNewWcs() { return _newWcs; }
+
+    /*
+     Returns the median separation between points in this object's match list,
+     projecting reference sources from RA,Dec to pixels using the SIP WCS, and
+     comparing with the matched source pixel positions.
+     */
     double getScatterInPixels();
+
+    /*
+     Returns the median separation between points in this object's match list,
+     projecting sources from pixel space to RA,Dec using the SIP WCS, and
+     comparing with the reference source RA,Dec positions.
+     */
     afw::geom::Angle getScatterOnSky();
+
+    /*
+     Returns the median separation between points in this object's match list,
+     projecting reference sources from RA,Dec to pixels using the input TAN
+     (linear) WCS, and comparing with the matched source pixel positions.
+     */
+    double getLinearScatterInPixels();
+
+    /*
+     Returns the median separation between points in this object's match list,
+     projecting sources from pixel space to RA,Dec using the input TAN (linear)
+     WCS, and comparing with the reference source RA,Dec positions.
+     */
+    afw::geom::Angle getLinearScatterOnSky();
 
     /// Get the number of terms in the SIP matrix
     int getOrder() const { return  _sipA.rows(); }
@@ -108,20 +136,26 @@ public:
     int getNGrid() const { return _ngrid; }
 
 private:
+
+    lsst::pex::logging::Log _log;
     
     std::vector<MatchT> const _matches;
     afw::geom::Box2I mutable _bbox;
     int _ngrid;                         // grid size to calculate inverse SIP coefficients (1-D)
     CONST_PTR(afw::image::Wcs) _linearWcs;
-    CONST_PTR(afw::image::Wcs) _origWcs;
-    //size is number of input points. _sipOrder is polynomial order for forward transform.
-    //_reverseSipOrder is order for reverse transform, not necessarily the same.
+    // _sipOrder is polynomial order for forward transform.
+    // _reverseSipOrder is order for reverse transform, not necessarily the same.
     int const _sipOrder, _reverseSipOrder;      
 
     Eigen::MatrixXd _sipA, _sipB;
     Eigen::MatrixXd _sipAp, _sipBp;
 
     PTR(afw::image::TanWcs) _newWcs;
+
+    double _getScatterPixels(afw::image::Wcs const& wcs,
+                             std::vector<MatchT> const & matches);
+    afw::geom::Angle _getScatterSky(afw::image::Wcs const& wcs,
+                                    std::vector<MatchT> const & matches);
     
     void _calculateForwardMatrices();
     void _calculateReverseMatrices();
@@ -133,7 +167,7 @@ private:
 template<class MatchT>
 CreateWcsWithSip<MatchT> makeCreateWcsWithSip(
     std::vector<MatchT> const & matches,
-    CONST_PTR(afw::image::Wcs) linearWcs,
+    afw::image::Wcs const& linearWcs,
     int const order,
     afw::geom::Box2I const& bbox = afw::geom::Box2I(),
     int const ngrid=0
