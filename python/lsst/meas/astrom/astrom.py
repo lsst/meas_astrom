@@ -155,6 +155,7 @@ class Astrometry(object):
         mindfiles = ([(True,[fn,fn]) for fn  in self.andConfig.indexFiles] +
                      [(False,fns)    for fns in self.andConfig.multiIndexFiles])
 
+        nMissing = 0
         for single,fns in mindfiles:
             # First filename in "fns" is star kdtree, the rest are index files.
             fn = fns[0]
@@ -193,7 +194,7 @@ class Astrometry(object):
             an.multiindex_unload_starkd(mi)
             self.minds.append(mi)
 
-        if not self.inds:
+        if len(self.minds) == 0:
             self.log.warn('Unable to find any index files')
         elif nMissing > 0:
             self.log.warn('Unable to find %d index files' % nMissing)
