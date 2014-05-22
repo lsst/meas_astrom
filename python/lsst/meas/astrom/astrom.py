@@ -100,17 +100,17 @@ class Astrometry(object):
     '''
 
     class _LoadedMIndexes(object):
-        def __init__(self, minds):
-            self.minds = minds
+        def __init__(self, multiInds):
+            self.multiInds = multiInds
         def __enter__(self):
-            for mind in self.minds:
-                #print 'Loading', mind.name
-                mind.reload()
-            return self.minds
+            for mi in self.multiInds:
+                #print 'Loading', mi.name
+                mi.reload()
+            return self.multiInds
         def __exit__(self, typ, val, trace):
-            for mind in self.minds:
-                #print 'Unloading', mind.name
-                mind.unload()
+            for mi in self.multiInds:
+                #print 'Unloading', mi.name
+                mi.unload()
 
     def __init__(self,
                  config,
@@ -147,16 +147,16 @@ class Astrometry(object):
 
     def _readIndexFiles(self):
         import astrometry_net as an
-        # .minds: multi-index objects
-        self.minds = []
+        # .multiInds: multi-index objects
+        self.multiInds = []
 
         # merge indexFiles and multiIndexFiles; we'll treat both as
         # multiindex for simplicity.
-        mindfiles = ([(True,[fn,fn]) for fn  in self.andConfig.indexFiles] +
+        mifiles = ([(True,[fn,fn]) for fn  in self.andConfig.indexFiles] +
                      [(False,fns)    for fns in self.andConfig.multiIndexFiles])
 
         nMissing = 0
-        for single,fns in mindfiles:
+        for single,fns in mifiles:
             # First filename in "fns" is star kdtree, the rest are index files.
             fn = fns[0]
             if single:
@@ -192,9 +192,9 @@ class Astrometry(object):
                 self.log.log(self.log.DEBUG, '  index %i, hp %i (nside %i), nstars %i, nquads %i' %
                                 (ind.indexid, ind.healpix, ind.hpnside, ind.nstars, ind.nquads))
             an.multiindex_unload_starkd(mi)
-            self.minds.append(mi)
+            self.multiInds.append(mi)
 
-        if len(self.minds) == 0:
+        if len(self.multiInds) == 0:
             self.log.warn('Unable to find any index files')
         elif nMissing > 0:
             self.log.warn('Unable to find %d index files' % nMissing)
@@ -874,15 +874,15 @@ class Astrometry(object):
         solver = self._getSolver()
 
         # Find multi-index files within range
-        radecrad = (ra.asDegrees(), dec.asDegrees(), radius.asDegrees())
-        minds = self._getMIndexesWithinRange(*radecrad)
+        raDecRadius = (ra.asDegrees(), dec.asDegrees(), radius.asDegrees())
+        multiInds = self._getMIndexesWithinRange(*raDecRadius)
 
-        with Astrometry._LoadedMIndexes(minds):
+        with Astrometry._LoadedMIndexes(multiInds):
             # We just want to pass the star kd-trees, so just pass the
             # first element of each multi-index.
-            inds = [mi[0] for mi in minds]
+            inds = [mi[0] for mi in multiInds]
 
-            cat = solver.getCatalog(*((inds,) + radecrad + (idcolumn,)
+            cat = solver.getCatalog(*((inds,) + raDecRadius + (idcolumn,)
                                       + margs + (sgCol, varCol)))
         del solver
         return cat
@@ -913,14 +913,14 @@ class Astrometry(object):
         solver.setMaxStars(self.config.maxStars)
         solver.setImageSize(*imageSize)
         solver.setMatchThreshold(self.config.matchThreshold)
-        radecrad = None
+        raDecRadius = None
         if radecCenter is not None:
-            radecrad = (radecCenter.getLongitude().asDegrees(),
+            raDecRadius = (radecCenter.getLongitude().asDegrees(),
                         radecCenter.getLatitude().asDegrees(),
                         searchRadius.asDegrees())
-            solver.setRaDecRadius(*radecrad)
+            solver.setRaDecRadius(*raDecRadius)
             self.log.logdebug('Searching for match around RA,Dec = (%g, %g) with radius %g deg' %
-                              radecrad)
+                              raDecRadius)
 
         if pixelScale is not None:
             dscale = self.config.pixelScaleUncertainty
@@ -936,26 +936,26 @@ class Astrometry(object):
             self.log.logdebug('Searching for match with parity = ' + str(parity))
 
         # Find and load index files within RA,Dec range and scale range.
-        if radecrad is not None:
-            minds = self._getMIndexesWithinRange(*radecrad)
+        if raDecRadius is not None:
+            multiInds = self._getMIndexesWithinRange(*raDecRadius)
         else:
-            minds = self.minds
+            multiInds = self.multiInds
         qlo,qhi = solver.getQuadSizeLow(), solver.getQuadSizeHigh()
-        ntotal = sum([len(mi) for mi in self.minds])
+        ntotal = sum([len(mi) for mi in self.multiInds])
 
-        toload_mind = set()
-        toload_ind = []
-        for mi in minds:
+        toload_multiInds = set()
+        toload_inds = []
+        for mi in multiInds:
             for i in range(len(mi)):
                 ind = mi[i]
                 if not ind.overlapsScaleRange(qlo, qhi):
                     continue
-                toload_mind.add(mi)
-                toload_ind.append(ind)
+                toload_multiInds.add(mi)
+                toload_inds.append(ind)
 
-        with Astrometry._LoadedMIndexes(toload_mind):
+        with Astrometry._LoadedMIndexes(toload_multiInds):
             active = []
-            for ind in toload_ind:
+            for ind in toload_inds:
                 ind.reload()
                 active.append(ind.indexname)
                 solver.addIndex(ind)
@@ -1020,7 +1020,7 @@ class Astrometry(object):
         Returns list of multiindex objects within range.
         '''
         good = []
-        for mi in self.minds:
+        for mi in self.multiInds:
             if mi.isWithinRange(ra, dec, radius):
                 good.append(mi)
         return good
