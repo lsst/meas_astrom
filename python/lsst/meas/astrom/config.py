@@ -2,10 +2,21 @@ import math
 import lsst.pex.config as pexConfig
 import lsst.afw.geom as afwGeom
 
-def checkMagMap(X):
-    if not isinstance(X, dict):
+
+'''
+We used to have AstrometryNetDataConfig() use the pex_config
+mechanism, but we need nested lists, so we do this home-brew version
+instead.
+'''
+
+
+def _checkMagMap(magmap):
+    '''
+    Checks the validity of a magnitude column map in AstrometryNetDataConfig.
+    '''
+    if not isinstance(magmap, dict):
         raise RuntimeError('Mag maps must be dicts')
-    for k,v in X.items():
+    for k,v in magmap.items():
         if not isinstance(k, str):
             raise RuntimeError('Mag maps must be dicts mapping str->str: got bad key \"%s\"' % str(k))
         if not isinstance(v, str):
@@ -13,19 +24,25 @@ def checkMagMap(X):
         if not (len(k) > 0 and len(v) > 0):
             raise RuntimeError('Mag maps items must be non-empty: got bad values \"%s\" -> \"%s\"' % (str(k), str(v)))
         
-def checkIndexList(X):
-    if not isinstance(X, list):
+def _checkIndexList(indexList):
+    '''
+    Checks the validity of an index list in AstrometryNetDataConfig.
+    '''
+    if not isinstance(indexList, list):
         raise RuntimeError('indexList config item must be a list')
-    for k in X:
+    for k in indexList:
         if not isinstance(k, str):
             raise RuntimeError('indexList config items must be strings: got bad one \"%s\"' % str(k))
         if len(k) == 0:
             raise RuntimeError('indexList config items must be non-empty strings')
 
-def checkMultiIndexList(X):
-    if not isinstance(X, list):
+def _checkMultiIndexList(multiIndexList):
+    '''
+    Checks the validity of a multi_index list in AstrometryNetDataConfig.
+    '''
+    if not isinstance(multiIndexList, list):
         raise RuntimeError('multiIndexList config item must be a list')
-    for k in X:
+    for k in multiIndexList:
         if not isinstance(k, list):
             raise RuntimeError('multiIndexList config items must be lists: got bad one \"%s\"' % str(k))
         if len(k) == 0:
@@ -36,11 +53,14 @@ def checkMultiIndexList(X):
             if len(kk) == 0:
                 raise RuntimeError('multiIndexList config items must be non-empty strings')
 
-# We used to have AstrometryNetDataConfig() use the pex_config
-# mechanism, but we need nested lists, so we do this home-brew version
-# instead:
-
 class AstrometryNetDataConfig(object):
+    '''
+    Astrometry.net data config object.  This is a plain-python config
+    structure similar to pexConfig.
+
+    For examples of use, see tests/astrometry_net_data/photocal/andConfig*.py
+
+    '''
     fields = [
         ('idColumn', str, 'id', None,
          'Column name (in the index files) of the ID number of reference sources'),
@@ -52,13 +72,13 @@ class AstrometryNetDataConfig(object):
          'Column name of the star/galaxy flag'),
         ('variableColumn', str, None, None,
          'Column name of the star variability flag'),
-        ('magErrorColumnMap', dict, {}, checkMagMap,
+        ('magErrorColumnMap', dict, {}, _checkMagMap,
          'Mapping from LSST filter name to mag error column name'),
-        ('magColumnMap', dict, {}, checkMagMap,
+        ('magColumnMap', dict, {}, _checkMagMap,
          'Mapping from LSST filter name to mag column name'),
-        ('indexFiles', list, [], checkIndexList,
+        ('indexFiles', list, [], _checkIndexList,
           'List of Astrometry.net index filenames'),
-        ('multiIndexFiles', list, [], checkMultiIndexList,
+        ('multiIndexFiles', list, [], _checkMultiIndexList,
          'Astrometry.net multi-index filename lists.  Each item in this list must itself be a list of filenames.  The first filename is the file that contains the star kd-tree and tag-along tables.  Subsequent filenames must be files containing just the non-star index parts (quads and code kd-tree).  Note that this means you may need to repeat the first filename if it contains a star kd-tree and the first index.'),
          ]
 
