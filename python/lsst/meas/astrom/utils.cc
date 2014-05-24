@@ -1,11 +1,11 @@
 // -*- lsst-C++ -*-
 // Astrometry.net include files:
 extern "C" {
-#include "solver.h"
-#include "index.h"
-#include "starkd.h"
-#include "fitsioutils.h"
-#include "fitstable.h"
+#include "astrometry/solver.h"
+#include "astrometry/index.h"
+#include "astrometry/starkd.h"
+#include "astrometry/fitsioutils.h"
+#include "astrometry/fitstable.h"
 
 #undef ATTRIB_FORMAT
 #undef FALSE
