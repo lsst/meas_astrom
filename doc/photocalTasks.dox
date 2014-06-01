@@ -1,7 +1,7 @@
 namespace lsst { namespace meas { namespace photocal {
 
 /**
-\addtogroup LSST Processing Tasks
+\addtogroup LSST_task_documentation
 \{
 \page measPhotocalTasks meas::photocal Tasks
 

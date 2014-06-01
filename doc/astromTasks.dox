@@ -1,7 +1,7 @@
 namespace lsst { namespace meas { namespace astrom {
 
 /**
-\addtogroup LSST Processing Tasks
+\addtogroup LSST_task_documentation
 \{
 \page measAstromTasks meas::astrom Tasks
 
