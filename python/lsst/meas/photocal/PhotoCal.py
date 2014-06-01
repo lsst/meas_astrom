@@ -19,6 +19,7 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
+# \package lsst.meas.photocal
 import math, os, sys
 import numpy as np
 
@@ -32,7 +33,7 @@ import lsst.afw.image as afwImage
 import lsst.afw.display.ds9 as ds9
 
 def checkSourceFlags(source, keys):
-    """Return True if the given source has all good flags set and none of the bad flags set.
+    """!Return True if the given source has all good flags set and none of the bad flags set.
 
     @param[in] source    SourceRecord object to process.
     @param[in] keys      Struct of source catalog keys, as returned by PhotCalTask.getKeys()
@@ -105,11 +106,11 @@ class PhotoCalTask(pipeBase.Task):
 
     @pipeBase.timeMethod
     def selectMatches(self, matches, keys, frame=None):
-        """Select reference/source matches according the criteria specified in the config.
+        """!Select reference/source matches according the criteria specified in the config.
 
         if frame is non-None, display information about trimmed objects on that ds9 frame:
             Bad:               red x
-            Non-"photometric": blue +  (and a cyan o if a galaxy)
+            Unsuitable objects: blue +  (and a cyan o if a galaxy)
             Failed flux cut:   magenta *
 
         The return value is a ReferenceMatchVector that contains only the selected matches.
@@ -226,13 +227,16 @@ class PhotoCalTask(pipeBase.Task):
 
     @pipeBase.timeMethod
     def extractMagArrays(self, matches, filterName, keys):
-        """Extract magnitude and magnitude error arrays from the given matches.
+        """!Extract magnitude and magnitude error arrays from the given matches.
 
         @param[in] matches    ReferenceMatchVector object containing reference/source matches
         @param[in] filterName Name of filter being calibrated
         @param[in] keys       Struct of source catalog keys, as returned by getKeys()
         
-        @return Struct containing srcMag, refMag, srcMagErr, refMagErr, and errMag arrays.
+        @return Struct containing srcMag, refMag, srcMagErr, refMagErr, and magErr numpy arrays
+        where magErr is an error in the magnitude; the error in srcMag - refMag.
+        \note These are the \em inputs to the photometric calibration, some may have been
+        discarded by clipping while estimating the calibration (https://jira.lsstcorp.org/browse/DM-813)
         """
         srcFlux = np.array([m.second.get(keys.flux) for m in matches])
         srcFluxErr = np.array([m.second.get(keys.fluxErr) for m in matches])
@@ -311,7 +315,7 @@ class PhotoCalTask(pipeBase.Task):
 
     @pipeBase.timeMethod
     def run(self, exposure, matches):
-        """Do photometric calibration - select matches to use and (possibly iteratively) compute
+        """!Do photometric calibration - select matches to use and (possibly iteratively) compute
         the zero point.
 
         @param[in]  exposure   Exposure upon which the sources in the matches were detected.
@@ -320,7 +324,7 @@ class PhotoCalTask(pipeBase.Task):
         @return Struct of:
            calib ------- Calib object containing the zero point
            arrays ------ Magnitude arrays returned be extractMagArrays
-           matches ----- Final ReferenceMatchVector, as returned by selectMathces.
+           matches ----- Final ReferenceMatchVector, as returned by selectMatches.
         """
         global scatterPlot, fig
         import lsstDebug

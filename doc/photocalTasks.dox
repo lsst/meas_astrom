@@ -1,0 +1,192 @@
+namespace lsst { namespace meas { namespace photocal {
+
+/**
+\addtogroup LSST Processing Tasks
+\{
+\page measPhotocalTasks meas::photocal Tasks
+
+ - \ref measPhotocalTask : Photometric Calibration
+\}
+*/
+
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+/**
+\page measPhotocalTask  PhotoCal.PhotoCalTask
+
+\section Contents
+
+ - \ref Purpose		
+ - \ref Initialize	
+ - \ref Inputs
+ - \ref Outputs
+ - \ref Config
+ - \ref Exceptions
+ - \ref Debug
+ - \ref Example
+
+\section Purpose	Description
+
+Calculate an Exposure's zero-point given a set of flux measurements of stars matched to an
+input catalogue.  The type of flux to use is specified by \c fluxField (see \ref Config).
+
+The algorithm clips outliers iteratively, with parameters set in the configuration.
+
+\note This task can adds fields to the schema, so any code calling this task must ensure that
+these columns are indeed present in the input match list; see \ref Example
+
+\section Initialize	Task initialisation
+
+Required inputs are:
+ - a \c schema (of type \link lsst::afw::table::Schema\endlink) containing the needed photometric measurements (see \ref Inputs)
+ - Optional keyword arguments to be passed to the \link lsst.pipe.base.task.Task\endlink constructor
+
+\section Inputs		Inputs to the run method
+
+The inputs are:
+ - an \link lsst::afw::image::Exposure\endlink upon which the sources in the matches were detected.
+ - an input \link lsst::afw::table::ReferenceMatchVector\endlink (which will not be modified except
+ to set the \c outputField if requested.).  The
+ measurements must include \c fluxField (see \ref Config).
+
+The \c Exposure is only used to provide the name of the filter being calibrated (it may also be
+used to generate debugging plots -- see \ref Debug).
+
+\section Outputs	Task outputs
+
+The \c run method returns a struct containing:
+<DL>
+<DT> calib
+<DD> \link lsst::afw::image::Calib\endlink object containing the zero point
+
+<DT> arrays
+<DD> A struct containing the magnitude arrays returned by \link PhotoCalTask.extractMagArrays\endlink,
+the nominally-good matches used to estimate the zero point.
+	
+<DT> matches
+<DD> Final \link lsst::afw::table::ReferenceMatchVector\endlink, as returned by
+\link PhotoCalTask.selectMatches\endlink.
+</DL>
+
+\section Config		Config parameters
+
+The config class is \link PhotoCal.PhotoCalConfig\endlink
+
+<DL>
+<DT> magLimit (float, default: 22.0)
+<DD> Maximum magnitude to use in calibration
+
+<DT> outputField (str, default: "classification.photometric")
+<DD> Name of the flag field that is set for sources used in photometric calibration; may be None
+     in which case no flag is set, and the input match list is unaltered.
+
+<DT> fluxField (str; default: "flux.psf")
+<DD>
+Name of the source flux field to use.  The associated flag field 'fluxField.flags' (\em e.g. \c flux.psf.flags)
+will be implicitly included in badFlags
+
+<DT> applyColorTerms (bool; default: True)
+<DD> Apply photometric colour terms (if available) to reference stars
+
+<DT> goodFlags (str; default: [])
+<DD> List of source flag fields that must be set for a source to be used
+
+<DT> badFlags (str, default: ["flags.pixel.edge", "flags.pixel.interpolated.any", "flags.pixel.saturated.any"]
+<DD>
+List of source flag fields that will cause a source to be rejected when they are set
+
+<DT> sigmaMax (float; default: 0.25)
+<DD> maximum sigma to use when clipping
+
+<DT> nSigma (float; default: 3.0)
+<DD> clip at nSigma
+
+<DT> useMedian (bool; default: True)
+<DD> use median instead of mean to compute zeropoint
+
+<DT> nIter (int; default=20)
+<DD> number of iterations
+</DL>
+
+\section Exceptions	Exceptions that can be raised.
+
+The \c PhotoCalTask can raise \c RuntimeError with the following strings:
+
+<DL>
+<DT> `sources' schema does not contain the calibration object flag "XXX"`
+<DD> The constructor added fields to the schema that aren't in the Sources
+<DT> No input matches
+<DD> The input match vector is empty
+<DT> All matches eliminated by source flags
+<DD> The flags specified by \c badFlags in the config eliminated all candidate objects
+<DT> No sources remain in match list after reference catalog cuts
+<DD> The reference catalogue has a column "photometric", but no matched objects have it set
+<DT> No sources remaining in match list after magnitude limit cuts
+<DD> All surviving matches are either too faint in the catalogue or have negative or \c NaN flux
+<DT> No reference stars are available
+<DD> No matches survive all the checks
+</DL>
+
+\section Debug		Debug variables
+
+The \link lsst.pipe.base.cmdLineTask.CmdLineTask command line task\endlink interface supports a
+flag \c -d to import \b debug.py from your \c PYTHONPATH; see \ref baseDebug for more about \b debug.py files.
+
+The available variables in \c "lsst.meas.photocal.PhotoCal" are:
+<DL>
+  <DT> \c display
+  <DD> If True enable other debug outputs
+  <DT> \c displaySources
+  <DD> If True, display the exposure on ds9's frame 1 and overlay the source catalogue:
+    <DL>
+      <DT> red x
+      <DD> Bad objects
+      <DT> blue +
+      <DD> Matched objects deemed unsuitable for photometric calibration.
+            Additional information is:
+	    - a cyan o for galaxies
+	    - a magenta o for variables
+      <DT> magenta *
+      <DD> Objects that failed the flux cut
+      <DT> green o
+      <DD> Objects used in the photometric calibration
+    </DL>
+  <DT> \c scatterPlot
+  <DD> Make a scatter plot of flux v. reference magnitude as a function of reference magnitude.
+    - good objects in blue
+    - rejected objects in red
+  (if \c scatterPlot is 2 or more, prompt to continue after each iteration)
+</DL>  
+
+\section Example	A complete example.
+
+This code is in \link photoCalTask.py\endlink in the examples directory.
+
+We need to create both our tasks before processing any data as the task constructors
+can add extra columns to the schema:
+
+Astrometry first:
+\dontinclude photoCalTask.py
+\skip AstrometryTask.ConfigClass
+\until aTask
+
+Then photometry:
+\skip measPhotocal
+\until pTask
+
+If the schema has indeed changed we need to add the new columns to the source table
+(yes; this should be easier!)
+\skip srcCat
+\until srcCat = cat
+
+We're now ready to process the data (we could loop over multiple exposures/catalogues using the same
+task objects):
+\skip matches
+\until result
+
+We can then unpack and use the results:
+\skip calib
+\until np.log
+
+*/
+}}}
