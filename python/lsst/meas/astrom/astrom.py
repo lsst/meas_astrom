@@ -1,5 +1,6 @@
 import os
 import math
+import sys
 
 import lsst.daf.base as dafBase
 import lsst.pex.logging as pexLog

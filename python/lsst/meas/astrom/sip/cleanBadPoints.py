@@ -83,10 +83,13 @@ def indicesOfGoodPoints(x, y, s, order=1, nsigma=3, maxiter=100):
         lsf = sip.LeastSqFitter1dPoly(list(rx), list(ry), list(rs), order)
         fit = map(lambda x: lsf.valueAt(x), rx)
         f = map(lambda x: lsf.valueAt(x), x)
-        
-        sigma = (y-f).std()
-        deviance = np.fabs( (y - f) /sigma)
-        newidx = np.flatnonzero(deviance < nsigma)
+
+        if len(y- f) == 0:
+            newidx = idx
+        else:
+            sigma = (y-f).std()
+            deviance = np.fabs( (y - f) /sigma)
+            newidx = np.flatnonzero(deviance < nsigma)
 
         if False:
             import matplotlib.pyplot as mpl
@@ -112,10 +115,12 @@ def chooseRx(x, idx, order):
     """Create order+1 values of the ordinate based on the median of groups of elements of x"""
     rSize = len(idx)/float(order+1)  #Note, a floating point number
     rx = np.zeros((order+1))
-    
-    for i in range(order+1):
-        rng = range(int(rSize*i), int(rSize*(i+1)))
-        rx[i] = np.mean(x[idx[rng]])
+
+    if rSize > 0:
+        for i in range(order+1):
+            rng = range(int(rSize*i), int(rSize*(i+1)))
+            rx[i] = np.mean(x[idx[rng]])
+
     return rx
     
 
@@ -123,9 +128,11 @@ def chooseRy(y, idx, order):
     """Create order+1 values of the ordinate based on the median of groups of elements of y"""
     rSize = len(idx)/float(order+1)  #Note, a floating point number
     ry = np.zeros((order+1))
-    
-    for i in range(order+1):
-        rng = range(int(rSize*i), int(rSize*(i+1)))
-        ry[i] = np.median(y[idx[rng]])
+
+    if rSize > 0:
+        for i in range(order+1):
+            rng = range(int(rSize*i), int(rSize*(i+1)))
+            ry[i] = np.median(y[idx[rng]])
+
     return ry
 
