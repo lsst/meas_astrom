@@ -346,6 +346,13 @@ class PhotoCalTask(pipeBase.Task):
         matches = self.selectMatches(matches, keys, frame=frame)
         arrays = self.extractMagArrays(matches, exposure.getFilter().getName(), keys)
 
+        if matches and self.output:
+            try:
+                matches[0].second.getSchema().find(self.output)
+            except:
+                raise RuntimeError("sources' schema does not contain the calibration object flag \"%s\"" %
+                                   self.config.outputField)
+
         # Fit for zeropoint.  We can run the code more than once, so as to
         # give good stars that got clipped by a bad first guess a second
         # chance.
