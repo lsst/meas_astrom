@@ -236,7 +236,7 @@ class PhotoCalTask(pipeBase.Task):
         """
         srcFlux = np.array([m.second.get(keys.flux) for m in matches])
         srcFluxErr = np.array([m.second.get(keys.fluxErr) for m in matches])
-        if not np.all(np.isfinite(srcFluxErr)):
+        if not np.any(np.isfinite(srcFluxErr)):
             self.log.warn("Source catalog does not have flux uncertainties; using sqrt(flux).")
             srcFluxErr = np.sqrt(srcFlux)
         
@@ -246,6 +246,8 @@ class PhotoCalTask(pipeBase.Task):
         refSchema = matches[0].first.schema
         if self.config.applyColorTerms:
             ct = Colorterm.getColorterm(filterName)
+            if not ct:
+                self.log.warn("No colorterms are available for filter %s" % filterName)                
         else:
             ct = None
 
