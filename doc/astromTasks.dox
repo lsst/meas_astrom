@@ -1,0 +1,21 @@
+namespace lsst { namespace meas { namespace astrom {
+
+/**
+\addtogroup LSST_task_documentation
+\{
+\page measAstromTasks meas::astrom Tasks
+
+ - \ref measAstromTask : Astrometric Calibration
+\}
+*/
+
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+/**
+\page measAstromTask  astrometry.AstrometryTask
+
+\warning This task is currently in \link astrometry.py\endlink;
+it should be moved to lsst.meas.astrom and documented.
+
+*/
+}}}
