@@ -37,7 +37,7 @@ struct IndexManager {
         // Change once astrometry.net-0.40+ is in...
         /*
           if (index_close_fds(ind)) {
-          throw LSST_EXCEPT(lsst::pex::exceptions::IoErrorException,
+          throw LSST_EXCEPT(lsst::pex::exceptions::IoError,
           "Failed to index_close_fds() an astrometry_net_data file");
           }
         */

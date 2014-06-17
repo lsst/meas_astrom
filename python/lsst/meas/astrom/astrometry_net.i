@@ -147,7 +147,7 @@ static time_t timer_callback(void* baton) {
                   bool unique_ids=true)
     {
         if ((magnameVec.size() != magcolVec.size()) || (magnameVec.size() != magerrcolVec.size())) {
-            throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterException,
+            throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError,
                               "Mag name, mag column, and mag error column vectors must be the same length.");
         }
         std::vector<lsst::meas::astrom::detail::mag_column_t> magcols;
@@ -305,7 +305,7 @@ static time_t timer_callback(void* baton) {
             }
 //            printf("Adding index.\n");
             if (index_reload(man.index)) {
-                throw LSST_EXCEPT(lsst::pex::exceptions::IoErrorException,
+                throw LSST_EXCEPT(lsst::pex::exceptions::IoError,
                                   "Failed to index_reload() an astrometry_net_data index file -- out of file descriptors?");
             }
 

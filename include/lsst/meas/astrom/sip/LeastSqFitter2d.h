@@ -131,24 +131,24 @@ template<class FittingFunc> LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const 
     //Check input vectors are the same size
     _nData = _x.size();
     if (_nData != static_cast<int>(_y.size())) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "x and y vectors of different lengths");        
+        throw LSST_EXCEPT(except::RuntimeError, "x and y vectors of different lengths");        
     }
     if (_nData != static_cast<int>(_s.size())) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "x and s vectors of different lengths");        
+        throw LSST_EXCEPT(except::RuntimeError, "x and s vectors of different lengths");        
     }
     if (_nData != static_cast<int>(_z.size())) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "x and z vectors of different lengths");        
+        throw LSST_EXCEPT(except::RuntimeError, "x and z vectors of different lengths");        
     }
 
     for (int i = 0; i < _nData; ++i) {
         if ( _s[i] == 0.0 ) {
             std::string msg = "Illegal zero value for fit weight encountered.";
-            throw LSST_EXCEPT(except::RuntimeErrorException, msg);        
+            throw LSST_EXCEPT(except::RuntimeError, msg);        
         }
     }
 
     if (_nData < _order) {
-        throw LSST_EXCEPT(except::RuntimeErrorException, "Fewer data points than parameters");        
+        throw LSST_EXCEPT(except::RuntimeError, "Fewer data points than parameters");        
     }
     
     initFunctions();
