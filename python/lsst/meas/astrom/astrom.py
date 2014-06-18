@@ -100,6 +100,11 @@ class Astrometry(object):
     '''
 
     class _LoadedMIndexes(object):
+        '''
+        A context manager for loaded Astrometry.net multi-index files.
+        This allows us to use a "with" block where we load the files
+        upon entry and close them upon exit.
+        '''
         def __init__(self, multiInds):
             self.multiInds = multiInds
         def __enter__(self):
