@@ -10,6 +10,7 @@ def main():
 
     parser = OptionParser(usage='%(program) [args] RA Dec radius')
     parser.add_option('-o', dest='outfn', help='FITS table output filename', default=None)
+    parser.add_option('-f', dest='filter', help='Set desired filter name')
     (opt, args) = parser.parse_args()
 
     if len(args) != 3:
@@ -22,59 +23,61 @@ def main():
 
     log = Log.getDefaultLog()
     log.setThreshold(Log.DEBUG);
-    pol = policy.Policy()
-    pol.set('matchThreshold', 30)
-    solver = measAstrom.createSolver(pol, log)
+    config = measAstrom.MeasAstromConfig()
+    astrom = measAstrom.Astrometry(config, log=log)
 
-    solver.setLogLevel(3)
-
-    ids = solver.getIndexIdList()
-    print 'Index IDs:', ids
-    indexid = ids[0]
-
-    idName = 'id'
-    X = solver.getCatalogue(ra * afwGeom.degrees, dec * afwGeom.degrees,
-                            radius * afwGeom.degrees, '', idName, indexid)
-    ref = X.refsources
-    inds = X.inds
-    print 'Got', len(ref), 'reference catalog sources'
-    print '  got indices:', len(inds)
-
-    print 'Tag-along columns:'
-    cols = solver.getTagAlongColumns(indexid)
-    #print cols
-    for c in cols:
-        print '  column:', c.name, c.fitstype, c.ctype, c.units, c.arraysize
-    colnames = [c.name for c in cols]
-
-    tagdata = []
-    for c in cols:
-        fname = 'getTagAlong' + c.ctype
-        func = getattr(solver, fname)
-        data = func(indexid, c.name, inds)
-        #print 'called', fname, 'to get', c.name, c.ctype, '(len %i)' % len(data)
-        tagdata.append(data)
+    X = astrom.getReferenceSources(ra * afwGeom.degrees, dec * afwGeom.degrees,
+                                   radius * afwGeom.degrees, opt.filter)
+    print 'Got reference sources', X
+    ref = X
+    
+    # ids = solver.getIndexIdList()
+    # print 'Index IDs:', ids
+    # indexid = ids[0]
+    # 
+    # idName = 'id'
+    # X = solver.getCatalogue(ra * afwGeom.degrees, dec * afwGeom.degrees,
+    #                         radius * afwGeom.degrees, '', idName, indexid)
+    # ref = X.refsources
+    # inds = X.inds
+    # print 'Got', len(ref), 'reference catalog sources'
+    # print '  got indices:', len(inds)
+    # 
+    # print 'Tag-along columns:'
+    # cols = solver.getTagAlongColumns(indexid)
+    # #print cols
+    # for c in cols:
+    #     print '  column:', c.name, c.fitstype, c.ctype, c.units, c.arraysize
+    # colnames = [c.name for c in cols]
+    # 
+    # tagdata = []
+    # for c in cols:
+    #     fname = 'getTagAlong' + c.ctype
+    #     func = getattr(solver, fname)
+    #     data = func(indexid, c.name, inds)
+    #     #print 'called', fname, 'to get', c.name, c.ctype, '(len %i)' % len(data)
+    #     tagdata.append(data)
         
 
     if opt.outfn is None:
         # SSV
         print 'ra dec',
-        for c in cols:
-            if c.arraysize > 1:
-                for a in len(c.arraysize):
-                    print ('%s_%i' % (c.name, a)),
-            else:
-                print c.name,
+        # for c in cols:
+        #     if c.arraysize > 1:
+        #         for a in len(c.arraysize):
+        #             print ('%s_%i' % (c.name, a)),
+        #     else:
+        #         print c.name,
         print
 
         for i,r in enumerate(ref):
             print r.getRa().asDegrees(), r.getDec().asDegrees(),
-            for c,d in zip(cols, tagdata):
-                if c.arraysize > 1:
-                    for a in len(c.arraysize):
-                        print d[c.arraysize * i + a],
-                else:
-                    print d[i],
+            # for c,d in zip(cols, tagdata):
+            #     if c.arraysize > 1:
+            #         for a in len(c.arraysize):
+            #             print d[c.arraysize * i + a],
+            #     else:
+            #         print d[i],
             print
 
     else:
@@ -86,18 +89,18 @@ def main():
                                       format='D', unit='deg'))
         fitscols.append(pyfits.Column(name='DEC', array=np.array([r.getDec().asDegrees() for r in ref]),
                                       format='D', unit='deg'))
-        for c,d in zip(cols, tagdata):
-            fmap = { 'Int64' : 'K',
-                     'Int' : 'J',
-                     'Bool' : 'L',
-                     'Double': 'D',
-                     }
-            if c.arraysize > 1:
-                # May have to reshape the array as well...
-                fitscols.append(pyfits.Column(name=c.name, array=np.array(d),
-                                          format='%i%s' % (c.arraysize, fmap.get(c.ctype, 'D'))))
-            else:
-                fitscols.append(pyfits.Column(name=c.name, array=np.array(d),
+        # for c,d in zip(cols, tagdata):
+        #     fmap = { 'Int64' : 'K',
+        #              'Int' : 'J',
+        #              'Bool' : 'L',
+        #              'Double': 'D',
+        #              }
+        #     if c.arraysize > 1:
+        #         # May have to reshape the array as well...
+        #         fitscols.append(pyfits.Column(name=c.name, array=np.array(d),
+        #                                   format='%i%s' % (c.arraysize, fmap.get(c.ctype, 'D'))))
+        #     else:
+        #         fitscols.append(pyfits.Column(name=c.name, array=np.array(d),
                                           format=fmap.get(c.ctype, 'D')))
 
         pyfits.new_table(fitscols).writeto(opt.outfn, clobber=True)
