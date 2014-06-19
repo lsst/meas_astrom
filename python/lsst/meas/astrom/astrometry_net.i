@@ -18,14 +18,14 @@ Python interface to Astrometry.net
 %{
     // Astrometry.net include files...
     extern "C" {
-#include "solver.h"
-#include "index.h"
-#include "multiindex.h"
-#include "starkd.h"
-#include "fitsioutils.h"
-#include "fitstable.h"
-#include "log.h"
-#include "tic.h"
+#include "astrometry/solver.h"
+#include "astrometry/index.h"
+#include "astrometry/multiindex.h"
+#include "astrometry/starkd.h"
+#include "astrometry/fitsioutils.h"
+#include "astrometry/fitstable.h"
+#include "astrometry/log.h"
+#include "astrometry/tic.h"
 
 #undef ATTRIB_FORMAT
 #undef FALSE
@@ -170,9 +170,9 @@ void set_an_log(PTR(pexLog::Log) newlog);
 %newobject solver_new;
 %newobject multiindex_new;
 
-%include "solver.h"
-%include "index.h"
-%include "multiindex.h"
+%include "astrometry/solver.h"
+%include "astrometry/index.h"
+%include "astrometry/multiindex.h"
 
 %inline %{
     void an_log_init(int level) {

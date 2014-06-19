@@ -1,11 +1,11 @@
 // -*- lsst-C++ -*-
 // Astrometry.net include files:
 extern "C" {
-#include "solver.h"
-#include "index.h"
-#include "starkd.h"
-#include "fitsioutils.h"
-#include "fitstable.h"
+#include "astrometry/solver.h"
+#include "astrometry/index.h"
+#include "astrometry/starkd.h"
+#include "astrometry/fitsioutils.h"
+#include "astrometry/fitstable.h"
 
 #undef ATTRIB_FORMAT
 #undef FALSE
@@ -87,9 +87,6 @@ getCatalogImpl(std::vector<index_t*> inds,
         //printf("mag col \"%s\", \"%s\", \"%s\"\n", mc->name.c_str(), mc->magcol.c_str(), mc->magerrcol.c_str());
     }
     
-   // additional margin on healpixes, in deg.
-   double margin = 1.0;
-
    double xyz[3];
    radecdeg2xyzarr(ra, dec, xyz);
    double r2 = deg2distsq(radius);
