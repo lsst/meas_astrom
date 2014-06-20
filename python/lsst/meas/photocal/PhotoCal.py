@@ -39,6 +39,7 @@ def checkSourceFlags(source, keys):
     """
     for k in keys.goodFlags:
         if not source.get(k): return False
+    if source.getPsfFluxFlag(): return False
     for k in keys.badFlags:
         if source.get(k): return False
     return True
@@ -47,13 +48,8 @@ class PhotoCalConfig(pexConf.Config):
 
     magLimit = pexConf.Field(dtype=float, doc="Don't use objects fainter than this magnitude", default=22.0)
     outputField = pexConf.Field(
-        dtype=str, optional=True, default="classification.photometric",
+        dtype=str, optional=True, default="classification_photometric",
         doc="Name of the flag field that is set for sources used in photometric calibration"
-        )
-    fluxField = pexConf.Field(
-        dtype=str, default="flux.psf", optional=False,
-        doc="Name of the source flux field to use.  The associated flag field\n"\
-            "('<name>.flags') will be implicitly included in badFlags.\n"
         )
     applyColorTerms = pexConf.Field(
         dtype=bool, default=True,
@@ -66,7 +62,7 @@ class PhotoCalConfig(pexConf.Config):
         )
     badFlags = pexConf.ListField(
         dtype=str, optional=False,
-        default=["flags.pixel.edge", "flags.pixel.interpolated.any", "flags.pixel.saturated.any"], 
+        default=["measurement_base_PixelFlags_flag_edge", "measurement_base_PixelFlags_flag_interpolated", "measurement_base_PixelFlags_flag_saturated"], 
         doc="List of source flag fields that will cause a source to be rejected when they are set."
         )
     sigmaMax = pexConf.Field(dtype=float, default=0.25, optional=True,
@@ -82,7 +78,7 @@ class PhotoCalTask(pipeBase.Task):
     ConfigClass = PhotoCalConfig
     _DefaultName = "photoCal"
 
-    def __init__(self, schema, **kwds):
+    def __init__(self, schema, tableVersion=0, **kwds):
         """Create the task, pulling input keys from the schema and adding a flag field
         'classification.photometric' that will be set for sources used to determine the
         photometric calibration.
@@ -96,12 +92,10 @@ class PhotoCalTask(pipeBase.Task):
 
     def getKeys(self, schema):
         """Return a struct containing the source catalog keys for fields used by PhotoCalTask."""
-        flux = schema.find(self.config.fluxField).key
-        fluxErr = schema.find(self.config.fluxField + ".err").key
         goodFlags = [schema.find(name).key for name in self.config.goodFlags]
-        badFlags = [schema.find(self.config.fluxField + ".flags").key]
+        badFlags = []
         badFlags.extend(schema.find(name).key for name in self.config.badFlags)
-        return pipeBase.Struct(flux=flux, fluxErr=fluxErr, goodFlags=goodFlags, badFlags=badFlags)
+        return pipeBase.Struct(goodFlags=goodFlags, badFlags=badFlags)
 
     @pipeBase.timeMethod
     def selectMatches(self, matches, keys, frame=None):
@@ -184,15 +178,14 @@ class PhotoCalTask(pipeBase.Task):
         self.log.logdebug("Number of matches after reference catalog cuts: %d" % (len(matches)))
         if len(matches) == 0:
             raise RuntimeError("No sources remain in match list after reference catalog cuts.")
-        
         fluxKey = refSchema.find("flux").key
         if self.config.magLimit is not None:
             fluxLimit = 10.0**(-self.config.magLimit/2.5)
 
             afterMagCutInd = [i for i, m in enumerate(matches) if (m.first.get(fluxKey) > fluxLimit
-                                                                   and m.second.get(keys.flux) > 0.0)]
+                                                                   and m.second.getPsfFlux() > 0.0)]
         else:
-            afterMagCutInd = [i for i, m in enumerate(matches) if m.second.get(keys.flux) > 0.0]
+            afterMagCutInd = [i for i, m in enumerate(matches) if m.second.getPsfFlux() > 0.0]
 
         afterMagCut = [matches[i] for i in afterMagCutInd]
 
@@ -234,8 +227,8 @@ class PhotoCalTask(pipeBase.Task):
         
         @return Struct containing srcMag, refMag, srcMagErr, refMagErr, and errMag arrays.
         """
-        srcFlux = np.array([m.second.get(keys.flux) for m in matches])
-        srcFluxErr = np.array([m.second.get(keys.fluxErr) for m in matches])
+        srcFlux = np.array([m.second.getPsfFlux() for m in matches])
+        srcFluxErr = np.array([m.second.getPsfFluxErr() for m in matches])
         if not np.all(np.isfinite(srcFluxErr)):
             self.log.warn("Source catalog does not have flux uncertainties; using sqrt(flux).")
             srcFluxErr = np.sqrt(srcFlux)
