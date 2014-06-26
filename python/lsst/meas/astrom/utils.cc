@@ -45,7 +45,7 @@ read_column(fitstable_t* tag,
     float *col =
         static_cast<float*>(fitstable_read_column_inds(tag, colName, type, starinds, nstars));
     if (!col) {
-        throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundException,
+        throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundError,
                           str(boost::format("Unable to read data for %s from %s") % colName % indexName));
     }
 
@@ -75,13 +75,13 @@ getCatalogImpl(std::vector<index_t*> inds,
 
     for (mc = magcols.begin(); mc != magcols.end(); ++mc) {
         if (mc->name.size() == 0) {
-            throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterException,
+            throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError,
                               "Magnitude names cannot be empty strings.");
         }
         // We enforce this condition because we convert the mags to fluxes, and
         // we need a flux to compute a flux error!
         if (mc->magcol.size() == 0) {
-            throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterException,
+            throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError,
                               "Magnitude column names cannot be empty string.");
         }
         //printf("mag col \"%s\", \"%s\", \"%s\"\n", mc->name.c_str(), mc->magcol.c_str(), mc->magerrcol.c_str());
@@ -186,13 +186,13 @@ getCatalogImpl(std::vector<index_t*> inds,
                      "', magerr='" + magcols[i].magerrcol + "'";
              }
              msg += " ].  You may need to edit the $ASTROMETRY_NET_DATA_DIR/andConfig.py file to set idColumn=None, etc.";
-             throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundException, msg);
+             throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundError, msg);
          }
 
          if (idcol) {
              id = static_cast<int64_t*>(fitstable_read_column_inds(tag, idcol, i64, starinds, nstars));
              if (!id) {
-                 throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundException,
+                 throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundError,
                                    str(boost::format("Unable to read data for %s from %s") %
                                        idcol % man.index->indexname));
              }
@@ -253,7 +253,7 @@ getCatalogImpl(std::vector<index_t*> inds,
              uint8_t* sg = static_cast<uint8_t*>(fitstable_read_column_inds(tag, stargalcol, fitscolumn_u8_type(), starinds, nstars));
              stargal = static_cast<bool*>(malloc(nstars));
             if (!stargal) {
-                throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundException,
+                throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundError,
                                   str(boost::format("Unable to read data for %s from %s") %
                                       stargalcol % man.index->indexname));
             }
@@ -265,7 +265,7 @@ getCatalogImpl(std::vector<index_t*> inds,
          if (varcol) {
              var = static_cast<bool*>(fitstable_read_column_inds(tag, varcol, boo, starinds, nstars));
              if (!var) {
-                throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundException,
+                throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundError,
                                   str(boost::format("Unable to read data for %s from %s") %
                                       varcol % man.index->indexname));
             }
