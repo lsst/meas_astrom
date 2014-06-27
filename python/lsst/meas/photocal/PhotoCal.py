@@ -31,6 +31,7 @@ import lsst.pipe.base as pipeBase
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.afw.display.ds9 as ds9
+from lsst.meas.base.base import Version0FlagMapper
 
 def checkSourceFlags(source, keys):
     """!Return True if the given source has all good flags set and none of the bad flags set.
@@ -63,7 +64,7 @@ class PhotoCalConfig(pexConf.Config):
         )
     badFlags = pexConf.ListField(
         dtype=str, optional=False,
-        default=["measurement_base_PixelFlags_flag_edge", "measurement_base_PixelFlags_flag_interpolated", "measurement_base_PixelFlags_flag_saturated"],
+        default=["base_PixelFlags_flag_edge", "base_PixelFlags_flag_interpolated", "base_PixelFlags_flag_saturated"], 
         doc="List of source flag fields that will cause a source to be rejected when they are set."
         )
     sigmaMax = pexConf.Field(dtype=float, default=0.25, optional=True,
@@ -232,9 +233,13 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
 
     def getKeys(self, schema):
         """!Return a struct containing the source catalog keys for fields used by PhotoCalTask."""
-        goodFlags = [schema.find(name).key for name in self.config.goodFlags]
-        badFlags = []
-        badFlags.extend(schema.find(name).key for name in self.config.badFlags)
+
+        if tableVersion == 0:
+            goodFlags = [schema.find(name).key for name in Version0FlagMapper(self.config.goodFlags)]
+            badFlags = [schema.find(name).key for name in Version0FlagMapper(self.config.badFlags)]
+        else:
+            goodFlags = [schema.find(name).key for name in self.config.goodFlags]
+            badFlags = [schema.find(name).key for name in self.config.badFlags]
         return pipeBase.Struct(goodFlags=goodFlags, badFlags=badFlags)
 
     @pipeBase.timeMethod
@@ -510,7 +515,7 @@ The measured sources:
         else:
             frame = None
 
-        keys = self.getKeys(matches[0].second.schema)
+        keys = self.getKeys(matches[0].second.schema, matches[0].second.getTable().getVersion())
         matches = self.selectMatches(matches, keys, frame=frame)
         arrays = self.extractMagArrays(matches, exposure.getFilter().getName(), keys)
 
