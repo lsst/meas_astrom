@@ -247,22 +247,19 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
     def selectMatches(self, matches, keys, frame=None):
         """!Select reference/source matches according the criteria specified in the config.
 
-        if frame is non-None, display information about trimmed objects on that ds9 frame:
-            Bad:               red x
-            Unsuitable objects: blue +  (and a cyan o if a galaxy)
-            Failed flux cut:   magenta *
-
-        The return value is a
-         \link lsst::afw::table::ReferenceMatchVector\endlink that contains only the selected matches.
-        If a schema was passed during task construction, a flag field will be set on sources 
-        in the selected matches.
-
-        An exception will be raised if there are no valid matches.
-
         \param[in] matches ReferenceMatchVector (not modified)
         \param[in] keys    Struct of source catalog keys, as returned by getKeys()
         \param[in] frame   ds9 frame number to use for debugging display
-        \return Output  \link lsst::afw::table::ReferenceMatchVector\endlink
+        if frame is non-None, display information about trimmed objects on that ds9 frame:
+         - Bad:               red x
+         - Unsuitable objects: blue +  (and a cyan o if a galaxy)
+         - Failed flux cut:   magenta *
+
+        \return a \link lsst::afw::table::ReferenceMatchVector\endlink that contains only the selected matches.
+        If a schema was passed during task construction, a flag field will be set on sources 
+        in the selected matches.
+
+        \throws ValueError There are no valid matches.
         """
 
         self.log.logdebug("Number of input matches: %d" % (len(matches)))
