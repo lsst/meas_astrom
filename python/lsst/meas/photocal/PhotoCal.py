@@ -90,7 +90,7 @@ class PhotoCalTask(pipeBase.Task):
 
 \brief Calculate the zero point of an exposure given a  \link lsst::afw::table::ReferenceMatchVector\endlink.
 
-\section meas_photocal_photocal_Contents
+\section meas_photocal_photocal_Contents Contents
 
  - \ref meas_photocal_photocal_Purpose
  - \ref meas_photocal_photocal_Initialize
