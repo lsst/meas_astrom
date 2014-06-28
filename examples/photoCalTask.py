@@ -31,7 +31,15 @@ import lsst.meas.astrom            as measAstrom
 import lsst.afw.table              as afwTable
 import lsst.afw.image              as afwImage
 from lsst.pex.logging import Log
-import lsst.meas.photocal          as measPhotocal
+#
+# This task should be in meas_astrom!
+# We import AstrometryTask from pipe.tasks -- this can fail if it isn't setup
+if not eups.productDir("pipe_tasks"):
+    raise RuntimeError("""Please setup pipe_tasks to solve the astrometry.
+N.b. this inverted dependency is due to AstrometryTask being in the wrong place""") 
+
+from lsst.pipe.tasks.astrometry import AstrometryTask
+import lsst.meas.photocal           as measPhotocal
 
 from lsst.pex.exceptions import LsstCppException
 
@@ -79,14 +87,6 @@ def run():
     #
     # Create the astrometry task
     #
-    # This task should be in meas_astrom!
-    #
-    try:
-        from lsst.pipe.tasks.astrometry import AstrometryTask
-    except ImportError:
-        raise RuntimeError("""Please setup pipe_tasks to solve the astrometry.
-N.b. this inverted dependency is due to AstrometryTask being in the wrong place""") 
-
     config = AstrometryTask.ConfigClass()
     config.solver.filterMap = dict(_unknown_='r')
     aTask = AstrometryTask(name="AstrometryTask", config=config, schema=schema)
