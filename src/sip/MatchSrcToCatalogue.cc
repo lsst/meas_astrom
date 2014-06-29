@@ -76,7 +76,7 @@ void MatchSrcToCatalogue::setCatSrcSet(afw::table::SimpleCatalog const &srcSet) 
 }
 
 void MatchSrcToCatalogue::findMatches() {
-    if (!_imgSet.getTable()->getCentroidKey().isValid()) {
+    if (!_imgSet.getTable()->hasCentroid()) {
         throw LSST_EXCEPT(
             pex::exceptions::LogicErrorException,
             "SourceTable passed to MatchSrcToCatalogue does not have its centroid slot set."
