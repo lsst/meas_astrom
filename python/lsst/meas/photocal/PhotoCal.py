@@ -88,7 +88,7 @@ class PhotoCalTask(pipeBase.Task):
     """!
 \anchor PhotoCalTask_
 
-\brief Calculate the zero point of an exposure given a  \link lsst::afw::table::ReferenceMatchVector\endlink.
+\brief Calculate the zero point of an exposure given a lsst.afw.table.ReferenceMatchVector.
 
 \section meas_photocal_photocal_Contents Contents
 
@@ -255,7 +255,7 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
          - Unsuitable objects: blue +  (and a cyan o if a galaxy)
          - Failed flux cut:   magenta *
 
-        \return a \link lsst::afw::table::ReferenceMatchVector\endlink that contains only the selected matches.
+        \return a \link lsst.afw.table.ReferenceMatchVector\endlink that contains only the selected matches.
         If a schema was passed during task construction, a flag field will be set on sources 
         in the selected matches.
 
@@ -456,9 +456,11 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
         the zero point.
 
         \param[in]  exposure   Exposure upon which the sources in the matches were detected.
-        \param[in]  matches    Input \link lsst::afw::table::ReferenceMatchVector\endlink (will
-        not be modified  except to set the PhotoCalConfig.outputField if requested.).  The
-        measurements must include PhotoCalConfig.fluxField.
+        \param[in]  matches    Input lsst.afw.table.ReferenceMatchVector
+        (\em i.e. a list of lsst.afw.table.Match with
+        \c first being of type lsst.afw.table.SimpleRecord and \c second type lsst.afw.table.SourceRecord ---
+        the reference object and matched object respectively).
+        (will not be modified  except to set the PhotoCalConfig.outputField if requested.).
 
         \return Struct of:
          - calib -------  \link lsst::afw::image::Calib\endlink object containing the zero point
@@ -467,6 +469,15 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
 
 The exposure is only used to provide the name of the filter being calibrated (it may also be
 used to generate debugging plots).
+
+The reference objects:
+ - Must include a field \c photometric; True for objects which should be considered as photometric standards
+ - Must include a field \c flux; the flux used to impose a magnitude limit and also to calibrate the data to (unless a colour term is specified, in which case ColorTerm.primary is used;  See https://jira.lsstcorp.org/browse/DM-933)
+ - May include a field \c stargal; if present, True means that the object is a star
+ - May include a field \c var; if present, True means that the object is variable
+
+The measured sources:
+- Must include PhotoCalConfig.fluxField; the flux measurement to be used for calibration
 
 \throws RuntimeError with the following strings:
 
