@@ -229,10 +229,10 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
         """
         pipeBase.Task.__init__(self, **kwds)
         if self.config.outputField is not None:
-            self.output = schema.addField(self.config.outputField, type="Flag",
-                                          doc="set if source was used in photometric calibration")
+            self.outputField = schema.addField(self.config.outputField, type="Flag",
+                                               doc="set if source was used in photometric calibration")
         else:
-            self.output = None
+            self.outputField = None
 
     def getKeys(self, schema):
         """!Return a struct containing the source catalog keys for fields used by PhotoCalTask."""
@@ -357,8 +357,8 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
 
         result = afwTable.ReferenceMatchVector()
         for m in matches:
-            if self.output is not None:
-                m.second.set(self.output, True)
+            if self.outputField is not None:
+                m.second.set(self.outputField, True)
             result.append(m)
         return result
 
@@ -520,6 +520,15 @@ The measured sources:
         keys = self.getKeys(matches[0].second.schema)
         matches = self.selectMatches(matches, keys, frame=frame)
         arrays = self.extractMagArrays(matches, exposure.getFilter().getName(), keys)
+
+        if matches and self.outputField:
+            try:
+                # matches[].second is a measured source, wherein we wish to set outputField.
+                # Check that the field is present in the Sources schema.
+                matches[0].second.getSchema().find(self.outputField)
+            except:
+                raise RuntimeError("sources' schema does not contain the used-in-calibration flag \"%s\"" %
+                                   self.config.outputField)
 
         # Fit for zeropoint.  We can run the code more than once, so as to
         # give good stars that got clipped by a bad first guess a second
