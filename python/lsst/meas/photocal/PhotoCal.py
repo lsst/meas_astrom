@@ -89,10 +89,10 @@ class PhotoCalTask(pipeBase.Task):
         """
         pipeBase.Task.__init__(self, **kwds)
         if self.config.outputField is not None:
-            self.output = schema.addField(self.config.outputField, type="Flag",
-                                          doc="set if source was used in photometric calibration")
+            self.outputField = schema.addField(self.config.outputField, type="Flag",
+                                               doc="set if source was used in photometric calibration")
         else:
-            self.output = None
+            self.outputField = None
 
     def getKeys(self, schema):
         """Return a struct containing the source catalog keys for fields used by PhotoCalTask."""
@@ -219,8 +219,8 @@ class PhotoCalTask(pipeBase.Task):
 
         result = afwTable.ReferenceMatchVector()
         for m in matches:
-            if self.output is not None:
-                m.second.set(self.output, True)
+            if self.outputField is not None:
+                m.second.set(self.outputField, True)
             result.append(m)
         return result
 
@@ -346,11 +346,13 @@ class PhotoCalTask(pipeBase.Task):
         matches = self.selectMatches(matches, keys, frame=frame)
         arrays = self.extractMagArrays(matches, exposure.getFilter().getName(), keys)
 
-        if matches and self.output:
+        if matches and self.outputField:
             try:
-                matches[0].second.getSchema().find(self.output)
+                # matches[].second is a measured source, wherein we wish to set outputField.
+                # Check that the field is present in the Sources schema.
+                matches[0].second.getSchema().find(self.outputField)
             except:
-                raise RuntimeError("sources' schema does not contain the calibration object flag \"%s\"" %
+                raise RuntimeError("sources' schema does not contain the used-in-calibration flag \"%s\"" %
                                    self.config.outputField)
 
         # Fit for zeropoint.  We can run the code more than once, so as to
