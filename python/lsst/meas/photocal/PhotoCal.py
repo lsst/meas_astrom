@@ -49,13 +49,13 @@ def checkSourceFlags(source, keys):
 class PhotoCalConfig(pexConf.Config):
 
     magLimit = pexConf.Field(dtype=float, doc="Don't use objects fainter than this magnitude", default=22.0)
-    outputField = pexConf.Field(
-        dtype=str, optional=True, default="classification_photometric",
-        doc="Name of the flag field that is set for sources used in photometric calibration"
-        )
     applyColorTerms = pexConf.Field(
         dtype=bool, default=True,
         doc= "Apply photometric colour terms (if available) to reference stars",
+        )
+    writeOutputField = pexConf.Field(
+        dtype=bool, default=True,
+        doc= "Write a field name astrom_usedByPhotoCal to the schema",
         )
     goodFlags = pexConf.ListField(
         dtype=str, optional=False,
@@ -210,28 +210,30 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
     _DefaultName = "photoCal"
 
     # Need init as well as __init__ because "\copydoc __init__" fails (doxygen bug 732264)
-    def init(self, schema, **kwds):
+    def init(self, schema, tableVersion=0, **kwds):
         """!Create the photometric calibration task.  Most arguments are simply passed onto pipe.base.Task.
 
         \param schema An lsst::afw::table::Schema used to create the output lsst.afw.table.SourceCatalog
         \param **kwds keyword arguments to be passed to the lsst.pipe.base.task.Task constructor
 
-        A flag field PhotoCalConfig.outputField that will be set for sources used to determine the
-        photometric calibration is added to the schema.
         """
-        self.__init__(schema, **kwds)
+        self.__init__(schema, tableVersion, **kwds)
 
-    def __init__(self, schema, **kwds):
+    def __init__(self, schema, tableVersion=0, **kwds):
         """!Create the photometric calibration task.  See PhotoCalTask.init for documentation
         """
         pipeBase.Task.__init__(self, **kwds)
-        if self.config.outputField is not None:
-            self.output = schema.addField(self.config.outputField, type="Flag",
+        if self.config.writeOutputField:
+            if tableVersion == 0:
+                self.output = schema.addField("classification.photometric", type="Flag",
+                                          doc="set if source was used in photometric calibration")
+            else:
+                self.output = schema.addField("astrom_usedByPhotoCal", type="Flag",
                                           doc="set if source was used in photometric calibration")
         else:
             self.output = None
 
-    def getKeys(self, schema):
+    def getKeys(self, schema, tableVersion=0):
         """!Return a struct containing the source catalog keys for fields used by PhotoCalTask."""
 
         if tableVersion == 0:
@@ -458,7 +460,7 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
         (\em i.e. a list of lsst.afw.table.Match with
         \c first being of type lsst.afw.table.SimpleRecord and \c second type lsst.afw.table.SourceRecord ---
         the reference object and matched object respectively).
-        (will not be modified  except to set the PhotoCalConfig.outputField if requested.).
+        (will not be modified  except to set the outputField if requested.).
 
         \return Struct of:
          - calib -------  \link lsst::afw::image::Calib\endlink object containing the zero point
