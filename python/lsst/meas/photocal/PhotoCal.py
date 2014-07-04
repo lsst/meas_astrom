@@ -225,10 +225,10 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
         pipeBase.Task.__init__(self, **kwds)
         if self.config.writeOutputField:
             if tableVersion == 0:
-                self.output = schema.addField("classification.photometric", type="Flag",
+                self.outputField = schema.addField("classification.photometric", type="Flag",
                                           doc="set if source was used in photometric calibration")
             else:
-                self.output = schema.addField("astrom_usedByPhotoCal", type="Flag",
+                self.outputField = schema.addField("astrom_usedByPhotoCal", type="Flag",
                                           doc="set if source was used in photometric calibration")
         else:
             self.outputField = None
