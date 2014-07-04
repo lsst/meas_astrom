@@ -31,6 +31,7 @@ import lsst.pipe.base as pipeBase
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.afw.display.ds9 as ds9
+from lsst.meas.base.base import Version0FlagMapper
 
 def checkSourceFlags(source, keys):
     """!Return True if the given source has all good flags set and none of the bad flags set.
@@ -40,6 +41,7 @@ def checkSourceFlags(source, keys):
     """
     for k in keys.goodFlags:
         if not source.get(k): return False
+    if source.getPsfFluxFlag(): return False
     for k in keys.badFlags:
         if source.get(k): return False
     return True
@@ -47,27 +49,22 @@ def checkSourceFlags(source, keys):
 class PhotoCalConfig(pexConf.Config):
 
     magLimit = pexConf.Field(dtype=float, doc="Don't use objects fainter than this magnitude", default=22.0)
-    outputField = pexConf.Field(
-        dtype=str, optional=True, default="classification.photometric",
-        doc="Name of the flag field that is set for sources used in photometric calibration"
-        )
-    fluxField = pexConf.Field(
-        dtype=str, default="flux.psf", optional=False,
-        doc="Name of the source flux field to use.  The associated flag field\n"\
-            "('<name>.flags') will be implicitly included in badFlags.\n"
-        )
     applyColorTerms = pexConf.Field(
         dtype=bool, default=True,
         doc= "Apply photometric colour terms (if available) to reference stars",
         )
+    writeOutputField = pexConf.Field(
+        dtype=bool, default=True,
+        doc= "Write a field name astrom_usedByPhotoCal to the schema",
+        )
     goodFlags = pexConf.ListField(
         dtype=str, optional=False,
-        default=[], 
+        default=[],
         doc="List of source flag fields that must be set for a source to be used."
         )
     badFlags = pexConf.ListField(
         dtype=str, optional=False,
-        default=["flags.pixel.edge", "flags.pixel.interpolated.any", "flags.pixel.saturated.any"], 
+        default=["base_PixelFlags_flag_edge", "base_PixelFlags_flag_interpolated", "base_PixelFlags_flag_saturated"], 
         doc="List of source flag fields that will cause a source to be rejected when they are set."
         )
     sigmaMax = pexConf.Field(dtype=float, default=0.25, optional=True,
@@ -152,7 +149,7 @@ The available variables in PhotoCalTask are:
     - good objects in blue
     - rejected objects in red
   (if \c scatterPlot is 2 or more, prompt to continue after each iteration)
-</DL>  
+</DL>
 
 \section meas_photocal_photocal_Example	A complete example of using PhotoCalTask
 
@@ -213,35 +210,39 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
     _DefaultName = "photoCal"
 
     # Need init as well as __init__ because "\copydoc __init__" fails (doxygen bug 732264)
-    def init(self, schema, **kwds):
+    def init(self, schema, tableVersion=0, **kwds):
         """!Create the photometric calibration task.  Most arguments are simply passed onto pipe.base.Task.
 
         \param schema An lsst::afw::table::Schema used to create the output lsst.afw.table.SourceCatalog
         \param **kwds keyword arguments to be passed to the lsst.pipe.base.task.Task constructor
 
-        A flag field PhotoCalConfig.outputField that will be set for sources used to determine the
-        photometric calibration is added to the schema.
         """
-        self.__init__(schema, **kwds)
-        
-    def __init__(self, schema, **kwds):
+        self.__init__(schema, tableVersion, **kwds)
+
+    def __init__(self, schema, tableVersion=0, **kwds):
         """!Create the photometric calibration task.  See PhotoCalTask.init for documentation
         """
         pipeBase.Task.__init__(self, **kwds)
-        if self.config.outputField is not None:
-            self.outputField = schema.addField(self.config.outputField, type="Flag",
-                                               doc="set if source was used in photometric calibration")
+        if self.config.writeOutputField:
+            if tableVersion == 0:
+                self.output = schema.addField("classification.photometric", type="Flag",
+                                          doc="set if source was used in photometric calibration")
+            else:
+                self.output = schema.addField("astrom_usedByPhotoCal", type="Flag",
+                                          doc="set if source was used in photometric calibration")
         else:
             self.outputField = None
 
-    def getKeys(self, schema):
+    def getKeys(self, schema, tableVersion=0):
         """!Return a struct containing the source catalog keys for fields used by PhotoCalTask."""
-        flux = schema.find(self.config.fluxField).key
-        fluxErr = schema.find(self.config.fluxField + ".err").key
-        goodFlags = [schema.find(name).key for name in self.config.goodFlags]
-        badFlags = [schema.find(self.config.fluxField + ".flags").key]
-        badFlags.extend(schema.find(name).key for name in self.config.badFlags)
-        return pipeBase.Struct(flux=flux, fluxErr=fluxErr, goodFlags=goodFlags, badFlags=badFlags)
+
+        if tableVersion == 0:
+            goodFlags = [schema.find(name).key for name in Version0FlagMapper(self.config.goodFlags)]
+            badFlags = [schema.find(name).key for name in Version0FlagMapper(self.config.badFlags)]
+        else:
+            goodFlags = [schema.find(name).key for name in self.config.goodFlags]
+            badFlags = [schema.find(name).key for name in self.config.badFlags]
+        return pipeBase.Struct(goodFlags=goodFlags, badFlags=badFlags)
 
     @pipeBase.timeMethod
     def selectMatches(self, matches, keys, frame=None):
@@ -256,7 +257,7 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
          - Failed flux cut:   magenta *
 
         \return a \link lsst.afw.table.ReferenceMatchVector\endlink that contains only the selected matches.
-        If a schema was passed during task construction, a flag field will be set on sources 
+        If a schema was passed during task construction, a flag field will be set on sources
         in the selected matches.
 
         \throws ValueError There are no valid matches.
@@ -322,15 +323,14 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
         self.log.logdebug("Number of matches after reference catalog cuts: %d" % (len(matches)))
         if len(matches) == 0:
             raise RuntimeError("No sources remain in match list after reference catalog cuts.")
-        
         fluxKey = refSchema.find("flux").key
         if self.config.magLimit is not None:
             fluxLimit = 10.0**(-self.config.magLimit/2.5)
 
             afterMagCutInd = [i for i, m in enumerate(matches) if (m.first.get(fluxKey) > fluxLimit
-                                                                   and m.second.get(keys.flux) > 0.0)]
+                                                                   and m.second.getPsfFlux() > 0.0)]
         else:
-            afterMagCutInd = [i for i, m in enumerate(matches) if m.second.get(keys.flux) > 0.0]
+            afterMagCutInd = [i for i, m in enumerate(matches) if m.second.getPsfFlux() > 0.0]
 
         afterMagCut = [matches[i] for i in afterMagCutInd]
 
@@ -343,7 +343,7 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
                             ds9.dot("*", x,  y, size=4, frame=frame, ctype=ds9.MAGENTA)
 
             matches = afterMagCut
-            
+
         self.log.logdebug("Number of matches after magnitude limit cuts: %d" % (len(matches)))
 
         if len(matches) == 0:
@@ -369,18 +369,18 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
         \param[in] matches     \link lsst::afw::table::ReferenceMatchVector\endlink object containing reference/source matches
         \param[in] filterName Name of filter being calibrated
         \param[in] keys       Struct of source catalog keys, as returned by getKeys()
-        
+
         \return Struct containing srcMag, refMag, srcMagErr, refMagErr, and magErr numpy arrays
         where magErr is an error in the magnitude; the error in srcMag - refMag.
         \note These are the \em inputs to the photometric calibration, some may have been
         discarded by clipping while estimating the calibration (https://jira.lsstcorp.org/browse/DM-813)
         """
-        srcFlux = np.array([m.second.get(keys.flux) for m in matches])
-        srcFluxErr = np.array([m.second.get(keys.fluxErr) for m in matches])
+        srcFlux = np.array([m.second.getPsfFlux() for m in matches])
+        srcFluxErr = np.array([m.second.getPsfFluxErr() for m in matches])
         if not np.all(np.isfinite(srcFluxErr)):
             self.log.warn("Source catalog does not have flux uncertainties; using sqrt(flux).")
             srcFluxErr = np.sqrt(srcFlux)
-        
+
         if not matches:
             raise RuntimeError("No reference stars are available")
 
@@ -403,7 +403,7 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
                 self.log.warn("Source catalog does not have fluxes for %s; ignoring color terms" %
                               " ".join(missingFluxes))
                 ct = None
-                
+
         if not ct:
             fluxNames = ["flux"]
 
@@ -460,7 +460,7 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
         (\em i.e. a list of lsst.afw.table.Match with
         \c first being of type lsst.afw.table.SimpleRecord and \c second type lsst.afw.table.SourceRecord ---
         the reference object and matched object respectively).
-        (will not be modified  except to set the PhotoCalConfig.outputField if requested.).
+        (will not be modified  except to set the outputField if requested.).
 
         \return Struct of:
          - calib -------  \link lsst::afw::image::Calib\endlink object containing the zero point
@@ -517,7 +517,7 @@ The measured sources:
         else:
             frame = None
 
-        keys = self.getKeys(matches[0].second.schema)
+        keys = self.getKeys(matches[0].second.schema, matches[0].second.getTable().getVersion())
         matches = self.selectMatches(matches, keys, frame=frame)
         arrays = self.extractMagArrays(matches, exposure.getFilter().getName(), keys)
 
@@ -543,7 +543,7 @@ The measured sources:
 
         flux0 = 10**(0.4*r.zp) # Flux of mag=0 star
         flux0err = 0.4*math.log(10)*flux0*r.sigma # Error in flux0
-        
+
         calib.setFluxMag0(flux0, flux0err)
 
         return pipeBase.Struct(
@@ -565,7 +565,7 @@ The measured sources:
         large estimate will prevent the clipping from ever taking effect.
         3.  Rather than start with the median we start with a crude mode.  This means that a set of magnitude
         residuals with a tight core and asymmetrical outliers will start in the core.  We use the width of
-        this core to set our maximum sigma (see 2.)  
+        this core to set our maximum sigma (see 2.)
         """
 
         sigmaMax = self.config.sigmaMax
@@ -574,7 +574,7 @@ The measured sources:
 
         i = np.argsort(dmag)
         dmag = dmag[i]
-        
+
         if srcErr is not None:
             dmagErr = srcErr[i]
         else:
@@ -636,7 +636,7 @@ The measured sources:
                     if sigmaMax is None:
                         sigmaMax = 2*sig   # upper bound on st. dev. for clipping. multiplier is a heuristic
 
-                    self.log.logdebug("Photo calibration histogram: center = %.2f, sig = %.2f" 
+                    self.log.logdebug("Photo calibration histogram: center = %.2f, sig = %.2f"
                                       % (center, sig))
 
                 else:
@@ -673,13 +673,13 @@ The measured sources:
                     axes = fig.add_axes((0.1, 0.1, 0.85, 0.80));
 
                     axes.plot(ref[good], dmag[good] - center, "b+")
-                    axes.errorbar(ref[good], dmag[good] - center, yerr=dmagErr[good], 
+                    axes.errorbar(ref[good], dmag[good] - center, yerr=dmagErr[good],
                                   linestyle='', color='b')
 
                     bad = np.logical_not(good)
                     if len(ref[bad]) > 0:
                         axes.plot(ref[bad], dmag[bad] - center, "r+")
-                        axes.errorbar(ref[bad], dmag[bad] - center, yerr=dmagErr[bad], 
+                        axes.errorbar(ref[bad], dmag[bad] - center, yerr=dmagErr[bad],
                                       linestyle='', color='r')
 
                     axes.plot((-100, 100), (0, 0), "g-")
