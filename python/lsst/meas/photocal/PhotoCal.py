@@ -53,7 +53,7 @@ class PhotoCalConfig(pexConf.Config):
         dtype=bool, default=True,
         doc= "Apply photometric colour terms (if available) to reference stars",
         )
-    writeOutputField = pexConf.Field(
+    doWriteOutput = pexConf.Field(
         dtype=bool, default=True,
         doc= "Write a field name astrom_usedByPhotoCal to the schema",
         )
@@ -214,6 +214,7 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
         """!Create the photometric calibration task.  Most arguments are simply passed onto pipe.base.Task.
 
         \param schema An lsst::afw::table::Schema used to create the output lsst.afw.table.SourceCatalog
+        \param tableVersion argument to indicate which afw::table table version 
         \param **kwds keyword arguments to be passed to the lsst.pipe.base.task.Task constructor
 
         """
@@ -223,12 +224,12 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
         """!Create the photometric calibration task.  See PhotoCalTask.init for documentation
         """
         pipeBase.Task.__init__(self, **kwds)
-        if self.config.writeOutputField:
+        if self.config.doWriteOutput:
             if tableVersion == 0:
                 self.outputField = schema.addField("classification.photometric", type="Flag",
                                           doc="set if source was used in photometric calibration")
             else:
-                self.outputField = schema.addField("astrom_usedByPhotoCal", type="Flag",
+                self.outputField = schema.addField("photocal_photometricStandard", type="Flag",
                                           doc="set if source was used in photometric calibration")
         else:
             self.outputField = None
