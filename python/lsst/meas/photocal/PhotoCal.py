@@ -49,13 +49,18 @@ def checkSourceFlags(source, keys):
 class PhotoCalConfig(pexConf.Config):
 
     magLimit = pexConf.Field(dtype=float, doc="Don't use objects fainter than this magnitude", default=22.0)
-    applyColorTerms = pexConf.Field(
-        dtype=bool, default=True,
-        doc= "Apply photometric colour terms (if available) to reference stars",
-        )
     doWriteOutput = pexConf.Field(
         dtype=bool, default=True,
         doc= "Write a field name astrom_usedByPhotoCal to the schema",
+        )
+    fluxField = pexConf.Field(
+        dtype=str, default="base_PsfFlux_flux", optional=False,
+        doc="Name of the source flux field to use.  The associated flag field\n"\
+            "('<name>.flags') will be implicitly included in badFlags.\n"
+        )
+    applyColorTerms = pexConf.Field(
+        dtype=bool, default=True,
+        doc= "Apply photometric colour terms (if available) to reference stars",
         )
     goodFlags = pexConf.ListField(
         dtype=str, optional=False,
@@ -236,14 +241,19 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
 
     def getKeys(self, schema, tableVersion=0):
         """!Return a struct containing the source catalog keys for fields used by PhotoCalTask."""
-
+        fluxField = self.config.fluxField
         if tableVersion == 0:
+            if fluxField == 'base_PsfFlux_flux': fluxField = "flux.psf"
+            flux = schema.find(fluxField).key
+            fluxErr = schema.find(fluxField + ".err").key
             goodFlags = [schema.find(name).key for name in Version0FlagMapper(self.config.goodFlags)]
             badFlags = [schema.find(name).key for name in Version0FlagMapper(self.config.badFlags)]
         else:
+            flux = schema.find(self.config.fluxField).key
+            fluxErr = schema.find(self.config.fluxField + "Sigma").key
             goodFlags = [schema.find(name).key for name in self.config.goodFlags]
             badFlags = [schema.find(name).key for name in self.config.badFlags]
-        return pipeBase.Struct(goodFlags=goodFlags, badFlags=badFlags)
+        return pipeBase.Struct(flux=flux, fluxErr=fluxErr, goodFlags=goodFlags, badFlags=badFlags)
 
     @pipeBase.timeMethod
     def selectMatches(self, matches, keys, frame=None):
@@ -376,8 +386,8 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
         \note These are the \em inputs to the photometric calibration, some may have been
         discarded by clipping while estimating the calibration (https://jira.lsstcorp.org/browse/DM-813)
         """
-        srcFlux = np.array([m.second.getPsfFlux() for m in matches])
-        srcFluxErr = np.array([m.second.getPsfFluxErr() for m in matches])
+        srcFlux = np.array([m.second.get(keys.flux) for m in matches])
+        srcFluxErr = np.array([m.second.get(keys.fluxErr) for m in matches])
         if not np.all(np.isfinite(srcFluxErr)):
             self.log.warn("Source catalog does not have flux uncertainties; using sqrt(flux).")
             srcFluxErr = np.sqrt(srcFlux)

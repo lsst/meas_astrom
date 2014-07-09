@@ -52,7 +52,7 @@ class CatalogStarSelectorConfig(pexConfig.Config):
     badStarPixelFlags = pexConfig.ListField(
         doc = "PSF candidate objects may not have any of these bits set",
         dtype = str,
-        default = ["base_PixelFlags_edge", "base_PixelFlags_interpolatedCenter", "base_PixelFlags_saturatedCenter"],
+        default = ["base_PixelFlags_flag_edge", "base_PixelFlags_flag_interpolatedCenter", "base_PixelFlags_flag_saturatedCenter"],
         )
     kernelSize = pexConfig.Field(
         doc = "size of the kernel to create",
