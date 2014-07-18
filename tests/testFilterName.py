@@ -37,10 +37,6 @@ import lsst.afw.image as afwImg
 import lsst.utils.tests as utilsTests
 import lsst.pex.policy as pexPolicy
 
-from lsst.pex.exceptions import LsstCppException
-
-
-
 class chooseFilterNameTest(unittest.TestCase):
     """The logic for determining which tag-along data to extract from
     the astrometry net catalogue is a little complicated, so 

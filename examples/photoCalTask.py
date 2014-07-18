@@ -41,8 +41,6 @@ N.b. this inverted dependency is due to AstrometryTask being in the wrong place"
 from lsst.pipe.tasks.astrometry import AstrometryTask
 import lsst.meas.photocal           as measPhotocal
 
-from lsst.pex.exceptions import LsstCppException
-
 def loadData():
     """Prepare the data we need to run the example"""
     
