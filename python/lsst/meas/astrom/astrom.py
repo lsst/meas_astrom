@@ -557,7 +557,7 @@ class Astrometry(object):
                 proposedWcs = sipObject.getNewWcs()
                 scatPix = sipObject.getScatterInPixels()
                 self.plotSolution(matchList, proposedWcs, imageSize)
-            except pexExceptions.LsstCppException, e:
+            except pexExceptions.Exception as e:
                 self._warn('Failed to calculate distortion terms. Error: ' + str(e))
                 break
 

@@ -32,9 +32,9 @@ import unittest
 import eups
 import lsst.afw.image as afwImage
 import lsst.utils.tests as utilsTests
-import lsst.afw.image.imageLib as img
-import lsst.afw.detection.detectionLib as detect
-import lsst.pex.exceptions.exceptionsLib as exception
+import lsst.afw.image as img
+import lsst.afw.detection as detect
+import lsst.pex.exceptions
 
 import lsst.meas.astrom.sip as sip
 
@@ -55,7 +55,7 @@ class Lsf1dTestCase(unittest.TestCase):
         
         order=0
 
-        self.assertRaises(exception.LsstCppException,
+        self.assertRaises(lsst.pex.exceptions.Exception,
             sip.LeastSqFitter1dPoly, x, y,s,order )
         
 
@@ -68,7 +68,7 @@ class Lsf1dTestCase(unittest.TestCase):
         
         order=0
 
-        self.assertRaises(exception.LsstCppException,
+        self.assertRaises(lsst.pex.exceptions.Exception,
             sip.LeastSqFitter1dPoly, x, y,s,order )
 
     def testBadArgs3(self):
@@ -80,7 +80,7 @@ class Lsf1dTestCase(unittest.TestCase):
         
         order=0
 
-        self.assertRaises(exception.LsstCppException,
+        self.assertRaises(lsst.pex.exceptions.Exception,
             sip.LeastSqFitter1dPoly, x, y,s,order )
 
 
@@ -93,7 +93,7 @@ class Lsf1dTestCase(unittest.TestCase):
         
         order=5
 
-        self.assertRaises(exception.LsstCppException,
+        self.assertRaises(lsst.pex.exceptions.Exception,
             sip.LeastSqFitter1dPoly, x, y,s,order )
 
     def testConst1(self):

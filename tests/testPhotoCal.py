@@ -50,8 +50,6 @@ import lsst.pex.policy             as pexPolicy
 from lsst.pex.logging import Log
 import lsst.meas.photocal          as photocal
 
-from lsst.pex.exceptions import LsstCppException
-
 class PhotoCalTest(unittest.TestCase):
 
     def setUp(self):
