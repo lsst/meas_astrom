@@ -255,7 +255,7 @@ void set_an_log(PTR(pexLog::Log) newlog);
                   bool unique_ids=true)
     {
         if ((magnameVec.size() != magcolVec.size()) || (magnameVec.size() != magerrcolVec.size())) {
-            throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterException,
+            throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError,
                               "Mag name, mag column, and mag error column vectors must be the same length.");
         }
         std::vector<lsst::meas::astrom::detail::mag_column_t> magcols;
@@ -390,8 +390,35 @@ void set_an_log(PTR(pexLog::Log) newlog);
         return qhi;
     }
 
-    void addIndex(index_t* ind) {
-        solver_add_index($self, ind);
+    void addIndices(std::vector<index_s*> inds) {
+        for (std::vector<index_s*>::iterator pind = inds.begin();
+             pind != inds.end(); ++pind) {
+            lsst::meas::astrom::detail::IndexManager man(*pind);
+//            printf("Checking index \"%s\"\n", man.index->indexname);
+            if ($self->use_radec) {
+                double ra,dec,radius;
+                xyzarr2radecdeg($self->centerxyz, &ra, &dec);
+                radius = distsq2deg($self->r2);
+                if (!index_is_within_range(man.index, ra, dec, radius)) {
+                                     //printf("Not within RA,Dec range\n");
+                    continue;
+                }
+            }
+            // qlo,qhi in arcsec
+            double qlo, qhi;
+            solver_get_quad_size_range_arcsec($self, &qlo, &qhi);
+            if (!index_overlaps_scale_range(man.index, qlo, qhi)) {
+//                printf("Not within quad scale range\n");
+                continue;
+            }
+//            printf("Adding index.\n");
+            if (index_reload(man.index)) {
+                throw LSST_EXCEPT(lsst::pex::exceptions::IoError,
+                                  "Failed to index_reload() an astrometry_net_data index file -- out of file descriptors?");
+            }
+
+            solver_add_index($self, man.index);
+        }
     }
 
     void setParity(bool p) {

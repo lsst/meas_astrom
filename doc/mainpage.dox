@@ -1,0 +1,8 @@
+/**
+\mainpage lsst::meas::photocal;  Photometric Calibration
+
+\section measPhotocalSecIntro Introduction
+
+Astrometric and Photometric Calibration for LSST.
+\note these two steps are slated to be split into different packages.
+*/

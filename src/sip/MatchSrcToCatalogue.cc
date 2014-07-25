@@ -56,7 +56,7 @@ MatchSrcToCatalogue::MatchSrcToCatalogue(afw::table::SimpleCatalog const& catSet
 /// Set a new value for the maximum allowed distance between two matching objects (in ra/dec space) 
 void MatchSrcToCatalogue::setDist(afw::geom::Angle dist) {
     if (dist <= 0) {
-        throw LSST_EXCEPT(pex::exceptions::InvalidParameterException, "Distance must be > 0");
+        throw LSST_EXCEPT(pex::exceptions::InvalidParameterError, "Distance must be > 0");
     }
     _dist = dist;
 }
@@ -76,9 +76,9 @@ void MatchSrcToCatalogue::setCatSrcSet(afw::table::SimpleCatalog const &srcSet) 
 }
 
 void MatchSrcToCatalogue::findMatches() {
-    if (!_imgSet.getTable()->getCentroidKey().isValid()) {
+    if (!_imgSet.getTable()->hasCentroidSlot()) {
         throw LSST_EXCEPT(
-            pex::exceptions::LogicErrorException,
+            pex::exceptions::LogicError,
             "SourceTable passed to MatchSrcToCatalogue does not have its centroid slot set."
         );
     }

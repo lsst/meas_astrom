@@ -19,6 +19,7 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
+# \package lsst.meas.photocal
 import math, os, sys
 import numpy as np
 
@@ -30,15 +31,17 @@ import lsst.pipe.base as pipeBase
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.afw.display.ds9 as ds9
+from lsst.meas.base.base import Version0FlagMapper
 
 def checkSourceFlags(source, keys):
-    """Return True if the given source has all good flags set and none of the bad flags set.
+    """!Return True if the given source has all good flags set and none of the bad flags set.
 
-    @param[in] source    SourceRecord object to process.
-    @param[in] keys      Struct of source catalog keys, as returned by PhotCalTask.getKeys()
+    \param[in] source    SourceRecord object to process.
+    \param[in] keys      Struct of source catalog keys, as returned by PhotCalTask.getKeys()
     """
     for k in keys.goodFlags:
         if not source.get(k): return False
+    if source.getPsfFluxFlag(): return False
     for k in keys.badFlags:
         if source.get(k): return False
     return True
@@ -46,12 +49,12 @@ def checkSourceFlags(source, keys):
 class PhotoCalConfig(pexConf.Config):
 
     magLimit = pexConf.Field(dtype=float, doc="Don't use objects fainter than this magnitude", default=22.0)
-    outputField = pexConf.Field(
-        dtype=str, optional=True, default="classification.photometric",
-        doc="Name of the flag field that is set for sources used in photometric calibration"
+    doWriteOutput = pexConf.Field(
+        dtype=bool, default=True,
+        doc= "Write a field name astrom_usedByPhotoCal to the schema",
         )
     fluxField = pexConf.Field(
-        dtype=str, default="flux.psf", optional=False,
+        dtype=str, default="base_PsfFlux_flux", optional=False,
         doc="Name of the source flux field to use.  The associated flag field\n"\
             "('<name>.flags') will be implicitly included in badFlags.\n"
         )
@@ -61,12 +64,12 @@ class PhotoCalConfig(pexConf.Config):
         )
     goodFlags = pexConf.ListField(
         dtype=str, optional=False,
-        default=[], 
+        default=[],
         doc="List of source flag fields that must be set for a source to be used."
         )
     badFlags = pexConf.ListField(
         dtype=str, optional=False,
-        default=["flags.pixel.edge", "flags.pixel.interpolated.any", "flags.pixel.saturated.any"], 
+        default=["base_PixelFlags_flag_edge", "base_PixelFlags_flag_interpolated", "base_PixelFlags_flag_saturated"], 
         doc="List of source flag fields that will cause a source to be rejected when they are set."
         )
     sigmaMax = pexConf.Field(dtype=float, default=0.25, optional=True,
@@ -76,52 +79,199 @@ class PhotoCalConfig(pexConf.Config):
                               doc="use median instead of mean to compute zeropoint")
     nIter = pexConf.Field(dtype=int, default=20, optional=False, doc="number of iterations")
 
+## \addtogroup LSST_task_documentation
+## \{
+## \page photoCalTask
+## \ref PhotoCalTask_ "PhotoCalTask"
+##      Detect positive and negative sources on an exposure and return a new SourceCatalog.
+## \}
+
 class PhotoCalTask(pipeBase.Task):
-    """Calculate the zero point of an exposure given a ReferenceMatchVector.
+    """!
+\anchor PhotoCalTask_
+
+\brief Calculate the zero point of an exposure given a lsst.afw.table.ReferenceMatchVector.
+
+\section meas_photocal_photocal_Contents Contents
+
+ - \ref meas_photocal_photocal_Purpose
+ - \ref meas_photocal_photocal_Initialize
+ - \ref meas_photocal_photocal_IO
+ - \ref meas_photocal_photocal_Config
+ - \ref meas_photocal_photocal_Debug
+ - \ref meas_photocal_photocal_Example
+
+\section meas_photocal_photocal_Purpose	Description
+
+\copybrief PhotoCalTask
+
+Calculate an Exposure's zero-point given a set of flux measurements of stars matched to an input catalogue.
+The type of flux to use is specified by PhotoCalConfig.fluxField.
+
+The algorithm clips outliers iteratively, with parameters set in the configuration.
+
+\note This task can adds fields to the schema, so any code calling this task must ensure that
+these columns are indeed present in the input match list; see \ref meas_photocal_photocal_Example
+
+\section meas_photocal_photocal_Initialize	Task initialisation
+
+\copydoc init
+
+\section meas_photocal_photocal_IO		Inputs/Outputs to the run method
+
+\copydoc run
+
+\section meas_photocal_photocal_Config       Configuration parameters
+
+See \ref PhotoCalConfig
+
+\section meas_photocal_photocal_Debug		Debug variables
+
+The \link lsst.pipe.base.cmdLineTask.CmdLineTask command line task\endlink interface supports a
+flag \c -d to import \b debug.py from your \c PYTHONPATH; see \ref baseDebug for more about \b debug.py files.
+
+The available variables in PhotoCalTask are:
+<DL>
+  <DT> \c display
+  <DD> If True enable other debug outputs
+  <DT> \c displaySources
+  <DD> If True, display the exposure on ds9's frame 1 and overlay the source catalogue:
+    <DL>
+      <DT> red x
+      <DD> Bad objects
+      <DT> blue +
+      <DD> Matched objects deemed unsuitable for photometric calibration.
+            Additional information is:
+	    - a cyan o for galaxies
+	    - a magenta o for variables
+      <DT> magenta *
+      <DD> Objects that failed the flux cut
+      <DT> green o
+      <DD> Objects used in the photometric calibration
+    </DL>
+  <DT> \c scatterPlot
+  <DD> Make a scatter plot of flux v. reference magnitude as a function of reference magnitude.
+    - good objects in blue
+    - rejected objects in red
+  (if \c scatterPlot is 2 or more, prompt to continue after each iteration)
+</DL>
+
+\section meas_photocal_photocal_Example	A complete example of using PhotoCalTask
+
+This code is in \link photoCalTask.py\endlink in the examples directory, and can be run as \em e.g.
+\code
+examples/photoCalTask.py
+\endcode
+\dontinclude photoCalTask.py
+
+Import the tasks (there are some other standard imports; read the file for details)
+\skipline from lsst.pipe.tasks.astrometry
+\skipline measPhotocal
+
+We need to create both our tasks before processing any data as the task constructors
+can add extra columns to the schema which we get from the input catalogue, \c scrCat:
+\skipline getSchema
+
+Astrometry first:
+\skip AstrometryTask.ConfigClass
+\until aTask
+(that \c filterMap line is because our test code doesn't use a filter that the reference catalogue recognises,
+so we tell it to use the \c r band)
+
+Then photometry:
+\skip measPhotocal
+\until pTask
+
+If the schema has indeed changed we need to add the new columns to the source table
+(yes; this should be easier!)
+\skip srcCat
+\until srcCat = cat
+
+We're now ready to process the data (we could loop over multiple exposures/catalogues using the same
+task objects):
+\skip matches
+\until result
+
+We can then unpack and use the results:
+\skip calib
+\until np.log
+
+<HR>
+To investigate the \ref meas_photocal_photocal_Debug, put something like
+\code{.py}
+    import lsstDebug
+    def DebugInfo(name):
+        di = lsstDebug.getInfo(name)        # N.b. lsstDebug.Info(name) would call us recursively
+        if name == "lsst.meas.photocal.PhotoCal":
+            di.display = 1
+
+        return di
+
+    lsstDebug.Info = DebugInfo
+\endcode
+into your debug.py file and run photoCalTask.py with the \c --debug flag.
     """
     ConfigClass = PhotoCalConfig
     _DefaultName = "photoCal"
 
-    def __init__(self, schema, **kwds):
-        """Create the task, pulling input keys from the schema and adding a flag field
-        'classification.photometric' that will be set for sources used to determine the
-        photometric calibration.
+    # Need init as well as __init__ because "\copydoc __init__" fails (doxygen bug 732264)
+    def init(self, schema, tableVersion=0, **kwds):
+        """!Create the photometric calibration task.  Most arguments are simply passed onto pipe.base.Task.
+
+        \param schema An lsst::afw::table::Schema used to create the output lsst.afw.table.SourceCatalog
+        \param tableVersion argument to indicate which afw::table table version 
+        \param **kwds keyword arguments to be passed to the lsst.pipe.base.task.Task constructor
+
+        """
+        self.__init__(schema, tableVersion, **kwds)
+
+    def __init__(self, schema, tableVersion=0, **kwds):
+        """!Create the photometric calibration task.  See PhotoCalTask.init for documentation
         """
         pipeBase.Task.__init__(self, **kwds)
-        if self.config.outputField is not None:
-            self.output = schema.addField(self.config.outputField, type="Flag",
+        if self.config.doWriteOutput:
+            if tableVersion == 0:
+                self.outputField = schema.addField("classification.photometric", type="Flag",
+                                          doc="set if source was used in photometric calibration")
+            else:
+                self.outputField = schema.addField("photocal_photometricStandard", type="Flag",
                                           doc="set if source was used in photometric calibration")
         else:
-            self.output = None
+            self.outputField = None
 
-    def getKeys(self, schema):
-        """Return a struct containing the source catalog keys for fields used by PhotoCalTask."""
-        flux = schema.find(self.config.fluxField).key
-        fluxErr = schema.find(self.config.fluxField + ".err").key
-        goodFlags = [schema.find(name).key for name in self.config.goodFlags]
-        badFlags = [schema.find(self.config.fluxField + ".flags").key]
-        badFlags.extend(schema.find(name).key for name in self.config.badFlags)
+    def getKeys(self, schema, tableVersion=0):
+        """!Return a struct containing the source catalog keys for fields used by PhotoCalTask."""
+        fluxField = self.config.fluxField
+        if tableVersion == 0:
+            if fluxField == 'base_PsfFlux_flux': fluxField = "flux.psf"
+            flux = schema.find(fluxField).key
+            fluxErr = schema.find(fluxField + ".err").key
+            goodFlags = [schema.find(name).key for name in Version0FlagMapper(self.config.goodFlags)]
+            badFlags = [schema.find(name).key for name in Version0FlagMapper(self.config.badFlags)]
+        else:
+            flux = schema.find(self.config.fluxField).key
+            fluxErr = schema.find(self.config.fluxField + "Sigma").key
+            goodFlags = [schema.find(name).key for name in self.config.goodFlags]
+            badFlags = [schema.find(name).key for name in self.config.badFlags]
         return pipeBase.Struct(flux=flux, fluxErr=fluxErr, goodFlags=goodFlags, badFlags=badFlags)
 
     @pipeBase.timeMethod
     def selectMatches(self, matches, keys, frame=None):
-        """Select reference/source matches according the criteria specified in the config.
+        """!Select reference/source matches according the criteria specified in the config.
 
+        \param[in] matches ReferenceMatchVector (not modified)
+        \param[in] keys    Struct of source catalog keys, as returned by getKeys()
+        \param[in] frame   ds9 frame number to use for debugging display
         if frame is non-None, display information about trimmed objects on that ds9 frame:
-            Bad:               red x
-            Non-"photometric": blue +  (and a cyan o if a galaxy)
-            Failed flux cut:   magenta *
+         - Bad:               red x
+         - Unsuitable objects: blue +  (and a cyan o if a galaxy)
+         - Failed flux cut:   magenta *
 
-        The return value is a ReferenceMatchVector that contains only the selected matches.
-        If a schema was passed during task construction, a flag field will be set on sources 
+        \return a \link lsst.afw.table.ReferenceMatchVector\endlink that contains only the selected matches.
+        If a schema was passed during task construction, a flag field will be set on sources
         in the selected matches.
 
-        An exception will be raised if there are no valid matches.
-
-        @param[in] matches ReferenceMatchVector (not modified)
-        @param[in] keys    Struct of source catalog keys, as returned by getKeys()
-        @param[in] frame   ds9 frame number to use for debugging display
-        @return Output ReferenceMatchVector
+        \throws ValueError There are no valid matches.
         """
 
         self.log.logdebug("Number of input matches: %d" % (len(matches)))
@@ -184,15 +334,14 @@ class PhotoCalTask(pipeBase.Task):
         self.log.logdebug("Number of matches after reference catalog cuts: %d" % (len(matches)))
         if len(matches) == 0:
             raise RuntimeError("No sources remain in match list after reference catalog cuts.")
-        
         fluxKey = refSchema.find("flux").key
         if self.config.magLimit is not None:
             fluxLimit = 10.0**(-self.config.magLimit/2.5)
 
             afterMagCutInd = [i for i, m in enumerate(matches) if (m.first.get(fluxKey) > fluxLimit
-                                                                   and m.second.get(keys.flux) > 0.0)]
+                                                                   and m.second.getPsfFlux() > 0.0)]
         else:
-            afterMagCutInd = [i for i, m in enumerate(matches) if m.second.get(keys.flux) > 0.0]
+            afterMagCutInd = [i for i, m in enumerate(matches) if m.second.getPsfFlux() > 0.0]
 
         afterMagCut = [matches[i] for i in afterMagCutInd]
 
@@ -205,7 +354,7 @@ class PhotoCalTask(pipeBase.Task):
                             ds9.dot("*", x,  y, size=4, frame=frame, ctype=ds9.MAGENTA)
 
             matches = afterMagCut
-            
+
         self.log.logdebug("Number of matches after magnitude limit cuts: %d" % (len(matches)))
 
         if len(matches) == 0:
@@ -219,27 +368,30 @@ class PhotoCalTask(pipeBase.Task):
 
         result = afwTable.ReferenceMatchVector()
         for m in matches:
-            if self.output is not None:
-                m.second.set(self.output, True)
+            if self.outputField is not None:
+                m.second.set(self.outputField, True)
             result.append(m)
         return result
 
     @pipeBase.timeMethod
     def extractMagArrays(self, matches, filterName, keys):
-        """Extract magnitude and magnitude error arrays from the given matches.
+        """!Extract magnitude and magnitude error arrays from the given matches.
 
-        @param[in] matches    ReferenceMatchVector object containing reference/source matches
-        @param[in] filterName Name of filter being calibrated
-        @param[in] keys       Struct of source catalog keys, as returned by getKeys()
-        
-        @return Struct containing srcMag, refMag, srcMagErr, refMagErr, and errMag arrays.
+        \param[in] matches     \link lsst::afw::table::ReferenceMatchVector\endlink object containing reference/source matches
+        \param[in] filterName Name of filter being calibrated
+        \param[in] keys       Struct of source catalog keys, as returned by getKeys()
+
+        \return Struct containing srcMag, refMag, srcMagErr, refMagErr, and magErr numpy arrays
+        where magErr is an error in the magnitude; the error in srcMag - refMag.
+        \note These are the \em inputs to the photometric calibration, some may have been
+        discarded by clipping while estimating the calibration (https://jira.lsstcorp.org/browse/DM-813)
         """
         srcFlux = np.array([m.second.get(keys.flux) for m in matches])
         srcFluxErr = np.array([m.second.get(keys.fluxErr) for m in matches])
         if not np.all(np.isfinite(srcFluxErr)):
             self.log.warn("Source catalog does not have flux uncertainties; using sqrt(flux).")
             srcFluxErr = np.sqrt(srcFlux)
-        
+
         if not matches:
             raise RuntimeError("No reference stars are available")
 
@@ -262,7 +414,7 @@ class PhotoCalTask(pipeBase.Task):
                 self.log.warn("Source catalog does not have fluxes for %s; ignoring color terms" %
                               " ".join(missingFluxes))
                 ct = None
-                
+
         if not ct:
             fluxNames = ["flux"]
 
@@ -311,16 +463,50 @@ class PhotoCalTask(pipeBase.Task):
 
     @pipeBase.timeMethod
     def run(self, exposure, matches):
-        """Do photometric calibration - select matches to use and (possibly iteratively) compute
+        """!Do photometric calibration - select matches to use and (possibly iteratively) compute
         the zero point.
 
-        @param[in]  exposure   Exposure upon which the sources in the matches were detected.
-        @param[in]  matches    Input ReferenceMatchVector (will not be modified).
-        
-        @return Struct of:
-           calib ------- Calib object containing the zero point
-           arrays ------ Magnitude arrays returned be extractMagArrays
-           matches ----- Final ReferenceMatchVector, as returned by selectMathces.
+        \param[in]  exposure   Exposure upon which the sources in the matches were detected.
+        \param[in]  matches    Input lsst.afw.table.ReferenceMatchVector
+        (\em i.e. a list of lsst.afw.table.Match with
+        \c first being of type lsst.afw.table.SimpleRecord and \c second type lsst.afw.table.SourceRecord ---
+        the reference object and matched object respectively).
+        (will not be modified  except to set the outputField if requested.).
+
+        \return Struct of:
+         - calib -------  \link lsst::afw::image::Calib\endlink object containing the zero point
+         - arrays ------ Magnitude arrays returned be PhotoCalTask.extractMagArrays
+         - matches ----- Final ReferenceMatchVector, as returned by PhotoCalTask.selectMatches.
+
+The exposure is only used to provide the name of the filter being calibrated (it may also be
+used to generate debugging plots).
+
+The reference objects:
+ - Must include a field \c photometric; True for objects which should be considered as photometric standards
+ - Must include a field \c flux; the flux used to impose a magnitude limit and also to calibrate the data to (unless a colour term is specified, in which case ColorTerm.primary is used;  See https://jira.lsstcorp.org/browse/DM-933)
+ - May include a field \c stargal; if present, True means that the object is a star
+ - May include a field \c var; if present, True means that the object is variable
+
+The measured sources:
+- Must include PhotoCalConfig.fluxField; the flux measurement to be used for calibration
+
+\throws RuntimeError with the following strings:
+
+<DL>
+<DT> `sources' schema does not contain the calibration object flag "XXX"`
+<DD> The constructor added fields to the schema that aren't in the Sources
+<DT> No input matches
+<DD> The input match vector is empty
+<DT> All matches eliminated by source flags
+<DD> The flags specified by \c badFlags in the config eliminated all candidate objects
+<DT> No sources remain in match list after reference catalog cuts
+<DD> The reference catalogue has a column "photometric", but no matched objects have it set
+<DT> No sources remaining in match list after magnitude limit cuts
+<DD> All surviving matches are either too faint in the catalogue or have negative or \c NaN flux
+<DT> No reference stars are available
+<DD> No matches survive all the checks
+</DL>
+
         """
         global scatterPlot, fig
         import lsstDebug
@@ -342,9 +528,18 @@ class PhotoCalTask(pipeBase.Task):
         else:
             frame = None
 
-        keys = self.getKeys(matches[0].second.schema)
+        keys = self.getKeys(matches[0].second.schema, matches[0].second.getTable().getVersion())
         matches = self.selectMatches(matches, keys, frame=frame)
         arrays = self.extractMagArrays(matches, exposure.getFilter().getName(), keys)
+
+        if matches and self.outputField:
+            try:
+                # matches[].second is a measured source, wherein we wish to set outputField.
+                # Check that the field is present in the Sources schema.
+                matches[0].second.getSchema().find(self.outputField)
+            except:
+                raise RuntimeError("sources' schema does not contain the used-in-calibration flag \"%s\"" %
+                                   self.config.outputField)
 
         # Fit for zeropoint.  We can run the code more than once, so as to
         # give good stars that got clipped by a bad first guess a second
@@ -359,7 +554,7 @@ class PhotoCalTask(pipeBase.Task):
 
         flux0 = 10**(0.4*r.zp) # Flux of mag=0 star
         flux0err = 0.4*math.log(10)*flux0*r.sigma # Error in flux0
-        
+
         calib.setFluxMag0(flux0, flux0err)
 
         return pipeBase.Struct(
@@ -372,7 +567,7 @@ class PhotoCalTask(pipeBase.Task):
             )
 
     def getZeroPoint(self, src, ref, srcErr=None, zp0=None):
-        """Flux calibration code, returning (ZeroPoint, Distribution Width, Number of stars)
+        """!Flux calibration code, returning (ZeroPoint, Distribution Width, Number of stars)
 
         We perform nIter iterations of a simple sigma-clipping algorithm with a a couple of twists:
         1.  We use the median/interquartile range to estimate the position to clip around, and the
@@ -381,7 +576,7 @@ class PhotoCalTask(pipeBase.Task):
         large estimate will prevent the clipping from ever taking effect.
         3.  Rather than start with the median we start with a crude mode.  This means that a set of magnitude
         residuals with a tight core and asymmetrical outliers will start in the core.  We use the width of
-        this core to set our maximum sigma (see 2.)  
+        this core to set our maximum sigma (see 2.)
         """
 
         sigmaMax = self.config.sigmaMax
@@ -390,7 +585,7 @@ class PhotoCalTask(pipeBase.Task):
 
         i = np.argsort(dmag)
         dmag = dmag[i]
-        
+
         if srcErr is not None:
             dmagErr = srcErr[i]
         else:
@@ -452,7 +647,7 @@ class PhotoCalTask(pipeBase.Task):
                     if sigmaMax is None:
                         sigmaMax = 2*sig   # upper bound on st. dev. for clipping. multiplier is a heuristic
 
-                    self.log.logdebug("Photo calibration histogram: center = %.2f, sig = %.2f" 
+                    self.log.logdebug("Photo calibration histogram: center = %.2f, sig = %.2f"
                                       % (center, sig))
 
                 else:
@@ -489,13 +684,13 @@ class PhotoCalTask(pipeBase.Task):
                     axes = fig.add_axes((0.1, 0.1, 0.85, 0.80));
 
                     axes.plot(ref[good], dmag[good] - center, "b+")
-                    axes.errorbar(ref[good], dmag[good] - center, yerr=dmagErr[good], 
+                    axes.errorbar(ref[good], dmag[good] - center, yerr=dmagErr[good],
                                   linestyle='', color='b')
 
                     bad = np.logical_not(good)
                     if len(ref[bad]) > 0:
                         axes.plot(ref[bad], dmag[bad] - center, "r+")
-                        axes.errorbar(ref[bad], dmag[bad] - center, yerr=dmagErr[bad], 
+                        axes.errorbar(ref[bad], dmag[bad] - center, yerr=dmagErr[bad],
                                       linestyle='', color='r')
 
                     axes.plot((-100, 100), (0, 0), "g-")

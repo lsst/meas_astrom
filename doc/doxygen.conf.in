@@ -1,0 +1,2 @@
+EXAMPLE_PATH = examples
+EXCLUDE_SYMBOLS += _swig_property
