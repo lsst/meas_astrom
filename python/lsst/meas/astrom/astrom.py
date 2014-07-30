@@ -954,15 +954,7 @@ class Astrometry(object):
                 toload_inds.append(ind)
 
         with Astrometry._LoadedMIndexes(toload_multiInds):
-            active = []
-            for ind in toload_inds:
-                ind.reload()
-                active.append(ind.indexname)
-                solver.addIndex(ind)
-
-                self.log.logdebug('Searching for match in %i of %i index files: [ %s ]' %
-                                  (len(active), ntotal, ', '.join(active)))
-
+            solver.addIndices(toload_inds)
             self.memusage('Index files loaded: ')
 
             cpulimit = self.config.maxCpuTime

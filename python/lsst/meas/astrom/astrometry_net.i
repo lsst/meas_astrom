@@ -390,8 +390,8 @@ void set_an_log(PTR(pexLog::Log) newlog);
         return qhi;
     }
 
-    void addIndices(std::vector<index_s*> inds) {
-        for (std::vector<index_s*>::iterator pind = inds.begin();
+    void addIndices(std::vector<index_t*> inds) {
+        for (std::vector<index_t*>::iterator pind = inds.begin();
              pind != inds.end(); ++pind) {
             lsst::meas::astrom::detail::IndexManager man(*pind);
 //            printf("Checking index \"%s\"\n", man.index->indexname);
