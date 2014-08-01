@@ -1,11 +1,11 @@
 // -*- lsst-C++ -*-
 // Astrometry.net include files:
 extern "C" {
-#include "solver.h"
-#include "index.h"
-#include "starkd.h"
-#include "fitsioutils.h"
-#include "fitstable.h"
+#include "astrometry/solver.h"
+#include "astrometry/index.h"
+#include "astrometry/starkd.h"
+#include "astrometry/fitsioutils.h"
+#include "astrometry/fitstable.h"
 
 #undef ATTRIB_FORMAT
 #undef FALSE
@@ -54,7 +54,7 @@ read_column(fitstable_t* tag,
 
     
 /*
- * Implementation for index_s::getCatalog method
+ * Implementation for index_t::getCatalog method
  */
 afwTable::SimpleCatalog
 getCatalogImpl(std::vector<index_t*> inds,
@@ -87,9 +87,6 @@ getCatalogImpl(std::vector<index_t*> inds,
         //printf("mag col \"%s\", \"%s\", \"%s\"\n", mc->name.c_str(), mc->magcol.c_str(), mc->magerrcol.c_str());
     }
     
-   // additional margin on healpixes, in deg.
-   double margin = 1.0;
-
    double xyz[3];
    radecdeg2xyzarr(ra, dec, xyz);
    double r2 = deg2distsq(radius);
@@ -138,21 +135,13 @@ getCatalogImpl(std::vector<index_t*> inds,
 
    for (std::vector<index_t*>::iterator pind = inds.begin();
         pind != inds.end(); ++pind) {
-      IndexManager man(*pind);
-      //printf("checking index \"%s\"\n", ind->indexname);
-      if (!index_is_within_range(man.index, ra, dec, radius + margin)) {
-          //printf(" skipping: not within range\n");
-          continue;
-      }
-      //printf("index \"%s\" is within range\n", ind->indexname);
-      // Ensure the index is loaded...
-      index_reload(man.index);
 
+       index_t* ind = (*pind);
       // Find nearby stars
       double *radecs = NULL;
       int *starinds = NULL;
       int nstars = 0;
-      startree_search_for(man.index->starkd, xyz, r2, NULL,
+      startree_search_for(ind->starkd, xyz, r2, NULL,
                           &radecs, &starinds, &nstars);
       //printf("found %i in \"%s\"\n", nstars, ind->indexname);
       if (nstars == 0) {
@@ -167,7 +156,7 @@ getCatalogImpl(std::vector<index_t*> inds,
       bool* stargal = NULL;
       bool* var = NULL;
       if (idcol || nMag || stargalcol || varcol) {
-          fitstable_t* tag = startree_get_tagalong(man.index->starkd);
+          fitstable_t* tag = startree_get_tagalong(ind->starkd);
           tfits_type flt = fitscolumn_float_type();
           tfits_type boo = fitscolumn_boolean_type();
           tfits_type i64 = fitscolumn_i64_type();
@@ -175,7 +164,7 @@ getCatalogImpl(std::vector<index_t*> inds,
          if (!tag) {
              std::string msg = boost::str(boost::format("astrometry_net_data index file %s does not contain a tag-along table, "
                                                         "so can't retrieve extra columns.  idcol=%s, stargalcol=%s, varcol=%s") %
-                                          man.index->indexname % idcol % stargalcol % varcol);
+                                          ind->indexname % idcol % stargalcol % varcol);
              msg += ", mag columns=[";
              for (unsigned int i=0; i<nMag; i++) {
                  if (i) {
@@ -194,7 +183,7 @@ getCatalogImpl(std::vector<index_t*> inds,
              if (!id) {
                  throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundError,
                                    str(boost::format("Unable to read data for %s from %s") %
-                                       idcol % man.index->indexname));
+                                       idcol % ind->indexname));
              }
          }
          if (id && unique_ids) {
@@ -237,10 +226,10 @@ getCatalogImpl(std::vector<index_t*> inds,
 
          for (mc = magcols.begin(); mc != magcols.end(); ++mc) {
              char const* col = mc->magcol.c_str();
-             mag.push_back(read_column(tag, col, flt, starinds, nstars, man.index->indexname));
+             mag.push_back(read_column(tag, col, flt, starinds, nstars, ind->indexname));
              if (mc->hasErr()) {
                  char const* col = mc->magerrcol.c_str();
-                 magerr.push_back(read_column(tag, col, flt, starinds, nstars, man.index->indexname));
+                 magerr.push_back(read_column(tag, col, flt, starinds, nstars, ind->indexname));
              }
          }
          if (stargalcol) {
@@ -255,7 +244,7 @@ getCatalogImpl(std::vector<index_t*> inds,
             if (!stargal) {
                 throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundError,
                                   str(boost::format("Unable to read data for %s from %s") %
-                                      stargalcol % man.index->indexname));
+                                      stargalcol % ind->indexname));
             }
             for (int j=0; j<nstars; j++) {
                 stargal[j] = (sg[j] > 0);
@@ -267,7 +256,7 @@ getCatalogImpl(std::vector<index_t*> inds,
              if (!var) {
                 throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundError,
                                   str(boost::format("Unable to read data for %s from %s") %
-                                      varcol % man.index->indexname));
+                                      varcol % ind->indexname));
             }
          }
       }

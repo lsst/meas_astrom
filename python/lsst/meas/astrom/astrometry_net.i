@@ -18,17 +18,21 @@ Python interface to Astrometry.net
 %{
     // Astrometry.net include files...
     extern "C" {
-#include "solver.h"
-#include "index.h"
-#include "starkd.h"
-#include "fitsioutils.h"
-#include "fitstable.h"
-#include "log.h"
-#include "tic.h"
+#include "astrometry/solver.h"
+#include "astrometry/index.h"
+#include "astrometry/multiindex.h"
+#include "astrometry/starkd.h"
+#include "astrometry/fitsioutils.h"
+#include "astrometry/fitstable.h"
+#include "astrometry/log.h"
+#include "astrometry/tic.h"
 
 #undef ATTRIB_FORMAT
 #undef FALSE
 #undef TRUE
+
+#undef logdebug
+#undef debug
     }
 
 #include <vector>
@@ -43,7 +47,7 @@ Python interface to Astrometry.net
 #include "lsst/daf/persistence.h"
 #include "lsst/daf/base/Persistable.h"
 #include "lsst/daf/base/PropertyList.h"
-#include "lsst/afw/table/Source.h"
+#include "lsst/afw/table.h"
 #include "lsst/afw/image/Wcs.h"
 #include "lsst/afw/image/TanWcs.h"
 #include "lsst/afw/geom.h"
@@ -53,6 +57,7 @@ namespace afwTable = lsst::afw::table;
 namespace afwGeom  = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
 namespace dafBase  = lsst::daf::base;
+namespace pexLog   = lsst::pex::logging;
 
 struct timer_baton {
     solver_t* s;
@@ -62,31 +67,94 @@ struct timer_baton {
 static time_t timer_callback(void* baton) {
     struct timer_baton* tt = static_cast<struct timer_baton*>(baton);
     solver_t* solver = tt->s;
-
-    // Unfortunately, a bug in Astrometry.net 0.30 means the timeused is not updated before
-    // calling the timer callback.  Doh!
-
-    // solver.c : update_timeused (which is static) does:
-    double usertime, systime;
-    get_resource_stats(&usertime, &systime, NULL);
-    solver->timeused = std::max(0., (usertime + systime) - solver->starttime);
-    //printf("Timer callback; time used %f, limit %f\n", solver->timeused, tt->timelimit);
+    //printf("Timer callback; time used %f, limit %f\n",
+    //       solver->timeused, tt->timelimit);
     if (solver->timeused > tt->timelimit)
         solver->quit_now = 1;
     return 1;
+}
+
+// Global logger to which Astrometry.net will go.
+static PTR(pexLog::Log) an_log;
+
+PTR(pexLog::Log) get_an_log() {
+    return an_log;
+}
+void set_an_log(PTR(pexLog::Log) newlog) {
+    an_log = newlog;
+}
+
+static void an_log_callback(void* baton, enum log_level level,
+                            const char* file,
+                            int line, const char* func, const char* format,
+                            va_list va) {
+    // translate between logging levels
+    int levelmap[5];
+    levelmap[LOG_NONE ] = pexLog::Log::FATAL;
+    levelmap[LOG_ERROR] = pexLog::Log::FATAL;
+    levelmap[LOG_MSG  ] = pexLog::Log::INFO;
+    levelmap[LOG_VERB ] = pexLog::Log::DEBUG;
+    levelmap[LOG_ALL  ] = pexLog::Log::DEBUG;
+    int lsstlevel = levelmap[level];
+
+    va_list vb;
+    // find out how long the formatted string will be
+    va_copy(vb, va);
+    const int len = vsnprintf(NULL, 0, format, va) + 1; // "+ 1" for the '\0'
+    va_end(va);
+    // allocate a string of the appropriate length
+    char msg[len];
+    (void)vsnprintf(msg, len, format, vb);
+    va_end(vb);
+
+    // trim trailing \n
+    if (msg[len-2] == '\n') {
+        msg[len-2] = '\0';
+    }
+
+    dafBase::PropertySet ps;
+    ps.set("an_file", file);
+    ps.set("an_line", line);
+    ps.set("an_func", func);
+
+    an_log->log(lsstlevel, std::string(msg), ps);
+}
+
+static void start_an_logging() {
+    an_log = PTR(pexLog::Log)(new pexLog::Log(pexLog::Log::getDefaultLog(),
+                                              "meas.astrom.astrometry_net"));
+    an_log->markPersistent();
+    // NOTE, this has to happen before the log_use_function!
+    log_init(LOG_VERB);
+    log_use_function(an_log_callback, NULL);
+    log_to(NULL);
+}
+
+static void stop_an_logging() {
+    log_use_function(NULL, NULL);
+    log_to(stdout);
+    an_log.reset();
+}
+
+void finalize() {
+    stop_an_logging();
 }
     %}
 
 %init %{
     // Astrometry.net logging
     fits_use_error_system();
-    log_init(LOG_MSG);
+    start_an_logging();
     %}
 
 %include "boost_shared_ptr.i"
 %include "lsst/p_lsstSwig.i"
 %include "lsst/base.h"
 %import "lsst/daf/base/baseLib.i"
+
+void finalize();
+PTR(pexLog::Log) get_an_log();
+void set_an_log(PTR(pexLog::Log) newlog);
 
 %lsst_exceptions();
 
@@ -97,11 +165,14 @@ static time_t timer_callback(void* baton) {
 %shared_ptr(lsst::afw::image::Wcs);
 %import "lsst/afw/image/Wcs.h"
 
-%template(VectorOfIndexPtr) std::vector<index_s*>;
+%template(VectorOfIndexPtr) std::vector<index_t*>;
+
 %newobject solver_new;
-%newobject index_load;
-%include "solver.h"
-%include "index.h"
+%newobject multiindex_new;
+
+%include "astrometry/solver.h"
+%include "astrometry/index.h"
+%include "astrometry/multiindex.h"
 
 %inline %{
     void an_log_init(int level) {
@@ -113,19 +184,56 @@ static time_t timer_callback(void* baton) {
     void an_log_set_level(int lvl) {
         log_set_level((log_level)lvl);
     }
-    %}
+%}
 
-// index_t is a typedef of index_s, but swig doesn't notice the typedef (grumble
-// grumble), so we use index_s throughout.
-%extend index_s {
-    ~index_s() {
-        //printf("Deleting index_s %s\n", $self->indexname);
-        index_free($self);
+%extend multiindex_t {
+    // An index being within range is a property of the star kd-tree, hence of
+    // the multi-index as a whole
+    int isWithinRange(double ra, double dec, double radius) {
+        return index_is_within_range(multiindex_get($self, 0), ra, dec, radius);
     }
- }
+
+    void unload() {
+        multiindex_unload($self);
+    }
+
+    ~multiindex_t() {
+        multiindex_free($self);
+    }
+
+    char* get_name() {
+        return $self->fits->filename;
+    }
+
+    %pythoncode %{
+    def reload(self):
+        if multiindex_reload_starkd(self):
+            raise RuntimeError('Failed to reload multi-index star file %s' % self.name)
+    __swig_getmethods__['name'] = get_name
+    if _newclass: x = property(get_name)
+
+    def __len__(self):
+        return multiindex_n(self)
+    def __getitem__(self, i):
+        if i < 0 or i > multiindex_n(self):
+            raise IndexError('Index %i out of bound for multiindex_t' % i)
+        return multiindex_get(self, i)
+    %}
+}
+
+%extend index_t {
+    int overlapsScaleRange(double qlo, double qhi) {
+        return index_overlaps_scale_range($self, qlo, qhi);
+    }
+
+    %pythoncode %{
+    def reload(self):
+        if index_reload(self):
+            raise RuntimeError('Failed to reload multi-index file %s' % self.indexname)
+    %}
+}
 
 %extend solver_t {
-
     ~solver_t() {
         // Working around a bug in Astrometry.net: doesn't take ownership of the
         // field.
@@ -136,7 +244,7 @@ static time_t timer_callback(void* baton) {
     }
 
     lsst::afw::table::SimpleCatalog
-       getCatalog(std::vector<index_s*> inds,
+       getCatalog(std::vector<index_t*> inds,
                   double ra, double dec, double radius,
                   const char* idcol,
                   std::vector<std::string> const& magnameVec,
@@ -164,7 +272,7 @@ static time_t timer_callback(void* baton) {
     }
 
     lsst::afw::table::SimpleCatalog
-        getCatalog(std::vector<index_s*> inds,
+        getCatalog(std::vector<index_t*> inds,
                    double ra, double dec, double radius,
                    const char* idcol,
                    const char* magcol,
@@ -210,7 +318,7 @@ static time_t timer_callback(void* baton) {
         qa->set("meas_astrom*an*time_used", $self->timeused);
         qa->set("meas_astrom*an*best_logodds", $self->best_logodds);
         if ($self->best_index) {
-            index_s* ind = $self->best_index;
+            index_t* ind = $self->best_index;
             qa->set("meas_astrom*an*best_index*id", ind->indexid);
             qa->set("meas_astrom*an*best_index*hp", ind->healpix);
             qa->set("meas_astrom*an*best_index*nside", ind->hpnside);
@@ -256,7 +364,6 @@ static time_t timer_callback(void* baton) {
     }
 
     void run(double cpulimit) {
-//        printf("Solver run...\n");
         solver_log_params($self);
         struct timer_baton tt;
         if (cpulimit > 0.) {
@@ -270,20 +377,21 @@ static time_t timer_callback(void* baton) {
             $self->timer_callback = NULL;
             $self->userdata = NULL;
         }
-//        printf("solver_run returned.\n");
     }
 
-    std::vector<index_s*> getActiveIndexFiles() {
-        std::vector<index_s*> inds;
-        int N = solver_n_indices($self);
-        for (int i=0; i<N; i++) {
-            inds.push_back(solver_get_index($self, i));
-        }
-        return inds;
+    double getQuadSizeLow() {
+        double qlo,qhi;
+        solver_get_quad_size_range_arcsec($self, &qlo, &qhi);
+        return qlo;
+    }
+    double getQuadSizeHigh() {
+        double qlo,qhi;
+        solver_get_quad_size_range_arcsec($self, &qlo, &qhi);
+        return qhi;
     }
 
-    void addIndices(std::vector<index_s*> inds) {
-        for (std::vector<index_s*>::iterator pind = inds.begin();
+    void addIndices(std::vector<index_t*> inds) {
+        for (std::vector<index_t*>::iterator pind = inds.begin();
              pind != inds.end(); ++pind) {
             lsst::meas::astrom::detail::IndexManager man(*pind);
 //            printf("Checking index \"%s\"\n", man.index->indexname);
@@ -321,10 +429,7 @@ static time_t timer_callback(void* baton) {
     }
 
     void setMatchThreshold(double t) {
-        // AN 0.30:
-        $self->logratio_record_threshold = t;
-        // AN 0.40:
-        //solver_set_keep_logodds($self, t)
+        solver_set_keep_logodds($self, t);
     }
 
     void setPixelScaleRange(double lo, double hi) {

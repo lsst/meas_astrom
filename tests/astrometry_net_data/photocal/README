@@ -29,3 +29,8 @@ Revision 20025, date 2011-12-12 21:30:58 -0600 (Mon, 12 Dec 2011).
 > build-index -1 index-photocal-test.fits -P 4 -S r -s 2 -H 11 -r 1 -E -I 120312004 -M -n 100 -o index-photocal-test-4.fits
 
 
+
+
+Later, for testMultiIndex.py: cut the index file down to just the index part (no stars):
+
+fitsgetext -i tests/astrometry_net_data/photocal/index-photocal-test-4.fits -o tests/astrometry_net_data/photocal/mindex-photocal-test-4.fits -e 0 -e 1 -e 2 -e 3 -e 4 -e 5 -e 6

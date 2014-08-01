@@ -6,10 +6,6 @@
 
 #include "lsst/afw/table/Source.h"
 
-extern "C" {
-    typedef struct index_s index_t;     // from astrometry.net's index.h
-}
-
 namespace lsst {
 namespace meas {
 namespace astrom {
@@ -67,7 +63,7 @@ struct IndexManager {
 
 
 /*
- * Implementation for index_s::getCatalog method
+ * Implementation for index_t::getCatalog method
  */
 lsst::afw::table::SimpleCatalog
 getCatalogImpl(std::vector<index_t*> inds,

@@ -109,6 +109,8 @@ class BaseTestCase(unittest.TestCase):
         del self.sourceMatchSet
         del self.wcs
         del self.sipObject
+        import lsst.meas.astrom.astrometry_net as an
+        an.finalize()
         
     def assertAlmostEqualAngle(self, a1, a2):
         self.assertAlmostEqual(a1.asArcseconds(), a2.asArcseconds(), 3) # 1 mas tolerance

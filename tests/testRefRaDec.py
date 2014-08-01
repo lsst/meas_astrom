@@ -45,6 +45,8 @@ class XYAstromTest(unittest.TestCase):
 
     def tearDown(self):
         del self.astrom
+        import lsst.meas.astrom.astrometry_net as an
+        an.finalize()
 
     def testXYAstrom(self):
         ra,dec = 215.505616846, 53.1874283624
