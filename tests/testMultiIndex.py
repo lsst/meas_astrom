@@ -37,7 +37,7 @@ import lsst.afw.image              as afwImg
 import lsst.utils.tests            as utilsTests
 import lsst.pex.config             as pexConfig
 from lsst.pex.logging import Log
-from lsst.pex.exceptions import LsstCppException
+import lsst.pex.exceptions
 
 from lsst.meas.astrom import AstrometryNetDataConfig
 
