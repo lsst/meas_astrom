@@ -527,7 +527,7 @@ The measured sources:
         else:
             frame = None
 
-        keys = self.getKeys(matches[0].second.schema, matches[0].second.getTable().getVersion())
+        keys = self.getKeys(matches[0].second.schema)
         matches = self.selectMatches(matches, keys, frame=frame)
         arrays = self.extractMagArrays(matches, exposure.getFilter().getName(), keys)
 
