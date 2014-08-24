@@ -215,22 +215,21 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
     _DefaultName = "photoCal"
 
     # Need init as well as __init__ because "\copydoc __init__" fails (doxygen bug 732264)
-    def init(self, schema, tableVersion=0, **kwds):
+    def init(self, schema, **kwds):
         """!Create the photometric calibration task.  Most arguments are simply passed onto pipe.base.Task.
 
         \param schema An lsst::afw::table::Schema used to create the output lsst.afw.table.SourceCatalog
-        \param tableVersion argument to indicate which afw::table table version 
         \param **kwds keyword arguments to be passed to the lsst.pipe.base.task.Task constructor
 
         """
-        self.__init__(schema, tableVersion, **kwds)
+        self.__init__(schema, **kwds)
 
-    def __init__(self, schema, tableVersion=0, **kwds):
+    def __init__(self, schema, **kwds):
         """!Create the photometric calibration task.  See PhotoCalTask.init for documentation
         """
         pipeBase.Task.__init__(self, **kwds)
         if self.config.doWriteOutput:
-            if tableVersion == 0:
+            if schema.getVersion() == 0:
                 self.outputField = schema.addField("classification.photometric", type="Flag",
                                           doc="set if source was used in photometric calibration")
             else:
@@ -239,10 +238,10 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
         else:
             self.outputField = None
 
-    def getKeys(self, schema, tableVersion=0):
+    def getKeys(self, schema):
         """!Return a struct containing the source catalog keys for fields used by PhotoCalTask."""
         fluxField = self.config.fluxField
-        if tableVersion == 0:
+        if schema.getVersion() == 0:
             if fluxField == 'base_PsfFlux_flux': fluxField = "flux.psf"
             flux = schema.find(fluxField).key
             fluxErr = schema.find(fluxField + ".err").key
@@ -528,7 +527,7 @@ The measured sources:
         else:
             frame = None
 
-        keys = self.getKeys(matches[0].second.schema, matches[0].second.getTable().getVersion())
+        keys = self.getKeys(matches[0].second.schema)
         matches = self.selectMatches(matches, keys, frame=frame)
         arrays = self.extractMagArrays(matches, exposure.getFilter().getName(), keys)
 
