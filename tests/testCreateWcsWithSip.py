@@ -81,6 +81,7 @@ class BaseTestCase(unittest.TestCase):
 
         catTable = afwTable.SimpleTable.make(afwTable.SimpleTable.makeMinimalSchema())
         srcSchema = afwTable.SourceTable.makeMinimalSchema()
+        srcSchema.setVersion(0)
         key = srcSchema.addField("centroid", type="PointD")
         srcSchema.addField("centroid.flags", type="Flag")
         srcSchema.addField("centroid.err", type="CovPointF")
