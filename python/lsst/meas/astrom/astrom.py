@@ -1,10 +1,12 @@
 import os
 import math
+import sys
+
+import numpy as np # for isfinite()
 
 import lsst.daf.base as dafBase
 import lsst.pex.logging as pexLog
 import lsst.pex.exceptions as pexExceptions
-import lsst.pex.config as pexConfig
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
@@ -12,8 +14,6 @@ import lsst.meas.algorithms.utils as maUtils
 
 from .config import MeasAstromConfig, AstrometryNetDataConfig
 import sip as astromSip
-
-import numpy as np # for isfinite()
 
 # Object returned by determineWcs.
 class InitialAstrometry(object):
@@ -503,11 +503,11 @@ class Astrometry(object):
         if doTrim:
             n = len(sources)
             if exposure is not None:
-                bbox = afwGeom.Box2D(exposure.getMaskedImage().getBBox(afwImage.PARENT))
+                bbox = afwGeom.Box2D(exposure.getMaskedImage().getBBox())
             else:
                 # CHECK -- half-pixel issues here?
                 bbox = afwGeom.Box2D(afwGeom.Point2D(0.,0.), afwGeom.Point2D(W, H))
-            sources = _trimBadPoints(sources, bbox)
+            sources = self._trimBadPoints(sources, bbox)
             self._debug("Trimming: kept %i of %i sources" % (n, len(sources)))
 
         wcs,qa = self._solve(sources, wcs, imageSize, pixelScale, radecCenter, searchRadius, parity,
@@ -679,7 +679,7 @@ class Astrometry(object):
             import matplotlib.pyplot as plt
             import numpy
         except ImportError:
-            print >> sys.stderr, "Unable to import matplotlib: %s" % e
+            print >> sys.stderr, "Unable to import matplotlib"
             return
 
         fig = plt.figure(1)
@@ -727,7 +727,7 @@ class Astrometry(object):
 
             reply = reply.split()
             if reply:
-                reply, args = reply[0], reply[1:]
+                reply = reply[0]
             else:
                 reply = ""
 
@@ -941,7 +941,6 @@ class Astrometry(object):
         else:
             multiInds = self.multiInds
         qlo,qhi = solver.getQuadSizeLow(), solver.getQuadSizeHigh()
-        ntotal = sum([len(mi) for mi in self.multiInds])
 
         toload_multiInds = set()
         toload_inds = []

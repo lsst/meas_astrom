@@ -55,9 +55,9 @@ def detectFootprints(exposure, positiveThreshold, psf=None, negativeThreshold=No
 
     if not psf:                         # no need to convolve if we don't know the PSF
         convolvedImage = maskedImage
-        goodBBox = maskedImage.getBBox(afwImage.PARENT)
+        goodBBox = maskedImage.getBBox()
     else:
-        convolvedImage = maskedImage.Factory(maskedImage.getBBox(afwImage.PARENT))
+        convolvedImage = maskedImage.Factory(maskedImage.getBBox())
         
         if display:
             ds9.mtv(maskedImage)
@@ -70,9 +70,9 @@ def detectFootprints(exposure, positiveThreshold, psf=None, negativeThreshold=No
         #
         # Only search psf-smooth part of frame
         #
-        goodBBox = psf.getKernel().shrinkBBox(maskedImage.getBBox(afwImage.PARENT))
+        goodBBox = psf.getKernel().shrinkBBox(maskedImage.getBBox())
 
-    middle = convolvedImage.Factory(convolvedImage, goodBBox, afwImage.PARENT)
+    middle = convolvedImage.Factory(convolvedImage, goodBBox)
 
     dsNegative = None 
     if negativeThreshold != None:
@@ -87,9 +87,9 @@ def detectFootprints(exposure, positiveThreshold, psf=None, negativeThreshold=No
     #
     # ds only searched the middle but it belongs to the entire MaskedImage
     #
-    dsPositive.setRegion(maskedImage.getBBox(afwImage.PARENT))
+    dsPositive.setRegion(maskedImage.getBBox())
     if dsNegative:
-        dsNegative.setRegion(maskedImage.getBBox(afwImage.PARENT))
+        dsNegative.setRegion(maskedImage.getBBox())
     #
     # We want to grow the detections into the edge by at least one pixel so that it sees the EDGE bit
     #
@@ -156,8 +156,7 @@ def detectSources(exposure, threshold, psf=None):
 
         try:
             measureSources.apply(source, objects[i])
-        except Exception, e:
-            #print e
+        except Exception:
             pass
 
         if source.getFlagForDetection() & algorithms.Flags.EDGE:
