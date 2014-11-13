@@ -120,7 +120,7 @@ class AstrometryNetDataConfig(object):
                            ' field \"%s\"' % k)
     
 class MeasAstromConfig(pexConfig.Config):
-    from lsst.pex.config import Field, RangeField, DictField
+    from lsst.pex.config import Field, RangeField, DictField, ListField
 
     maxCpuTime = RangeField(
         '''Maximum CPU time to spend solving, in seconds''',
@@ -202,5 +202,12 @@ class MeasAstromConfig(pexConfig.Config):
         keytype=str, itemtype=str,
         default={},
         optional=True)
+
+    badFlags = ListField(
+        doc = "List of flags which cause a source to be rejected as bad",
+        dtype = str,
+        default = ["base_PixelFlags_flag_crCenter",
+                   ]
+        )                      
 
     allFluxes = Field(dtype=bool, default=True, doc="Retrieve all available fluxes (and errors) from catalog?")

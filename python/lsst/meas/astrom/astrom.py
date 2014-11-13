@@ -898,10 +898,14 @@ class Astrometry(object):
         # select sources with valid x,y, flux
         xybb = afwGeom.Box2D()
         goodsources = afwTable.SourceCatalog(sources.table)
+        badStarPixelFlags = self.config.badFlags
+        badkeys = [goodsources.getSchema().find(name).key for name in badStarPixelFlags]
+
         for s in sources:
-            if np.isfinite(s.getX()) and np.isfinite(s.getY()) and np.isfinite(s.getPsfFlux()):
+            if np.isfinite(s.getX()) and np.isfinite(s.getY()) and np.isfinite(s.getPsfFlux()) and self._isGoodSource(s, badkeys) :
                 goodsources.append(s)
                 xybb.include(afwGeom.Point2D(s.getX() - x0, s.getY() - y0))
+        self.log.info("Number of selected sources for astrometry : %d" %(len(goodsources)))
         if len(goodsources) < len(sources):
             self.log.logdebug('Keeping %i of %i sources with finite X,Y positions and PSF flux' %
                               (len(goodsources), len(sources)))
@@ -989,6 +993,12 @@ class Astrometry(object):
         qa = solver.getSolveStats()
         self.log.logdebug('qa: %s' % qa.toString())
         return wcs, qa
+
+    def _isGoodSource(self, candsource, keys):
+        for k in keys:
+            if candsource.get(k):
+                return False
+        return True
 
     def _getIndexPath(self, fn):
         if os.path.isabs(fn):
