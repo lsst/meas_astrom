@@ -898,8 +898,7 @@ class Astrometry(object):
         # select sources with valid x,y, flux
         xybb = afwGeom.Box2D()
         goodsources = afwTable.SourceCatalog(sources.table)
-        badStarPixelFlags = self.config.badFlags
-        badkeys = [goodsources.getSchema().find(name).key for name in badStarPixelFlags]
+        badkeys = [goodsources.getSchema().find(name).key for name in self.config.badFlags]
 
         for s in sources:
             if np.isfinite(s.getX()) and np.isfinite(s.getY()) and np.isfinite(s.getPsfFlux()) and self._isGoodSource(s, badkeys) :
