@@ -898,7 +898,16 @@ class Astrometry(object):
         # select sources with valid x,y, flux
         xybb = afwGeom.Box2D()
         goodsources = afwTable.SourceCatalog(sources.table)
-        badkeys = [goodsources.getSchema().find(name).key for name in self.config.badFlags]
+        
+        badkeys = []
+        for name in self.config.badFlags :
+            try :
+                key = goodsources.getSchema().find(name).key
+            except Exception :
+                self.log.warn("Key '%s' is not present in table schema - Ignored " %(name))
+                pass
+            else :
+                badkeys.append(key)
 
         for s in sources:
             if np.isfinite(s.getX()) and np.isfinite(s.getY()) and np.isfinite(s.getPsfFlux()) and self._isGoodSource(s, badkeys) :
