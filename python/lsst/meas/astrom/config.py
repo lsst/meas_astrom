@@ -206,7 +206,7 @@ class MeasAstromConfig(pexConfig.Config):
     badFlags = ListField(
         doc = "List of flags which cause a source to be rejected as bad",
         dtype = str,
-        default = [
+        default = ["base_PixelFlags_flag_crCenter",
                    ]
         )                      
 
