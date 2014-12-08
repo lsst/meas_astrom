@@ -8,5 +8,4 @@ root.multiIndexFiles = [ ['index-photocal-test-stars.fits',
                           'mindex-photocal-test.fits',
                           'mindex-photocal-test-4.fits',
                           ] ,]
-
-
+root.allowCache = False # To prevent race conditions from tests using different index files

@@ -34,6 +34,7 @@ from lsst.pex.logging import Log
 from astrometry.util import ttime
 
 from lsst.meas.astrom import AstrometryNetDataConfig
+from lsst.meas.astrom.multiindex import generateCache
 
 try:
     import eups
@@ -116,6 +117,22 @@ class MultiIndexTest(unittest.TestCase):
         andConfig.load(fn)
         self._testGetSolution(andConfig=andConfig)
 
+    # This one uses the cache
+    def testCache(self):
+        andConfig = AstrometryNetDataConfig()
+        fn = os.path.join(self.an_data_dir, 'andConfig6.py')
+        andConfig.load(fn)
+        andConfig.allowCache = True
+        cacheName = os.path.join(self.an_data_dir, 'andCache.fits')
+        if os.path.exists(cacheName):
+            os.unlink(cacheName)
+        try:
+            generateCache(andConfig)
+            self.assertTrue(os.path.exists(cacheName))
+            self._testGetSolution(andConfig=andConfig)
+        finally:
+            if os.path.exists(cacheName):
+                os.unlink(cacheName)
 
     # Test that creating an Astrometry object with many index files
     # does not use up a lot of memory or file descriptors.

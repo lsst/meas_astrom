@@ -7,6 +7,7 @@ import lsst.pipe.base as pipeBase
 from lsst.meas.algorithms import LoadReferenceObjectsTask, getRefFluxField
 from . import astrometry_net as astromNet
 from .astrometryNetDataConfig import AstrometryNetDataConfig
+from .multiindex import AstrometryNetCatalog, getConfigFromEnvironment
 
 __all__ = ["LoadAstrometryNetObjectsTask", "LoadAstrometryNetObjectsConfig"]
 
@@ -153,90 +154,12 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
             return
 
         self.log.logdebug("read index files")
-
-        self.multiInds = []
         self.haveIndexFiles = True # just try once
 
         if self.andConfig is None:
-            # use andConfig.py in the astrometry_net product setup in eups
-            anDir = lsst.utils.getPackageDir('astrometry_net_data')
-            if anDir is None:
-                raise RuntimeError("astrometry_net_data is not setup")
+            self.andConfig = getConfigFromEnvironment()
 
-            andConfig = AstrometryNetDataConfig()
-            andConfigPath = os.path.join(anDir, "andConfig.py")
-            if not os.path.exists(andConfigPath):
-                raise RuntimeError("astrometry_net_data config file \"%s\" required but not found" %
-                    andConfigPath)
-            andConfig.load(andConfigPath)
-            self.andConfig = andConfig
-
-        # merge indexFiles and multiIndexFiles; we'll treat both as multiindex for simplicity.
-        mifiles = [(True, [fn,fn]) for fn  in self.andConfig.indexFiles] + \
-            [(False, fns) for fns in self.andConfig.multiIndexFiles]
-
-        nMissing = 0
-        for single, fns in mifiles:
-            # First filename in "fns" is star kdtree, the rest are index files.
-            fn = fns[0]
-            if single:
-                self.log.log(self.log.DEBUG, 'Adding index file %s' % fns[0])
-            else:
-                self.log.log(self.log.DEBUG, 'Adding multiindex files %s' % str(fns))
-            fn2 = self._getIndexPath(fn)
-            if fn2 is None:
-                if single:
-                    self.log.logdebug('Unable to find index file %s' % fn)
-                else:
-                    self.log.logdebug('Unable to find star part of multiindex file %s' % fn)
-                nMissing += 1
-                continue
-            fn = fn2
-            self.log.log(self.log.DEBUG, 'Path: %s' % fn)
-
-            mi = astromNet.multiindex_new(fn)
-            if mi is None:
-                raise RuntimeError('Failed to read objects from multiindex filename "%s"' % fn)
-            for i,fn in enumerate(fns[1:]):
-                self.log.log(self.log.DEBUG, 'Reading index from multiindex file "%s"' % fn)
-                fn2 = self._getIndexPath(fn)
-                if fn2 is None:
-                    self.log.logdebug('Unable to find index part of multiindex file %s' % fn)
-                    nMissing += 1
-                    continue
-                fn = fn2
-                self.log.log(self.log.DEBUG, 'Path: %s' % fn)
-                if astromNet.multiindex_add_index(mi, fn, astromNet.INDEX_ONLY_LOAD_METADATA):
-                    raise RuntimeError('Failed to read index from multiindex filename "%s"' % fn)
-                ind = mi[i]
-                self.log.log(self.log.DEBUG, '  index %i, hp %i (nside %i), nstars %i, nquads %i' %
-                                (ind.indexid, ind.healpix, ind.hpnside, ind.nstars, ind.nquads))
-            astromNet.multiindex_unload_starkd(mi)
-            self.multiInds.append(mi)
-
-        if len(self.multiInds) == 0:
-            self.log.warn('Unable to find any index files')
-        elif nMissing > 0:
-            self.log.warn('Unable to find %d index files' % (nMissing,))
-
-    def _getIndexPath(self, fn):
-        """!Get the path to the specified astrometry.net index file
-
-        @param[in] fn  path to index file; if relative, then relative to astrometry_net_data
-            if that product is setup, else relative to the current working directory
-        @return the absolute path to the index file, or None if the file was not found
-        """
-        if os.path.isabs(fn):
-            absFn = fn
-        else:
-            anDir = lsst.utils.getPackageDir('astrometry_net_data')
-            if anDir is not None:
-                absFn = os.path.join(anDir, fn)
-
-        if os.path.exists(absFn):
-            return os.path.abspath(absFn)
-        else:
-            return None
+        self.multiInds = AstrometryNetCatalog(self.andConfig)
 
     def _getMIndexesWithinRange(self, ctrCoord, radius):
         """!Get list of muti-index objects within range
@@ -246,13 +169,7 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
 
         @return list of multiindex objects
         """
-        longDeg  = ctrCoord.getLongitude().asDegrees()
-        latDeg = ctrCoord.getLatitude().asDegrees()
-        multiIndexList = []
-        for mi in self.multiInds:
-            if mi.isWithinRange(longDeg, latDeg, radius.asDegrees()):
-                multiIndexList.append(mi)
-        return multiIndexList
+        return [mi for mi in self.multiInds if mi.isWithinRange(ctrCoord, radius)]
 
     def _getSolver(self):
         solver = astromNet.solver_new()
