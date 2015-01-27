@@ -243,64 +243,71 @@ void set_an_log(PTR(pexLog::Log) newlog);
         solver_free($self);
     }
 
-    lsst::afw::table::SimpleCatalog
-       getCatalog(std::vector<index_t*> inds,
-                  double ra, double dec, double radius,
-                  const char* idcol,
-                  std::vector<std::string> const& magnameVec,
-                  std::vector<std::string> const& magcolVec,
-                  std::vector<std::string> const& magerrcolVec,
-                  const char* stargalcol,
-                  const char* varcol,
-                  bool unique_ids=true)
+    /**
+    Load reference objects in a region of the sky described by a center coordinate and a radius
+
+    @param[in] inds  list of star kd-trees from astrometry.net
+    @param[in] ctrCoord  center of search region
+    @param[in] radius  search radius
+    @param[in] idCol  name of ID column in astrometry.net data
+    @param[in] filterNameList  names of filters in astrometry.net data
+    @param[in] magColList  names of magnitude columns in astrometry.net data
+    @param[in] magErrColList  names of magnitude uncertainty (sigma) columns in astrometry.net data
+    @param[in] starGalCol  name of "starGal" column (true if object is a star) in astrometry.net data
+    @param[in] varCol  name of "var" column (true if brightness is variable) in astrometry.net data
+    @param[in] uniqueIds  if true then only return unique IDs (the first of each seen)
+    @param[in] getNewSchema  if true then return data using the new schema
+
+    Returned schema if getNewSchema false:
+    - id: star ID
+    - coord: sky position as an IcrsCoord
+    - flux
+    - flux.err
+    - <filterName>  flux in that filter
+    - <filterName>.err  flux error in specified filter
+    - stargal: true if a star
+    - var: true if variable
+    - photometric: true if a star and not variable
+
+    Returned schema if getNewSchema true:
+    - id
+    - coord: sky position (an lsst::afw::coord::IcrsCoord)
+    - centroid: centroid on some exposure, if relevant (an lsst::afw::geom::Point2D); returned value is not set
+    - hasCentroid: if true then centroid has been set; returned value is false
+    - <filterName>_flux: flux in the specified filter (double)
+    - <filterName>_fluxSigma: flux uncertainty in the specified filter (double)
+    - resolved (if starGalCol specified): true if object is not resolved
+    - variable (if varCol specified): true if brightness is variable
+    - photometric: true if not resolved (or starGalCol blank) and not variable (or varCol blank);
+        note that if starGalCol and varCol both blank then all objects are claimed to be photometric
+    */
+    lsst::afw::table::SimpleCatalog getCatalog(
+        std::vector<index_t*> inds,
+        lsst::afw::coord::Coord const &ctrCoord,
+        lsst::afw::geom::Angle const &radius,
+        const char* idCol,
+        std::vector<std::string> const& filterNameList,
+        std::vector<std::string> const& magColList,
+        std::vector<std::string> const& magErrColList,
+        const char* starGalCol,
+        const char* varCol,
+        bool uniqueIds=true,
+        bool getNewSchema=false)
     {
-        if ((magnameVec.size() != magcolVec.size()) || (magnameVec.size() != magerrcolVec.size())) {
+        if ((filterNameList.size() != magColList.size()) || (filterNameList.size() != magErrColList.size())) {
             throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError,
-                              "Mag name, mag column, and mag error column vectors must be the same length.");
+                "Filter name, mag column, and mag error column vectors must be the same length.");
         }
-        std::vector<lsst::meas::astrom::detail::mag_column_t> magcols;
-        for (size_t i=0; i<magnameVec.size(); ++i) {
-            lsst::meas::astrom::detail::mag_column_t mc;
-            mc.name = magnameVec[i];
-            mc.magcol = magcolVec[i];
-            mc.magerrcol = magerrcolVec[i];
-            magcols.push_back(mc);
+        std::vector<lsst::meas::astrom::detail::MagColInfo> magColInfoList;
+        for (size_t i=0; i<filterNameList.size(); ++i) {
+            lsst::meas::astrom::detail::MagColInfo mc;
+            mc.filterName = filterNameList[i];
+            mc.magCol = magColList[i];
+            mc.magErrCol = magErrColList[i];
+            magColInfoList.push_back(mc);
         }
-        return lsst::meas::astrom::detail::getCatalogImpl(inds, ra, dec, radius,
-                                                          idcol, magcols, stargalcol, varcol,
-                                                          unique_ids);
-    }
-
-    lsst::afw::table::SimpleCatalog
-        getCatalog(std::vector<index_t*> inds,
-                   double ra, double dec, double radius,
-                   const char* idcol,
-                   const char* magcol,
-                   const char* magerrcol,
-                   const char* stargalcol,
-                   const char* varcol,
-                   bool unique_ids=true)
-    {
-        std::vector<lsst::meas::astrom::detail::mag_column_t> cols;
-
-        if (magcol || magerrcol) {
-            lsst::meas::astrom::detail::mag_column_t mc;
-            mc.name = (magcol ? magcol : magerrcol);
-            mc.magcol = (magcol ? magcol : "");
-            mc.magerrcol = (magerrcol ? magerrcol : "");
-            cols.push_back(mc);
-
-            // Also add plain old "flux"/"flux.err" schema entries.
-            if (magcol) {
-                mc.name = "flux";
-                mc.magcol = magcol;
-                mc.magerrcol = (magerrcol ? magerrcol : "");
-                cols.push_back(mc);
-            }
-        }
-        return lsst::meas::astrom::detail::getCatalogImpl(inds, ra, dec, radius,
-                                                          idcol, cols, stargalcol, varcol,
-                                                          unique_ids);
+        return lsst::meas::astrom::detail::getCatalogImpl(inds, ctrCoord, radius,
+            idCol, magColInfoList, starGalCol, varCol, uniqueIds, getNewSchema);
     }
 
     PTR(lsst::daf::base::PropertyList) getSolveStats() {

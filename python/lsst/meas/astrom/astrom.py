@@ -1,3 +1,5 @@
+from __future__ import absolute_import, division
+
 import os
 import math
 import sys
@@ -7,13 +9,16 @@ import numpy as np # for isfinite()
 import lsst.daf.base as dafBase
 import lsst.pex.logging as pexLog
 import lsst.pex.exceptions as pexExceptions
+import lsst.afw.coord as afwCoord
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.meas.algorithms.utils as maUtils
 
 from .config import MeasAstromConfig, AstrometryNetDataConfig
-import sip as astromSip
+from . import sip as astromSip
+
+__all__ = ["InitialAstrometry", "Astrometry"]
 
 # Object returned by determineWcs.
 class InitialAstrometry(object):
@@ -146,7 +151,7 @@ class Astrometry(object):
         self._readIndexFiles()
 
     def _readIndexFiles(self):
-        import astrometry_net as an
+        from . import astrometry_net as an
         # .multiInds: multi-index objects
         self.multiInds = []
 
@@ -244,7 +249,8 @@ class Astrometry(object):
             y0 = 0
         return filterName, imageSize, x0, y0
 
-    def useKnownWcs(self, sources, wcs=None, exposure=None, filterName=None, imageSize=None, x0=None, y0=None):
+    def useKnownWcs(self, sourceCat, wcs=None, exposure=None, filterName=None, imageSize=None,
+                    x0=None, y0=None):
         """
         Returns an InitialAstrometry object, just like determineWcs,
         but assuming the given input WCS is correct.
@@ -254,11 +260,11 @@ class Astrometry(object):
         probably also want to turn OFF 'calculateSip'.
 
         This involves searching for reference sources within the WCS
-        area, and matching them to the given 'sources'.  If
+        area, and matching them to the given 'sourceCat'.  If
         'calculateSip' is set, we will try to compute a TAN-SIP
         distortion correction.
 
-        sources: list of detected sources in this image.
+        sourceCat: list of detected sources in this image.
         wcs: your known WCS
         exposure: the exposure holding metadata for this image.
         filterName: string, filter name, eg "i"
@@ -300,48 +306,48 @@ class Astrometry(object):
                                                           x0=x0, y0=y0)
         pixelMargin = 50.
 
-        cat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName, pixelMargin, x0=x0, y0=y0)
-        catids = [src.getId() for src in cat]
+        refCat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName, pixelMargin, x0=x0, y0=y0)
+        catids = [src.getId() for src in refCat]
         uids = set(catids)
         self.log.logdebug('%i reference sources; %i unique IDs' % (len(catids), len(uids)))
-        matchList = self._getMatchList(sources, cat, wcs)
-        uniq = set([sm.second.getId() for sm in matchList])
-        if len(matchList) != len(uniq):
+        matches = self._getMatchList(sourceCat, refCat, wcs)
+        uniq = set([sm.second.getId() for sm in matches])
+        if len(matches) != len(uniq):
             self._warn(('The list of matched stars contains duplicate reference source IDs ' +
-                        '(%i sources, %i unique ids)') % (len(matchList), len(uniq)))
-        if len(matchList) == 0:
+                        '(%i sources, %i unique ids)') % (len(matches), len(uniq)))
+        if len(matches) == 0:
             self._warn('No matches found between input sources and reference catalogue.')
             return astrom
 
-        self._debug('%i reference objects match input sources using input WCS' % (len(matchList)))
-        astrom.tanMatches = matchList
+        self._debug('%i reference objects match input sources using input WCS' % (len(matches)))
+        astrom.tanMatches = matches
         astrom.tanWcs = wcs
         
-        srcids = [s.getId() for s in sources]
-        for m in matchList:
+        srcids = [s.getId() for s in sourceCat]
+        for m in matches:
             assert(m.second.getId() in srcids)
-            assert(m.second in sources)
+            assert(m.second in sourceCat)
 
         if self.config.calculateSip:
-            sipwcs,matchList = self._calculateSipTerms(wcs, cat, sources, matchList, imageSize, x0=x0, y0=y0)
+            sipwcs,matches = self._calculateSipTerms(wcs, refCat, sourceCat, matches, imageSize, x0=x0, y0=y0)
             if sipwcs == wcs:
                 self._debug('Failed to find a SIP WCS better than the initial one.')
             else:
-                self._debug('%i reference objects match input sources using SIP WCS' % (len(matchList)))
+                self._debug('%i reference objects match input sources using SIP WCS' % (len(matches)))
                 astrom.sipWcs = sipwcs
-                astrom.sipMatches = matchList
+                astrom.sipMatches = matches
                 
         W,H = imageSize
         wcs = astrom.getWcs()
         # _getMatchList() modifies the source list RA,Dec coordinates.
         # Here, we make them consistent with the WCS we are returning.
-        for src in sources:
+        for src in sourceCat:
             src.updateCoord(wcs)
         astrom.matchMetadata = _createMetadata(W, H, x0, y0, wcs, filterName)
         return astrom
 
     def determineWcs(self,
-                     sources,
+                     sourceCat,
                      exposure,
                      **kwargs):
         """
@@ -402,11 +408,11 @@ class Astrometry(object):
         if not 'useParity' in margs:
             margs.update(useParity = self.config.useWcsParity)
         margs.update(exposure=exposure)
-        return self.determineWcs2(sources, **margs)
+        return self.determineWcs2(sourceCat, **margs)
 
-    def determineWcs2(self, sources, **kwargs):
+    def determineWcs2(self, sourceCat, **kwargs):
         '''
-        Get a blind astrometric solution for the given list of sources.
+        Get a blind astrometric solution for the given catalog of sources.
 
         We need:
           -the image size;
@@ -425,18 +431,18 @@ class Astrometry(object):
         pixelScale: afwGeom::Angle per pixel.
         radecCenter: afwCoord::Coord
         '''
-        wcs,qa = self.getBlindWcsSolution(sources, **kwargs)
+        wcs,qa = self.getBlindWcsSolution(sourceCat, **kwargs)
         kw = {}
         # Keys passed to useKnownWcs
         for key in ['exposure', 'filterName', 'imageSize', 'x0', 'y0']:
             if key in kwargs:
                 kw[key] = kwargs[key]
-        astrom = self.useKnownWcs(sources, wcs=wcs, **kw)
+        astrom = self.useKnownWcs(sourceCat, wcs=wcs, **kw)
         astrom.solveQa = qa
         astrom.tanWcs = wcs
         return astrom
 
-    def getBlindWcsSolution(self, sources, 
+    def getBlindWcsSolution(self, sourceCat, 
                             exposure=None,
                             wcs=None,
                             imageSize=None,
@@ -501,16 +507,16 @@ class Astrometry(object):
                 self._debug('Using parity = %s' % (parity and 'True' or 'False'))
 
         if doTrim:
-            n = len(sources)
+            n = len(sourceCat)
             if exposure is not None:
                 bbox = afwGeom.Box2D(exposure.getMaskedImage().getBBox())
             else:
                 # CHECK -- half-pixel issues here?
                 bbox = afwGeom.Box2D(afwGeom.Point2D(0.,0.), afwGeom.Point2D(W, H))
-            sources = self._trimBadPoints(sources, bbox)
-            self._debug("Trimming: kept %i of %i sources" % (n, len(sources)))
+            sourceCat = self._trimBadPoints(sourceCat, bbox)
+            self._debug("Trimming: kept %i of %i sources" % (n, len(sourceCat)))
 
-        wcs,qa = self._solve(sources, wcs, imageSize, pixelScale, radecCenter, searchRadius, parity,
+        wcs,qa = self._solve(sourceCat, wcs, imageSize, pixelScale, radecCenter, searchRadius, parity,
                              filterName, xy0=(x0,y0))
         if wcs is None:
             raise RuntimeError("Unable to match sources with catalog.")
@@ -573,20 +579,20 @@ class Astrometry(object):
                                                  x0=x0, y0=y0)
 
     
-    def getSipWcsFromCorrespondences(self, origWcs, cat, sources, imageSize,
+    def getSipWcsFromCorrespondences(self, origWcs, refCat, sourceCat, imageSize,
                                      x0=0, y0=0):
         '''
         Produces a SIP solution given a list of known correspondences.
         Unlike _calculateSipTerms, this does not iterate the solution;
         it assumes you have given it a good sets of corresponding stars.
 
-        NOTE that "cat" and "sources" are assumed to be the same length;
-        entries "cat[i]" and "sources[i]" are assumed to be correspondences.
+        NOTE that "refCat" and "sourceCat" are assumed to be the same length;
+        entries "refCat[i]" and "sourceCat[i]" are assumed to be correspondences.
 
         origWcs: the WCS to linearize in order to get the TAN part of the
            TAN-SIP WCS.
 
-        cat: reference source catalog
+        refCat: reference source catalog
 
         sources: image sources
 
@@ -597,28 +603,28 @@ class Astrometry(object):
         sipOrder = self.config.sipOrder
         bbox = afwGeom.Box2I(afwGeom.Point2I(x0,y0),
                              afwGeom.Extent2I(imageSize[0], imageSize[1]))
-        matchList = []
-        for ci,si in zip(cat, sources):
-            matchList.append(afwTable.ReferenceMatch(ci, si, 0.))
+        matches = []
+        for ci,si in zip(refCat, sourceCat):
+            matches.append(afwTable.ReferenceMatch(ci, si, 0.))
 
-        sipObject = astromSip.makeCreateWcsWithSip(matchList, origWcs, sipOrder, bbox)
+        sipObject = astromSip.makeCreateWcsWithSip(matches, origWcs, sipOrder, bbox)
         return sipObject.getNewWcs()
     
-    def _calculateSipTerms(self, origWcs, cat, sources, matchList, imageSize,
+    def _calculateSipTerms(self, origWcs, refCat, sourceCat, matches, imageSize,
                            x0=0, y0=0):
         '''
-        Iteratively calculate SIP distortions and regenerate matchList based on improved WCS.
+        Iteratively calculate SIP distortions and regenerate matches based on improved WCS.
 
         origWcs: original WCS object, probably (but not necessarily) a TAN WCS;
            this is used to set the baseline when determining whether a SIP
            solution is any better; it will be returned if no better SIP solution
            can be found.
 
-        matchList: list of supposedly matched sources, using the "origWcs".
+        matches: list of supposedly matched sources, using the "origWcs".
 
-        cat: reference source catalog
+        refCat: reference source catalog
 
-        sources: sources in the image to be solved
+        sourceCat: sources in the image to be solved
 
         imageSize, x0, y0: these determine the bounding-box of the image,
            which is used when finding reverse SIP coefficients.
@@ -632,19 +638,19 @@ class Astrometry(object):
         lastScatPix = None
         while True:
             try:
-                sipObject = astromSip.makeCreateWcsWithSip(matchList, wcs, sipOrder, bbox)
+                sipObject = astromSip.makeCreateWcsWithSip(matches, wcs, sipOrder, bbox)
                 if lastScatPix is None:
                     lastScatPix = sipObject.getLinearScatterInPixels()
                 proposedWcs = sipObject.getNewWcs()
                 scatPix = sipObject.getScatterInPixels()
-                self.plotSolution(matchList, proposedWcs, imageSize)
+                self.plotSolution(matches, proposedWcs, imageSize)
             except pexExceptions.Exception as e:
                 self._warn('Failed to calculate distortion terms. Error: ' + str(e))
                 break
 
-            matchSize = len(matchList)
+            matchSize = len(matches)
             # use new WCS to get new matchlist.
-            proposedMatchlist = self._getMatchList(sources, cat, proposedWcs)
+            proposedMatchlist = self._getMatchList(sourceCat, refCat, proposedWcs)
 
             self._debug('SIP iteration %i: %i objects match.  Median scatter is %g arcsec = %g pixels (vs previous: %i matches, %g pixels)' %
                         (i, len(proposedMatchlist), sipObject.getScatterOnSky().asArcseconds(), scatPix, matchSize, lastScatPix))
@@ -656,17 +662,17 @@ class Astrometry(object):
                 break
 
             wcs = proposedWcs
-            matchList = proposedMatchlist
+            matches = proposedMatchlist
             lastScatPix = scatPix
-            matchSize = len(matchList)
+            matchSize = len(matches)
             i += 1
 
-        return wcs, matchList
+        return wcs, matches
 
-    def plotSolution(self, matchList, wcs, imageSize):
+    def plotSolution(self, matches, wcs, imageSize):
         """Plot the solution, when debugging is turned on.
 
-        @param matchList   The list of matches
+        @param matches   The list of matches
         @param wcs         The Wcs
         @param imageSize   2-tuple with the image size (W,H)
         """
@@ -689,12 +695,12 @@ class Astrometry(object):
         except:                                 # protect against API changes
             pass
 
-        num = len(matchList)
+        num = len(matches)
         x = numpy.zeros(num)
         y = numpy.zeros(num)
         dx = numpy.zeros(num)
         dy = numpy.zeros(num)
-        for i, m in enumerate(matchList):
+        for i, m in enumerate(matches):
             x[i] = m.second.getX()
             y[i] = m.second.getY()
             pixel = wcs.skyToPixel(m.first.getCoord())
@@ -741,35 +747,35 @@ class Astrometry(object):
                     sys.exit(1)
                 break
 
-    def _getMatchList(self, sources, cat, wcs):
+    def _getMatchList(self, sourceCat, refCat, wcs):
         dist = self.config.catalogMatchDist * afwGeom.arcseconds
         clean = self.config.cleaningParameter
-        matcher = astromSip.MatchSrcToCatalogue(cat, sources, wcs, dist)
-        matchList = matcher.getMatches()
-        if matchList is None:
+        matcher = astromSip.MatchSrcToCatalogue(refCat, sourceCat, wcs, dist)
+        matches = matcher.getMatches()
+        if matches is None:
             # Produce debugging stats...
-            X = [src.getX() for src in sources]
-            Y = [src.getY() for src in sources]
-            R1 = [src.getRa().asDegrees() for src in sources]
-            D1 = [src.getDec().asDegrees() for src in sources]
-            R2 = [src.getRa().asDegrees() for src in cat]
-            D2 = [src.getDec().asDegrees() for src in cat]
-            # for src in sources:
+            X = [src.getX() for src in sourceCat]
+            Y = [src.getY() for src in sourceCat]
+            R1 = [src.getRa().asDegrees() for src in sourceCat]
+            D1 = [src.getDec().asDegrees() for src in sourceCat]
+            R2 = [src.getRa().asDegrees() for src in refCat]
+            D2 = [src.getDec().asDegrees() for src in refCat]
+            # for src in sourceCat:
             #self._debug("source: x,y (%.1f, %.1f), RA,Dec (%.3f, %.3f)" %
             #(src.getX(), src.getY(), src.getRa().asDegrees(), src.getDec().asDegrees()))
-            #for src in cat:
+            #for src in refCat:
             #self._debug("ref: RA,Dec (%.3f, %.3f)" %
             #(src.getRa().asDegrees(), src.getDec().asDegrees()))
-            self.loginfo('_getMatchList: %i sources, %i reference sources' % (len(sources), len(cat)))
-            if len(sources):
+            self.loginfo('_getMatchList: %i sources, %i reference sources' % (len(sourceCat), len(refCat)))
+            if len(sourceCat):
                 self.loginfo('Source range: x [%.1f, %.1f], y [%.1f, %.1f], RA [%.3f, %.3f], Dec [%.3f, %.3f]' %
                              (min(X), max(X), min(Y), max(Y), min(R1), max(R1), min(D1), max(D1)))
-            if len(cat):
+            if len(refCat):
                 self.loginfo('Reference range: RA [%.3f, %.3f], Dec [%.3f, %.3f]' %
                              (min(R2), max(R2), min(D2), max(D2)))
             raise RuntimeError('No matches found between image and catalogue')
-        matchList = astromSip.cleanBadPoints.clean(matchList, wcs, nsigma=clean)
-        return matchList
+        matches = astromSip.cleanBadPoints.clean(matches, wcs, nsigma=clean)
+        return matches
 
     def getColumnName(self, filterName, columnMap, default=None):
         '''
@@ -803,14 +809,14 @@ class Astrometry(object):
         pixelScale = wcs.pixelScale()
         rad = pixelScale * (math.hypot(W,H)/2. + pixelMargin)
         self._debug('Getting reference sources using radius of %.3g deg' % rad.asDegrees())
-        cat = self.getReferenceSources(ra, dec, rad, filterName)
+        refCat = self.getReferenceSources(ra, dec, rad, filterName)
         # NOTE: reference objects don't have (x,y) anymore, so we can't apply WCS to set x,y positions
         if trim:
             # cut to image bounds + margin.
             bbox = afwGeom.Box2D(afwGeom.Point2D(x0, y0), afwGeom.Extent2D(W, H))
             bbox.grow(pixelMargin)
-            cat = self._trimBadPoints(cat, bbox, wcs=wcs) # passing wcs says to compute x,y on-the-fly
-        return cat
+            refCat = self._trimBadPoints(refCat, bbox, wcs=wcs) # passing wcs says to compute x,y on-the-fly
+        return refCat
 
 
     def getReferenceSources(self, ra, dec, radius, filterName):
@@ -831,6 +837,7 @@ class Astrometry(object):
         magerrCol = self.getColumnName(filterName, self.andConfig.magErrorColumnMap,
                                        self.andConfig.defaultMagErrorColumn)
 
+        ctrCoord = afwCoord.IcrsCoord(ra, dec)
         if self.config.allFluxes:
             names = []
             mcols = []
@@ -847,7 +854,8 @@ class Astrometry(object):
             margs = (names, mcols, ecols)
 
         else:
-            margs = (magCol, magerrCol)
+            margs = ([magCol], [magCol], [magerrCol])
+        fixedArgTuple = (ctrCoord, radius, idcolumn) + margs + (sgCol, varCol)
 
         '''
         Note about multiple astrometry_net index files and duplicate IDs:
@@ -874,20 +882,21 @@ class Astrometry(object):
         solver = self._getSolver()
 
         # Find multi-index files within range
-        raDecRadius = (ra.asDegrees(), dec.asDegrees(), radius.asDegrees())
-        multiInds = self._getMIndexesWithinRange(*raDecRadius)
+        multiInds = self._getMIndexesWithinRange(ctrCoord, radius)
 
         with Astrometry._LoadedMIndexes(multiInds):
             # We just want to pass the star kd-trees, so just pass the
             # first element of each multi-index.
             inds = [mi[0] for mi in multiInds]
 
-            cat = solver.getCatalog(*((inds,) + raDecRadius + (idcolumn,)
-                                      + margs + (sgCol, varCol)))
+            refCat = solver.getCatalog(inds, *fixedArgTuple)
+        print "ctrCoord=%r, radius=%r" % (ctrCoord, radius)
+        print "found %s objects" % (len(refCat),)
+        print "schema=", refCat.schema
         del solver
-        return cat
+        return refCat
 
-    def _solve(self, sources, wcs, imageSize, pixelScale, radecCenter,
+    def _solve(self, sourceCat, wcs, imageSize, pixelScale, radecCenter,
                searchRadius, parity, filterName=None, xy0=None):
         solver = self._getSolver()
 
@@ -897,17 +906,17 @@ class Astrometry(object):
 
         # select sources with valid x,y, flux
         xybb = afwGeom.Box2D()
-        goodsources = afwTable.SourceCatalog(sources.table)
+        goodsources = afwTable.SourceCatalog(sourceCat.table)
         badkeys = [goodsources.getSchema().find(name).key for name in self.config.badFlags]
 
-        for s in sources:
+        for s in sourceCat:
             if np.isfinite(s.getX()) and np.isfinite(s.getY()) and np.isfinite(s.getPsfFlux()) and self._isGoodSource(s, badkeys) :
                 goodsources.append(s)
                 xybb.include(afwGeom.Point2D(s.getX() - x0, s.getY() - y0))
         self.log.info("Number of selected sources for astrometry : %d" %(len(goodsources)))
-        if len(goodsources) < len(sources):
+        if len(goodsources) < len(sourceCat):
             self.log.logdebug('Keeping %i of %i sources with finite X,Y positions and PSF flux' %
-                              (len(goodsources), len(sources)))
+                              (len(goodsources), len(sourceCat)))
         self._debug(('Feeding sources in range x=[%.1f, %.1f], y=[%.1f, %.1f] ' +
                      '(after subtracting x0,y0 = %.1f,%.1f) to Astrometry.net') %
                     (xybb.getMinX(), xybb.getMaxX(), xybb.getMinY(), xybb.getMaxY(), x0, y0))
@@ -939,8 +948,8 @@ class Astrometry(object):
             self.log.logdebug('Searching for match with parity = ' + str(parity))
 
         # Find and load index files within RA,Dec range and scale range.
-        if raDecRadius is not None:
-            multiInds = self._getMIndexesWithinRange(*raDecRadius)
+        if radecCenter is not None:
+            multiInds = self._getMIndexesWithinRange(radecCenter, searchRadius)
         else:
             multiInds = self.multiInds
         qlo,qhi = solver.getQuadSizeLow(), solver.getQuadSizeHigh()
@@ -1013,20 +1022,23 @@ class Astrometry(object):
         else:
             return None
 
-    def _getMIndexesWithinRange(self, ra, dec, radius):
+    def _getMIndexesWithinRange(self, ctrCoord, radius):
         '''
         ra,dec,radius: [deg], spatial cut based on the healpix of the index
 
         Returns list of multiindex objects within range.
         '''
         good = []
+        raDeg = ctrCoord.getLongitude().asDegrees()
+        decDeg = ctrCoord.getLatitude().asDegrees()
+        radiusDeg = radius.asDegrees()
         for mi in self.multiInds:
-            if mi.isWithinRange(ra, dec, radius):
+            if mi.isWithinRange(raDeg, decDeg, radiusDeg):
                 good.append(mi)
         return good
 
     def _getSolver(self):
-        import astrometry_net as an
+        from . import astrometry_net as an
         solver = an.solver_new()
         # HACK, set huge default pixel scale range.
         lo,hi = 0.01, 3600.
@@ -1034,10 +1046,10 @@ class Astrometry(object):
         return solver
 
     @staticmethod
-    def _trimBadPoints(sources, bbox, wcs=None):
+    def _trimBadPoints(sourceCat, bbox, wcs=None):
         '''Remove elements from catalog whose xy positions are not within the given bbox.
 
-        sources:  a Catalog of SimpleRecord or SourceRecord objects
+        sourceCat:  a Catalog of SimpleRecord or SourceRecord objects
         bbox: an afwImage.Box2D
         wcs:  if not None, will be used to compute the xy positions on-the-fly;
               this is required when sources actually contains SimpleRecords.
@@ -1045,8 +1057,8 @@ class Astrometry(object):
         Returns:
         a list of Source objects with xAstrom,yAstrom within the bbox.
         '''
-        keep = type(sources)(sources.table)
-        for s in sources:
+        keep = type(sourceCat)(sourceCat.table)
+        for s in sourceCat:
             point = s.getCentroid() if wcs is None else wcs.skyToPixel(s.getCoord())
             if bbox.contains(point):
                 keep.append(s)
@@ -1064,8 +1076,8 @@ class Astrometry(object):
         This function takes a normalized match catalog, along with the catalog of
         sources to which the match catalog refers.  It fetches the reference
         sources that are within range, and then denormalizes the matches
-        -- sets the "matchList[*].first" and "matchList[*].second" entries
-        to point to the sources in the "sources" argument, and to the
+        -- sets the "matches[*].first" and "matches[*].second" entries
+        to point to the sources in the "sourceCat" argument, and to the
         reference sources fetched from the astrometry_net_data files.
     
         @param[in] packedMatches  Unpersisted match list (an lsst.afw.table.BaseCatalog).
@@ -1132,7 +1144,7 @@ def readMatches(butler, dataId, sourcesName='icSrc', matchesName='icMatch', conf
     @param sourcesFlags Flags to pass for source retrieval
     @returns Matches
     """
-    sources = butler.get(sourcesName, dataId, flags=sourcesFlags)
+    sourceCat = butler.get(sourcesName, dataId, flags=sourcesFlags)
     packedMatches = butler.get(matchesName, dataId)
     astrom = Astrometry(config)
-    return astrom.joinMatchListWithCatalog(packedMatches, sources)
+    return astrom.joinMatchListWithCatalog(packedMatches, sourceCat)

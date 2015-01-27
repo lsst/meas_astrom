@@ -27,18 +27,9 @@ import sys
 import numpy as np
 
 import eups
-import lsst.meas.astrom            as measAstrom
 import lsst.afw.table              as afwTable
 import lsst.afw.image              as afwImage
-from lsst.pex.logging import Log
-#
-# This task should be in meas_astrom!
-# We import AstrometryTask from pipe.tasks -- this can fail if it isn't setup
-if not eups.productDir("pipe_tasks"):
-    raise RuntimeError("""Please setup pipe_tasks to solve the astrometry.
-N.b. this inverted dependency is due to AstrometryTask being in the wrong place""") 
-
-from lsst.pipe.tasks.astrometry import AstrometryTask
+from lsst.meas.astrom import AstrometryTask
 import lsst.meas.photocal           as measPhotocal
 
 def loadData():
@@ -86,8 +77,9 @@ def run():
     # Create the astrometry task
     #
     config = AstrometryTask.ConfigClass()
-    config.solver.filterMap = dict(_unknown_='r')
-    aTask = AstrometryTask(name="AstrometryTask", config=config, schema=schema)
+    config.refObjLoader.filterMap = {"_unknown_": "r"}
+    config.matcher.sourceFluxType = "Psf" # sample catalog does not contain aperture flux
+    aTask = AstrometryTask(config=config)
     #
     # And the photometry Task
     #

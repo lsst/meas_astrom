@@ -5,21 +5,23 @@
 #include <vector>
 
 #include "lsst/afw/table/Source.h"
+#include "lsst/afw/coord.h"
+#include "lsst/afw/geom.h"
 
 namespace lsst {
 namespace meas {
 namespace astrom {
 namespace detail {
 
-    typedef struct {
-        std::string name;
-        std::string magcol;
-        std::string magerrcol;
+    struct MagColInfo {
+        std::string filterName; ///< name of filter
+        std::string magCol;     ///< name of magnitude column
+        std::string magErrCol;  ///< name of magnitude sigma column
 
         bool hasErr() const {
-            return (magerrcol.size() > 0);
+            return !magErrCol.empty();
         }
-    } mag_column_t;
+    };
 
 
 /// RAII manager for astrometry.net indices
@@ -60,18 +62,53 @@ struct IndexManager {
     }
 };
 
+/**
+Implementation for index_t::getCatalog method
 
+@param[in] inds  star kd-trees from astrometry.net
+@param[in] ctrCoord  center of search region
+@param[in] radius  search radius
+@param[in] idCol  name of ID column in astrometry.net data
+@param[in] magColInfoList  list of information about magnitude columns in astrometry.net data
+@param[in] starGalCol  name of "starGal" column (true if object is a star) in astrometry.net data
+@param[in] varCol  name of "var" column (true if brightness is variable) in astrometry.net data
+@param[in] uniqueIds  if true then only return unique IDs (the first of each seen)
+@param[in] getNewSchema  if true then return data using the new schema
 
-/*
- * Implementation for index_t::getCatalog method
- */
+Returned schema if getNewSchema false:
+- id: star ID
+- coord: sky position as an IcrsCoord
+- centroid: centroid on some exposure, if relevant (an lsst::afw::geom::Point2D); returned value is not set
+- hasCentroid: if true then centroid has been set; returned value is false
+- *filterName*  flux in the specified filter
+- *filterName*.err  flux error in specified filter
+- stargal: true if a star
+- var: true if variable
+- photometric: true if a star and not variable
+
+Returned schema if getNewSchema true:
+- id
+- coord: sky position (an lsst::afw::coord::IcrsCoord)
+- centroid: centroid on some exposure, if relevant (an lsst::afw::geom::Point2D); returned value is not set
+- hasCentroid: if true then centroid has been set; returned value is false
+- *filterName*_flux: flux in the specified filter (double)
+- *filterName*_fluxSigma: flux uncertainty in the specified filter (double)
+- resolved (if starGalCol specified): true if object is not resolved
+- variable (if varCol specified): true if brightness is variable
+- photometric: true if not resolved (or starGalCol blank) and not variable (or varCol blank);
+    note that if starGalCol and varCol both blank then all objects are claimed to be photometric
+*/
 lsst::afw::table::SimpleCatalog
-getCatalogImpl(std::vector<index_t*> inds,
-               double ra, double dec, double radius,
-               const char* idcol,
-               std::vector<mag_column_t> const& magcols,
-               const char* stargalcol,
-               const char* varcol,
-               bool unique_ids);
+getCatalogImpl(
+    std::vector<index_t*> inds,
+    lsst::afw::coord::Coord const &ctrCoord,
+    lsst::afw::geom::Angle const &radius,
+    const char* idCol,
+    std::vector<MagColInfo> const& magColInfoList,
+    const char* starGalCol,
+    const char* varCol,
+    bool uniqueIds=true,
+    bool getNewSchema=false);
+
 }}}}
 #endif

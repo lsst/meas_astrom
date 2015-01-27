@@ -1,27 +1,13 @@
 #!/usr/bin/env python
 
-import os, sys
-from math import *
+import os
 import unittest
 import eups
-import random
 import lsst.utils.tests as utilsTests
-import lsst.daf.base as dafBase
-import lsst.daf.persistence as dafPersist
-import lsst.pex.exceptions as pexExceptions
-import lsst.pex.logging as logging
-import lsst.pex.policy as policy
-import lsst.afw.geom as afwGeom
-import lsst.afw.image as afwImage
 import lsst.afw.table as afwTable
-import lsst.afw.math as afwMath
-import lsst.afw.display.ds9 as ds9
-import lsst.afw.display.utils as displayUtils
 import lsst.meas.astrom as measAstrom
 from lsst.pex.logging import Log
-#from lsst.afw.geom import Angle
-import lsst.afw.geom as afwGeom
-import lsst.afw.image              as afwImg
+import lsst.afw.image as afwImg
 
 try:
     type(verbose)

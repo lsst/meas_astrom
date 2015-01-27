@@ -22,21 +22,13 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
-import re
 import os
-import sys
-import glob
-import math
 import unittest
 
 import eups
 import lsst.afw.table as afwTable
-import lsst.afw.math as afwMath
 import lsst.utils.tests as utilsTests
 import lsst.afw.geom as afwGeom
-import lsst.afw.image as afwImage
-
-import lsst.pex.logging as pexLog
 
 import lsst.meas.astrom as measAst
 import lsst.meas.astrom.sip as sip
@@ -125,9 +117,19 @@ class CreateWcsWithSipCase(unittest.TestCase):
         res = self.astrom.determineWcs2(img, imageSize=(1000,1000))
         imgWcs = res.getWcs()
 
+        def printWcs(wcs):
+            print "WCS metadata:"
+            md = wcs.getFitsMetadata()
+            for name in md.names():
+                print "%s: %r" % (name, md.get(name))
+
+        printWcs(imgWcs)
+
         #Create a wcs with sip
         cat = cat.cast(afwTable.SimpleCatalog, False)
         matchList = self.matchSrcAndCatalogue(cat, img, imgWcs)
+        print "*** num matches =", len(matchList)
+        return
         sipObject = sip.makeCreateWcsWithSip(matchList, imgWcs, 3)
 
         #print 'Put in TAN Wcs:'
@@ -184,16 +186,8 @@ class CreateWcsWithSipCase(unittest.TestCase):
 
         mList = cleanBadPoints.clean(matchList, imgWcs, order=cleanParam)
         return mList
-        
 
-
-
-        
-
-        
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-
 
 def suite():
     """Returns a suite containing all the test cases in this module."""

@@ -5,8 +5,7 @@ setupRequired(pex_config)
 setupRequired(pipe_base)
 
 setupRequired(wcslib >= 4.4.4)
-setupRequired(astrometry_net >= 0.49)
-#setupRequired(astrometry_net)
+setupRequired(astrometry_net)
 setupRequired(numpy)
 
 setupOptional(matplotlib)

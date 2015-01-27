@@ -155,7 +155,7 @@ class CatalogStarSelector(object):
 
         with ds9.Buffering():
             for ref, source, d in matches:
-                if ref.get("stargal"):
+                if not ref.get("resolved"):
                     if not isGoodSource(source):
                         symb, ctype = "+", ds9.RED
                     else:
