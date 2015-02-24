@@ -96,7 +96,7 @@ If reverse is True, return the inverse transformed magnitude
             colorterms = Colorterm._activeColorterms
 
         if not colorterms:
-            return p
+            return primary
 
         ct = colorterms[band]
         
