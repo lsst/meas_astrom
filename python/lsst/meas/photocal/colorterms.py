@@ -22,13 +22,15 @@
 import numpy as np
 
 class Colorterm(object):
-    """A class to describe colour terms between photometric bands"""
-
+    """!A class to describe colour terms between photometric bands
+    """
     _colorterms = {}                    # cached dictionary of dictionaries of Colorterms for devices
     _activeColorterms = None            # The set of Colorterms that are currently in use
 
     def __init__(self, primary, secondary, c0, c1=0.0, c2=0.0):
-        """The transformed magnitude p' is given by
+        """!Construct a Colorterm
+
+        The transformed magnitude p' is given by
         p' = primary + c0 + c1*(primary - secondary) + c2*(primary - secondary)**2
         """
         self.primary = primary
@@ -42,9 +44,13 @@ class Colorterm(object):
 
     @staticmethod
     def setColorterms(colorterms, device=None):
-        """Set the cached Colorterms dict for <device> to <colorterms>
-If device is omitted, set the dictionary of known devices' Colorterms
-"""
+        """!Replace or update the cached Colorterms dict
+
+        @param[in,out] colorterms  a dict of device: Colorterm
+        @param[in] device  device name, or None;
+            if device is None then colorterms replaces the internal catched dict,
+            else the internal cached dict is updated with device: colorterms[device]
+        """
         if device:
             Colorterm._colorterms[device] = colorterms[device]
         else:
@@ -54,26 +60,40 @@ If device is omitted, set the dictionary of known devices' Colorterms
 
     @staticmethod
     def setActiveDevice(device, allowRaise=True):
-        """Set the default colour terms to those appropriate for <device>"""
-        try:
-            Colorterm._activeColorterms = Colorterm._colorterms[device]
-        except KeyError:
-            if device is not None and allowRaise:
-                raise RuntimeError("No colour terms are available for %s" % device)
+        """!Set or clear the default colour terms
 
+        @param[in] device  device name, or None to clear
+        @param[in] allowRaise  controls handling an unknown, non-None device:
+            if true raise RuntimeError, else clear the default colorterms
+        """
+        if device is None:
             Colorterm._activeColorterms = None
+
+        else:
+            try:
+                Colorterm._activeColorterms = Colorterm._colorterms[device]
+            except KeyError:
+                if allowRaise:
+                    raise RuntimeError("No colour terms are available for %s" % device)
+
+                Colorterm._activeColorterms = None
 
     @staticmethod
     def getColorterm(band):
-        """Return the Colorterm for the specified band (or None if unknown)"""
+        """!Return the Colorterm for the specified band (or None if unknown)
+        """
         return Colorterm._activeColorterms.get(band) if Colorterm._activeColorterms else None
 
     @staticmethod
     def transformSource(band, source, reverse=False, colorterms=None):
-        """Transform the magnitudes in <source> to the specified <band> and return it. The <source> must
-support a get(band) (e.g. source.get("r")) method, as do afw::Source and dicts.
-Use the colorterms (or the cached set if colorterms is None); if no set is available, return the <band> flux
-If reverse is True, return the inverse transformed magnitude
+        """!Transform the magnitudes in <source> to the specified <band> and return it.
+
+        The <source> must support a get(band) (e.g. source.get("r")) method, as do afw::Source and dicts.
+        Use the colorterms (or the cached set if colorterms is None); if no set is available,
+        return the <band> flux.
+        If reverse is True, return the inverse transformed magnitude
+
+        @warning reverse is not yet implemented
         """
         if not colorterms:
             colorterms = Colorterm._activeColorterms
@@ -88,9 +108,13 @@ If reverse is True, return the inverse transformed magnitude
 
     @staticmethod
     def transformMags(band, primary, secondary, reverse=False, colorterms=None):
-        """Transform the magnitudes <primary> and <secondary> to the specified <band> and return it.
-Use the colorterms (or the cached set if colorterms is None); if no set is available, return the <band> flux
-If reverse is True, return the inverse transformed magnitude
+        """!Transform the magnitudes <primary> and <secondary> to the specified <band> and return it.
+
+        Use the colorterms (or the cached set if colorterms is None); if no set is available,
+        return the <band> flux
+        If reverse is True, return the inverse transformed magnitude
+
+        @warning reverse is not yet implemented
         """
         if not colorterms:
             colorterms = Colorterm._activeColorterms
@@ -110,6 +134,8 @@ If reverse is True, return the inverse transformed magnitude
 
     @staticmethod
     def propagateFluxErrors(band, primaryFluxErr, secondaryFluxErr, reverse=False, colorterms=None):
+        """!Transform flux errors
+        """
         if not colorterms:
             colorterms = Colorterm._activeColorterms
 
