@@ -20,12 +20,11 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 # \package lsst.meas.photocal
-import math, os, sys
+import math
+import sys
 import numpy as np
 
 from lsst.meas.photocal.colorterms import Colorterm
-import lsst.meas.algorithms.utils as malgUtil
-import lsst.pex.logging as pexLog
 import lsst.pex.config as pexConf
 import lsst.pipe.base as pipeBase
 import lsst.afw.table as afwTable
@@ -228,6 +227,8 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
         """!Create the photometric calibration task.  See PhotoCalTask.init for documentation
         """
         pipeBase.Task.__init__(self, **kwds)
+        self.scatterPlot = None
+        self.fig = None
         if self.config.doWriteOutput:
             if schema.getVersion() == 0:
                 self.outputField = schema.addField("classification.photometric", type="Flag",
@@ -477,49 +478,50 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
          - arrays ------ Magnitude arrays returned be PhotoCalTask.extractMagArrays
          - matches ----- Final ReferenceMatchVector, as returned by PhotoCalTask.selectMatches.
 
-The exposure is only used to provide the name of the filter being calibrated (it may also be
-used to generate debugging plots).
+        The exposure is only used to provide the name of the filter being calibrated (it may also be
+        used to generate debugging plots).
 
-The reference objects:
- - Must include a field \c photometric; True for objects which should be considered as photometric standards
- - Must include a field \c flux; the flux used to impose a magnitude limit and also to calibrate the data to (unless a colour term is specified, in which case ColorTerm.primary is used;  See https://jira.lsstcorp.org/browse/DM-933)
- - May include a field \c stargal; if present, True means that the object is a star
- - May include a field \c var; if present, True means that the object is variable
+        The reference objects:
+         - Must include a field \c photometric; True for objects which should be considered as
+            photometric standards
+         - Must include a field \c flux; the flux used to impose a magnitude limit and also to calibrate
+            the data to (unless a colour term is specified, in which case ColorTerm.primary is used;
+            See https://jira.lsstcorp.org/browse/DM-933)
+         - May include a field \c stargal; if present, True means that the object is a star
+         - May include a field \c var; if present, True means that the object is variable
 
-The measured sources:
-- Must include PhotoCalConfig.fluxField; the flux measurement to be used for calibration
+        The measured sources:
+        - Must include PhotoCalConfig.fluxField; the flux measurement to be used for calibration
 
-\throws RuntimeError with the following strings:
+        \throws RuntimeError with the following strings:
 
-<DL>
-<DT> `sources' schema does not contain the calibration object flag "XXX"`
-<DD> The constructor added fields to the schema that aren't in the Sources
-<DT> No input matches
-<DD> The input match vector is empty
-<DT> All matches eliminated by source flags
-<DD> The flags specified by \c badFlags in the config eliminated all candidate objects
-<DT> No sources remain in match list after reference catalog cuts
-<DD> The reference catalogue has a column "photometric", but no matched objects have it set
-<DT> No sources remaining in match list after magnitude limit cuts
-<DD> All surviving matches are either too faint in the catalogue or have negative or \c NaN flux
-<DT> No reference stars are available
-<DD> No matches survive all the checks
-</DL>
-
+        <DL>
+        <DT> `sources' schema does not contain the calibration object flag "XXX"`
+        <DD> The constructor added fields to the schema that aren't in the Sources
+        <DT> No input matches
+        <DD> The input match vector is empty
+        <DT> All matches eliminated by source flags
+        <DD> The flags specified by \c badFlags in the config eliminated all candidate objects
+        <DT> No sources remain in match list after reference catalog cuts
+        <DD> The reference catalogue has a column "photometric", but no matched objects have it set
+        <DT> No sources remaining in match list after magnitude limit cuts
+        <DD> All surviving matches are either too faint in the catalogue or have negative or \c NaN flux
+        <DT> No reference stars are available
+        <DD> No matches survive all the checks
+        </DL>
         """
-        global scatterPlot, fig
         import lsstDebug
 
         display = lsstDebug.Info(__name__).display
         displaySources = display and lsstDebug.Info(__name__).displaySources
-        scatterPlot = display and lsstDebug.Info(__name__).scatterPlot
+        self.scatterPlot = display and lsstDebug.Info(__name__).scatterPlot
 
-        if scatterPlot:
+        if self.scatterPlot:
             from matplotlib import pyplot
             try:
-                fig.clf()
+                self.fig.clf()
             except:
-                fig = pyplot.figure()
+                self.fig = pyplot.figure()
 
         if displaySources:
             frame = 1
@@ -577,16 +579,15 @@ The measured sources:
         residuals with a tight core and asymmetrical outliers will start in the core.  We use the width of
         this core to set our maximum sigma (see 2.)
         """
-
         sigmaMax = self.config.sigmaMax
 
         dmag = ref - src
 
-        i = np.argsort(dmag)
-        dmag = dmag[i]
+        indArr = np.argsort(dmag)
+        dmag = dmag[indArr]
 
         if srcErr is not None:
-            dmagErr = srcErr[i]
+            dmagErr = srcErr[indArr]
         else:
             dmagErr = np.ones(len(dmag))
 
@@ -599,6 +600,7 @@ The measured sources:
 
         npt = len(dmag)
         ngood = npt
+        good = None # set at end of first iteration
         for i in range(self.config.nIter):
             if i > 0:
                 npt = sum(good)
@@ -674,13 +676,11 @@ The measured sources:
             good = abs(dmag - center) < self.config.nSigma*min(sig, sigmaMax) # don't clip too softly
 
             #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-            if scatterPlot:
-                from matplotlib import pyplot
+            if self.scatterPlot:
                 try:
-                    fig.clf()
+                    self.fig.clf()
 
-                    axes = fig.add_axes((0.1, 0.1, 0.85, 0.80));
+                    axes = self.fig.add_axes((0.1, 0.1, 0.85, 0.80));
 
                     axes.plot(ref[good], dmag[good] - center, "b+")
                     axes.errorbar(ref[good], dmag[good] - center, yerr=dmagErr[good],
@@ -701,9 +701,10 @@ The measured sources:
                     axes.set_xlabel("Reference")
                     axes.set_ylabel("Reference - Instrumental")
 
-                    fig.show()
+                    self.fig.show()
 
-                    if scatterPlot > 1:
+                    if self.scatterPlot > 1:
+                        reply = None
                         while i == 0 or reply != "c":
                             try:
                                 reply = raw_input("Next iteration? [ynhpc] ")
