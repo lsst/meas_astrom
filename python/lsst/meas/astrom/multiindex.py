@@ -230,15 +230,12 @@ class AstrometryNetCatalog(object):
             first = hduList[1].data
             second = hduList[2].data
 
-            ident1 = first.field("id")
-            ident2 = second.field("id")
-            filenames = second.field("filename")
-
-            self._multiInds = []
-            for i, row1 in enumerate(first):
-                where = numpy.where(ident2 == ident1[i]) # first JOIN second USING(id)
-                self._multiInds.append(MultiIndexCache(filenames[where], row1.field("healpix"),
-                                                       row1.field("nside")))
+            # first JOIN second USING(id)
+            filenames = {i: [] for i in first.field("id")}
+            for id2, fn in zip(second.field("id"), second.field("filename")):
+                filenames[id2].append(fn)
+            self._multiInds = [MultiIndexCache(filenames[i], hp, nside) for i, hp, nside in
+                               zip(first.field("id"), first.field("healpix"), first.field("nside"))]
 
         # Check for consistency
         cacheFiles = set(second.field("filename"))
