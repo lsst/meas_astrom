@@ -46,8 +46,8 @@ class AstrometryTask(pipeBase.Task):
      - @ref meas_astrom_astrometry_Initialize
      - @ref meas_astrom_astrometry_IO
      - @ref meas_astrom_astrometry_Config
-     - @ref meas_astrom_astrometry_Debug
      - @ref meas_astrom_astrometry_Example
+     - @ref meas_astrom_astrometry_Debug
 
     @section meas_astrom_astrometry_Purpose  Description
 
@@ -70,6 +70,10 @@ class AstrometryTask(pipeBase.Task):
 
     See @ref AstrometryConfig
 
+    @section meas_astrom_astrometry_Example  A complete example of using AstrometryTask
+
+    See \ref meas_photocal_photocal_Example.
+
     @section meas_astrom_astrometry_Debug        Debug variables
 
     The @link lsst.pipe.base.cmdLineTask.CmdLineTask command line task@endlink interface supports a
@@ -85,10 +89,6 @@ class AstrometryTask(pipeBase.Task):
       <DD> ds9 frame to use to display the reference objects; the next two frames are used
             to display the match list and the results of the final WCS; defaults to 0
     </DL>
-
-    @section meas_astrom_astrometry_Example  A complete example of using AstrometryTask
-
-    See \ref meas_photocal_photocal_Example.
 
     To investigate the @ref meas_astrom_astrometry_Debug, put something like
     @code{.py}

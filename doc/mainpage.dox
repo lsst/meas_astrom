@@ -1,8 +1,15 @@
 /**
-\mainpage lsst::meas::photocal;  Photometric Calibration
+\mainpage lsst::meas::astrom;  Astrometric and Photometric Calibration
 
-\section measPhotocalSecIntro Introduction
+\section measAstromSecIntro Introduction
 
-Astrometric and Photometric Calibration for LSST.
-\note these two steps are slated to be split into different packages.
+Astrometric and photometric solvers, including:
+- \link AstrometryTask_ AstrometryTask \endlink compute an astrometric solution for a set of sources detected on an Exposure.
+- \link PhotoCalTask_ PhotoCalTask \endlink compute a photometric solution for a set of sources detected on an Exposure
+
+Subtasks used by AstrometryTask:
+- \link LoadReferenceObjectsTask_ LoadReferenceObjectsTask \endlink abstract base class for loading reference objects
+- \link LoadAstrometryNetTask_ LoadAstrometryNetTask \endlink load reference objects from astrometry.net index files
+- \link MatchOptimisticBTask_ MatchOptimisticBTask \endlink match sources to reference objects
+- \link FitTanSipWcsTask_ FitTanSipWcsTask \endlink fit a TAN-SIP WCS given a list of matches of sources and reference objects
 */

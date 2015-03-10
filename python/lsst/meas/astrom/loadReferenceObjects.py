@@ -77,18 +77,46 @@ class LoadReferenceObjectsConfig(pexConfig.Config):
     )
 
 class LoadReferenceObjectsTask(pipeBase.Task):
-    """!Abstract base class task to find position reference stars in a catalog
+    """!Abstract base class to load objects from reference catalogs
+
+    @anchor LoadReferenceObjectsTask_
+
+    @section meas_astrom_loadReferenceObjects_Contents Contents
+
+     - @ref meas_astrom_loadReferenceObjects_Purpose
+     - @ref meas_astrom_loadReferenceObjects_Initialize
+     - @ref meas_astrom_loadReferenceObjects_IO
+     - @ref meas_astrom_loadReferenceObjects_Schema
+     - @ref meas_astrom_loadReferenceObjects_Config
+
+    @section meas_astrom_loadReferenceObjects_Purpose  Description
+
+    Abstract base class for tasks that load objects from a reference catalog
+    in a particular region of the sky.
+
+    Implementations must subclass this class, override the loadObjectsInBBox method,
+    and will typically override the value of ConfigClass with a task-specific config class.
+
+    @section meas_astrom_loadReferenceObjects_Initialize   Task initialisation
+
+    @copydoc \_\_init\_\_
+
+    @section meas_astrom_loadReferenceObjects_IO       Invoking the Task
+
+    @copydoc loadObjectsInBBox
+
+    @section meas_astrom_loadReferenceObjects_Schema       Schema of the reference object catalog
 
     Reference object catalogs are instances of lsst.afw.table.SimpleCatalog with the following schema
     (other fields may also be present):
     - coord: position of star on sky (an lsst.afw.coord.IcrsCoord)
     - centroid: position of star on an exposure, if relevant (an lsst.afw.Point2D)
     - hasCentroid: is centroid usable?
-    - <referenceFilterName>_flux: brightness in the specified reference catalog filter: 10^(-0.4*mag)
-    - <referenceFilterName>_fluxSigma (optional): brightness standard deviation;
+    - *referenceFilterName*_flux: brightness in the specified reference catalog filter: 10^(-0.4*mag)
+    - *referenceFilterName*_fluxSigma (optional): brightness standard deviation;
         omitted if no data is available; possibly nan if data is available for some objects but not others
-    - <cameraFilterName>_camera_flux: brightness in specified camera filter (magnitude)
-    - <cameraFilterName>_camera_fluxSigma (optional): brightness standard deviation
+    - *cameraFilterName*_camera_flux: brightness in specified camera filter (magnitude)
+    - *cameraFilterName*_camera_fluxSigma (optional): brightness standard deviation
         in specified camera filter (magnitude); omitted if no data is available;
         possibly nan if data is available for some objects but not others
     - default_flux (optional): brightness to use if no camera filter is available (magnitude);
@@ -100,8 +128,10 @@ class LoadReferenceObjectsTask(pipeBase.Task):
     - resolved (optional): is the object spatially resolved?
     - variable (optional): does the object have variable brightness?
 
-    Implementations must subclass this class, override the methods marked abstractmethod,
-    and will typically override the value of ConfigClass with a task-specific config class.
+    @section meas_astrom_loadReferenceObjects_Config       Configuration parameters
+
+    See @ref LoadReferenceObjectsConfig for a base set of configuration parameters.
+    Most subclasses will add configuration variables.
     """
     __metaclass__ = abc.ABCMeta
     ConfigClass = LoadReferenceObjectsConfig

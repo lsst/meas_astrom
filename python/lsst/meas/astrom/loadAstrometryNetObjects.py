@@ -14,30 +14,44 @@ __all__ = ["LoadAstrometryNetObjectsTask", "LoadAstrometryNetObjectsConfig"]
 LoadAstrometryNetObjectsConfig = LoadReferenceObjectsTask.ConfigClass
 
 class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
-    """!Task to find reference objects in astrometry.net index files
+    """!Load reference objects from astrometry.net index files
 
-    About Astrometry.net index files (astrometry_net_data):
+    @anchor LoadAstrometryNetObjectsTask_
 
-    There are three components of an index file: a list of stars
-    (stored as a star kd-tree), a list of quadrangles of stars ("quad
-    file") and a list of the shapes ("codes") of those quadrangles,
-    stored as a code kd-tree.
+    @section meas_astrom_loadAstrometryNetObjects_Contents Contents
 
-    Each index covers a region of the sky, defined by healpix nside
-    and number, and a range of angular scales.  In LSST, we share the
-    list of stars in a part of the sky between multiple indexes.  That
-    is, the star kd-tree is shared between multiple indices (quads and
-    code kd-trees).  In the astrometry.net code, this is called a
-    "multiindex".
+     - @ref meas_astrom_loadAstrometryNetObjects_Purpose
+     - @ref meas_astrom_loadAstrometryNetObjects_Initialize
+     - @ref meas_astrom_loadAstrometryNetObjects_IO
+     - @ref meas_astrom_loadReferenceObjects_Schema
+     - @ref meas_astrom_loadAstrometryNetObjects_Config
+     - @ref meas_astrom_loadAstrometryNetObjects_Example
+     - @ref meas_astrom_loadAstrometryNetObjects_Debug
 
-    It is possible to "unload" and "reload" multiindex (and index)
-    objects.  When "unloaded", they consume no FILE or mmap resources.
+    @section meas_astrom_loadAstrometryNetObjects_Purpose  Description
 
-    The multiindex object holds the star kd-tree and gives each index
-    object it holds a pointer to it, so it is necessary to
-    multiindex_reload_starkd() before reloading the indices it holds.
-    The multiindex_unload() method, on the other hand, unloads its
-    starkd and unloads each index it holds.
+    Load reference objects from astrometry.net index files.
+
+    @section meas_astrom_loadAstrometryNetObjects_Initialize   Task initialisation
+
+    @copydoc \_\_init\_\_
+
+    @section meas_astrom_loadAstrometryNetObjects_IO       Invoking the Task
+
+    @copydoc loadObjectsInBBox
+
+    @section meas_astrom_loadAstrometryNetObjects_Config       Configuration parameters
+
+    See @ref LoadAstrometryNetObjectsConfig
+
+    @section meas_astrom_loadAstrometryNetObjects_Example  A complete example of using LoadAstrometryNetObjectsTask
+
+    LoadAstrometryNetObjectsTask is a subtask of AstrometryTask, which is called by PhotoCalTask.
+    See \ref meas_photocal_photocal_Example.
+
+    @section meas_astrom_loadAstrometryNetObjects_Debug        Debug variables
+
+    LoadAstrometryNetObjectsTask does not support any debug variables.
     """
     ConfigClass = LoadAstrometryNetObjectsConfig
 
@@ -71,7 +85,8 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
         @param[in] calib  calibration, or None if unknown
 
         @return an lsst.pipe.base.Struct containing:
-        - refCat a catalog of reference objects (an lsst.afw.table.SimpleCatalog) with the standard schema
+        - refCat a catalog of reference objects with the
+            \link meas_astrom_loadReferenceObjects_Schema standard schema \endlink
             as documented in LoadReferenceObjects, including photometric, resolved and variable;
             hasCentroid is True for all objects.
         - fluxField = name of flux field for specified filterName
@@ -112,7 +127,8 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
             used for flux values in case we have flux limits (which are not yet implemented)
 
         @return an lsst.pipe.base.Struct containing:
-        - refCat a catalog of reference objects (an lsst.afw.table.SimpleCatalog) with the standard schema
+        - refCat a catalog of reference objects with the
+            \link meas_astrom_loadReferenceObjects_Schema standard schema \endlink
             as documented in LoadReferenceObjects, including photometric, resolved and variable;
             hasCentroid is False for all objects.
         - fluxField = name of flux field for specified filterName
