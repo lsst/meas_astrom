@@ -31,7 +31,6 @@ from .colorterms import Colorterm
 import lsst.pex.config as pexConf
 import lsst.pipe.base as pipeBase
 import lsst.afw.table as afwTable
-import lsst.afw.math as afwMath
 from lsst.afw.image import abMagFromFlux, abMagErrFromFluxErr, fluxFromABMag, Calib
 import lsst.afw.display.ds9 as ds9
 from lsst.meas.base.base import Version0FlagMapper
@@ -396,6 +395,7 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
         srcFluxArr = np.array([m.second.get(sourceKeys.flux) for m in matches])
         srcFluxErrArr = np.array([m.second.get(sourceKeys.fluxErr) for m in matches])
         if not np.all(np.isfinite(srcFluxErrArr)):
+            # this is an unpleasant hack; see DM-2308 requesting a better solution
             self.log.warn("Source catalog does not have flux uncertainties; using sqrt(flux).")
             srcFluxErrArr = np.sqrt(srcFluxArr)
 
@@ -458,12 +458,9 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
 
         srcMagArr = np.array([abMagFromFlux(sf) for sf in srcFluxArr])
 
-        # Fitting with error bars in both axes is hard, so transfer all
-        # the error to src, then convert to magnitude;
-        # estimate the scaling first, to put ref errors in approximately the same system as src errors
-        meanSrcPerRef = afwMath.makeStatistics(srcFluxArr/refFluxArr, afwMath.MEANCLIP).getValue()
-        fluxErrArr = np.hypot(srcFluxErrArr, refFluxErrArr*meanSrcPerRef)
-        magErrArr = np.array([abMagErrFromFluxErr(fe, sf) for fe, sf in izip(fluxErrArr, srcFluxArr)])
+        # Fitting with error bars in both axes is hard
+        # for now ignore reference flux error, but ticket DM-2308 is a request for a better solution
+        magErrArr = np.array([abMagErrFromFluxErr(fe, sf) for fe, sf in izip(srcFluxErrArr, srcFluxArr)])
 
         srcMagErrArr = np.array([abMagErrFromFluxErr(sfe, sf) for sfe, sf in izip(srcFluxErrArr, srcFluxArr)])
         refMagErrArr = np.array([abMagErrFromFluxErr(rfe, rf) for rfe, rf in izip(refFluxErrArr, refFluxArr)])
