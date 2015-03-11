@@ -35,7 +35,7 @@ import lsst.afw.math as afwMath
 from lsst.afw.image import abMagFromFlux, abMagErrFromFluxErr, fluxFromABMag, Calib
 import lsst.afw.display.ds9 as ds9
 from lsst.meas.base.base import Version0FlagMapper
-from lsst.meas.astrom import getRefFluxField
+from lsst.meas.algorithms import getRefFluxField
 
 def checkSourceFlags(source, sourceKeys):
     """!Return True if the given source has all good flags set and none of the bad flags set.

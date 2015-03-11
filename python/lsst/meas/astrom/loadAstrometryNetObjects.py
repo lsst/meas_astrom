@@ -5,9 +5,9 @@ import os
 import lsst.afw.geom as afwGeom
 # import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
+from lsst.meas.algorithms import LoadReferenceObjectsTask, getRefFluxField
 from . import astrometry_net as astromNet
 from .config import AstrometryNetDataConfig
-from .loadReferenceObjects import LoadReferenceObjectsTask, getRefFluxField
 
 __all__ = ["LoadAstrometryNetObjectsTask", "LoadAstrometryNetObjectsConfig"]
 
@@ -23,7 +23,7 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
      - @ref meas_astrom_loadAstrometryNetObjects_Purpose
      - @ref meas_astrom_loadAstrometryNetObjects_Initialize
      - @ref meas_astrom_loadAstrometryNetObjects_IO
-     - @ref meas_astrom_loadReferenceObjects_Schema
+     - @ref meas_algorithms_loadReferenceObjects_Schema
      - @ref meas_astrom_loadAstrometryNetObjects_Config
      - @ref meas_astrom_loadAstrometryNetObjects_Example
      - @ref meas_astrom_loadAstrometryNetObjects_Debug
@@ -86,7 +86,7 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
 
         @return an lsst.pipe.base.Struct containing:
         - refCat a catalog of reference objects with the
-            \link meas_astrom_loadReferenceObjects_Schema standard schema \endlink
+            \link meas_algorithms_loadReferenceObjects_Schema standard schema \endlink
             as documented in LoadReferenceObjects, including photometric, resolved and variable;
             hasCentroid is True for all objects.
         - fluxField = name of flux field for specified filterName
@@ -128,7 +128,7 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
 
         @return an lsst.pipe.base.Struct containing:
         - refCat a catalog of reference objects with the
-            \link meas_astrom_loadReferenceObjects_Schema standard schema \endlink
+            \link meas_algorithms_loadReferenceObjects_Schema standard schema \endlink
             as documented in LoadReferenceObjects, including photometric, resolved and variable;
             hasCentroid is False for all objects.
         - fluxField = name of flux field for specified filterName

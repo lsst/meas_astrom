@@ -32,7 +32,7 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.utils.tests as utilsTests
 import lsst.afw.image as afwImage
-
+from lsst.meas.algorithms import LoadReferenceObjectsTask
 import lsst.meas.astrom.sip.genDistortedImage as distort
 import lsst.meas.astrom as measAstrom
 
@@ -119,7 +119,7 @@ class TestMatchOptimisticB(unittest.TestCase):
     def computePosRefCatalog(self, sourceCat):
         """Generate a position reference catalog from a source catalog
         """
-        minimalPosRefSchema = measAstrom.LoadReferenceObjectsTask.makeMinimalSchema(
+        minimalPosRefSchema = LoadReferenceObjectsTask.makeMinimalSchema(
             filterNameList = ["r"],
             addFluxSigma = True,
         )

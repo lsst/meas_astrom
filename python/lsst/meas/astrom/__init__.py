@@ -27,7 +27,6 @@ from . import astrom
 from .astrom import Astrometry
 from .astrometry import *
 from .anetAstrometry import *
-from .loadReferenceObjects import *
 from .loadAstrometryNetObjects import *
 from .matchOptimisticB import *
 
