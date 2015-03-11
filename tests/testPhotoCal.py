@@ -22,11 +22,7 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
-import re
 import os
-import sys
-import glob
-import math
 import unittest
 
 try:                                    # used in plotPhotoCal
@@ -40,13 +36,10 @@ import numpy as np
 
 import eups
 import lsst.meas.astrom            as measAstrom
-import lsst.meas.algorithms.utils  as measAlgUtil
-import lsst.afw.detection          as afwDet
+import lsst.afw.geom               as afwGeom
 import lsst.afw.table              as afwTable
-import lsst.afw.math               as afwMath
-import lsst.afw.image              as afwImg
+import lsst.afw.image              as afwImage
 import lsst.utils.tests            as utilsTests
-import lsst.pex.policy             as pexPolicy
 from lsst.pex.logging import Log
 import lsst.meas.photocal          as photocal
 
@@ -62,8 +55,9 @@ class PhotoCalTest(unittest.TestCase):
         self.srcCat.table.defineApFlux("flux.psf")
         
         # The .xy.fits file has sources in the range ~ [0,2000],[0,4500]
-        self.imageSize = (2048, 4612) # approximate
-        self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci.fits"))
+        # which is bigger than the exposure
+        self.bbox = afwGeom.Box2I(afwGeom.Point2I(0,0), afwGeom.Extent2I(2048, 4612))
+        self.exposure = afwImage.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci.fits"))
 
         # Set up local astrometry_net_data
         datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
@@ -81,10 +75,16 @@ class PhotoCalTest(unittest.TestCase):
         an.finalize()
         
     def getAstrometrySolution(self, loglvl = Log.INFO):
-        astrom = measAstrom.Astrometry(self.conf, logLevel=loglvl)
-        #print 'Calling determineWcs...'
-        res = astrom.determineWcs(self.srcCat, self.exposure, imageSize=self.imageSize)
-        return res
+        astromConfig = measAstrom.AstrometryTask.ConfigClass()
+        astrom = measAstrom.AstrometryTask(config=astromConfig)
+        # use solve instead of run because the exposure has the wrong bbox
+        return astrom.solve(
+            sourceCat = self.srcCat,
+            bbox = self.bbox,
+            initWcs = self.exposure.getWcs(),
+            filterName = self.exposure.getFilter().getName(),
+            calib = self.exposure.getCalib(),
+        )
 
     def testGetSolution(self):
         res = self.getAstrometrySolution(loglvl=Log.DEBUG)
@@ -187,8 +187,6 @@ class PhotoCalTest(unittest.TestCase):
     def test1(self):
         res = self.getAstrometrySolution()
         matches = res.matches
-        metadata = res.matchMetadata
-        passband = metadata.get('FILTER')
 
         print 'Test1'
 
@@ -202,27 +200,28 @@ class PhotoCalTest(unittest.TestCase):
         config = photocal.PhotoCalConfig()
         config.doWriteOutput = False    # schema is fixed because we already loaded the data
         task = photocal.PhotoCalTask(config=config, schema=schema)
-        pCal = task.run(self.exposure, matches)
-        print pCal.calib
+        pCal = task.run(exposure=self.exposure, matches=matches)
+        print "Ref flux fields list =", pCal.arrays.refFluxFieldList
+        refFluxField = pCal.arrays.refFluxFieldList[0]
 
         # These are *all* the matches; we don't really expect to do that well.
         diff=[]
         for m in matches:
-            catFlux = m[0].get("flux")     #Catalogue flux
-            if catFlux <= 0:
+            refFlux = m[0].get(refFluxField) # reference catalog flux
+            if refFlux <= 0:
                 continue
-            catMag = -2.5*np.log10(catFlux) #Cat mag
+            refMag = afwImage.abMagFromFlux(refFlux) # reference catalog mag
             instFlux = m[1].getPsfFlux()    #Instrumental Flux
             if instFlux <= 0:
                 continue
-            mag = pCal.calib.getMagnitude(instFlux)     #Instrumental mag
-            diff.append(mag - catMag)
+            instMag = pCal.calib.getMagnitude(instFlux)     #Instrumental mag
+            diff.append(instMag - refMag)
         diff = np.array(diff)
 
         self.assertTrue(len(diff) > 50)
         log.info('%i magnitude differences; mean difference %g; mean abs diff %g' %
                  (len(diff), np.mean(diff), np.mean(np.abs(diff))))
-        self.assertAlmostEqual(np.mean(diff), 0, 0)
+        self.assertLess(np.mean(diff), 0.6)
 
         # Differences of matched objects that were used in the fit.
         zp = pCal.calib.getMagnitude(1.)
@@ -234,14 +233,14 @@ class PhotoCalTest(unittest.TestCase):
         log.logdebug('median abs(diff): %g' % np.median(np.abs(fitdiff)))
         log.logdebug('mean abs(diff): %g' % np.mean(np.abs(fitdiff)))
 
-        # zeropoint: 31.3118134645
-        # number of sources used in fit: 66
-        # median diff: -0.0122945961139
-        # mean diff: 0.00117635038164
-        # median abs(diff): 0.0366950654158
-        # mean abs(diff): 0.0518826601639
+        # zeropoint: 31.3145
+        # number of sources used in fit: 65
+        # median diff: -0.009681
+        # mean diff: 0.00331871
+        # median abs(diff): 0.0368904
+        # mean abs(diff): 0.0516589
 
-        self.assertTrue(abs(zp - 31.31) < 0.05)
+        self.assertTrue(abs(zp - 31.3145) < 0.05)
 
         self.assertTrue(len(fitdiff) > 50)
         # These are kind of arbitrary

@@ -1,3 +1,4 @@
+from __future__ import absolute_import, division
 #
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
@@ -20,29 +21,31 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 # \package lsst.meas.photocal
-import math, os, sys
+from itertools import izip
+import math
+import sys
+
 import numpy as np
 
-from lsst.meas.photocal.colorterms import Colorterm
-import lsst.meas.algorithms.utils as malgUtil
-import lsst.pex.logging as pexLog
+from .colorterms import Colorterm
 import lsst.pex.config as pexConf
 import lsst.pipe.base as pipeBase
 import lsst.afw.table as afwTable
-import lsst.afw.image as afwImage
+from lsst.afw.image import abMagFromFlux, abMagErrFromFluxErr, fluxFromABMag, Calib
 import lsst.afw.display.ds9 as ds9
 from lsst.meas.base.base import Version0FlagMapper
+from lsst.meas.algorithms import getRefFluxField
 
-def checkSourceFlags(source, keys):
+def checkSourceFlags(source, sourceKeys):
     """!Return True if the given source has all good flags set and none of the bad flags set.
 
     \param[in] source    SourceRecord object to process.
-    \param[in] keys      Struct of source catalog keys, as returned by PhotCalTask.getKeys()
+    \param[in] sourceKeys      Struct of source catalog keys, as returned by PhotCalTask.getSourceKeys()
     """
-    for k in keys.goodFlags:
+    for k in sourceKeys.goodFlags:
         if not source.get(k): return False
     if source.getPsfFluxFlag(): return False
-    for k in keys.badFlags:
+    for k in sourceKeys.badFlags:
         if source.get(k): return False
     return True
 
@@ -69,7 +72,8 @@ class PhotoCalConfig(pexConf.Config):
         )
     badFlags = pexConf.ListField(
         dtype=str, optional=False,
-        default=["base_PixelFlags_flag_edge", "base_PixelFlags_flag_interpolated", "base_PixelFlags_flag_saturated"], 
+        default=["base_PixelFlags_flag_edge", "base_PixelFlags_flag_interpolated",
+            "base_PixelFlags_flag_saturated"], 
         doc="List of source flag fields that will cause a source to be rejected when they are set."
         )
     sigmaMax = pexConf.Field(dtype=float, default=0.25, optional=True,
@@ -115,7 +119,7 @@ these columns are indeed present in the input match list; see \ref meas_photocal
 
 \section meas_photocal_photocal_Initialize	Task initialisation
 
-\copydoc init
+\copydoc \_\_init\_\_
 
 \section meas_photocal_photocal_IO		Inputs/Outputs to the run method
 
@@ -214,20 +218,12 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
     ConfigClass = PhotoCalConfig
     _DefaultName = "photoCal"
 
-    # Need init as well as __init__ because "\copydoc __init__" fails (doxygen bug 732264)
-    def init(self, schema, **kwds):
-        """!Create the photometric calibration task.  Most arguments are simply passed onto pipe.base.Task.
-
-        \param schema An lsst::afw::table::Schema used to create the output lsst.afw.table.SourceCatalog
-        \param **kwds keyword arguments to be passed to the lsst.pipe.base.task.Task constructor
-
-        """
-        self.__init__(schema, **kwds)
-
     def __init__(self, schema, **kwds):
         """!Create the photometric calibration task.  See PhotoCalTask.init for documentation
         """
         pipeBase.Task.__init__(self, **kwds)
+        self.scatterPlot = None
+        self.fig = None
         if self.config.doWriteOutput:
             if schema.getVersion() == 0:
                 self.outputField = schema.addField("classification.photometric", type="Flag",
@@ -238,8 +234,15 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
         else:
             self.outputField = None
 
-    def getKeys(self, schema):
-        """!Return a struct containing the source catalog keys for fields used by PhotoCalTask."""
+    def getSourceKeys(self, schema):
+        """!Return a struct containing the source catalog keys for fields used by PhotoCalTask.
+
+        Returned fields include:
+        - flux
+        - fluxErr
+        - goodFlags: a list of keys for field names in self.config.goodFlags
+        - badFlags: a list of keys for field names in self.config.badFlags
+        """
         fluxField = self.config.fluxField
         if schema.getVersion() == 0:
             if fluxField == 'base_PsfFlux_flux': fluxField = "flux.psf"
@@ -255,11 +258,12 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
         return pipeBase.Struct(flux=flux, fluxErr=fluxErr, goodFlags=goodFlags, badFlags=badFlags)
 
     @pipeBase.timeMethod
-    def selectMatches(self, matches, keys, frame=None):
+    def selectMatches(self, matches, sourceKeys, filterName, frame=None):
         """!Select reference/source matches according the criteria specified in the config.
 
         \param[in] matches ReferenceMatchVector (not modified)
-        \param[in] keys    Struct of source catalog keys, as returned by getKeys()
+        \param[in] sourceKeys  Struct of source catalog keys, as returned by getSourceKeys()
+        \param[in] filterName  name of camera filter; used to obtain the reference flux field
         \param[in] frame   ds9 frame number to use for debugging display
         if frame is non-None, display information about trimmed objects on that ds9 frame:
          - Bad:               red x
@@ -278,7 +282,7 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
             raise ValueError("No input matches")
 
         # Only use stars for which the flags indicate the photometry is good.
-        afterFlagCutInd = [i for i, m in enumerate(matches) if checkSourceFlags(m.second, keys)]
+        afterFlagCutInd = [i for i, m in enumerate(matches) if checkSourceFlags(m.second, sourceKeys)]
         afterFlagCut = [matches[i] for i in afterFlagCutInd]
         self.log.logdebug("Number of matches after source flag cuts: %d" % (len(afterFlagCut)))
 
@@ -297,22 +301,22 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
 
         refSchema = matches[0].first.schema
         try:
-            refKey = refSchema.find("photometric").key
+            photometricKey = refSchema.find("photometric").key
             try:
-                stargalKey = refSchema.find("stargal").key
+                resolvedKey = refSchema.find("resolved").key
             except:
-                stargalKey = None
+                resolvedKey = None
 
             try:
-                varKey = refSchema.find("var").key
+                variableKey = refSchema.find("variable").key
             except:
-                varKey = None
+                variableKey = None
         except:
             self.log.warn("No 'photometric' flag key found in reference schema.")
-            refKey = None
+            photometricKey = None
 
-        if refKey is not None:
-            afterRefCutInd = [i for i, m in enumerate(matches) if m.first.get(refKey)]
+        if photometricKey is not None:
+            afterRefCutInd = [i for i, m in enumerate(matches) if m.first.get(photometricKey)]
             afterRefCut = [matches[i] for i in afterRefCutInd]
 
             if len(afterRefCut) != len(matches):
@@ -323,9 +327,9 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
                                 x, y = m.second.getCentroid()
                                 ds9.dot("+", x,  y, size=4, frame=frame, ctype=ds9.BLUE)
 
-                                if stargalKey and not m.first.get(stargalKey):
+                                if resolvedKey and m.first.get(resolvedKey):
                                     ds9.dot("o", x,  y, size=6, frame=frame, ctype=ds9.CYAN)
-                                if varKey and m.first.get(varKey):
+                                if variableKey and m.first.get(variableKey):
                                     ds9.dot("o", x,  y, size=6, frame=frame, ctype=ds9.MAGENTA)
 
                 matches = afterRefCut
@@ -333,9 +337,10 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
         self.log.logdebug("Number of matches after reference catalog cuts: %d" % (len(matches)))
         if len(matches) == 0:
             raise RuntimeError("No sources remain in match list after reference catalog cuts.")
-        fluxKey = refSchema.find("flux").key
+        fluxName = getRefFluxField(refSchema, filterName)
+        fluxKey = refSchema.find(fluxName).key
         if self.config.magLimit is not None:
-            fluxLimit = 10.0**(-self.config.magLimit/2.5)
+            fluxLimit = fluxFromABMag(self.config.magLimit)
 
             afterMagCutInd = [i for i, m in enumerate(matches) if (m.first.get(fluxKey) > fluxLimit
                                                                    and m.second.getPsfFlux() > 0.0)]
@@ -373,23 +378,31 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
         return result
 
     @pipeBase.timeMethod
-    def extractMagArrays(self, matches, filterName, keys):
+    def extractMagArrays(self, matches, filterName, sourceKeys):
         """!Extract magnitude and magnitude error arrays from the given matches.
 
-        \param[in] matches     \link lsst::afw::table::ReferenceMatchVector\endlink object containing reference/source matches
-        \param[in] filterName Name of filter being calibrated
-        \param[in] keys       Struct of source catalog keys, as returned by getKeys()
+        \param[in] matches Reference/source matches, a \link lsst::afw::table::ReferenceMatchVector\endlink
+        \param[in] filterName  Name of filter being calibrated
+        \param[in] sourceKeys  Struct of source catalog keys, as returned by getSourceKeys()
 
         \return Struct containing srcMag, refMag, srcMagErr, refMagErr, and magErr numpy arrays
         where magErr is an error in the magnitude; the error in srcMag - refMag.
-        \note These are the \em inputs to the photometric calibration, some may have been
+        Struct also contains refFluxFieldList: a list of field names of the reference catalog used for fluxes
+        (1 or 2 strings)
+        \note These magnitude arrays are the \em inputs to the photometric calibration, some may have been
         discarded by clipping while estimating the calibration (https://jira.lsstcorp.org/browse/DM-813)
         """
-        srcFlux = np.array([m.second.get(keys.flux) for m in matches])
-        srcFluxErr = np.array([m.second.get(keys.fluxErr) for m in matches])
-        if not np.all(np.isfinite(srcFluxErr)):
+        srcFluxArr = np.array([m.second.get(sourceKeys.flux) for m in matches])
+        srcFluxErrArr = np.array([m.second.get(sourceKeys.fluxErr) for m in matches])
+        if not np.all(np.isfinite(srcFluxErrArr)):
+            # this is an unpleasant hack; see DM-2308 requesting a better solution
             self.log.warn("Source catalog does not have flux uncertainties; using sqrt(flux).")
-            srcFluxErr = np.sqrt(srcFlux)
+            srcFluxErrArr = np.sqrt(srcFluxArr)
+
+        # convert source flux from DN to an estimate of Jy
+        JanskysPerABFlux = 3631.0
+        srcFluxArr = srcFluxArr * JanskysPerABFlux
+        srcFluxErrArr = srcFluxErrArr * JanskysPerABFlux
 
         if not matches:
             raise RuntimeError("No reference stars are available")
@@ -401,64 +414,65 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
             ct = None
 
         if ct:                          # we have a colour term to worry about
-            fluxNames = [ct.primary, ct.secondary]
-            missingFluxes = []
-            for flux in fluxNames:
+            fluxFieldList = [getRefFluxField(refSchema, filt) for filt in (ct.primary, ct.secondary)]
+            missingFluxFieldList = []
+            for fluxField in fluxFieldList:
                 try:
-                    refSchema.find(flux).key
+                    refSchema.find(fluxField).key
                 except KeyError:
-                    missingFluxes.append(flux)
+                    missingFluxFieldList.append(fluxField)
 
-            if missingFluxes:
+            if missingFluxFieldList:
                 self.log.warn("Source catalog does not have fluxes for %s; ignoring color terms" %
-                              " ".join(missingFluxes))
+                              " ".join(missingFluxFieldList))
                 ct = None
 
         if not ct:
-            fluxNames = ["flux"]
+            fluxFieldList = [getRefFluxField(refSchema, filterName)]
 
-        refFluxes = []
-        refFluxErrors = []
-        for flux in fluxNames:
-            fluxKey = refSchema.find(flux).key
-            refFlux = np.array([m.first.get(fluxKey) for m in matches])
+        refFluxArrList = [] # list of ref arrays, one per flux field
+        refFluxErrArrList = [] # list of ref flux arrays, one per flux field
+        for fluxField in fluxFieldList:
+            fluxKey = refSchema.find(fluxField).key
+            refFluxArr = np.array([m.first.get(fluxKey) for m in matches])
             try:
-                fluxErrKey = refSchema.find(flux + ".err").key
-                refFluxErr = np.array([m.first.get(fluxErrKey) for m in matches])
+                fluxErrKey = refSchema.find(fluxField + "Sigma").key
+                refFluxErrArr = np.array([m.first.get(fluxErrKey) for m in matches])
             except KeyError:
-                # Catalogue may not have flux uncertainties; HACK
+                # Reference catalogue may not have flux uncertainties; HACK
                 self.log.warn("Reference catalog does not have flux uncertainties for %s; using sqrt(flux)."
-                              % flux)
-                refFluxErr = np.sqrt(refFlux)
+                              % fluxField)
+                refFluxErrArr = np.sqrt(refFluxArr)
 
-            refFluxes.append(refFlux)
-            refFluxErrors.append(refFluxErr)
+            refFluxArrList.append(refFluxArr)
+            refFluxErrArrList.append(refFluxErrArr)
 
-        srcMag = -2.5*np.log10(srcFlux)
         if ct:                          # we have a colour term to worry about
-            refMag =  -2.5*np.log10(refFluxes[0]) # primary
-            refMag2 = -2.5*np.log10(refFluxes[1]) # secondary
+            refMagArr1 = np.array([abMagFromFlux(rf1) for rf1 in refFluxArrList[0]]) # primary
+            refMagArr2 = np.array([abMagFromFlux(rf2) for rf2 in refFluxArrList[1]]) # secondary
 
-            refMag = ct.transformMags(filterName, refMag, refMag2)
-            refFluxErr = ct.propagateFluxErrors(filterName, refFluxErrors[0], refFluxErrors[1])
+            refMagArr = ct.transformMags(filterName, refMagArr1, refMagArr2)
+            refFluxErrArr = ct.propagateFluxErrors(filterName, refFluxErrArrList[0], refFluxErrArrList[1])
         else:
-            refMag = -2.5*np.log10(refFluxes[0])
+            refMagArr = np.array([abMagFromFlux(rf) for rf in refFluxArrList[0]])
 
-        # Fitting with error bars in both axes is hard, so transfer all
-        # the error to src, then convert to magnitude
-        fluxErr = np.hypot(srcFluxErr, refFluxErr)
-        magErr = fluxErr / (srcFlux * np.log(10))
+        srcMagArr = np.array([abMagFromFlux(sf) for sf in srcFluxArr])
 
-        srcMagErr = srcFluxErr / (srcFlux * np.log(10))
-        refMagErr = refFluxErr / (refFlux * np.log(10))
+        # Fitting with error bars in both axes is hard
+        # for now ignore reference flux error, but ticket DM-2308 is a request for a better solution
+        magErrArr = np.array([abMagErrFromFluxErr(fe, sf) for fe, sf in izip(srcFluxErrArr, srcFluxArr)])
+
+        srcMagErrArr = np.array([abMagErrFromFluxErr(sfe, sf) for sfe, sf in izip(srcFluxErrArr, srcFluxArr)])
+        refMagErrArr = np.array([abMagErrFromFluxErr(rfe, rf) for rfe, rf in izip(refFluxErrArr, refFluxArr)])
 
         return pipeBase.Struct(
-            srcMag = srcMag,
-            refMag = refMag,
-            magErr = magErr,
-            srcMagErr = srcMagErr,
-            refMagErr = refMagErr
-            )
+            srcMag = srcMagArr,
+            refMag = refMagArr,
+            magErr = magErrArr,
+            srcMagErr = srcMagErrArr,
+            refMagErr = refMagErrArr,
+            refFluxFieldList = fluxFieldList,
+        )
 
     @pipeBase.timeMethod
     def run(self, exposure, matches):
@@ -477,49 +491,50 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
          - arrays ------ Magnitude arrays returned be PhotoCalTask.extractMagArrays
          - matches ----- Final ReferenceMatchVector, as returned by PhotoCalTask.selectMatches.
 
-The exposure is only used to provide the name of the filter being calibrated (it may also be
-used to generate debugging plots).
+        The exposure is only used to provide the name of the filter being calibrated (it may also be
+        used to generate debugging plots).
 
-The reference objects:
- - Must include a field \c photometric; True for objects which should be considered as photometric standards
- - Must include a field \c flux; the flux used to impose a magnitude limit and also to calibrate the data to (unless a colour term is specified, in which case ColorTerm.primary is used;  See https://jira.lsstcorp.org/browse/DM-933)
- - May include a field \c stargal; if present, True means that the object is a star
- - May include a field \c var; if present, True means that the object is variable
+        The reference objects:
+         - Must include a field \c photometric; True for objects which should be considered as
+            photometric standards
+         - Must include a field \c flux; the flux used to impose a magnitude limit and also to calibrate
+            the data to (unless a colour term is specified, in which case ColorTerm.primary is used;
+            See https://jira.lsstcorp.org/browse/DM-933)
+         - May include a field \c stargal; if present, True means that the object is a star
+         - May include a field \c var; if present, True means that the object is variable
 
-The measured sources:
-- Must include PhotoCalConfig.fluxField; the flux measurement to be used for calibration
+        The measured sources:
+        - Must include PhotoCalConfig.fluxField; the flux measurement to be used for calibration
 
-\throws RuntimeError with the following strings:
+        \throws RuntimeError with the following strings:
 
-<DL>
-<DT> `sources' schema does not contain the calibration object flag "XXX"`
-<DD> The constructor added fields to the schema that aren't in the Sources
-<DT> No input matches
-<DD> The input match vector is empty
-<DT> All matches eliminated by source flags
-<DD> The flags specified by \c badFlags in the config eliminated all candidate objects
-<DT> No sources remain in match list after reference catalog cuts
-<DD> The reference catalogue has a column "photometric", but no matched objects have it set
-<DT> No sources remaining in match list after magnitude limit cuts
-<DD> All surviving matches are either too faint in the catalogue or have negative or \c NaN flux
-<DT> No reference stars are available
-<DD> No matches survive all the checks
-</DL>
-
+        <DL>
+        <DT> `sources' schema does not contain the calibration object flag "XXX"`
+        <DD> The constructor added fields to the schema that aren't in the Sources
+        <DT> No input matches
+        <DD> The input match vector is empty
+        <DT> All matches eliminated by source flags
+        <DD> The flags specified by \c badFlags in the config eliminated all candidate objects
+        <DT> No sources remain in match list after reference catalog cuts
+        <DD> The reference catalogue has a column "photometric", but no matched objects have it set
+        <DT> No sources remaining in match list after magnitude limit cuts
+        <DD> All surviving matches are either too faint in the catalogue or have negative or \c NaN flux
+        <DT> No reference stars are available
+        <DD> No matches survive all the checks
+        </DL>
         """
-        global scatterPlot, fig
         import lsstDebug
 
         display = lsstDebug.Info(__name__).display
         displaySources = display and lsstDebug.Info(__name__).displaySources
-        scatterPlot = display and lsstDebug.Info(__name__).scatterPlot
+        self.scatterPlot = display and lsstDebug.Info(__name__).scatterPlot
 
-        if scatterPlot:
+        if self.scatterPlot:
             from matplotlib import pyplot
             try:
-                fig.clf()
+                self.fig.clf()
             except:
-                fig = pyplot.figure()
+                self.fig = pyplot.figure()
 
         if displaySources:
             frame = 1
@@ -527,9 +542,11 @@ The measured sources:
         else:
             frame = None
 
-        keys = self.getKeys(matches[0].second.schema)
-        matches = self.selectMatches(matches, keys, frame=frame)
-        arrays = self.extractMagArrays(matches, exposure.getFilter().getName(), keys)
+        filterName = exposure.getFilter().getName()
+        sourceKeys = self.getSourceKeys(matches[0].second.schema)
+        matches = self.selectMatches(matches=matches, sourceKeys=sourceKeys, filterName=filterName,
+            frame=frame)
+        arrays = self.extractMagArrays(matches=matches, filterName=filterName, sourceKeys=sourceKeys)
 
         if matches and self.outputField:
             try:
@@ -545,7 +562,7 @@ The measured sources:
         # chance.
         # FIXME: these should be config values
 
-        calib = afwImage.Calib()
+        calib = Calib()
         zp = None                           # initial guess
         r = self.getZeroPoint(arrays.srcMag, arrays.refMag, arrays.magErr, zp0=zp)
         zp = r.zp
@@ -563,7 +580,7 @@ The measured sources:
             zp = r.zp,
             sigma = r.sigma,
             ngood = r.ngood,
-            )
+        )
 
     def getZeroPoint(self, src, ref, srcErr=None, zp0=None):
         """!Flux calibration code, returning (ZeroPoint, Distribution Width, Number of stars)
@@ -577,16 +594,15 @@ The measured sources:
         residuals with a tight core and asymmetrical outliers will start in the core.  We use the width of
         this core to set our maximum sigma (see 2.)
         """
-
         sigmaMax = self.config.sigmaMax
 
         dmag = ref - src
 
-        i = np.argsort(dmag)
-        dmag = dmag[i]
+        indArr = np.argsort(dmag)
+        dmag = dmag[indArr]
 
         if srcErr is not None:
-            dmagErr = srcErr[i]
+            dmagErr = srcErr[indArr]
         else:
             dmagErr = np.ones(len(dmag))
 
@@ -599,6 +615,7 @@ The measured sources:
 
         npt = len(dmag)
         ngood = npt
+        good = None # set at end of first iteration
         for i in range(self.config.nIter):
             if i > 0:
                 npt = sum(good)
@@ -674,13 +691,11 @@ The measured sources:
             good = abs(dmag - center) < self.config.nSigma*min(sig, sigmaMax) # don't clip too softly
 
             #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-            if scatterPlot:
-                from matplotlib import pyplot
+            if self.scatterPlot:
                 try:
-                    fig.clf()
+                    self.fig.clf()
 
-                    axes = fig.add_axes((0.1, 0.1, 0.85, 0.80));
+                    axes = self.fig.add_axes((0.1, 0.1, 0.85, 0.80));
 
                     axes.plot(ref[good], dmag[good] - center, "b+")
                     axes.errorbar(ref[good], dmag[good] - center, yerr=dmagErr[good],
@@ -701,9 +716,10 @@ The measured sources:
                     axes.set_xlabel("Reference")
                     axes.set_ylabel("Reference - Instrumental")
 
-                    fig.show()
+                    self.fig.show()
 
-                    if scatterPlot > 1:
+                    if self.scatterPlot > 1:
+                        reply = None
                         while i == 0 or reply != "c":
                             try:
                                 reply = raw_input("Next iteration? [ynhpc] ")
@@ -757,5 +773,5 @@ The measured sources:
         return pipeBase.Struct(
             zp = np.average(dmag, weights=dmagErr),
             sigma = np.std(dmag, ddof=1),
-            ngood = len(dmag)
-            )
+            ngood = len(dmag),
+        )

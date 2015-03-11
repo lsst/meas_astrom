@@ -22,27 +22,16 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
-import re
 import os
-import sys
-import glob
-import math
 import unittest
 import eups
 
 import numpy as np
 
 import lsst.meas.astrom            as measAstrom
-import lsst.meas.algorithms.utils  as measAlgUtil
-import lsst.afw.detection          as afwDet
 import lsst.afw.geom               as afwGeom
-import lsst.afw.table              as afwTable
-import lsst.afw.math               as afwMath
-import lsst.afw.image              as afwImg
 import lsst.utils.tests            as utilsTests
-import lsst.pex.policy             as pexPolicy
 from lsst.pex.logging import Log
-import lsst.meas.photocal          as photocal
 
 class GetRefSources(unittest.TestCase):
 
@@ -97,9 +86,9 @@ class GetRefSources(unittest.TestCase):
             print '% 20d  % 20.5g  % 20.5g  % 20.5f  % 20.5f' % (sid, r, re, rm, rme)
 
             if i == 0:
-                self.assertLess(np.abs(r  - 1.6289e-10), 1e-13)
-                self.assertLess(np.abs(re - 8.5042e-11), 1e-14)
-                self.assertLess(np.abs(rm - 24.47027),   1e-4)
+                self.assertLess(np.abs(r  - 5.91452282378e-7), 1e-13)
+                self.assertLess(np.abs(re - 3.08789286332e-7), 1e-14)
+                self.assertLess(np.abs(rm - 15.5702),   1e-4)
                 self.assertLess(np.abs(rme- 0.56685),    1e-5)
 
 
@@ -117,13 +106,14 @@ class GetRefSources(unittest.TestCase):
             print '% 10s  % 10s' % (band, band+'.err'),
         print
         nchecked = 0
+        JanskysPerABFlux = 3631.0
         for i,src in enumerate(cat2):
             for band in bands:
                 fkey = schema.find(band).key
                 fekey = schema.find(band + '.err').key
                 f = src.get(fkey)
                 fe = src.get(fekey)
-                m = np.log10(f) / -0.4
+                m = np.log10(f/JanskysPerABFlux) / -0.4
                 me = np.abs(fe / (-0.4 * f * np.log(10.)))
                 print '% 10.5f  % 10.5f' % (m, me),
                 #print '% 10.5g  % 10.5g' % (f, fe),
@@ -185,9 +175,9 @@ class GetRefSources(unittest.TestCase):
         print 'schema', schema
 
         for band in ['r', 'flux']:
-            key = schema.find(band)
+            schema.find(band)
             with self.assertRaises(KeyError):
-                ekey = schema.find(band + '.err')
+                schema.find(band + '.err')
 
         cat = astrom.getReferenceSources(ra, dec, rad, "r")
         print 'cat', cat
@@ -197,9 +187,9 @@ class GetRefSources(unittest.TestCase):
         print 'schema', schema
 
         for band in ['u', 'g', 'r', 'i', 'z', 'flux']:
-            key = schema.find(band)
+            schema.find(band)
             with self.assertRaises(KeyError):
-                ekey = schema.find(band + '.err')
+                schema.find(band + '.err')
 
     def testRequestForeignFilter(self):
         """The user requests a filter not in the astrometry.net catalog.
@@ -227,8 +217,8 @@ class GetRefSources(unittest.TestCase):
         print 'schema', schema
 
         for nm in bands + ['flux']:
-            key = schema.find(nm)
-            ekey = schema.find(nm + '.err')
+            schema.find(nm)
+            schema.find(nm + '.err')
 
 
     def testDifferentMagNames(self):
@@ -257,8 +247,8 @@ class GetRefSources(unittest.TestCase):
         print 'schema', schema
 
         for nm in ['my_' + b for b in bands] + ['flux']:
-            key = schema.find(nm)
-            ekey = schema.find(nm + '.err')
+            schema.find(nm)
+            schema.find(nm + '.err')
 
 
             

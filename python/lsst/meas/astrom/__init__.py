@@ -19,12 +19,16 @@
 # the GNU General Public License along with this program.  If not, 
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
-import lsst.utils
+# import lsst.utils
 
 import sip
 from config import MeasAstromConfig, AstrometryNetDataConfig
 from . import astrom
 from .astrom import Astrometry
+from .astrometry import *
+from .anetAstrometry import *
+from .loadAstrometryNetObjects import *
+from .matchOptimisticB import *
 
 from . import catalogStarSelector
 

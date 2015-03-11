@@ -1,0 +1,309 @@
+from __future__ import absolute_import, division, print_function
+
+import math
+
+import numpy
+
+from lsst.daf.base import PropertyList
+from lsst.afw.image import DistortedTanWcs, ExposureF
+from lsst.afw.table import Point2DKey
+from lsst.afw.geom import Box2D
+from lsst.afw.cameraGeom import TAN_PIXELS
+import lsst.pex.config as pexConfig
+import lsst.pipe.base as pipeBase
+from .loadAstrometryNetObjects import LoadAstrometryNetObjectsTask
+from .matchOptimisticB import MatchOptimisticBTask
+from .fitTanSipWcs import FitTanSipWcsTask
+
+class AstrometryConfig(pexConfig.Config):
+    refObjLoader = pexConfig.ConfigurableField(
+        target = LoadAstrometryNetObjectsTask,
+        doc = "reference object loader",
+    )
+    matcher = pexConfig.ConfigurableField(
+        target = MatchOptimisticBTask,
+        doc = "reference object/source matcher",
+    )
+    wcsFitter = pexConfig.ConfigurableField(
+        target = FitTanSipWcsTask,
+        doc = "WCS fitter",
+    )
+    forceKnownWcs = pexConfig.Field(
+        dtype = bool,
+        doc= "Assume that the input image's WCS is correct, without comparing it to any external reality " +
+            "  (but still match reference objects to sources)",
+        default = False,
+    )
+
+class AstrometryTask(pipeBase.Task):
+    """!Match input sourceCat with a reference catalog and solve for the Wcs
+
+    @anchor AstrometryTask_
+
+    @section meas_astrom_astrometry_Contents Contents
+
+     - @ref meas_astrom_astrometry_Purpose
+     - @ref meas_astrom_astrometry_Initialize
+     - @ref meas_astrom_astrometry_IO
+     - @ref meas_astrom_astrometry_Config
+     - @ref meas_astrom_astrometry_Example
+     - @ref meas_astrom_astrometry_Debug
+
+    @section meas_astrom_astrometry_Purpose  Description
+
+    Match input sourceCat with a reference catalog and solve for the Wcs
+
+    There are three steps, each performed by different subtasks:
+    - Find position reference stars that overlap the exposure
+    - Match sourceCat to position reference stars
+    - Fit a WCS based on the matches
+
+    @section meas_astrom_astrometry_Initialize   Task initialisation
+
+    @copydoc \_\_init\_\_
+
+    @section meas_astrom_astrometry_IO       Invoking the Task
+
+    @copydoc run
+
+    @section meas_astrom_astrometry_Config       Configuration parameters
+
+    See @ref AstrometryConfig
+
+    @section meas_astrom_astrometry_Example  A complete example of using AstrometryTask
+
+    See \ref meas_photocal_photocal_Example.
+
+    @section meas_astrom_astrometry_Debug        Debug variables
+
+    The @link lsst.pipe.base.cmdLineTask.CmdLineTask command line task@endlink interface supports a
+    flag @c -d to import @b debug.py from your @c PYTHONPATH; see @ref baseDebug for more about
+    @b debug.py files.
+
+    The available variables in AstrometryTask are:
+    <DL>
+      <DT> @c display (bool)
+      <DD> If True display information at three stages: after finding reference objects,
+        after matching sources to reference objects, and after fitting the WCS; defaults to False
+      <DT> @c frame (int)
+      <DD> ds9 frame to use to display the reference objects; the next two frames are used
+            to display the match list and the results of the final WCS; defaults to 0
+    </DL>
+
+    To investigate the @ref meas_astrom_astrometry_Debug, put something like
+    @code{.py}
+        import lsstDebug
+        def DebugInfo(name):
+            debug = lsstDebug.getInfo(name)        # N.b. lsstDebug.Info(name) would call us recursively
+            if name == "lsst.pipe.tasks.astrometry":
+                debug.display = True
+
+            return debug
+
+        lsstDebug.Info = DebugInfo
+    @endcode
+    into your debug.py file and run this task with the @c --debug flag.
+    """
+    ConfigClass = AstrometryConfig
+    _DefaultName = "astrometricSolver"
+
+    def __init__(self, schema=None, **kwargs):
+        """!Construct an AstrometryTask
+
+        @param[in] schema  ignored; available for compatibility with an older astrometry task
+        """
+        pipeBase.Task.__init__(self, **kwargs)
+        self.makeSubtask("refObjLoader")
+        self.makeSubtask("matcher")
+        self.makeSubtask("wcsFitter")
+
+    @pipeBase.timeMethod
+    def run(self, exposure, sourceCat):
+        """!Fit a WCS given a source catalog and exposure
+
+        @param[in,out] exposure  exposure whose WCS is to be fit
+            The following are read only:
+            - bbox
+            - calib (may be absent)
+            - filter (may be unset)
+            - detector (if wcs is pure tangent; may be absent)
+            The following are updated:
+            - wcs (the initial value is used as an initial guess, and is required)
+        @param[in] sourceCat  catalog of sourceCat detected on the exposure (an lsst.afw.table.SourceCatalog)
+        @return the same struct as the "solve" method
+        """
+        bbox = exposure.getBBox()
+        exposureInfo = exposure.getInfo()
+        if not exposureInfo.hasWcs():
+            raise pipeBase.TaskError("exposure must have a WCS to use as an initial guess")
+        initWcs = exposureInfo.getWcs()
+        if not initWcs.hasDistortion() and exposureInfo.hasDetector():
+            pixelsToTanPixels = exposureInfo.getDetector().getTransformMap().get(TAN_PIXELS)
+            if pixelsToTanPixels:
+                initWcs = DistortedTanWcs(initWcs, pixelsToTanPixels)
+        calib = exposureInfo.getCalib() if exposureInfo.hasCalib() else None
+        filterName = exposureInfo.getFilter().getName() or None
+
+        retVal = self.solve(sourceCat=sourceCat, bbox=bbox, initWcs=initWcs, filterName=filterName,
+            calib=calib, exposure=exposure)
+        exposure.setWcs(retVal.wcs)
+        return retVal
+
+    @pipeBase.timeMethod
+    def solve(self, sourceCat, bbox, initWcs, filterName=None, calib=None, exposure=None):
+        """!Fit a WCS given a source catalog and exposure matchMetadata
+
+        @param[in] sourceCat  catalog of sourceCat detected on the exposure (an lsst.afw.table.SourceCatalog)
+        @param[in] bbox  bounding box of exposure (an lsst.afw.geom.Box2I)
+        @param[in] wcs  initial guess for WCS of exposure (an lsst.afw.image.Wcs)
+        @param[in] filterName  filter name, or None or "" if unknown (a string)
+        @param[in] calib  calibration for exposure, or None if unknown (an lsst.afw.image.Calib)
+        @param[in] exposure  exposure whose WCS is to be fit, or None; used only for the debug display
+
+        @return an lsst.pipe.base.Struct with these fields:
+        - refCat  reference object catalog of objects that overlap the exposure (with some margin)
+            (an lsst::afw::table::SimpleCatalog)
+        - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
+        - initWcs  initial WCS from exposure (possibly tweaked) (an lsst.afw.image.Wcs)
+        - wcs  fit WCS (an lsst.afw.image.Wcs)
+        - matchMeta  metadata about the field
+        """
+        import lsstDebug
+        debug = lsstDebug.Info(__name__)
+
+        loadRes = self.refObjLoader.loadObjectsInBBox(
+            bbox = bbox,
+            wcs = initWcs,
+            filterName = filterName,
+            calib = calib,
+        )
+        if debug.display:
+            frame = int(debug.frame)
+            showAstrometry(
+                refCat = loadRes.refCat,
+                sourceCat = sourceCat,
+                exposure = exposure,
+                bbox = bbox,
+                frame = frame,
+                title="Reference catalog",
+            )
+
+        matchRes = self.matcher.matchObjectsToSources(
+            refCat = loadRes.refCat,
+            sourceCat = sourceCat,
+            wcs = initWcs,
+            refFluxField = loadRes.fluxField,
+        )
+        if debug.display:
+            showAstrometry(
+                refCat = loadRes.refCat,
+                sourceCat = sourceCat,
+                matches = matchRes.matches,
+                exposure = exposure,
+                bbox = bbox,
+                frame = frame + 1,
+                title="Match list",
+            )
+
+        if not self.config.forceKnownWcs:
+            self.log.info("Fitting WCS")
+            fitWcs = self.wcsFitter.fitWcs(
+                matches = matchRes.matches,
+                initWcs = initWcs,
+                bbox = bbox,
+                refCat = loadRes.refCat,
+            ).wcs
+        else:
+            self.log.info("Not fitting WCS (forceKnownWcs true)")
+            fitWcs = initWcs
+        if debug.display:
+            showAstrometry(
+                refCat = loadRes.refCat,
+                sourceCat = sourceCat,
+                matches = matchRes.matches,
+                exposure = exposure,
+                bbox = bbox,
+                frame = frame + 2,
+                title="TAN-SIP WCS",
+            )
+
+        return pipeBase.Struct(
+            refCat = loadRes.refCat,
+            matches = matchRes.matches,
+            initWcs = initWcs,
+            wcs = fitWcs,
+            matchMeta = self._createMatchMetadata(bbox=bbox, wcs=fitWcs, filterName=filterName)
+        )
+
+    @staticmethod
+    def _createMatchMetadata(bbox, wcs, filterName):
+        """Create matchMeta metadata required for regenerating the catalog
+
+        This is copied from Astrom and I'm not sure why it is needed.
+        I did not put this in any subtask because none have all the necessary info:
+        - The matcher does not have the fit wcs
+        - The fitter does not have the filter name
+
+        @param bbox  bounding box of exposure (an lsst.afw.geom.Box2I or Box2D)
+        @param wcs  WCS of exposure
+        @param filterName Name of filter, used for magnitudes
+        @return Metadata
+        """
+        matchMeta = PropertyList()
+        bboxd = Box2D(bbox)
+        ctrPos = bboxd.getCenter()
+        ctrCoord = wcs.pixelToSky(ctrPos).toIcrs()
+        llCoord = wcs.pixelToSky(bboxd.getMin())
+        approxRadius = ctrCoord.angularSeparation(llCoord)
+        matchMeta.add('RA', ctrCoord.getRa().asDegrees(), 'field center in degrees')
+        matchMeta.add('DEC', ctrCoord.getDec().asDegrees(), 'field center in degrees')
+        matchMeta.add('RADIUS', approxRadius.asDegrees(), 'field radius in degrees, approximate')
+        matchMeta.add('SMATCHV', 1, 'SourceMatchVector version number')
+        if filterName is not None:
+            matchMeta.add('FILTER', filterName, 'filter name for tagalong data')
+        return matchMeta
+
+
+def showAstrometry(refCat, sourceCat, bbox=None, exposure=None, matches=None, frame=1, title=""):
+    """Show an astrometry debug image
+
+    @param[in] refCat  reference object catalog; must have fields "centroid_x" and "centroid_y"
+    @param[in] sourceCat  source catalog; must have field "slot_Centroid_x" and "slot_Centroid_y"
+    @param[in] exposure  exposure to display, or None for a blank exposure
+    @param[in] bbox  bounding box of exposure; required if exposure is None and ignored otherwise
+    @param[in] matches  list of matches (an lsst.afw.table.ReferenceMatchVector), or None
+    @param[in] frame  frame number for ds9 display
+    @param[in] title  title for ds9 display
+
+    @throw RuntimeError if exposure and bbox are both None
+    """
+    import lsst.afw.display.ds9 as ds9
+
+    if exposure is None:
+        if bbox is None:
+            raise RuntimeError("must specify exposure or bbox")
+        exposure = ExposureF(bbox)
+    ds9.mtv(exposure, frame=frame, title=title)
+
+    with ds9.Buffering():
+        refCentroidKey = Point2DKey(refCat.schema["centroid"])
+        for refObj in refCat:
+            x, y = refObj.get(refCentroidKey)
+            ds9.dot("x", x, y, size=10, frame=frame, ctype=ds9.RED)
+
+        sourceCentroidKey = Point2DKey(sourceCat.schema["slot_Centroid"])
+        for source in sourceCat:
+            x, y = source.get(sourceCentroidKey)
+            ds9.dot("+", x,  y, size=10, frame=frame, ctype=ds9.GREEN)
+
+        if matches:
+            radArr = numpy.ndarray(len(matches))
+
+            for i, m in enumerate(matches):
+                refCentroid = m.first.get(refCentroidKey)
+                sourceCentroid = m.second.get(sourceCentroidKey)
+                radArr[i] = math.hypot(*(refCentroid - sourceCentroid))
+                ds9.dot("o", x,  y, size=10, frame=frame, ctype=ds9.YELLOW)
+                
+            print("<match radius> = %.4g +- %.4g [%d matches]" %
+                (radArr.mean(), radArr.std(), len(matches)))
