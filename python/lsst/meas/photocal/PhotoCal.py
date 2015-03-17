@@ -33,7 +33,6 @@ import lsst.pipe.base as pipeBase
 import lsst.afw.table as afwTable
 from lsst.afw.image import abMagFromFlux, abMagErrFromFluxErr, fluxFromABMag, Calib
 import lsst.afw.display.ds9 as ds9
-from lsst.meas.base.base import Version0FlagMapper
 from lsst.meas.algorithms import getRefFluxField
 
 def checkSourceFlags(source, sourceKeys):
@@ -244,17 +243,19 @@ into your debug.py file and run photoCalTask.py with the \c --debug flag.
         - badFlags: a list of keys for field names in self.config.badFlags
         """
         fluxField = self.config.fluxField
+        goodFlags = [schema.find(name).key for name in self.config.goodFlags]
         if schema.getVersion() == 0:
             if fluxField == 'base_PsfFlux_flux': fluxField = "flux.psf"
             flux = schema.find(fluxField).key
             fluxErr = schema.find(fluxField + ".err").key
-            goodFlags = [schema.find(name).key for name in Version0FlagMapper(self.config.goodFlags)]
-            badFlags = [schema.find(name).key for name in Version0FlagMapper(self.config.badFlags)]
+            version0BadFlags=["flags.pixel.edge", "flags.pixel.interpolated.any",
+                "flags.pixel.saturated.any"]
+            badFlags = [schema.find(name).key for name in version0BadFlags]
         else:
             flux = schema.find(self.config.fluxField).key
             fluxErr = schema.find(self.config.fluxField + "Sigma").key
-            goodFlags = [schema.find(name).key for name in self.config.goodFlags]
             badFlags = [schema.find(name).key for name in self.config.badFlags]
+
         return pipeBase.Struct(flux=flux, fluxErr=fluxErr, goodFlags=goodFlags, badFlags=badFlags)
 
     @pipeBase.timeMethod

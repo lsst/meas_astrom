@@ -33,7 +33,6 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.geom.ellipses as geomEllip
 import lsst.afw.cameraGeom as cameraGeom
 import lsst.meas.algorithms as measAlg
-from lsst.meas.base import Version0FlagMapper
 
 class CatalogStarSelectorConfig(pexConfig.Config):
     fluxLim = pexConfig.Field(
@@ -140,10 +139,7 @@ class CatalogStarSelector(object):
         imageSize = exposure.getDimensions()
         filterName = exposure.getFilter().getName()
         calib = exposure.getCalib()
-        if sources.getVersion() == 0:
-            isGoodSource = CheckSource(sources, self._fluxLim, self._fluxMax, Version0FlagMapper(self._badStarPixelFlags))
-        else: 
-            isGoodSource = CheckSource(sources, self._fluxLim, self._fluxMax, self._badStarPixelFlags)
+        isGoodSource = CheckSource(sources, self._fluxLim, self._fluxMax, self._badStarPixelFlags)
 
         #
         # Go through and find all the PSFs in the catalogue
