@@ -345,7 +345,3 @@ class MatchOptimisticBTask(pipeBase.Task):
                     )
                     if matches is not None and len(matches) != 0:
                         return matches
-                if matches is not None and len(matches) != 0:
-                    return matches
-            if matches is not None and len(matches) != 0:
-                return matches
