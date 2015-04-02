@@ -5,15 +5,16 @@ import math
 import numpy
 
 from lsst.daf.base import PropertyList
-from lsst.afw.image import DistortedTanWcs, ExposureF
+from lsst.afw.image import ExposureF
+from lsst.afw.image.utils import getDistortedWcs
 from lsst.afw.table import Point2DKey
 from lsst.afw.geom import Box2D
-from lsst.afw.cameraGeom import TAN_PIXELS
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from .loadAstrometryNetObjects import LoadAstrometryNetObjectsTask
 from .matchOptimisticB import MatchOptimisticBTask
 from .fitTanSipWcs import FitTanSipWcsTask
+
 
 class AstrometryConfig(pexConfig.Config):
     refObjLoader = pexConfig.ConfigurableField(
@@ -134,13 +135,7 @@ class AstrometryTask(pipeBase.Task):
         """
         bbox = exposure.getBBox()
         exposureInfo = exposure.getInfo()
-        if not exposureInfo.hasWcs():
-            raise pipeBase.TaskError("exposure must have a WCS to use as an initial guess")
-        initWcs = exposureInfo.getWcs()
-        if not initWcs.hasDistortion() and exposureInfo.hasDetector():
-            pixelsToTanPixels = exposureInfo.getDetector().getTransformMap().get(TAN_PIXELS)
-            if pixelsToTanPixels:
-                initWcs = DistortedTanWcs(initWcs, pixelsToTanPixels)
+        initWcs = getDistortedWcs(exposureInfo, log=self.log)
         calib = exposureInfo.getCalib() if exposureInfo.hasCalib() else None
         filterName = exposureInfo.getFilter().getName() or None
 
