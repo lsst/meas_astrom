@@ -86,7 +86,7 @@ class TestAstrometricSolver(unittest.TestCase):
         self.doTest(afwGeom.RadialXYTransform([0, 1.01, 1e-7]))
 
     def doTest(self, pixelsToTanPixels, order=3):
-        """Test using an pixelsToTanPixels to distort the source positions
+        """Test using pixelsToTanPixels to distort the source positions
         """
         distortedWcs = afwImage.DistortedTanWcs(self.tanWcs, pixelsToTanPixels)
         sourceCat = self.makeSourceCat(distortedWcs)

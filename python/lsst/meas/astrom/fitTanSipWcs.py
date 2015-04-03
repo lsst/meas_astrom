@@ -12,7 +12,7 @@ class FitTanSipWcsConfig(pexConfig.Config):
     order = pexConfig.RangeField(
         doc = "order of SIP polynomial (0 for pure TAN WCS)",
         dtype = int,
-        default = 5,
+        default = 3,
         min = 0,
     )
 
