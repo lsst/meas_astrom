@@ -13,6 +13,14 @@ __all__ = ["LoadAstrometryNetObjectsTask", "LoadAstrometryNetObjectsConfig"]
 
 LoadAstrometryNetObjectsConfig = LoadReferenceObjectsTask.ConfigClass
 
+# The following block adds links to this task from the Task Documentation page.
+## \addtogroup LSST_task_documentation
+## \{
+## \page measAstrom_loadAstrometryNetObjectsTask
+## \ref LoadAstrometryNetObjectsTask "LoadAstrometryNetObjectsTask"
+##      Load reference objects from astrometry.net index files
+## \}
+
 class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
     """!Load reference objects from astrometry.net index files
 
