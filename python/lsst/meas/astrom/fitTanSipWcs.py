@@ -16,6 +16,14 @@ class FitTanSipWcsConfig(pexConfig.Config):
         min = 0,
     )
 
+# The following block adds links to this task from the Task Documentation page.
+## \addtogroup LSST_task_documentation
+## \{
+## \page measAstrom_fitTanSipWcsTask
+## \ref FitTanSipWcsTask "FitTanSipWcsTask"
+##      Fit a TAN-SIP WCS given a list of reference object/source matches
+## \}
+
 class FitTanSipWcsTask(pipeBase.Task):
     """!Fit a TAN-SIP WCS given a list of reference object/source matches
 

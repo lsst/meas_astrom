@@ -36,8 +36,16 @@ class AstrometryConfig(pexConfig.Config):
         default = False,
     )
 
+# The following block adds links to this task from the Task Documentation page.
+## \addtogroup LSST_task_documentation
+## \{
+## \page measAstrom_astrometryTask
+## \ref AstrometryTask "AstrometryTask"
+##      Match an input source catalog with objects from a reference catalog and solve for the WCS
+## \}
+
 class AstrometryTask(pipeBase.Task):
-    """!Match input sourceCat with a reference catalog and solve for the Wcs
+    """!Match an input source catalog with objects from a reference catalog and solve for the WCS
 
     @anchor AstrometryTask_
 

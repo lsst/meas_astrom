@@ -127,6 +127,14 @@ class SourceInfo(object):
         return self.isCleanSource(source) and not source.get(self.saturatedKey)
 
 
+# The following block adds links to this task from the Task Documentation page.
+## \addtogroup LSST_task_documentation
+## \{
+## \page measAstrom_matchOptimisticBTask
+## \ref MatchOptimisticBTask "MatchOptimisticBTask"
+##      Match sources to reference objects
+## \}
+
 class MatchOptimisticBTask(pipeBase.Task):
     """!Match sources to reference objects
 
