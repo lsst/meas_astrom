@@ -69,18 +69,25 @@ class FitTanSipWcsTask(pipeBase.Task):
     _DefaultName = "fitWcs"
 
     @pipeBase.timeMethod
-    def fitWcs(self, matches, initWcs, bbox=None, refCat=None):
+    def fitWcs(self, matches, initWcs, bbox=None, refCat=None, sourceCat=None):
         """!Fit a TAN-SIP WCS from a list of reference object/source matches
 
-        @param[in] matches  a list of reference object/source matches
+        @param[in,out] matches  a list of reference object/source matches
             (an lsst::afw::table::ReferenceMatchVector)
+            The centroids of the reference objects in matches may be updated for the new WCS,
+            but it is strongly recommended that you provide the refCat and sourceCat arguments
+            so that all matches are fully updated, as well as any sources or reference objects
+            not in matches.
         @param[in] initWcs  initial WCS
         @param[in] bbox  the region over which the WCS will be valid (an lsst:afw::geom::Box2I);
             if None or an empty box then computed from matches
         @param[in,out] refCat  reference object catalog, or None.
             If provided then all centroids are updated with the new WCS,
-            otherwise only the centroids in matches are updated.
-            Required fields are "coord", "centroid_x" and "centroid_y".
+            otherwise the centroids in matches might be updated but the others will not be touched.
+            Required fields are "centroid_x", "centroid_y" and "coord".
+        @param[in,out] sourceCat  source catalog, or None.
+            If provided then coords are updated with the new WCS.
+            Required fields are "slot_Centroid_x", "slot_Centroid_y" and "coord".
 
         @return an lsst.pipe.base.Struct with the following fields:
         - wcs  the fit WCS as an lsst.afw.image.Wcs
@@ -91,11 +98,29 @@ class FitTanSipWcsTask(pipeBase.Task):
         wcs = sipObject.getNewWcs()
 
         if refCat is not None:
-            coordKey = refCat.schema["coord"].asKey()
-            centroidKey = afwTable.Point2DKey(refCat.schema["centroid"])
-            for refObj in refCat:
-                refObj.set(centroidKey, wcs.skyToPixel(refObj.get(coordKey)))
+            self.updateRefCat(wcs, refCat)
+
+        if sourceCat is not None:
+            self.updateSrcCat(wcs, sourceCat)
 
         return pipeBase.Struct(
             wcs = wcs,
         )
+
+    @staticmethod
+    def updateRefCat(wcs, refCat):
+        """Update centroids in a reference catalog, given a WCS
+        """
+        coordKey = refCat.schema["coord"].asKey()
+        centroidKey = afwTable.Point2DKey(refCat.schema["centroid"])
+        for refObj in refCat:
+            refObj.set(centroidKey, wcs.skyToPixel(refObj.get(coordKey)))
+
+    @staticmethod
+    def updateSrcCat(wcs, sourceCat):
+        """Update coords in a source catalog, given a WCS
+        """
+        srcCoordKey = sourceCat.schema["coord"].asKey()
+        for src in sourceCat:
+            src.set(srcCoordKey, wcs.pixelToSky(src.getCentroid()))
+
