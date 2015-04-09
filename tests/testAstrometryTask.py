@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 # 
 # LSST Data Management System
@@ -78,8 +78,8 @@ class TestAstrometricSolver(unittest.TestCase):
         """
         self.doTest(afwGeom.IdentityXYTransform())
 
-    def testQuadratic(self):
-        """Test fit with quadratic distortion including scale change and offset
+    def testRadial(self):
+        """Test fit with radial distortion
 
         The offset comes from the fact that the CCD is not centered
         """
@@ -99,7 +99,28 @@ class TestAstrometricSolver(unittest.TestCase):
             initWcs = distortedWcs,
             filterName = 'r'
         )
-        self.assertWcssAlmostEqual(distortedWcs, results.wcs, self.bbox)        
+        self.assertWcssAlmostEqual(distortedWcs, results.wcs, self.bbox)
+
+        srcCoordKey = sourceCat.schema["coord"].asKey()
+        refCoordKey = results.refCat.schema["coord"].asKey()
+        refCentroidKey = afwTable.Point2DKey(results.refCat.schema["centroid"])
+        maxAngSep = afwGeom.Angle(0)
+        maxPixSep = 0
+        for refObj, src, d in results.matches:
+            refCoord = refObj.get(refCoordKey)
+            refPixPos = refObj.get(refCentroidKey)
+            srcCoord = src.get(srcCoordKey)
+            srcPixPos = src.getCentroid()
+
+            angSep = refCoord.angularSeparation(srcCoord)
+            maxAngSep = max(maxAngSep, angSep)
+            self.assertLess(refCoord.angularSeparation(srcCoord), 0.0025 * afwGeom.arcseconds)
+
+            pixSep = math.hypot(*(srcPixPos-refPixPos))
+            maxPixSep = max(maxPixSep, pixSep)
+            self.assertLess(pixSep, 0.015)
+        print("max angular separation = %0.4f arcsec" % (maxAngSep.asArcseconds(),))
+        print("max pixel separation = %0.3f" % (maxPixSep,))
 
     def makeSourceCat(self, distortedWcs):
         """Make a source catalog by reading the position reference stars and distorting the positions

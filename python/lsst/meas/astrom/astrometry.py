@@ -215,6 +215,7 @@ class AstrometryTask(pipeBase.Task):
                 initWcs = initWcs,
                 bbox = bbox,
                 refCat = loadRes.refCat,
+                sourceCat = sourceCat,
             ).wcs
         else:
             self.log.info("Not fitting WCS (forceKnownWcs true)")

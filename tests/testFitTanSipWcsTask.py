@@ -20,6 +20,7 @@
 # the GNU General Public License along with this program.  If not, 
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
+import math
 import unittest
 
 import numpy
@@ -45,6 +46,9 @@ class BaseTestCase(unittest.TestCase):
 
     Use involves setting one class attribute:
     * MatchClass: match class, e.g. ReferenceMatch or SourceMatch
+
+    This test is a bit messy because it exercises two templatings of makeCreateWcsWithSip,
+    the underlying TAN-SIP WCS fitter, but only one of those is supported by FitTanSipWcsTask 
     """
     MatchClass = None
 
@@ -61,7 +65,7 @@ class BaseTestCase(unittest.TestCase):
         self.tanWcs = afwImage.makeWcs(crval, crpix, CD11, CD12, CD21, CD22)
 
         S = 3000
-        N = 4
+        N = 5
 
         if self.MatchClass == afwTable.ReferenceMatch:
             refSchema = LoadReferenceObjectsTask.makeMinimalSchema(
@@ -74,6 +78,7 @@ class BaseTestCase(unittest.TestCase):
             raise RuntimeError("Unsupported MatchClass=%r" % (self.MatchClass,))
         srcSchema = afwTable.SourceTable.makeMinimalSchema()
         SingleFrameMeasurementTask(schema=srcSchema)
+        self.srcCoordKey = srcSchema["coord"].asKey()
         self.srcCentroidKey = afwTable.Point2DKey(srcSchema["slot_Centroid"])
         self.srcCentroidKey_xSigma = srcSchema["slot_Centroid_xSigma"].asKey()
         self.srcCentroidKey_ySigma = srcSchema["slot_Centroid_ySigma"].asKey()
@@ -133,28 +138,50 @@ class BaseTestCase(unittest.TestCase):
 
     def testQuadraticX(self):
         """Add quadratic distortion in x"""
-        self.doTest("testQuadraticX", lambda x, y: (x + 1e-5*x**2, y), order=3, specifyBBox=True)
+        self.doTest("testQuadraticX", lambda x, y: (x + 1e-5*x**2, y), order=4, specifyBBox=True)
 
-    def checkResults(self, tanSipWcs):
+    def testRadial(self):
+        """Add radial distortion"""
+        radialTransform = afwGeom.RadialXYTransform([0, 1.01, 1e-8])
+        def radialDistortion(x, y):
+            x, y = radialTransform.forwardTransform(afwGeom.Point2D(x, y))
+            return (x, y)
+        self.doTest("testRadial", radialDistortion)
+
+    def checkResults(self, tanSipWcs, catsUpdated):
+        """Check results
+
+        @param[in] tanSipWcs  fit TAN-SIP WCS
+        @param[in] catsUpdated  if True then coord field of self.sourceCat and centroid fields of self.refCat
+            have been updated
+        """
+        maxAngSep = afwGeom.Angle(0)
+        maxPixSep = 0
+        refCoordKey = self.refCat.schema["coord"].asKey()
+        if catsUpdated:
+            refCentroidKey = afwTable.Point2DKey(self.refCat.schema["centroid"])
         for refObj, src, d in self.matches:
             srcPixPos = src.get(self.srcCentroidKey)
-            refCoord = refObj.get("coord")
-            srcCoord = tanSipWcs.pixelToSky(srcPixPos)
-            srcCoord = srcCoord.toIcrs()
+            refCoord = refObj.get(refCoordKey)
+            if catsUpdated:
+                refPixPos = refObj.get(refCentroidKey)
+                srcCoord = src.get(self.srcCoordKey)
+            else:
+                refPixPos = tanSipWcs.skyToPixel(refCoord)
+                srcCoord = tanSipWcs.pixelToSky(srcPixPos)
 
-            if False:
-                print "ref RA,Dec = (%.8f, %.8f) deg" % (refCoord.getRa().asDegrees(), refCoord.getDec().asDegrees())
-                print "src RA,Dec = (%.8f, %.8f) deg" % (srcCoord.getRa().asDegrees(), srcCoord.getDec().asDegrees())
-            self.assertLess(refCoord.angularSeparation(srcCoord), 0.001 * afwGeom.arcseconds)
+            angSep = refCoord.angularSeparation(srcCoord)
+            maxAngSep = max(maxAngSep, angSep)
+            self.assertLess(angSep, 0.001 * afwGeom.arcseconds)
 
-            refPixPos = tanSipWcs.skyToPixel(refCoord)
-            if False:
-                print "ref X,Y = (%.3f, %.3f)" % (refPixPos[0], refPixPos[1])
-                print "src X,Y = (%.3f, %.3f)" % (srcPixPos[0], srcPixPos[1])
-            self.assertAlmostEqual(srcPixPos[0], refPixPos[0], 3) # within a milli-pixel
-            self.assertAlmostEqual(srcPixPos[1], refPixPos[1], 3)
+            pixSep = math.hypot(*(srcPixPos - refPixPos))
+            maxPixSep = max(maxPixSep, pixSep)
+            self.assertLess(pixSep, 0.001)
 
-    def doTest(self, name, func, order=2, specifyBBox=False, doPlot=False):
+        print("max angular separation = %0.4f arcsec" % (maxAngSep.asArcseconds(),))
+        print("max pixel separation = %0.3f" % (maxPixSep,))
+
+    def doTest(self, name, func, order=3, specifyBBox=False, doPlot=False):
         """Apply func(x, y) to each source in self.sourceCat, then fit and check the resulting WCS
         """
         bbox = afwGeom.Box2I()
@@ -178,7 +205,7 @@ class BaseTestCase(unittest.TestCase):
         if doPlot:
             self.plotWcs(tanSipWcs, name=name)
         
-        self.checkResults(tanSipWcs)
+        self.checkResults(tanSipWcs, catsUpdated=False)
 
         if self.MatchClass == afwTable.ReferenceMatch:
             fitterConfig = FitTanSipWcsTask.ConfigClass()
@@ -190,6 +217,7 @@ class BaseTestCase(unittest.TestCase):
                     initWcs = self.tanWcs,
                     bbox = bbox,
                     refCat = self.refCat,
+                    sourceCat = self.sourceCat,
                 )
             else:
                 fitRes = fitter.fitWcs(
@@ -197,9 +225,10 @@ class BaseTestCase(unittest.TestCase):
                     initWcs = self.tanWcs,
                     bbox = bbox,
                     refCat = self.refCat,
+                    sourceCat = self.sourceCat,
                 )
 
-            self.checkResults(fitRes.wcs)
+            self.checkResults(fitRes.wcs, catsUpdated=True)
 
     def plotWcs(self, tanSipWcs, name=""):
         fileNamePrefix = "testCreateWcsWithSip_%s_%s" % (self.MatchClass.__name__, name)
