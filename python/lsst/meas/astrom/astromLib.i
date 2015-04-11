@@ -19,6 +19,8 @@ Python interface to lsst::meas::astrom
 %}
 
 %include "lsst/p_lsstSwig.i"
+%initializeNumPy(meas_astrom)
+
 %include "lsst/pex/config.h"
 
 %shared_ptr(lsst::meas::astrom::MatchOptimisticBControl);
