@@ -5,6 +5,7 @@ import lsst.afw.table as afwTable
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from .sip import makeCreateWcsWithSip
+from .astromLib import fitTanWcs
 
 __all__ = ["FitTanSipWcsTask", "FitTanSipWcsConfig"]
 
@@ -94,7 +95,9 @@ class FitTanSipWcsTask(pipeBase.Task):
         """
         if bbox is None:
             bbox = afwGeom.Box2I()
-        sipObject = makeCreateWcsWithSip(matches, initWcs, self.config.order, bbox)
+
+        tanWcs = fitTanWcs(matches)
+        sipObject = makeCreateWcsWithSip(matches, tanWcs, self.config.order, bbox)
         wcs = sipObject.getNewWcs()
 
         if refCat is not None:
