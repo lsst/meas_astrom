@@ -15,6 +15,7 @@ Python interface to lsst::meas::astrom
 #include "lsst/afw/table.h"
 #include "lsst/afw/image/Wcs.h"
 #include "lsst/afw/image/TanWcs.h"
+#include "lsst/meas/astrom/fitTanWcs.h"
 #include "lsst/meas/astrom/matchOptimisticB.h"
 %}
 
@@ -29,3 +30,4 @@ Python interface to lsst::meas::astrom
 %import "lsst/afw/image/wcs.i"
 
 %include "lsst/meas/astrom/matchOptimisticB.h"
+%include "lsst/meas/astrom/fitTanWcs.h"

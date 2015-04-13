@@ -79,7 +79,7 @@ class FitTanSipWcsTask(pipeBase.Task):
             but it is strongly recommended that you provide the refCat and sourceCat arguments
             so that all matches are fully updated, as well as any sources or reference objects
             not in matches.
-        @param[in] initWcs  initial WCS
+        @param[in] initWcs  initial WCS or None; if None then an initial WCS is determined from matches
         @param[in] bbox  the region over which the WCS will be valid (an lsst:afw::geom::Box2I);
             if None or an empty box then computed from matches
         @param[in,out] refCat  reference object catalog, or None.
@@ -96,8 +96,9 @@ class FitTanSipWcsTask(pipeBase.Task):
         if bbox is None:
             bbox = afwGeom.Box2I()
 
-        tanWcs = fitTanWcs(matches)
-        sipObject = makeCreateWcsWithSip(matches, tanWcs, self.config.order, bbox)
+        if initWcs is None:
+            initWcs = fitTanWcs(matches)
+        sipObject = makeCreateWcsWithSip(matches, initWcs, self.config.order, bbox)
         wcs = sipObject.getNewWcs()
 
         if refCat is not None:

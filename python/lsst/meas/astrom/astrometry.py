@@ -212,7 +212,7 @@ class AstrometryTask(pipeBase.Task):
             self.log.info("Fitting WCS")
             fitWcs = self.wcsFitter.fitWcs(
                 matches = matchRes.matches,
-                initWcs = initWcs,
+                initWcs = None, # initWcs, None uses the HSC tan fitter
                 bbox = bbox,
                 refCat = loadRes.refCat,
                 sourceCat = sourceCat,
