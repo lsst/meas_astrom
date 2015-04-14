@@ -22,9 +22,8 @@
 # import lsst.utils
 
 import sip
-from config import MeasAstromConfig, AstrometryNetDataConfig
-from . import astrom
-from .astrom import Astrometry
+from .astrometryNetDataConfig import *
+from .anetBasicAstrometry import *
 from .astrometry import *
 from .anetAstrometry import *
 from .loadAstrometryNetObjects import *

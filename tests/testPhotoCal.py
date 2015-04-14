@@ -46,7 +46,7 @@ import lsst.meas.photocal          as photocal
 class PhotoCalTest(unittest.TestCase):
 
     def setUp(self):
-        self.conf = measAstrom.MeasAstromConfig()
+        self.conf = measAstrom.AstrometryConfig()
         
         # Load sample input from disk
         mypath = eups.productDir("meas_astrom")

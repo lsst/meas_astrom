@@ -30,7 +30,7 @@ import lsst.afw.table as afwTable
 import lsst.utils.tests as utilsTests
 import lsst.afw.geom as afwGeom
 
-import lsst.meas.astrom as measAst
+import lsst.meas.astrom as measAstrom
 import lsst.meas.astrom.sip as sip
 import lsst.meas.astrom.sip.genDistortedImage as distort
 import lsst.meas.astrom.sip.cleanBadPoints as cleanBadPoints
@@ -48,8 +48,9 @@ if not ok:
 class CreateWcsWithSipCase(unittest.TestCase):
     def setUp(self):
 
-        self.conf = measAst.MeasAstromConfig()
-        self.astrom = measAst.Astrometry(self.conf) #, logLevel=pexLog.Log.DEBUG)
+        self.conf = measAstrom.ANetBasicAstrometryConfig()
+        self.conf.defaultFilter = "r"
+        self.astrom = measAstrom.ANetBasicAstrometryTask(config=self.conf)
 
         path=eups.productDir("meas_astrom")
         self.filename=os.path.join(path, "tests", "cat.xy.fits")

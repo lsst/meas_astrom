@@ -21,22 +21,14 @@
 # the GNU General Public License along with this program.  If not, 
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
-import re
 import os
-import sys
-import glob
-import math
 import unittest
 
 import resource
 
-import eups
 import lsst.meas.astrom as measAstrom
 import lsst.utils.tests as utilsTests
-import lsst.afw.math as afwMath
 import lsst.afw.table as afwTable
-import lsst.afw.image as afwImg
-import lsst.pex.logging as pexLog
 
 
 # http://stackoverflow.com/a/7142094/834250
@@ -92,8 +84,8 @@ class OpenFilesTest(unittest.TestCase):
         andconfig = measAstrom.AstrometryNetDataConfig()
         andconfig.load(andcfn)
 
-        conf = measAstrom.MeasAstromConfig()
-        return measAstrom.Astrometry(config=conf, andConfig=andconfig,)
+        conf = measAstrom.ANetBasicAstrometryConfig()
+        return measAstrom.ANetBasicAstrometryTask(config=conf, andConfig=andconfig,)
                                             #logLevel=pexLog.Log.DEBUG)
 
     def tearDown(self):

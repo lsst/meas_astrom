@@ -25,15 +25,15 @@ from contextlib import contextmanager
 import lsst.pex.exceptions
 import lsst.afw.geom as afwGeom
 from lsst.afw.cameraGeom import TAN_PIXELS
+from lsst.afw.table import Point2DKey, CovarianceMatrix2fKey
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
-from .astrom import Astrometry
-from lsst.meas.astrom.sip import makeCreateWcsWithSip
-from lsst.afw.table import Point2DKey, CovarianceMatrix2fKey
+from .anetBasicAstrometry import ANetBasicAstrometryTask
+from .sip import makeCreateWcsWithSip
 
 class ANetAstrometryConfig(pexConfig.Config):
     solver = pexConfig.ConfigField(
-        dtype = Astrometry.ConfigClass,
+        dtype = ANetBasicAstrometryTask.ConfigClass,
         doc = "Configuration for the astrometry solver",
     )
     forceKnownWcs = pexConfig.Field(dtype=bool, doc=(
@@ -288,7 +288,7 @@ class ANetAstrometryTask(pipeBase.Task):
             bbox = exposure.getBBox()
 
         if not self.astrometer:
-            self.astrometer = Astrometry(self.config.solver, log=self.log)
+            self.astrometer = ANetBasicAstrometryTask(self.config.solver, log=self.log)
 
         kwargs = dict(x0=bbox.getMinX(), y0=bbox.getMinY(), imageSize=bbox.getDimensions())
         if self.config.forceKnownWcs:

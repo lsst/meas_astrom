@@ -22,29 +22,21 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
-import re
 import os
-import sys
-import glob
-import math
 import unittest
 import eups
 import lsst.meas.astrom            as measAstrom
-import lsst.afw.detection          as afwDet
 import lsst.afw.table              as afwTable
-import lsst.afw.math               as afwMath
 import lsst.afw.image              as afwImg
 import lsst.utils.tests            as utilsTests
-import lsst.pex.config             as pexConfig
 from lsst.pex.logging import Log
-import lsst.pex.exceptions
 
 from lsst.meas.astrom import AstrometryNetDataConfig
 
 class MultiIndexTest(unittest.TestCase):
 
     def setUp(self):
-        self.conf = measAstrom.MeasAstromConfig()
+        self.conf = measAstrom.ANetBasicAstrometryConfig()
 
         # Load sample input from disk
         mypath = eups.productDir("meas_astrom")
@@ -71,7 +63,7 @@ class MultiIndexTest(unittest.TestCase):
         del self.exposure
 
     def getAstrometrySolution(self, loglvl = Log.INFO, andConfig=None):
-        astrom = measAstrom.Astrometry(self.conf, logLevel=loglvl,
+        astrom = measAstrom.ANetBasicAstrometryTask(self.conf, logLevel=loglvl,
                                        andConfig=andConfig)
         res = astrom.determineWcs(self.srcCat, self.exposure,
                                   imageSize=self.imageSize)
@@ -138,7 +130,7 @@ class MultiIndexTest(unittest.TestCase):
         andConfig.multiIndexFiles = andConfig.multiIndexFiles * 100
         print len(andConfig.multiIndexFiles), 'multi-index files'
 
-        astrom = measAstrom.Astrometry(self.conf, logLevel=Log.INFO,
+        astrom = measAstrom.ANetBasicAstrometryTask(self.conf, logLevel=Log.INFO,
                                        andConfig=andConfig)
 
         mem1 = ttime.get_memusage()

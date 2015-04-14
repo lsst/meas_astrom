@@ -174,7 +174,7 @@ class AstrometryTask(pipeBase.Task):
         import lsstDebug
         debug = lsstDebug.Info(__name__)
 
-        loadRes = self.refObjLoader.loadObjectsInBBox(
+        loadRes = self.refObjLoader.loadPixelBox(
             bbox = bbox,
             wcs = initWcs,
             filterName = filterName,

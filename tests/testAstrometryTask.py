@@ -127,7 +127,7 @@ class TestAstrometricSolver(unittest.TestCase):
         """
         loaderConfig = measAstrom.LoadAstrometryNetObjectsTask.ConfigClass()
         loader = measAstrom.LoadAstrometryNetObjectsTask(config=loaderConfig)
-        loadRes = loader.loadObjectsInBBox(bbox=self.bbox, wcs=distortedWcs, filterName="r")
+        loadRes = loader.loadPixelBox(bbox=self.bbox, wcs=distortedWcs, filterName="r")
         refCat = loadRes.refCat
         refCentroidKey = afwTable.Point2DKey(refCat.schema["centroid"])
 

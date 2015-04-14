@@ -22,16 +22,11 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
-import re
 import os
-import sys
-import glob
-import math
 import unittest
 
-import numpy as np
-
 import eups
+from lsst.afw.coord import IcrsCoord
 import lsst.meas.astrom            as measAstrom
 import lsst.utils.tests            as utilsTests
 import lsst.afw.geom as afwGeom
@@ -49,7 +44,7 @@ class MultipleCatalogStarsTest(unittest.TestCase):
             raise ValueError("Need photocal version of astrometry_net_data (from path: %s): %s" %
                              (datapath, reason))
 
-        self.conf = measAstrom.MeasAstromConfig()
+        self.conf = measAstrom.ANetBasicAstrometryConfig()
         # Load andConfig2.py rather than the default.
         confpath = os.path.join(datapath, 'andConfig2.py')
         self.andconf = measAstrom.AstrometryNetDataConfig()
@@ -61,12 +56,17 @@ class MultipleCatalogStarsTest(unittest.TestCase):
         an.finalize()
 
     def testGetCatalog(self, loglvl=Log.DEBUG):
-        astrom = measAstrom.Astrometry(self.conf, andConfig=self.andconf, logLevel=loglvl)
+        astrom = measAstrom.ANetBasicAstrometryTask(self.conf, andConfig=self.andconf, logLevel=loglvl)
 
-        cat = astrom.getReferenceSources(215.6 * afwGeom.degrees,
-                                         53.0 * afwGeom.degrees,
-                                         0.1 * afwGeom.degrees,
-                                         'z')
+        ctrCoord = IcrsCoord(
+            215.6 * afwGeom.degrees,
+            53.0 * afwGeom.degrees,
+        )
+        cat = astrom.refObjLoader.loadSkyCircle(
+            ctrCoord = ctrCoord,
+            radius = 0.1 * afwGeom.degrees,
+            filterName = 'z',
+        ).refCat
         print 'Got', len(cat), 'reference sources'
 
         ids = set(s.getId() for s in cat)

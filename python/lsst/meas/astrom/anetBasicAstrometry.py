@@ -8,21 +8,24 @@ import numpy as np # for isfinite()
 
 import lsst.daf.base as dafBase
 import lsst.pex.logging as pexLog
+from lsst.pex.config import Field, RangeField, ListField
 import lsst.pex.exceptions as pexExceptions
 import lsst.afw.coord as afwCoord
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.meas.algorithms.utils as maUtils
+from .loadAstrometryNetObjects import LoadAstrometryNetObjectsTask
 
-from .config import MeasAstromConfig, AstrometryNetDataConfig
+from .astrometryNetDataConfig import AstrometryNetDataConfig
 from . import sip as astromSip
 
-__all__ = ["InitialAstrometry", "Astrometry"]
+__all__ = ["InitialAstrometry", "ANetBasicAstrometryConfig", "ANetBasicAstrometryTask"]
 
-# Object returned by determineWcs.
 class InitialAstrometry(object):
     '''
+    Object returned by Astrometry.determineWcs
+
     getWcs(): sipWcs or tanWcs
     getMatches(): sipMatches or tanMatches
 
@@ -74,10 +77,97 @@ class InitialAstrometry(object):
         return self.matchMetadata
     def getSolveQaMetadata(self):
         return self.solveQa
-    
-    
-class Astrometry(object):
-    ConfigClass = MeasAstromConfig
+
+
+class ANetBasicAstrometryConfig(LoadAstrometryNetObjectsTask.ConfigClass):
+
+    maxCpuTime = RangeField(
+        '''Maximum CPU time to spend solving, in seconds''',
+        float,
+        default=0., min=0.)
+
+    matchThreshold = RangeField(
+        '''Matching threshold for Astrometry.net solver (log-odds)''',
+        float,
+        default=math.log(1e12), min=math.log(1e6))
+
+    maxStars = RangeField(
+        '''Maximum number of stars to use in Astrometry.net solving''',
+        int,
+        default=50, min=10)
+
+    useWcsPixelScale = Field(
+        '''Use the pixel scale from the input exposure\'s WCS headers?''',
+        bool,
+        default=True)
+
+    useWcsRaDecCenter = Field(
+        dtype=bool, default=True,
+        doc='''Use the RA,Dec center information from the input exposure\'s WCS headers?''')
+
+    useWcsParity = Field(
+        dtype=bool, default=True,
+        doc='''Use the parity (flip / handedness) of the image from the input exposure\'s WCS headers?''')
+
+    raDecSearchRadius = RangeField(
+        '''When useWcsRaDecCenter=True, this is the radius, in degrees, around the RA,Dec center specified in the input exposure\'s WCS to search for a solution.''',
+        float,
+        default=1., min=0.)
+
+    pixelScaleUncertainty = RangeField(
+        '''Range of pixel scales, around the value in the WCS header, to search.  If the value of this field is X and the nominal scale is S, the range searched will be  S/X to S*X''',
+        float,
+        default = 1.1, min=1.001)
+
+    # forceParity?
+    # forcePixelScale?
+    # forceRaDecCenter?
+    # forcePixelScaleRange?
+    # doTrim ?
+
+    # forceImageSize = Field(
+    #     tuple,
+    #     '''Ignore the size of the input exposure and assume this
+    #     image size instead.''',
+    #     optional=True,
+    #     check=lambda x: (len(x) == 2 and
+    #                      type(x[0]) is int and type(x[1]) is int))
+
+    catalogMatchDist = RangeField(
+        #afwGeom.Angle,
+        '''When matching image to reference catalog stars, how big should
+        the matching radius be?''',
+        float,
+        default=1.,#* afwGeom.arcseconds,
+        min=0.)
+
+    cleaningParameter = RangeField(
+        '''Sigma-clipping parameter in sip/cleanBadPoints.py''',
+        float,
+        default=3., min=0.)
+
+    calculateSip = Field(
+        '''Compute polynomial SIP distortion terms?''',
+        bool,
+        default=True)
+
+    sipOrder = RangeField(
+        '''Polynomial order of SIP distortion terms''',
+        int,
+        default=4, min=2)
+
+    badFlags = ListField(
+        doc = "List of flags which cause a source to be rejected as bad",
+        dtype = str,
+        default = [
+                   ]
+        )                      
+
+    allFluxes = Field(dtype=bool, default=True, doc="Retrieve all available fluxes (and errors) from catalog?")
+
+
+class ANetBasicAstrometryTask(object):
+    ConfigClass = ANetBasicAstrometryConfig
 
     '''
     About Astrometry.net index files (astrometry_net_data):
@@ -120,15 +210,16 @@ class Astrometry(object):
     def __init__(self,
                  config,
                  andConfig=None,
-                 log=None,
+                 log=None,                 
                  logLevel=pexLog.Log.INFO):
         '''
-        conf: an AstromConfig object.
+        conf: an ANetBasicAstrometryConfig object
         andConfig: an AstromNetDataConfig object
         log: a pexLogging.Log
         logLevel: if log is None, the log level to use
         '''
         self.config = config
+        self.refObjLoader = LoadAstrometryNetObjectsTask(self.config, andConfig=andConfig)
         if log is not None:
             self.log = log
         else:
@@ -247,6 +338,7 @@ class Astrometry(object):
             x0 = 0
         if y0 is None:
             y0 = 0
+        imageSize = afwGeom.Extent2I(*imageSize)
         return filterName, imageSize, x0, y0
 
     def useKnownWcs(self, sourceCat, wcs=None, exposure=None, filterName=None, imageSize=None,
@@ -255,7 +347,7 @@ class Astrometry(object):
         Returns an InitialAstrometry object, just like determineWcs,
         but assuming the given input WCS is correct.
 
-        This is enabled by the pipe_tasks AstrometryConfig
+        This is enabled by the ANetBasicAstrometryConfig
         'forceKnownWcs' option.  If you are using that option, you
         probably also want to turn OFF 'calculateSip'.
 
@@ -304,9 +396,13 @@ class Astrometry(object):
                                                           imageSize=imageSize,
                                                           filterName=filterName,
                                                           x0=x0, y0=y0)
-        pixelMargin = 50.
-
-        refCat = self.getReferenceSourcesForWcs(wcs, imageSize, filterName, pixelMargin, x0=x0, y0=y0)
+        bbox = afwGeom.Box2I(afwGeom.Point2I(x0, y0), imageSize)
+        refCat = self.refObjLoader.loadPixelBox(
+            bbox = bbox,
+            wcs = wcs,
+            filterName = filterName,
+            calib = None,
+        ).refCat
         catids = [src.getId() for src in refCat]
         uids = set(catids)
         self.log.logdebug('%i reference sources; %i unique IDs' % (len(catids), len(uids)))
@@ -794,108 +890,6 @@ class Astrometry(object):
                           (filterName, default))
             return default
 
-    def getCatalogFilterName(self, filterName):
-        """Deprecated method for retrieving the magnitude column name from the filter name"""
-        return self.getColumnName(filterName, self.andConfig.magColumnMap, self.andConfig.defaultMagColumn)
-
-
-    def getReferenceSourcesForWcs(self, wcs, imageSize, filterName, pixelMargin=50, x0=0, y0=0, trim=True):
-        W,H = imageSize
-        xc, yc = W/2. + 0.5, H/2. + 0.5
-        rdc = wcs.pixelToSky(x0 + xc, y0 + yc)
-        ra,dec = rdc.getLongitude(), rdc.getLatitude()
-        self._debug('Getting reference sources using center: pixel (%.1f, %.1f) -> RA,Dec (%.3f, %.3f)' %
-                    (xc, yc, ra.asDegrees(), dec.asDegrees()))
-        pixelScale = wcs.pixelScale()
-        rad = pixelScale * (math.hypot(W,H)/2. + pixelMargin)
-        self._debug('Getting reference sources using radius of %.3g deg' % rad.asDegrees())
-        refCat = self.getReferenceSources(ra, dec, rad, filterName)
-        # NOTE: reference objects don't have (x,y) anymore, so we can't apply WCS to set x,y positions
-        if trim:
-            # cut to image bounds + margin.
-            bbox = afwGeom.Box2D(afwGeom.Point2D(x0, y0), afwGeom.Extent2D(W, H))
-            bbox.grow(pixelMargin)
-            refCat = self._trimBadPoints(refCat, bbox, wcs=wcs) # passing wcs says to compute x,y on-the-fly
-        return refCat
-
-
-    def getReferenceSources(self, ra, dec, radius, filterName):
-        '''
-        Searches for reference-catalog sources (in the
-        astrometry_net_data files) in the requested RA,Dec region
-        (afwGeom::Angle objects), with the requested radius (also an
-        Angle).  The flux values will be set based on the requested
-        filter (None => default filter).
-        
-        Returns: an lsst.afw.table.SimpleCatalog of reference objects
-        '''
-        sgCol = self.andConfig.starGalaxyColumn
-        varCol = self.andConfig.variableColumn
-        idcolumn = self.andConfig.idColumn
-
-        magCol = self.getColumnName(filterName, self.andConfig.magColumnMap, self.andConfig.defaultMagColumn)
-        magerrCol = self.getColumnName(filterName, self.andConfig.magErrorColumnMap,
-                                       self.andConfig.defaultMagErrorColumn)
-
-        ctrCoord = afwCoord.IcrsCoord(ra, dec)
-        if self.config.allFluxes:
-            names = []
-            mcols = []
-            ecols = []
-            if magCol:
-                names.append('flux')
-                mcols.append(magCol)
-                ecols.append(magerrCol)
-
-            for col,mcol in self.andConfig.magColumnMap.items():
-                names.append(col)
-                mcols.append(mcol)
-                ecols.append(self.andConfig.magErrorColumnMap.get(col, ''))
-            margs = (names, mcols, ecols)
-
-        else:
-            margs = ([magCol], [magCol], [magerrCol])
-        fixedArgTuple = (ctrCoord, radius, idcolumn) + margs + (sgCol, varCol)
-
-        '''
-        Note about multiple astrometry_net index files and duplicate IDs:
-
-        -as of astrometry_net 0.30, we take a reference catalog and build
-         a set of astrometry_net index files from it, with each one covering a
-         region of sky and a range of angular scales.  The index files covering
-         the same region of sky at different scales use exactly the same stars.
-         Therefore, if we search every index file, we will get multiple copies of
-         each reference star (one from each index file).
-         For now, we have the "unique_ids" option to solver.getCatalog().
-         -recall that the index files to be used are specified in the
-          AstrometryNetDataConfig.indexFiles flat list.
-
-        -as of astrometry_net 0.40, we have the capability to share
-         the reference stars between index files (called
-         "multiindex"), so we will no longer have to repeat the
-         reference stars in each index.  We will, however, have to
-         change the way the index files are configured to take
-         advantage of this functionality.  Once this is in place, we
-         can eliminate the horrid ID checking and deduplication (in solver.getCatalog()).
-        '''
-
-        solver = self._getSolver()
-
-        # Find multi-index files within range
-        multiInds = self._getMIndexesWithinRange(ctrCoord, radius)
-
-        with Astrometry._LoadedMIndexes(multiInds):
-            # We just want to pass the star kd-trees, so just pass the
-            # first element of each multi-index.
-            inds = [mi[0] for mi in multiInds]
-
-            refCat = solver.getCatalog(inds, *fixedArgTuple)
-        print "ctrCoord=%r, radius=%r" % (ctrCoord, radius)
-        print "found %s objects" % (len(refCat),)
-        print "schema=", refCat.schema
-        del solver
-        return refCat
-
     def _solve(self, sourceCat, wcs, imageSize, pixelScale, radecCenter,
                searchRadius, parity, filterName=None, xy0=None):
         solver = self._getSolver()
@@ -964,7 +958,7 @@ class Astrometry(object):
                 toload_multiInds.add(mi)
                 toload_inds.append(ind)
 
-        with Astrometry._LoadedMIndexes(toload_multiInds):
+        with ANetBasicAstrometryTask._LoadedMIndexes(toload_multiInds):
             solver.addIndices(toload_inds)
             self.memusage('Index files loaded: ')
 
@@ -991,12 +985,9 @@ class Astrometry(object):
             # Gather debugging info...
 
             # -are there any reference stars in the proposed search area?
+            # log the number found and discard the results
             if radecCenter is not None:
-                ra = radecCenter.getLongitude()
-                dec = radecCenter.getLatitude()
-                refs = self.getReferenceSources(ra, dec, searchRadius, filterName)
-                self.log.info('Searching around RA,Dec = (%g,%g) with radius %g deg yields %i reference-catalog sources' %
-                              (ra.asDegrees(), dec.asDegrees(), searchRadius.asDegrees(), len(refs)))
+                self.refObjLoader.loadSkyCircle(radecCenter, searchRadius, filterName)
 
         qa = solver.getSolveStats()
         self.log.logdebug('qa: %s' % qa.toString())
@@ -1094,14 +1085,12 @@ class Astrometry(object):
         if version != 1:
             raise ValueError('SourceMatchVector version number is %i, not 1.' % version)
         filterName = matchmeta.getString('FILTER').strip()
-        # all in deg.
-        ra = matchmeta.getDouble('RA') * afwGeom.degrees
-        dec = matchmeta.getDouble('DEC') * afwGeom.degrees
+        ctrCoord = afwCoord.IcrsCoord(
+            matchmeta.getDouble('RA') * afwGeom.degrees,
+            matchmeta.getDouble('DEC') * afwGeom.degrees,
+        )        
         rad = matchmeta.getDouble('RADIUS') * afwGeom.degrees
-        self.log.logdebug('Searching RA,Dec %.3f,%.3f, radius %.1f arcsec, filter "%s"' %
-                          (ra.asDegrees(), dec.asDegrees(), rad.asArcseconds(), filterName))
-        refCat = self.getReferenceSources(ra, dec, rad, filterName)
-        self.log.logdebug('Found %i reference catalog sources in range' % len(refCat))
+        refCat = self.refObjLoader.loadSkyCircle(ctrCoord, rad, filterName).refCat
         refCat.sort()
         sourceCat.sort()
         return afwTable.unpackMatches(packedMatches, refCat, sourceCat)
@@ -1133,7 +1122,7 @@ def _createMetadata(width, height, x0, y0, wcs, filterName):
         meta.add('FILTER', filterName, 'LSST filter name for tagalong data')
     return meta
 
-def readMatches(butler, dataId, sourcesName='icSrc', matchesName='icMatch', config=MeasAstromConfig(),
+def readMatches(butler, dataId, sourcesName='icSrc', matchesName='icMatch', config=ANetBasicAstrometryConfig(),
                 sourcesFlags=afwTable.SOURCE_IO_NO_FOOTPRINTS):
     """Read matches, sources and catalogue; combine.
 
@@ -1146,5 +1135,5 @@ def readMatches(butler, dataId, sourcesName='icSrc', matchesName='icMatch', conf
     """
     sourceCat = butler.get(sourcesName, dataId, flags=sourcesFlags)
     packedMatches = butler.get(matchesName, dataId)
-    astrom = Astrometry(config)
+    astrom = ANetBasicAstrometryTask(config)
     return astrom.joinMatchListWithCatalog(packedMatches, sourceCat)

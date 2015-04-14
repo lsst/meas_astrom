@@ -33,18 +33,16 @@ class matchlistTestCase(unittest.TestCase):
         self.imageSize = (2048, 4612) # approximate
         self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci.fits"))
 
-        conf = measAstrom.MeasAstromConfig()
+        conf = measAstrom.ANetBasicAstrometryConfig()
         loglvl = Log.INFO
         #loglvl = Log.DEBUG
-        self.astrom = measAstrom.Astrometry(conf, logLevel=loglvl)
+        self.astrom = measAstrom.ANetBasicAstrometryTask(conf, logLevel=loglvl)
 
     def tearDown(self):
         del self.srcSet
         del self.imageSize
         del self.exposure
         del self.astrom
-        import lsst.meas.astrom.astrometry_net as an
-        an.finalize()
         
     def getAstrometrySolution(self):
         return self.astrom.determineWcs(self.srcSet, self.exposure, imageSize=self.imageSize)
@@ -68,7 +66,7 @@ class matchlistTestCase(unittest.TestCase):
             self.assertEqual(matches2[i].first.getId(), matches[i].first.getId())
             self.assertEqual(matches2[i].first.getRa().asDegrees(), matches[i].first.getRa().asDegrees())
             self.assertEqual(matches2[i].first.getDec().asDegrees(), matches[i].first.getDec().asDegrees())
-            self.assertEqual(matches2[i].first.get("flux"), matches[i].first.get("flux"))
+            self.assertEqual(matches2[i].first.get("i_flux"), matches[i].first.get("i_flux"))
 
     def testJoinAllFluxes(self):
         """Test that we can read all the fluxes back from an a.n.d catalogue"""
@@ -83,14 +81,11 @@ class matchlistTestCase(unittest.TestCase):
         matches2 = self.astrom.joinMatchListWithCatalog(normalized, self.srcSet)
         self.assertTrue(len(matches2) > 0)
         ref = matches2[0][0]
-        self.assertEqual(ref.get("flux"), ref.get("i"))
-        self.assertEqual(ref.get("flux.err"), ref.get("i.err"))
 
-        sch = ref.getSchema()
-        names = sch.getNames()
-        for b in "ugriz":               # use one of the "features" I hate in python...
-            self.assertTrue(b in names)
-            self.assertTrue("%s.err" % b in names)
+        names = ref.getSchema().getNames()
+        for b in ("u", "g", "r", "i", "z"):
+            self.assertTrue("%s_flux" % (b,) in names)
+            self.assertTrue("%s_fluxSigma" % (b,) in names)
             
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= silly boilerplate -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
