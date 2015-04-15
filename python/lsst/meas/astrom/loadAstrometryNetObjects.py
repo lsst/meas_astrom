@@ -125,7 +125,6 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
             self.andConfig.starGalaxyColumn,
             self.andConfig.variableColumn,
             True, # eliminate duplicate IDs
-            True, # return new schema
         )
 
         self.log.info("search for objects at %s with radius %s deg" % (ctrCoord, radius.asDegrees()))
