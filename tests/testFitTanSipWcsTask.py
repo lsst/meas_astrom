@@ -31,6 +31,7 @@ try:
 except ImportError:
     pass
 
+import lsst.pipe.base
 import lsst.utils.tests as tests
 import lsst.afw.coord as afwCoord
 import lsst.afw.geom as afwGeom
@@ -148,13 +149,17 @@ class BaseTestCase(unittest.TestCase):
             return (x, y)
         self.doTest("testRadial", radialDistortion)
 
-    def checkResults(self, tanSipWcs, catsUpdated):
+    def checkResults(self, fitRes, catsUpdated):
         """Check results
 
-        @param[in] tanSipWcs  fit TAN-SIP WCS
+        @param[in] fitRes  a object with two fields:
+            - wcs  fit TAN-SIP WCS, an lsst.afw.image.TanWcs
+            - scatterOnSky  median on-sky scatter, an lsst.afw.geom.Angle
         @param[in] catsUpdated  if True then coord field of self.sourceCat and centroid fields of self.refCat
             have been updated
         """
+        self.assertLess(fitRes.scatterOnSky.asArcseconds(), 0.001)
+        tanSipWcs = fitRes.wcs
         maxAngSep = afwGeom.Angle(0)
         maxPixSep = 0
         refCoordKey = self.refCat.schema["coord"].asKey()
@@ -197,15 +202,15 @@ class BaseTestCase(unittest.TestCase):
         else:
             sipObject = makeCreateWcsWithSip(self.matches, self.tanWcs, order)
         tanSipWcs = sipObject.getNewWcs()
-
-        if False:
-            print name
-            print tanSipWcs.getFitsMetadata().toString()
+        fitRes = lsst.pipe.base.Struct(
+            wcs = tanSipWcs,
+            scatterOnSky = sipObject.getScatterOnSky(),
+        )
 
         if doPlot:
             self.plotWcs(tanSipWcs, name=name)
         
-        self.checkResults(tanSipWcs, catsUpdated=False)
+        self.checkResults(fitRes, catsUpdated=False)
 
         if self.MatchClass == afwTable.ReferenceMatch:
             fitterConfig = FitTanSipWcsTask.ConfigClass()
@@ -228,7 +233,7 @@ class BaseTestCase(unittest.TestCase):
                     sourceCat = self.sourceCat,
                 )
 
-            self.checkResults(fitRes.wcs, catsUpdated=True)
+            self.checkResults(fitRes, catsUpdated=True)
 
     def plotWcs(self, tanSipWcs, name=""):
         fileNamePrefix = "testCreateWcsWithSip_%s_%s" % (self.MatchClass.__name__, name)
