@@ -36,8 +36,8 @@ class MultipleCatalogStarsTest(unittest.TestCase):
 
     def setUp(self):
         # Set up local astrometry_net_data
-        mypath = eups.productDir("meas_astrom")
-        datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
+        testDir=os.path.dirname(__file__)
+        datapath = os.path.join(testDir, 'astrometry_net_data', 'photocal')
         eupsObj = eups.Eups(root=datapath)
         ok, version, reason = eupsObj.setup('astrometry_net_data')
         if not ok:
@@ -47,16 +47,15 @@ class MultipleCatalogStarsTest(unittest.TestCase):
         self.conf = measAstrom.ANetBasicAstrometryConfig()
         # Load andConfig2.py rather than the default.
         confpath = os.path.join(datapath, 'andConfig2.py')
-        self.andconf = measAstrom.AstrometryNetDataConfig()
-        self.andconf.load(confpath)
+        self.andConfig = measAstrom.AstrometryNetDataConfig()
+        self.andConfig.load(confpath)
 
     def tearDown(self):
         del self.conf
-        import lsst.meas.astrom.astrometry_net as an
-        an.finalize()
 
-    def testGetCatalog(self, loglvl=Log.DEBUG):
-        astrom = measAstrom.ANetBasicAstrometryTask(self.conf, andConfig=self.andconf, logLevel=loglvl)
+    def testGetCatalog(self, logLevel=Log.DEBUG):
+        astrom = measAstrom.ANetBasicAstrometryTask(self.conf, andConfig=self.andConfig)
+        astrom.log.setThreshold(logLevel)
 
         ctrCoord = IcrsCoord(
             215.6 * afwGeom.degrees,

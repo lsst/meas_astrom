@@ -28,6 +28,7 @@ import resource
 
 import lsst.meas.astrom as measAstrom
 import lsst.utils.tests as utilsTests
+import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 
 
@@ -69,15 +70,14 @@ class OpenFilesTest(unittest.TestCase):
         resource.setrlimit(resource.RLIMIT_NOFILE, (10, limits[1]))
         print 'NOFILE rlimit:', resource.getrlimit(resource.RLIMIT_NOFILE)
 
-        self.mypath = os.path.dirname(os.path.dirname(__file__))
-        path = os.path.join(self.mypath, "examples")
-        self.srcCat = afwTable.SourceCatalog.readFits(os.path.join(path, "v695833-e0-c000.xy.fits"))
-        self.srcCat.table.defineApFlux("flux.psf")
+        self.mypath = os.path.dirname(__file__)
+        self.srcCat = afwTable.SourceCatalog.readFits(
+            os.path.join(self.mypath, "v695833-e0-c000.xy.fits"))
         # The .xy.fits file has sources in the range ~ [0,2000],[0,4500]
-        self.imageSize = (2048, 4612) # approximate
+        self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(2048, 4612)) # approximate
 
     def getAstrom(self):
-        andpath = os.path.join(self.mypath, 'tests', 'astrometry_net_data', 'photocal')
+        andpath = os.path.join(self.mypath, 'astrometry_net_data', 'photocal')
         os.environ['ASTROMETRY_NET_DATA_DIR'] = andpath
         andcfn = os.path.join(andpath, 'andConfigOpenFiles.py')
 
@@ -89,20 +89,20 @@ class OpenFilesTest(unittest.TestCase):
                                             #logLevel=pexLog.Log.DEBUG)
 
     def tearDown(self):
-        del self.imageSize
+        del self.bbox
         del self.srcCat
 
 
     def runDetermineWcs(self):
         astrom = self.getAstrom()
-        result = astrom.determineWcs2(self.srcCat, imageSize=self.imageSize, filterName='i')
+        result = astrom.determineWcs2(self.srcCat, bbox=self.bbox, filterName='i')
         print 'Got result from determineWcs:', result
         #printOpenFiles()
         return result.wcs
 
     def runUseKnownWcs(self, wcs):
         astrom = self.getAstrom()
-        result = astrom.useKnownWcs(self.srcCat, wcs=wcs, filterName='i', imageSize=self.imageSize)
+        result = astrom.useKnownWcs(self.srcCat, wcs=wcs, filterName='i', bbox=self.bbox)
         print "Got result from useKnownWcs:", result
         #printOpenFiles()
 

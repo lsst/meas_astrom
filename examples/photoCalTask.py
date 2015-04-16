@@ -37,10 +37,9 @@ def loadData():
     
     # Load sample input from disk
     mypath = eups.productDir("meas_astrom")
-    path = os.path.join(mypath, "examples")
 
     # The .xy.fits file has sources in the range ~ [0,2000],[0,4500]
-    exposure = afwImage.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci.fits"))
+    exposure = afwImage.ExposureF(os.path.join(mypath, "tests", "v695833-e0-c000-a00.sci.fits"))
     #
     # We're using a subset of the exposure in the .xy file and this appears to confuse
     # meas_astrom; it needs to be called as
@@ -65,7 +64,7 @@ def loadData():
     #
     # Read sources
     #
-    srcCat = afwTable.SourceCatalog.readFits(os.path.join(path, "v695833-e0-c000.xy.fits"))
+    srcCat = afwTable.SourceCatalog.readFits(os.path.join(mypath, "tests", "v695833-e0-c000.xy.fits"))
     srcCat.getPsfFluxErr()[:] = np.sqrt(srcCat.getPsfFlux())
 
     return exposure, srcCat

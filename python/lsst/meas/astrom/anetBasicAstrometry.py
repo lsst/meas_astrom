@@ -1,6 +1,5 @@
 from __future__ import absolute_import, division
 
-import os
 import math
 import sys
 
@@ -10,20 +9,20 @@ import lsst.daf.base as dafBase
 import lsst.pex.logging as pexLog
 from lsst.pex.config import Field, RangeField, ListField
 import lsst.pex.exceptions as pexExceptions
+import lsst.pipe.base as pipeBase
 import lsst.afw.coord as afwCoord
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.meas.algorithms.utils as maUtils
-from .loadAstrometryNetObjects import LoadAstrometryNetObjectsTask
+from .loadAstrometryNetObjects import LoadAstrometryNetObjectsTask, LoadMultiIndexes
 
-from .astrometryNetDataConfig import AstrometryNetDataConfig
 from . import sip as astromSip
 
 __all__ = ["InitialAstrometry", "ANetBasicAstrometryConfig", "ANetBasicAstrometryTask"]
 
 class InitialAstrometry(object):
-    '''
+    """
     Object returned by Astrometry.determineWcs
 
     getWcs(): sipWcs or tanWcs
@@ -36,7 +35,7 @@ class InitialAstrometry(object):
     sipWcs (Wcs)
     sipMatches (MatchList)
     matchMetadata (PropertyList)
-    '''
+    """
     def __init__(self):
         self.tanWcs = None
         self.tanMatches = None
@@ -46,17 +45,17 @@ class InitialAstrometry(object):
         self.solveQa = None
 
     def getMatches(self):
-        '''
+        """
         Get "sipMatches" -- MatchList using the SIP WCS solution, if it
         exists, or "tanMatches" -- MatchList using the TAN WCS solution
         otherwise.
-        '''
+        """
         return self.sipMatches or self.tanMatches
 
     def getWcs(self):
-        '''
+        """
         Returns the SIP WCS, if one was found, or a TAN WCS
-        '''
+        """
         return self.sipWcs or self.tanWcs
 
     matches = property(getMatches)
@@ -82,94 +81,100 @@ class InitialAstrometry(object):
 class ANetBasicAstrometryConfig(LoadAstrometryNetObjectsTask.ConfigClass):
 
     maxCpuTime = RangeField(
-        '''Maximum CPU time to spend solving, in seconds''',
-        float,
-        default=0., min=0.)
-
+        doc = "Maximum CPU time to spend solving, in seconds",
+        dtype = float,
+        default = 0.,
+        min = 0.,
+    )
     matchThreshold = RangeField(
-        '''Matching threshold for Astrometry.net solver (log-odds)''',
-        float,
-        default=math.log(1e12), min=math.log(1e6))
-
+        doc = "Matching threshold for Astrometry.net solver (log-odds)",
+        dtype = float,
+        default=math.log(1e12),
+        min=math.log(1e6),
+    )
     maxStars = RangeField(
-        '''Maximum number of stars to use in Astrometry.net solving''',
-        int,
-        default=50, min=10)
-
+        doc = "Maximum number of stars to use in Astrometry.net solving",
+        dtype = int,
+        default=50,
+        min=10,
+    )
     useWcsPixelScale = Field(
-        '''Use the pixel scale from the input exposure\'s WCS headers?''',
-        bool,
-        default=True)
-
+        doc = "Use the pixel scale from the input exposure\'s WCS headers?",
+        dtype = bool,
+        default = True,
+    )
     useWcsRaDecCenter = Field(
-        dtype=bool, default=True,
-        doc='''Use the RA,Dec center information from the input exposure\'s WCS headers?''')
-
+        doc="Use the RA,Dec center information from the input exposure\'s WCS headers?",
+        dtype=bool,
+        default=True,
+    )
     useWcsParity = Field(
-        dtype=bool, default=True,
-        doc='''Use the parity (flip / handedness) of the image from the input exposure\'s WCS headers?''')
-
+        doc="Use the parity (flip / handedness) of the image from the input exposure\'s WCS headers?",
+        dtype=bool,
+        default=True,
+    )
     raDecSearchRadius = RangeField(
-        '''When useWcsRaDecCenter=True, this is the radius, in degrees, around the RA,Dec center specified in the input exposure\'s WCS to search for a solution.''',
-        float,
-        default=1., min=0.)
-
+        doc = "When useWcsRaDecCenter=True, this is the radius, in degrees, around the RA,Dec center " +
+            "specified in the input exposure\'s WCS to search for a solution.",
+        dtype = float,
+        default=1.0,
+        min=0.0,
+    )
     pixelScaleUncertainty = RangeField(
-        '''Range of pixel scales, around the value in the WCS header, to search.  If the value of this field is X and the nominal scale is S, the range searched will be  S/X to S*X''',
-        float,
-        default = 1.1, min=1.001)
-
-    # forceParity?
-    # forcePixelScale?
-    # forceRaDecCenter?
-    # forcePixelScaleRange?
-    # doTrim ?
-
-    # forceImageSize = Field(
-    #     tuple,
-    #     '''Ignore the size of the input exposure and assume this
-    #     image size instead.''',
-    #     optional=True,
-    #     check=lambda x: (len(x) == 2 and
-    #                      type(x[0]) is int and type(x[1]) is int))
-
+        doc = "Range of pixel scales, around the value in the WCS header, to search.  If the value of this field " +
+            "is X and the nominal scale is S, the range searched will be  S/X to S*X",
+        dtype = float,
+        default = 1.1,
+        min=1.001,
+    )
     catalogMatchDist = RangeField(
-        #afwGeom.Angle,
-        '''When matching image to reference catalog stars, how big should
-        the matching radius be?''',
-        float,
-        default=1.,#* afwGeom.arcseconds,
-        min=0.)
-
+        doc = "Matching radius (arcsec) for matching sources to reference objects",
+        dtype = float,
+        default=1.0,
+        min=0.0,
+    )
     cleaningParameter = RangeField(
-        '''Sigma-clipping parameter in sip/cleanBadPoints.py''',
-        float,
-        default=3., min=0.)
-
+        doc = "Sigma-clipping parameter in sip/cleanBadPoints.py",
+        dtype = float,
+        default=3.0,
+        min=0.0,
+    )
     calculateSip = Field(
-        '''Compute polynomial SIP distortion terms?''',
-        bool,
-        default=True)
-
+        doc = "Compute polynomial SIP distortion terms?",
+        dtype = bool,
+        default=True,
+    )
     sipOrder = RangeField(
-        '''Polynomial order of SIP distortion terms''',
-        int,
-        default=4, min=2)
-
+        doc = "Polynomial order of SIP distortion terms",
+        dtype = int,
+        default=4,
+        min=2,
+    )
     badFlags = ListField(
         doc = "List of flags which cause a source to be rejected as bad",
         dtype = str,
         default = [
-                   ]
-        )                      
+            "slot_Centroid_flag", # bad centroids
+            "base_PixelFlags_flag_edge", 
+            "base_PixelFlags_flag_saturated",
+            "base_PixelFlags_flag_crCenter", # cosmic rays
+        ],
+    )
+    allFluxes = Field(
+        doc = "Retrieve all available fluxes (and errors) from catalog?",
+        dtype = bool,
+        default = True,
+    )
 
-    allFluxes = Field(dtype=bool, default=True, doc="Retrieve all available fluxes (and errors) from catalog?")
 
+class ANetBasicAstrometryTask(pipeBase.Task):
+    """!Basic implemeentation of the astrometry.net astrometrical fitter
 
-class ANetBasicAstrometryTask(object):
-    ConfigClass = ANetBasicAstrometryConfig
+    A higher-level class ANetAstrometryTask takes care of dealing with the fact
+    that the initial WCS is probably only a pure TAN SIP, yet we may have
+    significant distortion and a good estimate for that distortion.
 
-    '''
+    
     About Astrometry.net index files (astrometry_net_data):
 
     There are three components of an index file: a list of stars
@@ -192,113 +197,28 @@ class ANetBasicAstrometryTask(object):
     multiindex_reload_starkd() before reloading the indices it holds.
     The multiindex_unload() method, on the other hand, unloads its
     starkd and unloads each index it holds.
-    '''
-
-    class _LoadedMIndexes(object):
-        def __init__(self, multiInds):
-            self.multiInds = multiInds
-        def __enter__(self):
-            for mi in self.multiInds:
-                #print 'Loading', mi.name
-                mi.reload()
-            return self.multiInds
-        def __exit__(self, typ, val, trace):
-            for mi in self.multiInds:
-                #print 'Unloading', mi.name
-                mi.unload()
-
+    """
+    ConfigClass = ANetBasicAstrometryConfig
+    _DefaultName = "aNetBasicAstrometry"
     def __init__(self,
                  config,
                  andConfig=None,
-                 log=None,                 
-                 logLevel=pexLog.Log.INFO):
-        '''
-        conf: an ANetBasicAstrometryConfig object
-        andConfig: an AstromNetDataConfig object
-        log: a pexLogging.Log
-        logLevel: if log is None, the log level to use
-        '''
+                 **kwargs):
+        """!Construct an ANetBasicAstrometryTask
+
+        @param[in] config  configuration (an instance of self.ConfigClass)
+        @param[in] andConfig  astrometry.net data config (an instance of AstromNetDataConfig, or None);
+            if None then use andConfig.py in the astrometry_net_data product (which must be setup)
+
+        @throw RuntimeError if andConfig is None and the configuration cannot be found,
+            either because astrometry_net_data is not setup in eups
+            or because the setup version does not include the file "andConfig.py"
+        """
+        pipeBase.Task.__init__(self, config=config, **kwargs)
         self.config = config
-        self.refObjLoader = LoadAstrometryNetObjectsTask(self.config, andConfig=andConfig)
-        if log is not None:
-            self.log = log
-        else:
-            self.log = pexLog.Log(pexLog.Log.getDefaultLog(),
-                                  'meas.astrom',
-                                  logLevel)
-        if andConfig is None:
-            # ASSUME SETUP IN EUPS
-            dirnm = os.environ.get('ASTROMETRY_NET_DATA_DIR')
-            if dirnm is None:
-                raise RuntimeError("astrometry_net_data is not setup")
-
-            andConfig = AstrometryNetDataConfig()
-            fn = os.path.join(dirnm, 'andConfig.py')
-            if not os.path.exists(fn):
-                raise RuntimeError('astrometry_net_data config file \"%s\" required but not found' % fn)
-            andConfig.load(fn)
-
-        self.andConfig = andConfig
-        self._readIndexFiles()
-
-    def _readIndexFiles(self):
-        from . import astrometry_net as an
-        # .multiInds: multi-index objects
-        self.multiInds = []
-
-        # merge indexFiles and multiIndexFiles; we'll treat both as
-        # multiindex for simplicity.
-        mifiles = ([(True,[fn,fn]) for fn  in self.andConfig.indexFiles] +
-                     [(False,fns)    for fns in self.andConfig.multiIndexFiles])
-
-        nMissing = 0
-        for single,fns in mifiles:
-            # First filename in "fns" is star kdtree, the rest are index files.
-            fn = fns[0]
-            if single:
-                self.log.log(self.log.DEBUG, 'Adding index file %s' % fns[0])
-            else:
-                self.log.log(self.log.DEBUG, 'Adding multiindex files %s' % str(fns))
-            fn2 = self._getIndexPath(fn)
-            if fn2 is None:
-                if single:
-                    self.log.logdebug('Unable to find index file %s' % fn)
-                else:
-                    self.log.logdebug('Unable to find star part of multiindex file %s' % fn)
-                nMissing += 1
-                continue
-            fn = fn2
-            self.log.log(self.log.DEBUG, 'Path: %s' % fn)
-
-            mi = an.multiindex_new(fn)
-            if mi is None:
-                raise RuntimeError('Failed to read stars from multiindex filename "%s"' % fn)
-            for i,fn in enumerate(fns[1:]):
-                self.log.log(self.log.DEBUG, 'Reading index from multiindex file "%s"' % fn)
-                fn2 = self._getIndexPath(fn)
-                if fn2 is None:
-                    self.log.logdebug('Unable to find index part of multiindex file %s' % fn)
-                    nMissing += 1
-                    continue
-                fn = fn2
-                self.log.log(self.log.DEBUG, 'Path: %s' % fn)
-                if an.multiindex_add_index(mi, fn, an.INDEX_ONLY_LOAD_METADATA):
-                    raise RuntimeError('Failed to read index from multiindex filename "%s"' % fn)
-                ind = mi[i]
-                self.log.log(self.log.DEBUG, '  index %i, hp %i (nside %i), nstars %i, nquads %i' %
-                                (ind.indexid, ind.healpix, ind.hpnside, ind.nstars, ind.nquads))
-            an.multiindex_unload_starkd(mi)
-            self.multiInds.append(mi)
-
-        if len(self.multiInds) == 0:
-            self.log.warn('Unable to find any index files')
-        elif nMissing > 0:
-            self.log.warn('Unable to find %d index files' % nMissing)
-
-    def _debug(self, s):
-        self.log.log(self.log.DEBUG, s)
-    def _warn(self, s):
-        self.log.log(self.log.WARN, s)
+        # this is not a subtask because it cannot safely be retargeted
+        self.refObjLoader = LoadAstrometryNetObjectsTask(config=self.config, andConfig=andConfig)
+        self.refObjLoader._readIndexFiles()
 
     def memusage(self, prefix=''):
         # Not logging at DEBUG: do nothing
@@ -316,35 +236,39 @@ class ANetBasicAstrometryTask(object):
             ss.append('Mmaps: %i kB' % (mu['mmaps_total'] / 1024))
         self.log.logdebug(prefix + 'Memory: ' + ', '.join(ss))
 
-    def setAndConfig(self, andconfig):
-        self.andConfig = andconfig
+    def _getImageParams(self, exposure=None, bbox=None, wcs=None, filterName=None, wcsRequired=True):
+        """Get image parameters
 
-    def _getImageParams(self, wcs, exposure, filterName=None, imageSize=None,
-                        x0=None, y0=None):
+        @param[in] exposure  exposure (an afwImage.Exposure) or None
+        @param[in] bbox  bounding box (an afwGeom.Box2I) or None; if None then bbox must be specified
+        @param[in] wcs  WCS (an afwImage.Wcs) or None; if None then exposure must be specified
+        @param[in] filterName  filter name, a string, or None; if None exposure must be specified
+        @param[in] wcsRequired  if True then either wcs must be specified or exposure must contain a wcs;
+            if False then the returned wcs may be None
+        @return these items:
+        - bbox  bounding box; guaranteed to be set
+        - wcs  WCS if known, else None
+        - filterName filter name if known, else None
+        @throw RuntimeError if bbox cannot be determined, or wcs cannot be determined and wcsRequired True
+        """
         if exposure is not None:
-            ex0,ey0 = exposure.getX0(), exposure.getY0()
-            if x0 is None:
-                x0 = ex0
-            if y0 is None:
-                y0 = ey0
-            self._debug('Got exposure x0,y0 = %i,%i' % (ex0,ey0))
+            if bbox is None:
+                bbox = exposure.getBBox()
+                self.log.logdebug("Setting bbox = %s from exposure metadata" % (bbox,))
+            if wcs is None:
+                self.log.logdebug("Setting wcs from exposure metadata")
+                wcs = exposure.getWcs()
             if filterName is None:
                 filterName = exposure.getFilter().getName()
-                self._debug('Setting filterName = "%s" from exposure metadata' % str(filterName))
-            if imageSize is None:
-                imageSize = (exposure.getWidth(), exposure.getHeight())
-                self._debug('Setting image size = (%i, %i) from exposure metadata' % (imageSize))
-        if x0 is None:
-            x0 = 0
-        if y0 is None:
-            y0 = 0
-        imageSize = afwGeom.Extent2I(*imageSize)
-        return filterName, imageSize, x0, y0
+                self.log.logdebug("Setting filterName = %r from exposure metadata" % (filterName,))
+        if bbox is None:
+            raise RuntimeError("bbox or exposure must be specified")
+        if wcs is None and wcsRequired:
+            raise RuntimeError("wcs or exposure (with a WCS) must be specified")
+        return bbox, wcs, filterName
 
-    def useKnownWcs(self, sourceCat, wcs=None, exposure=None, filterName=None, imageSize=None,
-                    x0=None, y0=None):
-        """
-        Returns an InitialAstrometry object, just like determineWcs,
+    def useKnownWcs(self, sourceCat, wcs=None, exposure=None, filterName=None, bbox=None):
+        """!Return an InitialAstrometry object, just like determineWcs,
         but assuming the given input WCS is correct.
 
         This is enabled by the ANetBasicAstrometryConfig
@@ -356,47 +280,26 @@ class ANetBasicAstrometryTask(object):
         'calculateSip' is set, we will try to compute a TAN-SIP
         distortion correction.
 
-        sourceCat: list of detected sources in this image.
-        wcs: your known WCS
-        exposure: the exposure holding metadata for this image.
-        filterName: string, filter name, eg "i"
-        x0,y0: image origin / offset; these coordinates along with the
-           "imageSize" determine the bounding-box in pixel coordinates of
-           the image in question; this is used for finding reference sources
-           in the image, among other things.
-        
-        You MUST provide a WCS, either by providing the 'wcs' kwarg
-        (an lsst.image.Wcs object), or by providing the 'exposure' on
-        which we will call 'exposure.getWcs()'.
+        @param[in] sourceCat  list of detected sources in this image.
+        @param[in] wcs  your known WCS, or None to get from exposure
+        @param[in] exposure  the exposure holding metadata for this image;
+            if None then you must specify wcs, filterName and bbox
+        @param[in] filterName  string, filter name, eg "i", or None to get from exposure`
+        @param[in] bbox  bounding box of image, or None to get from exposure
 
-        You MUST provide a filter name, either by providing the
-        'filterName' kwarg (a string), or by setting the 'exposure';
-        we will call 'exposure.getFilter().getName()'.
-
-        You MUST provide the image size, either by providing the
-        'imageSize' kwargs, an (W,H) tuple of ints, or by providing
-        the 'exposure'; we will call 'exposure.getWidth()' and
-        'exposure.getHeight()'.
-
-        Note, when modifying this function, that it is also called by
-        'determineWcs' (via 'determineWcs2'), since the steps are all
+        @note this function is also called by 'determineWcs' (via 'determineWcs2'), since the steps are all
         the same.
         """
         # return value:
         astrom = InitialAstrometry()
 
-        if wcs is None:
-            if exposure is None:
-                raise RuntimeError('useKnownWcs: need either "wcs=" or "exposure=" kwarg.')
-            wcs = exposure.getWcs()
-            if wcs is None:
-                raise RuntimeError('useKnownWcs: wcs==None and exposure.getWcs()==None.')
-                
-        filterName,imageSize,x0,y0 = self._getImageParams(exposure=exposure, wcs=wcs,
-                                                          imageSize=imageSize,
-                                                          filterName=filterName,
-                                                          x0=x0, y0=y0)
-        bbox = afwGeom.Box2I(afwGeom.Point2I(x0, y0), imageSize)
+        bbox, wcs, filterName = self._getImageParams(
+            exposure = exposure,
+            bbox = bbox,
+            wcs = wcs,
+            filterName = filterName,
+            wcsRequired = True,
+        )
         refCat = self.refObjLoader.loadPixelBox(
             bbox = bbox,
             wcs = wcs,
@@ -409,13 +312,13 @@ class ANetBasicAstrometryTask(object):
         matches = self._getMatchList(sourceCat, refCat, wcs)
         uniq = set([sm.second.getId() for sm in matches])
         if len(matches) != len(uniq):
-            self._warn(('The list of matched stars contains duplicate reference source IDs ' +
+            self.log.warn(('The list of matched stars contains duplicate reference source IDs ' +
                         '(%i sources, %i unique ids)') % (len(matches), len(uniq)))
         if len(matches) == 0:
-            self._warn('No matches found between input sources and reference catalogue.')
+            self.log.warn('No matches found between input sources and reference catalogue.')
             return astrom
 
-        self._debug('%i reference objects match input sources using input WCS' % (len(matches)))
+        self.log.logdebug('%i reference objects match input sources using input WCS' % (len(matches)))
         astrom.tanMatches = matches
         astrom.tanWcs = wcs
         
@@ -425,29 +328,28 @@ class ANetBasicAstrometryTask(object):
             assert(m.second in sourceCat)
 
         if self.config.calculateSip:
-            sipwcs,matches = self._calculateSipTerms(wcs, refCat, sourceCat, matches, imageSize, x0=x0, y0=y0)
+            sipwcs,matches = self._calculateSipTerms(wcs, refCat, sourceCat, matches, bbox=bbox)
             if sipwcs == wcs:
-                self._debug('Failed to find a SIP WCS better than the initial one.')
+                self.log.logdebug('Failed to find a SIP WCS better than the initial one.')
             else:
-                self._debug('%i reference objects match input sources using SIP WCS' % (len(matches)))
+                self.log.logdebug('%i reference objects match input sources using SIP WCS' %
+                    (len(matches),))
                 astrom.sipWcs = sipwcs
                 astrom.sipMatches = matches
                 
-        W,H = imageSize
         wcs = astrom.getWcs()
         # _getMatchList() modifies the source list RA,Dec coordinates.
         # Here, we make them consistent with the WCS we are returning.
         for src in sourceCat:
             src.updateCoord(wcs)
-        astrom.matchMetadata = _createMetadata(W, H, x0, y0, wcs, filterName)
+        astrom.matchMetadata = _createMetadata(bbox, wcs, filterName)
         return astrom
 
     def determineWcs(self,
                      sourceCat,
                      exposure,
                      **kwargs):
-        """
-        Finds a WCS solution for the given 'sources' in the given
+        """Find a WCS solution for the given 'sourceCat' in the given
         'exposure', getting other parameters from config.
 
         Valid kwargs include:
@@ -488,8 +390,7 @@ class ANetBasicAstrometryTask(object):
            column name in the astrometry_net_data index FITS files.
            Defaults to the exposure.getFilter() value.
 
-        'imageSize', a tuple (W,H) of integers, the image size.
-           Defaults to the exposure.get{Width,Height}() values.
+        'bbox', bounding box of exposure; defaults to exposure.getBBox()
 
         """
         assert(exposure is not None)
@@ -507,8 +408,7 @@ class ANetBasicAstrometryTask(object):
         return self.determineWcs2(sourceCat, **margs)
 
     def determineWcs2(self, sourceCat, **kwargs):
-        '''
-        Get a blind astrometric solution for the given catalog of sources.
+        """Get a blind astrometric solution for the given catalog of sources.
 
         We need:
           -the image size;
@@ -526,11 +426,11 @@ class ANetBasicAstrometryTask(object):
         imageSize: (W,H) integer tuple/iterable
         pixelScale: afwGeom::Angle per pixel.
         radecCenter: afwCoord::Coord
-        '''
+        """
         wcs,qa = self.getBlindWcsSolution(sourceCat, **kwargs)
         kw = {}
         # Keys passed to useKnownWcs
-        for key in ['exposure', 'filterName', 'imageSize', 'x0', 'y0']:
+        for key in ['exposure', 'bbox', 'filterName']:
             if key in kwargs:
                 kw[key] = kwargs[key]
         astrom = self.useKnownWcs(sourceCat, wcs=wcs, **kw)
@@ -541,8 +441,7 @@ class ANetBasicAstrometryTask(object):
     def getBlindWcsSolution(self, sourceCat, 
                             exposure=None,
                             wcs=None,
-                            imageSize=None,
-                            x0=None, y0=None,
+                            bbox=None,
                             radecCenter=None,
                             searchRadius=None,
                             pixelScale=None,
@@ -557,35 +456,29 @@ class ANetBasicAstrometryTask(object):
         if not usePixelScale and pixelScale is not None:
             raise RuntimeError('pixelScale is set, but usePixelScale is False.  Make up your mind!')
 
-        filterName,imageSize,x0,y0 = self._getImageParams(exposure=exposure, wcs=wcs,
-                                                          imageSize=imageSize,
-                                                          filterName=filterName,
-                                                          x0=x0, y0=y0)
+        bbox, wcs, filterName = self._getImageParams(
+            exposure = exposure,
+            bbox = bbox,
+            wcs = wcs,
+            filterName = filterName,
+            wcsRequired = False,
+        )
 
-        if exposure is not None:
-            if wcs is None:
-                wcs = exposure.getWcs()
-                self._debug('Setting initial WCS estimate from exposure metadata')
-
-        if imageSize is None:
-            # Could guess from the extent of the Sources...
-            raise RuntimeError('Image size must be specified by passing "exposure" or "imageSize"')
-
-        W,H = imageSize
-        xc, yc = W/2. + 0.5 + x0, H/2. + 0.5 + y0
+        bboxD = afwGeom.Box2D(bbox)
+        xc, yc = bboxD.getCenter()
         parity = None
 
         if wcs is not None:
             if pixelScale is None:
                 if usePixelScale:
                     pixelScale = wcs.pixelScale()
-                    self._debug('Setting pixel scale estimate = %.3f from given WCS estimate' %
+                    self.log.logdebug('Setting pixel scale estimate = %.3f from given WCS estimate' %
                                 (pixelScale.asArcseconds()))
 
             if radecCenter is None:
                 if useRaDecCenter:
                     radecCenter = wcs.pixelToSky(xc, yc)
-                    self._debug(('Setting RA,Dec center estimate = (%.3f, %.3f) from given WCS '
+                    self.log.logdebug(('Setting RA,Dec center estimate = (%.3f, %.3f) from given WCS '
                                  + 'estimate, using pixel center = (%.1f, %.1f)') %
                                 (radecCenter.getLongitude().asDegrees(),
                                  radecCenter.getLatitude().asDegrees(), xc, yc))
@@ -593,50 +486,57 @@ class ANetBasicAstrometryTask(object):
             if searchRadius is None:
                 if useRaDecCenter:
                     assert(pixelScale is not None)
-                    searchRadius = (pixelScale * math.hypot(W,H)/2. *
-                                    searchRadiusScale)
-                    self._debug(('Using RA,Dec search radius = %.3f deg, from pixel scale, '
+                    pixRadius = math.hypot(*bboxD.getDimensions()) / 2
+                    searchRadius = (pixelScale * pixRadius * searchRadiusScale)
+                    self.log.logdebug(('Using RA,Dec search radius = %.3f deg, from pixel scale, '
                                  + 'image size, and searchRadiusScale = %g') %
                                 (searchRadius, searchRadiusScale))
             if useParity:
                 parity = wcs.isFlipped()
-                self._debug('Using parity = %s' % (parity and 'True' or 'False'))
+                self.log.logdebug('Using parity = %s' % (parity and 'True' or 'False'))
 
         if doTrim:
             n = len(sourceCat)
             if exposure is not None:
-                bbox = afwGeom.Box2D(exposure.getMaskedImage().getBBox())
+                exposureBBoxD = afwGeom.Box2D(exposure.getMaskedImage().getBBox())
             else:
-                # CHECK -- half-pixel issues here?
-                bbox = afwGeom.Box2D(afwGeom.Point2D(0.,0.), afwGeom.Point2D(W, H))
-            sourceCat = self._trimBadPoints(sourceCat, bbox)
-            self._debug("Trimming: kept %i of %i sources" % (n, len(sourceCat)))
+                exposureBBoxD = bboxD
+            sourceCat = self._trimBadPoints(sourceCat, exposureBBoxD)
+            self.log.logdebug("Trimming: kept %i of %i sources" % (n, len(sourceCat)))
 
-        wcs,qa = self._solve(sourceCat, wcs, imageSize, pixelScale, radecCenter, searchRadius, parity,
-                             filterName, xy0=(x0,y0))
+        wcs,qa = self._solve(
+            sourceCat = sourceCat,
+            wcs = wcs,
+            bbox = bbox,
+            pixelScale = pixelScale,
+            radecCenter = radecCenter,
+            searchRadius = searchRadius,
+            parity = parity,
+            filterName = filterName,
+        )
         if wcs is None:
             raise RuntimeError("Unable to match sources with catalog.")
         self.log.info('Got astrometric solution from Astrometry.net')
 
         rdc = wcs.pixelToSky(xc, yc)
-        self._debug('New WCS says image center pixel (%.1f, %.1f) -> RA,Dec (%.3f, %.3f)' %
+        self.log.logdebug('New WCS says image center pixel (%.1f, %.1f) -> RA,Dec (%.3f, %.3f)' %
                     (xc, yc, rdc.getLongitude().asDegrees(), rdc.getLatitude().asDegrees()))
         return wcs,qa
 
-    def getSipWcsFromWcs(self, wcs, imageSize, x0=0, y0=0, ngrid=20,
-                         linearizeAtCenter=True):
-        '''
-        This function allows one to get a TAN-SIP WCS, starting from
-        an existing WCS.  It uses your WCS to compute a fake grid of
-        corresponding "stars" in pixel and sky coords, and feeds that
-        to the regular SIP code.
+    def getSipWcsFromWcs(self, wcs, bbox, ngrid=20, linearizeAtCenter=True):
+        """!Get a TAN-SIP WCS, starting from an existing WCS.
 
-        linearizeCenter: if True, get a linear approximation of the input
+        It uses your WCS to compute a fake grid of corresponding "stars" in pixel and sky coords,
+        and feeds that to the regular SIP code.
+
+        @param[in] wcs  initial WCS
+        @param[in] bbox  bounding box of image
+        @param[in] ngrid  number of grid points along x and y for fitting (fit at ngrid^2 points)
+        @param[in] linearizeCenter  if True, get a linear approximation of the input
           WCS at the image center and use that as the TAN initialization for
           the TAN-SIP solution.  You probably want this if your WCS has its
           CRPIX outside the image bounding box.
-          
-        '''
+        """
         # Ugh, build src and ref tables
         srcSchema = afwTable.SourceTable.makeMinimalSchema()
         key = srcSchema.addField("centroid", type="PointD")
@@ -646,7 +546,8 @@ class ANetBasicAstrometryTask(object):
         refs = afwTable.SimpleTable.make(afwTable.SimpleTable.makeMinimalSchema())
         cref = []
         csrc = []
-        (W,H) = imageSize
+        (W,H) = bbox.getDimensions()
+        x0, y0 = bbox.getMin()
         for xx in np.linspace(0., W, ngrid):
             for yy in np.linspace(0, H, ngrid):
                 src = srcs.makeRecord()
@@ -662,7 +563,7 @@ class ANetBasicAstrometryTask(object):
             # Linearize the original WCS around the image center to create a
             # TAN WCS.
             # Reference pixel in LSST coords
-            crpix = afwGeom.Point2D(x0 + W/2. - 0.5, y0 + H/2. - 0.5)
+            crpix = afwGeom.Box2D(bbox).getCenter()
             crval = wcs.pixelToSky(crpix)
             crval = crval.getPosition(afwGeom.degrees)
             # Linearize *AT* crval to get effective CD at crval.
@@ -675,30 +576,21 @@ class ANetBasicAstrometryTask(object):
                                                  x0=x0, y0=y0)
 
     
-    def getSipWcsFromCorrespondences(self, origWcs, refCat, sourceCat, imageSize,
-                                     x0=0, y0=0):
-        '''
-        Produces a SIP solution given a list of known correspondences.
+    def getSipWcsFromCorrespondences(self, origWcs, refCat, sourceCat, bbox):
+        """Produce a SIP solution given a list of known correspondences.
+
         Unlike _calculateSipTerms, this does not iterate the solution;
         it assumes you have given it a good sets of corresponding stars.
 
         NOTE that "refCat" and "sourceCat" are assumed to be the same length;
         entries "refCat[i]" and "sourceCat[i]" are assumed to be correspondences.
 
-        origWcs: the WCS to linearize in order to get the TAN part of the
-           TAN-SIP WCS.
-
-        refCat: reference source catalog
-
-        sources: image sources
-
-        imageSize, x0, y0: these describe the bounding-box of the image,
-            which is used when computing reverse SIP polynomials.
-
-        '''
+        @param[in] origWcs  the WCS to linearize in order to get the TAN part of the TAN-SIP WCS.
+        @param[in] refCat  reference source catalog
+        @param[in] sourceCat  source catalog
+        @param[in] bbox  bounding box of image
+        """
         sipOrder = self.config.sipOrder
-        bbox = afwGeom.Box2I(afwGeom.Point2I(x0,y0),
-                             afwGeom.Extent2I(imageSize[0], imageSize[1]))
         matches = []
         for ci,si in zip(refCat, sourceCat):
             matches.append(afwTable.ReferenceMatch(ci, si, 0.))
@@ -706,29 +598,20 @@ class ANetBasicAstrometryTask(object):
         sipObject = astromSip.makeCreateWcsWithSip(matches, origWcs, sipOrder, bbox)
         return sipObject.getNewWcs()
     
-    def _calculateSipTerms(self, origWcs, refCat, sourceCat, matches, imageSize,
-                           x0=0, y0=0):
-        '''
-        Iteratively calculate SIP distortions and regenerate matches based on improved WCS.
+    def _calculateSipTerms(self, origWcs, refCat, sourceCat, matches, bbox):
+        """!Iteratively calculate SIP distortions and regenerate matches based on improved WCS.
 
-        origWcs: original WCS object, probably (but not necessarily) a TAN WCS;
+        @param[in] origWcs  original WCS object, probably (but not necessarily) a TAN WCS;
            this is used to set the baseline when determining whether a SIP
            solution is any better; it will be returned if no better SIP solution
            can be found.
-
-        matches: list of supposedly matched sources, using the "origWcs".
-
-        refCat: reference source catalog
-
-        sourceCat: sources in the image to be solved
-
-        imageSize, x0, y0: these determine the bounding-box of the image,
-           which is used when finding reverse SIP coefficients.
-        '''
+        @param[in] refCat  reference source catalog
+        @param[in] sourceCat  sources in the image to be solved
+        @param[in] matches  list of supposedly matched sources, using the "origWcs".
+        @param[in] bbox  bounding box of image, which is used when finding reverse SIP coefficients.
+        """
         sipOrder = self.config.sipOrder
         wcs = origWcs
-        bbox = afwGeom.Box2I(afwGeom.Point2I(x0,y0),
-                             afwGeom.Extent2I(imageSize[0], imageSize[1]))
 
         i=0
         lastScatPix = None
@@ -739,22 +622,28 @@ class ANetBasicAstrometryTask(object):
                     lastScatPix = sipObject.getLinearScatterInPixels()
                 proposedWcs = sipObject.getNewWcs()
                 scatPix = sipObject.getScatterInPixels()
-                self.plotSolution(matches, proposedWcs, imageSize)
+                self.plotSolution(matches, proposedWcs, bbox.getDimensions())
             except pexExceptions.Exception as e:
-                self._warn('Failed to calculate distortion terms. Error: ' + str(e))
+                self.log.warn('Failed to calculate distortion terms. Error: ' + str(e))
                 break
 
             matchSize = len(matches)
             # use new WCS to get new matchlist.
             proposedMatchlist = self._getMatchList(sourceCat, refCat, proposedWcs)
 
-            self._debug('SIP iteration %i: %i objects match.  Median scatter is %g arcsec = %g pixels (vs previous: %i matches, %g pixels)' %
-                        (i, len(proposedMatchlist), sipObject.getScatterOnSky().asArcseconds(), scatPix, matchSize, lastScatPix))
-            #self._debug('Proposed WCS: ' + proposedWcs.getFitsMetadata().toString())
+            self.log.logdebug('SIP iteration %i: %i objects match.  Median scatter is %g arcsec = %g pixels (vs previous: %i matches, %g pixels)' %
+                        (i, len(proposedMatchlist), sipObject.getScatterOnSky().asArcseconds(),
+                            scatPix, matchSize, lastScatPix))
             # Hack convergence tests
             if len(proposedMatchlist) < matchSize:
+                self.log.info(
+                    "Fit WCS: use iter %s because it had more matches than the next iter: %s vs. %s" % \
+                    (i, matchSize, len(proposedMatchlist)))
                 break
             if len(proposedMatchlist) == matchSize and scatPix >= lastScatPix:
+                self.log.info(
+            "Fit WCS: use iter %s because it had less linear scatter than the next iter: %g vs. %g pixels" % \
+                    (i, lastScatPix, scatPix))
                 break
 
             wcs = proposedWcs
@@ -857,15 +746,16 @@ class ANetBasicAstrometryTask(object):
             R2 = [src.getRa().asDegrees() for src in refCat]
             D2 = [src.getDec().asDegrees() for src in refCat]
             # for src in sourceCat:
-            #self._debug("source: x,y (%.1f, %.1f), RA,Dec (%.3f, %.3f)" %
+            #self.log.logdebug("source: x,y (%.1f, %.1f), RA,Dec (%.3f, %.3f)" %
             #(src.getX(), src.getY(), src.getRa().asDegrees(), src.getDec().asDegrees()))
             #for src in refCat:
-            #self._debug("ref: RA,Dec (%.3f, %.3f)" %
+            #self.log.logdebug("ref: RA,Dec (%.3f, %.3f)" %
             #(src.getRa().asDegrees(), src.getDec().asDegrees()))
             self.loginfo('_getMatchList: %i sources, %i reference sources' % (len(sourceCat), len(refCat)))
             if len(sourceCat):
-                self.loginfo('Source range: x [%.1f, %.1f], y [%.1f, %.1f], RA [%.3f, %.3f], Dec [%.3f, %.3f]' %
-                             (min(X), max(X), min(Y), max(Y), min(R1), max(R1), min(D1), max(D1)))
+                self.loginfo(
+                    'Source range: x [%.1f, %.1f], y [%.1f, %.1f], RA [%.3f, %.3f], Dec [%.3f, %.3f]' %
+                    (min(X), max(X), min(Y), max(Y), min(R1), max(R1), min(D1), max(D1)))
             if len(refCat):
                 self.loginfo('Reference range: RA [%.3f, %.3f], Dec [%.3f, %.3f]' %
                              (min(R2), max(R2), min(D2), max(D2)))
@@ -874,14 +764,14 @@ class ANetBasicAstrometryTask(object):
         return matches
 
     def getColumnName(self, filterName, columnMap, default=None):
-        '''
+        """
         Returns the column name in the astrometry_net_data index file that will be used
         for the given filter name.
 
         @param filterName   Name of filter used in exposure
         @param columnMap    Dict that maps filter names to column names
         @param default      Default column name
-        '''
+        """
         filterName = self.config.filterMap.get(filterName, filterName) # Exposure filter --> desired filter
         try:
             return columnMap[filterName] # Desired filter --> a_n_d column name
@@ -890,13 +780,12 @@ class ANetBasicAstrometryTask(object):
                           (filterName, default))
             return default
 
-    def _solve(self, sourceCat, wcs, imageSize, pixelScale, radecCenter,
-               searchRadius, parity, filterName=None, xy0=None):
-        solver = self._getSolver()
+    def _solve(self, sourceCat, wcs, bbox, pixelScale, radecCenter,
+               searchRadius, parity, filterName=None):
+        solver = self.refObjLoader._getSolver()
 
-        x0,y0 = 0,0
-        if xy0 is not None:
-            x0,y0 = xy0
+        imageSize = bbox.getDimensions()
+        x0, y0 = bbox.getMin()
 
         # select sources with valid x,y, flux
         xybb = afwGeom.Box2D()
@@ -904,14 +793,15 @@ class ANetBasicAstrometryTask(object):
         badkeys = [goodsources.getSchema().find(name).key for name in self.config.badFlags]
 
         for s in sourceCat:
-            if np.isfinite(s.getX()) and np.isfinite(s.getY()) and np.isfinite(s.getPsfFlux()) and self._isGoodSource(s, badkeys) :
+            if np.isfinite(s.getX()) and np.isfinite(s.getY()) and np.isfinite(s.getPsfFlux()) \
+                and self._isGoodSource(s, badkeys):
                 goodsources.append(s)
                 xybb.include(afwGeom.Point2D(s.getX() - x0, s.getY() - y0))
         self.log.info("Number of selected sources for astrometry : %d" %(len(goodsources)))
         if len(goodsources) < len(sourceCat):
             self.log.logdebug('Keeping %i of %i sources with finite X,Y positions and PSF flux' %
                               (len(goodsources), len(sourceCat)))
-        self._debug(('Feeding sources in range x=[%.1f, %.1f], y=[%.1f, %.1f] ' +
+        self.log.logdebug(('Feeding sources in range x=[%.1f, %.1f], y=[%.1f, %.1f] ' +
                      '(after subtracting x0,y0 = %.1f,%.1f) to Astrometry.net') %
                     (xybb.getMinX(), xybb.getMaxX(), xybb.getMinY(), xybb.getMaxY(), x0, y0))
         # setStars sorts them by PSF flux.
@@ -934,8 +824,9 @@ class ANetBasicAstrometryTask(object):
             lo = scale / dscale
             hi = scale * dscale
             solver.setPixelScaleRange(lo, hi)
-            self.log.logdebug('Searching for matches with pixel scale = %g +- %g %% -> range [%g, %g] arcsec/pix' %
-                              (scale, 100.*(dscale-1.), lo, hi))
+            self.log.logdebug(
+                'Searching for matches with pixel scale = %g +- %g %% -> range [%g, %g] arcsec/pix' %
+                (scale, 100.*(dscale-1.), lo, hi))
 
         if parity is not None:
             solver.setParity(parity)
@@ -943,9 +834,9 @@ class ANetBasicAstrometryTask(object):
 
         # Find and load index files within RA,Dec range and scale range.
         if radecCenter is not None:
-            multiInds = self._getMIndexesWithinRange(radecCenter, searchRadius)
+            multiInds = self.refObjLoader._getMIndexesWithinRange(radecCenter, searchRadius)
         else:
-            multiInds = self.multiInds
+            multiInds = self.refObjLoader.multiInds
         qlo,qhi = solver.getQuadSizeLow(), solver.getQuadSizeHigh()
 
         toload_multiInds = set()
@@ -958,7 +849,7 @@ class ANetBasicAstrometryTask(object):
                 toload_multiInds.add(mi)
                 toload_inds.append(ind)
 
-        with ANetBasicAstrometryTask._LoadedMIndexes(toload_multiInds):
+        with LoadMultiIndexes(toload_multiInds):
             solver.addIndices(toload_inds)
             self.memusage('Index files loaded: ')
 
@@ -999,46 +890,9 @@ class ANetBasicAstrometryTask(object):
                 return False
         return True
 
-    def _getIndexPath(self, fn):
-        if os.path.isabs(fn):
-            return fn
-        andir = os.getenv('ASTROMETRY_NET_DATA_DIR')
-        if andir is not None:
-            fn2 = os.path.join(andir, fn)
-            if os.path.exists(fn2):
-                return fn2
-
-        if os.path.exists(fn):
-            return os.path.abspath(fn)
-        else:
-            return None
-
-    def _getMIndexesWithinRange(self, ctrCoord, radius):
-        '''
-        ra,dec,radius: [deg], spatial cut based on the healpix of the index
-
-        Returns list of multiindex objects within range.
-        '''
-        good = []
-        raDeg = ctrCoord.getLongitude().asDegrees()
-        decDeg = ctrCoord.getLatitude().asDegrees()
-        radiusDeg = radius.asDegrees()
-        for mi in self.multiInds:
-            if mi.isWithinRange(raDeg, decDeg, radiusDeg):
-                good.append(mi)
-        return good
-
-    def _getSolver(self):
-        from . import astrometry_net as an
-        solver = an.solver_new()
-        # HACK, set huge default pixel scale range.
-        lo,hi = 0.01, 3600.
-        solver.setPixelScaleRange(lo, hi)
-        return solver
-
     @staticmethod
     def _trimBadPoints(sourceCat, bbox, wcs=None):
-        '''Remove elements from catalog whose xy positions are not within the given bbox.
+        """Remove elements from catalog whose xy positions are not within the given bbox.
 
         sourceCat:  a Catalog of SimpleRecord or SourceRecord objects
         bbox: an afwImage.Box2D
@@ -1047,7 +901,7 @@ class ANetBasicAstrometryTask(object):
         
         Returns:
         a list of Source objects with xAstrom,yAstrom within the bbox.
-        '''
+        """
         keep = type(sourceCat)(sourceCat.table)
         for s in sourceCat:
             point = s.getCentroid() if wcs is None else wcs.skyToPixel(s.getCoord())
@@ -1056,7 +910,7 @@ class ANetBasicAstrometryTask(object):
         return keep
 
     def joinMatchListWithCatalog(self, packedMatches, sourceCat):
-        '''
+        """
         This function is required to reconstitute a ReferenceMatchVector after being
         unpersisted.  The persisted form of a ReferenceMatchVector is the 
         normalized Catalog of IDs produced by afw.table.packMatches(), with the result of 
@@ -1079,7 +933,7 @@ class ANetBasicAstrometryTask(object):
                                   the catalog will be sorted by ID.
         
         @return An lsst.afw.table.ReferenceMatchVector of denormalized matches.
-        '''
+        """
         matchmeta = packedMatches.table.getMetadata()
         version = matchmeta.getInt('SMATCHV')
         if version != 1:
@@ -1096,44 +950,26 @@ class ANetBasicAstrometryTask(object):
         return afwTable.unpackMatches(packedMatches, refCat, sourceCat)
 
 
-def _createMetadata(width, height, x0, y0, wcs, filterName):
+def _createMetadata(bbox, wcs, filterName):
     """
     Create match metadata entries required for regenerating the catalog
 
-    @param width Width of the image (pixels)
-    @param height Height of the image (pixels)
-    @param x0 x offset of image origin from parent (pixels)
-    @param y0 y offset of image origin from parent (pixels)
+    @param bbox  bounding box of image (pixels)
     @param filterName Name of filter, used for magnitudes
     @return Metadata
     """
     meta = dafBase.PropertyList()
 
-    # cache: field center and size.
-    cx,cy = x0 + 0.5 + width/2., y0 + 0.5 + height/2.
+    bboxD = afwGeom.Box2D(bbox)
+    cx, cy = bboxD.getCenter()
     radec = wcs.pixelToSky(cx, cy).toIcrs()
     meta.add('RA', radec.getRa().asDegrees(), 'field center in degrees')
     meta.add('DEC', radec.getDec().asDegrees(), 'field center in degrees')
-    imgSize = wcs.pixelScale() * math.hypot(width, height)/2.
-    meta.add('RADIUS', imgSize.asDegrees(),
+    pixelRadius = math.hypot(*bboxD.getDimensions())/2.0
+    skyRadius = wcs.pixelScale() * pixelRadius
+    meta.add('RADIUS', skyRadius.asDegrees(),
              'field radius in degrees, approximate')
     meta.add('SMATCHV', 1, 'SourceMatchVector version number')
     if filterName is not None:
         meta.add('FILTER', filterName, 'LSST filter name for tagalong data')
     return meta
-
-def readMatches(butler, dataId, sourcesName='icSrc', matchesName='icMatch', config=ANetBasicAstrometryConfig(),
-                sourcesFlags=afwTable.SOURCE_IO_NO_FOOTPRINTS):
-    """Read matches, sources and catalogue; combine.
-
-    @param butler Data butler
-    @param dataId Data identifier for butler
-    @param sourcesName Name for sources from butler
-    @param matchesName Name for matches from butler
-    @param sourcesFlags Flags to pass for source retrieval
-    @returns Matches
-    """
-    sourceCat = butler.get(sourcesName, dataId, flags=sourcesFlags)
-    packedMatches = butler.get(matchesName, dataId)
-    astrom = ANetBasicAstrometryTask(config)
-    return astrom.joinMatchListWithCatalog(packedMatches, sourceCat)

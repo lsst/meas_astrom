@@ -49,18 +49,16 @@ class PhotoCalTest(unittest.TestCase):
         self.conf = measAstrom.AstrometryConfig()
         
         # Load sample input from disk
-        mypath = eups.productDir("meas_astrom")
-        path = os.path.join(mypath, "examples")
-        self.srcCat = afwTable.SourceCatalog.readFits(os.path.join(path, "v695833-e0-c000.xy.fits"))
-        self.srcCat.table.defineApFlux("flux.psf")
+        testDir=os.path.dirname(__file__)
+        self.srcCat = afwTable.SourceCatalog.readFits(os.path.join(testDir, "v695833-e0-c000.xy.fits"))
         
         # The .xy.fits file has sources in the range ~ [0,2000],[0,4500]
         # which is bigger than the exposure
         self.bbox = afwGeom.Box2I(afwGeom.Point2I(0,0), afwGeom.Extent2I(2048, 4612))
-        self.exposure = afwImage.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci.fits"))
+        self.exposure = afwImage.ExposureF(os.path.join(testDir, "v695833-e0-c000-a00.sci.fits"))
 
         # Set up local astrometry_net_data
-        datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
+        datapath = os.path.join(testDir, 'astrometry_net_data', 'photocal')
         eupsObj = eups.Eups(root=datapath)
         ok, version, reason = eupsObj.setup('astrometry_net_data')
         if not ok:
@@ -71,8 +69,6 @@ class PhotoCalTest(unittest.TestCase):
         del self.srcCat
         del self.conf
         del self.exposure
-        import lsst.meas.astrom.astrometry_net as an
-        an.finalize()
         
     def getAstrometrySolution(self, loglvl = Log.INFO):
         astromConfig = measAstrom.AstrometryTask.ConfigClass()

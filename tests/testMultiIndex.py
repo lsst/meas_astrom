@@ -26,10 +26,12 @@ import os
 import unittest
 import eups
 import lsst.meas.astrom            as measAstrom
+import lsst.afw.geom               as afwGeom
 import lsst.afw.table              as afwTable
 import lsst.afw.image              as afwImg
 import lsst.utils.tests            as utilsTests
 from lsst.pex.logging import Log
+from astrometry.util import ttime
 
 from lsst.meas.astrom import AstrometryNetDataConfig
 
@@ -39,17 +41,15 @@ class MultiIndexTest(unittest.TestCase):
         self.conf = measAstrom.ANetBasicAstrometryConfig()
 
         # Load sample input from disk
-        mypath = eups.productDir("meas_astrom")
-        path = os.path.join(mypath, "examples")
-        self.srcCat = afwTable.SourceCatalog.readFits(os.path.join(path, "v695833-e0-c000.xy.fits"))
-        self.srcCat.table.defineApFlux("flux.psf")
+        testDir=os.path.dirname(__file__)
+        self.srcCat = afwTable.SourceCatalog.readFits(os.path.join(testDir, "v695833-e0-c000.xy.fits"))
         
         # The .xy.fits file has sources in the range ~ [0,2000],[0,4500]
-        self.imageSize = (2048, 4612) # approximate
-        self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci.fits"))
+        self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(2048, 4612)) # approximate
+        self.exposure = afwImg.ExposureF(os.path.join(testDir, "v695833-e0-c000-a00.sci.fits"))
         
         # Set up local astrometry_net_data
-        datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
+        datapath = os.path.join(testDir, 'astrometry_net_data', 'photocal')
         eupsObj = eups.Eups(root=datapath)
         ok, version, reason = eupsObj.setup('astrometry_net_data')
         if not ok:
@@ -60,18 +60,18 @@ class MultiIndexTest(unittest.TestCase):
     def tearDown(self):
         del self.srcCat
         del self.conf
+        del self.bbox
         del self.exposure
 
-    def getAstrometrySolution(self, loglvl = Log.INFO, andConfig=None):
-        astrom = measAstrom.ANetBasicAstrometryTask(self.conf, logLevel=loglvl,
-                                       andConfig=andConfig)
-        res = astrom.determineWcs(self.srcCat, self.exposure,
-                                  imageSize=self.imageSize)
+    def getAstrometrySolution(self, andConfig=None, logLevel=Log.INFO):
+        astrom = measAstrom.ANetBasicAstrometryTask(self.conf, andConfig=andConfig)
+        astrom.log.setThreshold(logLevel)
+        res = astrom.determineWcs(self.srcCat, self.exposure, bbox=self.bbox)
         del astrom
         return res
 
     def _testGetSolution(self, **kwargs):
-        res = self.getAstrometrySolution(loglvl=Log.DEBUG, **kwargs)
+        res = self.getAstrometrySolution(logLevel=Log.DEBUG, **kwargs)
         self.assertTrue(res is not None)
         self.assertTrue(len(res.getMatches()) > 50)
 
@@ -116,11 +116,8 @@ class MultiIndexTest(unittest.TestCase):
     # FIXME -- there are no tests on memory usage -- not clear exactly
     # what to enforce.
     def testResources(self):
-        from astrometry.util import ttime
-        mem0 = ttime.get_memusage()
         fd0 = ttime.count_file_descriptors()
-        print
-        print 'Mem0:'
+        print 'Mem0:',
         print ttime.memusage()
         print 'FD0:', fd0
 
@@ -130,10 +127,8 @@ class MultiIndexTest(unittest.TestCase):
         andConfig.multiIndexFiles = andConfig.multiIndexFiles * 100
         print len(andConfig.multiIndexFiles), 'multi-index files'
 
-        astrom = measAstrom.ANetBasicAstrometryTask(self.conf, logLevel=Log.INFO,
-                                       andConfig=andConfig)
+        astrom = measAstrom.ANetBasicAstrometryTask(self.conf, andConfig=andConfig)
 
-        mem1 = ttime.get_memusage()
         fd1 = ttime.count_file_descriptors()
         print
         print 'Mem1:'
@@ -144,10 +139,8 @@ class MultiIndexTest(unittest.TestCase):
         # is just margin from other things going on in the python process
         self.assertTrue(fd1 < (fd0 + 10))
 
-        res = astrom.determineWcs(self.srcCat, self.exposure,
-                                  imageSize=self.imageSize)
+        res = astrom.determineWcs(self.srcCat, self.exposure, bbox=self.bbox)
 
-        mem2 = ttime.get_memusage()
         fd2 = ttime.count_file_descriptors()
         print
         print 'Mem2:'
@@ -158,9 +151,9 @@ class MultiIndexTest(unittest.TestCase):
         # is just margin from other things going on in the python process
         self.assertTrue(fd2 < (fd0 + 10))
 
+        del res
         del astrom
 
-        mem3 = ttime.get_memusage()
         fd3 = ttime.count_file_descriptors()
         print
         print 'Mem3:'

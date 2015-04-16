@@ -48,21 +48,18 @@ if not ok:
 class CreateWcsWithSipCase(unittest.TestCase):
     def setUp(self):
 
-        self.conf = measAstrom.ANetBasicAstrometryConfig()
-        self.conf.defaultFilter = "r"
-        self.astrom = measAstrom.ANetBasicAstrometryTask(config=self.conf)
+        self.config = measAstrom.ANetBasicAstrometryConfig()
+        self.config.defaultFilter = "r"
+        self.astrom = measAstrom.ANetBasicAstrometryTask(config=self.config)
 
-        path=eups.productDir("meas_astrom")
-        self.filename=os.path.join(path, "tests", "cat.xy.fits")
+        testDir=os.path.dirname(__file__)
+        self.filename=os.path.join(testDir, "cat.xy.fits")
         self.tolArcsec = .4 
         self.tolPixel = .1
 
     def tearDown(self):
-        del self.conf
+        del self.config
         del self.astrom
-
-        import lsst.meas.astrom.astrometry_net as an
-        an.finalize()
 
     def testBigXy0(self):
         # test for ticket #2710
@@ -84,8 +81,8 @@ class CreateWcsWithSipCase(unittest.TestCase):
             x += a2 * (dx**2)
             src.set(xKey, x + x0)
             src.set(yKey, src.get(yKey) - 500 + y0)
-        res = self.astrom.determineWcs2(cat, imageSize=(1000,1000),
-                                        x0=x0, y0=y0)
+        bbox = afwGeom.Box2I(afwGeom.Point2I(x0, y0), afwGeom.Extent2I(1000, 1000))
+        res = self.astrom.determineWcs2(cat, bbox=bbox)
         print 'Got result', res
         print 'SIP:', res.sipWcs.getFitsMetadata().toString()
 
@@ -115,7 +112,8 @@ class CreateWcsWithSipCase(unittest.TestCase):
     def singleTestInstance(self, filename, distortFunc):
         cat = self.loadCatalogue(self.filename)
         img = distort.distortList(cat, distortFunc)
-        res = self.astrom.determineWcs2(img, imageSize=(1000,1000))
+        bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(1000, 1000))
+        res = self.astrom.determineWcs2(img, bbox=bbox)
         imgWcs = res.getWcs()
 
         def printWcs(wcs):
@@ -167,7 +165,8 @@ class CreateWcsWithSipCase(unittest.TestCase):
             src.set(xKey, src.get(xKey) - 500)
             src.set(yKey, src.get(yKey) - 500)
             
-        res = self.astrom.determineWcs2(cat, imageSize=(1000,1000))
+        bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(1000, 1000))
+        res = self.astrom.determineWcs2(cat, bbox=bbox)
         catWcs = res.getWcs()
 
         #Set catalogue ra and decs

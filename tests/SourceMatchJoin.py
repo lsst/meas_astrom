@@ -7,6 +7,7 @@ import lsst.utils.tests as utilsTests
 import lsst.afw.table as afwTable
 import lsst.meas.astrom as measAstrom
 from lsst.pex.logging import Log
+import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImg
 
 try:
@@ -19,33 +20,33 @@ except NameError:
 class matchlistTestCase(unittest.TestCase):
     def setUp(self):
         # Load sample input from disk
-        mypath = eups.productDir("meas_astrom")
+        testDir=os.path.dirname(__file__)
         # Set up local astrometry_net_data
-        datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
+        datapath = os.path.join(testDir, 'astrometry_net_data', 'photocal')
         print 'Setting up astrometry_net_data:', datapath
         eupsObj = eups.Eups(root=datapath)
         ok, version, reason = eupsObj.setup('astrometry_net_data')
         if not ok:
             raise ValueError("Couldn't set up local photocal version of astrometry_net_data (from path: %s): %s" % (datapath, reason))
 
-        path = os.path.join(mypath, "examples")
-        self.srcSet = afwTable.SourceCatalog.readFits(os.path.join(path, "v695833-e0-c000.xy.fits"))
-        self.imageSize = (2048, 4612) # approximate
-        self.exposure = afwImg.ExposureF(os.path.join(path, "v695833-e0-c000-a00.sci.fits"))
+        self.srcSet = afwTable.SourceCatalog.readFits(os.path.join(testDir, "v695833-e0-c000.xy.fits"))
+        self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(2048, 4612)) # approximate
+        self.exposure = afwImg.ExposureF(os.path.join(testDir, "v695833-e0-c000-a00.sci.fits"))
 
-        conf = measAstrom.ANetBasicAstrometryConfig()
-        loglvl = Log.INFO
-        #loglvl = Log.DEBUG
-        self.astrom = measAstrom.ANetBasicAstrometryTask(conf, logLevel=loglvl)
+        config = measAstrom.ANetBasicAstrometryConfig()
+        logLevel = Log.INFO
+        #logLevel = Log.DEBUG
+        self.astrom = measAstrom.ANetBasicAstrometryTask(config)
+        self.astrom.log.setThreshold(logLevel)
 
     def tearDown(self):
         del self.srcSet
-        del self.imageSize
+        del self.bbox
         del self.exposure
         del self.astrom
         
     def getAstrometrySolution(self):
-        return self.astrom.determineWcs(self.srcSet, self.exposure, imageSize=self.imageSize)
+        return self.astrom.determineWcs(self.srcSet, self.exposure, bbox=self.bbox)
 
     def testJoin(self):
         res = self.getAstrometrySolution()

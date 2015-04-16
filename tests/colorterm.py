@@ -32,7 +32,6 @@ or
    >>> import colorterm; colorterm.run()
 """
 
-import os, re
 import unittest
 
 import lsst.utils.tests as utilsTests
@@ -70,8 +69,6 @@ class ColortermTestCase(unittest.TestCase):
 
     def tearDown(self):
         Colorterm.setActiveDevice(None)
-        import lsst.meas.astrom.astrometry_net as an
-        an.finalize()
 
     def testTransformSource(self):
         """Check if we can use colour terms"""

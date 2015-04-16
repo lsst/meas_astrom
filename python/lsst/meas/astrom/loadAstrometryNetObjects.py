@@ -128,7 +128,7 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
         )
 
         self.log.info("search for objects at %s with radius %s deg" % (ctrCoord, radius.asDegrees()))
-        with _LoadedMIndexes(multiInds):
+        with LoadMultiIndexes(multiInds):
             # We just want to pass the star kd-trees, so just pass the
             # first element of each multi-index.
             inds = tuple(mi[0] for mi in multiInds)
@@ -218,22 +218,6 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
         elif nMissing > 0:
             self.log.warn('Unable to find %d index files' % (nMissing,))
 
-    def _getColumnName(self, filterName, columnMap, default=None):
-        """!Return the column name in the astrometry_net_data index file used for the given filter name
-
-        @param filterName   Name of filter used in exposure
-        @param columnMap    Dict that maps filter names to column names
-        @param default      Default column name
-        @return column name
-        """
-        filterName = self.config.filterMap.get(filterName, filterName) # Exposure filter --> desired filter
-        try:
-            return columnMap[filterName] # Desired filter --> a_n_d column name
-        except KeyError:
-            self.log.warn("No column in configuration for filter '%s'; using default '%s'" %
-                          (filterName, default))
-            return default
-
     def _getIndexPath(self, fn):
         """!Get the path to the specified astrometry.net index file
 
@@ -276,28 +260,10 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
         solver.setPixelScaleRange(lo, hi)
         return solver
 
-    @staticmethod
-    def _trimToBBox(refCat, bbox, wcs):
-        """!Remove objects outside a given pixel-based bbox and set centroid and hasCentroid fields
 
-        @param[in] refCat  a catalog of objects (an lsst.afw.table.SimpleCatalog,
-            or other table type that supports getCoord() on records)
-        @param[in] bbox  pixel region (an afwImage.Box2D)
-        @param[in] wcs  WCS used to convert sky position to pixel position (an lsst.afw.math.WCS)
-        
-        @return a catalog of reference objects in bbox, with centroid and hasCentroid fields set
-        """
-        retStarCat = type(refCat)(refCat.table)
-        for star in refCat:
-            point = wcs.skyToPixel(star.getCoord())
-            if bbox.contains(point):
-                star.set("centroid", point)
-                star.set("hasCentroid", True)
-                retStarCat.append(star)
-        return retStarCat
-
-
-class _LoadedMIndexes(object):
+class LoadMultiIndexes(object):
+    """Context manager for loading astrometry.net multi-index files, then unloading and finalizing a.net
+    """
     def __init__(self, multiInds):
         self.multiInds = multiInds
     def __enter__(self):
