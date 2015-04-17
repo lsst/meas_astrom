@@ -24,7 +24,6 @@
 
 
 import os
-import sys
 import unittest
 
 import lsst.afw.image as afwImage
@@ -34,13 +33,10 @@ import lsst.afw.geom as afwGeom
 
 
 class SipTransformationTest(unittest.TestCase):
-
-    def tearDown(self):
-        import lsst.meas.astrom.astrometry_net as an
-        an.finalize()
     
     def setUp(self):
-        basefn = os.path.join(os.path.dirname(__file__), 'imgCharSources-v85501867-R01-S00')
+        testDir=os.path.dirname(__file__)
+        basefn = os.path.join(testDir, 'imgCharSources-v85501867-R01-S00')
 
         sipfn = basefn + '.sipheader'
         tanfn = basefn + '.tanheader'
@@ -150,6 +146,10 @@ class SipTransformationTest(unittest.TestCase):
             (1.5000161440, 3.3000521757, 3711.0128841126, 3134.4402504066),
             (1.2986453989, 3.4785959230, 0.0000000000, 0.0000000000),
             ]]
+
+    def tearDown(self):
+        del self.tan
+        del self.sip
 
     # UGH, the coord interface is nasty.
     def pixelToRaDec(self, wcs, xx, yy):

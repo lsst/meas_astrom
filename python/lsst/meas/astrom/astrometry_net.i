@@ -256,20 +256,8 @@ void set_an_log(PTR(pexLog::Log) newlog);
     @param[in] starGalCol  name of "starGal" column (true if object is a star) in astrometry.net data
     @param[in] varCol  name of "var" column (true if brightness is variable) in astrometry.net data
     @param[in] uniqueIds  if true then only return unique IDs (the first of each seen)
-    @param[in] getNewSchema  if true then return data using the new schema
 
-    Returned schema if getNewSchema false:
-    - id: star ID
-    - coord: sky position as an IcrsCoord
-    - flux
-    - flux.err
-    - <filterName>  flux in that filter
-    - <filterName>.err  flux error in specified filter
-    - stargal: true if a star
-    - var: true if variable
-    - photometric: true if a star and not variable
-
-    Returned schema if getNewSchema true:
+    Returned schema:
     - id
     - coord: sky position (an lsst::afw::coord::IcrsCoord)
     - centroid: centroid on some exposure, if relevant (an lsst::afw::geom::Point2D); returned value is not set
@@ -291,8 +279,7 @@ void set_an_log(PTR(pexLog::Log) newlog);
         std::vector<std::string> const& magErrColList,
         const char* starGalCol,
         const char* varCol,
-        bool uniqueIds=true,
-        bool getNewSchema=false)
+        bool uniqueIds=true)
     {
         if ((filterNameList.size() != magColList.size()) || (filterNameList.size() != magErrColList.size())) {
             throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError,
@@ -307,7 +294,7 @@ void set_an_log(PTR(pexLog::Log) newlog);
             magColInfoList.push_back(mc);
         }
         return lsst::meas::astrom::detail::getCatalogImpl(inds, ctrCoord, radius,
-            idCol, magColInfoList, starGalCol, varCol, uniqueIds, getNewSchema);
+            idCol, magColInfoList, starGalCol, varCol, uniqueIds);
     }
 
     PTR(lsst::daf::base::PropertyList) getSolveStats() {

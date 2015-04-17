@@ -8,8 +8,6 @@ import os
 import lsst.meas.astrom as measAstrom
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
-import lsst.afw.geom as afwGeom
-import lsst.daf.base  as dafBase
 import lsst.pex.logging as pexLog
 
 import pyfits
@@ -48,16 +46,16 @@ def showSipSolutions(srcs, wcs0, andDir, x0, y0, W, H, filterName,
     andConfig.load(fn)
 
     # Set up meas_astrom
-    conf = measAstrom.MeasAstromConfig(sipOrder=4)
-    ast = measAstrom.Astrometry(conf, andConfig, logLevel=pexLog.Log.DEBUG)
+    conf = measAstrom.ANetBasicAstrometryConfig(sipOrder=4)
+    ast = measAstrom.ANetBasicAstrometryTask(conf, andConfig, logLevel=pexLog.Log.DEBUG)
 
     # What reference sources are in the original WCS
     refs = ast.getReferenceSourcesForWcs(wcs0, **imargs)
     print 'Got', len(refs), 'reference objects for initial WCS'
 
     # How does a straight TAN solution look?
-    conf2 = measAstrom.MeasAstromConfig(sipOrder=4, calculateSip=False)
-    ast2 = measAstrom.Astrometry(conf2, andConfig, logLevel=pexLog.Log.DEBUG)
+    conf2 = measAstrom.ANetBasicAstrometryConfig(sipOrder=4, calculateSip=False)
+    ast2 = measAstrom.ANetBasicAstrometryTask(conf2, andConfig, logLevel=pexLog.Log.DEBUG)
     solve = ast2.determineWcs2(srcs, **imargs)
     tanwcs = solve.tanWcs
 

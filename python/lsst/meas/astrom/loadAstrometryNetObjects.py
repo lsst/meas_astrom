@@ -2,12 +2,10 @@ from __future__ import absolute_import, division, print_function
 
 import os
 
-import lsst.afw.geom as afwGeom
-# import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from lsst.meas.algorithms import LoadReferenceObjectsTask, getRefFluxField
 from . import astrometry_net as astromNet
-from .config import AstrometryNetDataConfig
+from .astrometryNetDataConfig import AstrometryNetDataConfig
 
 __all__ = ["LoadAstrometryNetObjectsTask", "LoadAstrometryNetObjectsConfig"]
 
@@ -80,54 +78,8 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
             # because astrometry may not be used, in which case it may not be properly configured
 
     @pipeBase.timeMethod
-    def loadObjectsInBBox(self, bbox, wcs, filterName=None, calib=None):
-        """!Load reference objects that overlap a pixel-based rectangular region
-
-        The search algorith works by searching in a region in sky coordinates whose center is the center
-        of the bbox and radius is large enough to just include all 4 corners of the bbox.
-        Stars that lie outside the bbox are then trimmed from the list.
-
-        @param[in] bbox  bounding box for pixels (an lsst.afw.geom.Box2I or Box2D)
-        @param[in] wcs  WCS (an lsst.afw.image.Wcs)
-        @param[in] filterName  name of filter, or None or blank for the default filter
-        @param[in] calib  calibration, or None if unknown
-
-        @return an lsst.pipe.base.Struct containing:
-        - refCat a catalog of reference objects with the
-            \link meas_algorithms_loadReferenceObjects_Schema standard schema \endlink
-            as documented in LoadReferenceObjects, including photometric, resolved and variable;
-            hasCentroid is True for all objects.
-        - fluxField = name of flux field for specified filterName
-        """
-        # compute on-sky center and radius of search region, for _loadObjectsInCircle
-        bbox = afwGeom.Box2D(bbox) # make sure bbox is double and that we have a copy
-        bbox.grow(self.config.pixelMargin)
-        ctrCoord = wcs.pixelToSky(bbox.getCenter())
-        maxRadius = afwGeom.Angle(0)
-        for pixPt in bbox.getCorners():
-            coord = wcs.pixelToSky(pixPt)
-            rad = ctrCoord.angularSeparation(coord)
-            maxRadius = max(rad, maxRadius)
-        del rad
-
-        # find objects in circle
-        self.log.info("getting reference objects using center %s pix = %s sky and radius %s" %
-                    (bbox.getCenter(), ctrCoord, maxRadius))
-        loadRes = self._loadObjectsInCircle(ctrCoord, maxRadius, filterName)
-        refCat = loadRes.refCat
-        numFound = len(refCat)
-
-        # trim objects outside bbox
-        refCat = self._trimToBBox(refCat=refCat, bbox=bbox, wcs=wcs)
-        numTrimmed = numFound - len(refCat)
-        self.log.info("trimmed %d out-of-bbox objects, leaving %d" % (numTrimmed, len(refCat)))
-
-        loadRes.refCat = refCat # should be a no-op, but just in case
-        return loadRes
-
-    @pipeBase.timeMethod
-    def _loadObjectsInCircle(self, ctrCoord, radius, filterName):
-        """!Find reference objects in a circular sky region
+    def loadSkyCircle(self, ctrCoord, radius, filterName=None):
+        """!Load reference objects that overlap a circular sky region
 
         @param[in] ctrCoord  center of search region (an afwGeom.Coord)
         @param[in] radius  radius of search region (an afwGeom.Angle)
@@ -173,11 +125,10 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
             self.andConfig.starGalaxyColumn,
             self.andConfig.variableColumn,
             True, # eliminate duplicate IDs
-            True, # return new schema
         )
 
         self.log.info("search for objects at %s with radius %s deg" % (ctrCoord, radius.asDegrees()))
-        with _LoadedMIndexes(multiInds):
+        with LoadMultiIndexes(multiInds):
             # We just want to pass the star kd-trees, so just pass the
             # first element of each multi-index.
             inds = tuple(mi[0] for mi in multiInds)
@@ -267,22 +218,6 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
         elif nMissing > 0:
             self.log.warn('Unable to find %d index files' % (nMissing,))
 
-    def _getColumnName(self, filterName, columnMap, default=None):
-        """!Return the column name in the astrometry_net_data index file used for the given filter name
-
-        @param filterName   Name of filter used in exposure
-        @param columnMap    Dict that maps filter names to column names
-        @param default      Default column name
-        @return column name
-        """
-        filterName = self.config.filterMap.get(filterName, filterName) # Exposure filter --> desired filter
-        try:
-            return columnMap[filterName] # Desired filter --> a_n_d column name
-        except KeyError:
-            self.log.warn("No column in configuration for filter '%s'; using default '%s'" %
-                          (filterName, default))
-            return default
-
     def _getIndexPath(self, fn):
         """!Get the path to the specified astrometry.net index file
 
@@ -325,28 +260,10 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
         solver.setPixelScaleRange(lo, hi)
         return solver
 
-    @staticmethod
-    def _trimToBBox(refCat, bbox, wcs):
-        """!Remove objects outside a given pixel-based bbox and set centroid and hasCentroid fields
 
-        @param[in] refCat  a catalog of objects (an lsst.afw.table.SimpleCatalog,
-            or other table type that supports getCoord() on records)
-        @param[in] bbox  pixel region (an afwImage.Box2D)
-        @param[in] wcs  WCS used to convert sky position to pixel position (an lsst.afw.math.WCS)
-        
-        @return a catalog of reference objects in bbox, with centroid and hasCentroid fields set
-        """
-        retStarCat = type(refCat)(refCat.table)
-        for star in refCat:
-            point = wcs.skyToPixel(star.getCoord())
-            if bbox.contains(point):
-                star.set("centroid", point)
-                star.set("hasCentroid", True)
-                retStarCat.append(star)
-        return retStarCat
-
-
-class _LoadedMIndexes(object):
+class LoadMultiIndexes(object):
+    """Context manager for loading astrometry.net multi-index files, then unloading and finalizing a.net
+    """
     def __init__(self, multiInds):
         self.multiInds = multiInds
     def __enter__(self):

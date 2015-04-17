@@ -99,6 +99,8 @@ class TestAstrometricSolver(unittest.TestCase):
             initWcs = distortedWcs,
             filterName = 'r'
         )
+        self.assertTrue(results.initWcs is distortedWcs)
+        self.assertFalse(results.wcs is distortedWcs)
         self.assertWcssAlmostEqual(distortedWcs, results.wcs, self.bbox)
 
         srcCoordKey = sourceCat.schema["coord"].asKey()
@@ -122,12 +124,27 @@ class TestAstrometricSolver(unittest.TestCase):
         print("max angular separation = %0.4f arcsec" % (maxAngSep.asArcseconds(),))
         print("max pixel separation = %0.3f" % (maxPixSep,))
 
+        # try again, but without fitting the WCS
+        config.forceKnownWcs = True
+        solverNoFit = measAstrom.AstrometryTask(config=config)
+        resultsNoFit = solverNoFit.solve(
+            sourceCat = sourceCat,
+            bbox = self.bbox,
+            initWcs = distortedWcs,
+            filterName = 'r'
+        )
+        self.assertTrue(resultsNoFit.wcs is distortedWcs)
+        self.assertTrue(resultsNoFit.initWcs is distortedWcs)
+        self.assertTrue(resultsNoFit.scatterOnSky is None)
+        # fitting may find a few more matches, since it matches again after fitting the WCS
+        self.assertTrue(0 <= len(results.matches) - len(resultsNoFit.matches) < len(results.matches) * 0.1)
+
     def makeSourceCat(self, distortedWcs):
         """Make a source catalog by reading the position reference stars and distorting the positions
         """
         loaderConfig = measAstrom.LoadAstrometryNetObjectsTask.ConfigClass()
         loader = measAstrom.LoadAstrometryNetObjectsTask(config=loaderConfig)
-        loadRes = loader.loadObjectsInBBox(bbox=self.bbox, wcs=distortedWcs, filterName="r")
+        loadRes = loader.loadPixelBox(bbox=self.bbox, wcs=distortedWcs, filterName="r")
         refCat = loadRes.refCat
         refCentroidKey = afwTable.Point2DKey(refCat.schema["centroid"])
 

@@ -22,16 +22,11 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
-import re
 import os
-import sys
-import glob
-import math
 import unittest
 
-import numpy as np
-
 import eups
+from lsst.afw.coord import IcrsCoord
 import lsst.meas.astrom            as measAstrom
 import lsst.utils.tests            as utilsTests
 import lsst.afw.geom as afwGeom
@@ -41,32 +36,36 @@ class MultipleCatalogStarsTest(unittest.TestCase):
 
     def setUp(self):
         # Set up local astrometry_net_data
-        mypath = eups.productDir("meas_astrom")
-        datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
+        testDir=os.path.dirname(__file__)
+        datapath = os.path.join(testDir, 'astrometry_net_data', 'photocal')
         eupsObj = eups.Eups(root=datapath)
         ok, version, reason = eupsObj.setup('astrometry_net_data')
         if not ok:
             raise ValueError("Need photocal version of astrometry_net_data (from path: %s): %s" %
                              (datapath, reason))
 
-        self.conf = measAstrom.MeasAstromConfig()
+        self.conf = measAstrom.ANetBasicAstrometryConfig()
         # Load andConfig2.py rather than the default.
         confpath = os.path.join(datapath, 'andConfig2.py')
-        self.andconf = measAstrom.AstrometryNetDataConfig()
-        self.andconf.load(confpath)
+        self.andConfig = measAstrom.AstrometryNetDataConfig()
+        self.andConfig.load(confpath)
 
     def tearDown(self):
         del self.conf
-        import lsst.meas.astrom.astrometry_net as an
-        an.finalize()
 
-    def testGetCatalog(self, loglvl=Log.DEBUG):
-        astrom = measAstrom.Astrometry(self.conf, andConfig=self.andconf, logLevel=loglvl)
+    def testGetCatalog(self, logLevel=Log.DEBUG):
+        astrom = measAstrom.ANetBasicAstrometryTask(self.conf, andConfig=self.andConfig)
+        astrom.log.setThreshold(logLevel)
 
-        cat = astrom.getReferenceSources(215.6 * afwGeom.degrees,
-                                         53.0 * afwGeom.degrees,
-                                         0.1 * afwGeom.degrees,
-                                         'z')
+        ctrCoord = IcrsCoord(
+            215.6 * afwGeom.degrees,
+            53.0 * afwGeom.degrees,
+        )
+        cat = astrom.refObjLoader.loadSkyCircle(
+            ctrCoord = ctrCoord,
+            radius = 0.1 * afwGeom.degrees,
+            filterName = 'z',
+        ).refCat
         print 'Got', len(cat), 'reference sources'
 
         ids = set(s.getId() for s in cat)

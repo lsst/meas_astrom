@@ -35,6 +35,13 @@ class AstrometryConfig(pexConfig.Config):
             "  (but still match reference objects to sources)",
         default = False,
     )
+    maxIter = pexConfig.RangeField(
+        doc = "maximum number of iterations of match sources and fit WCS; " +
+            "ignored if forceKnownWcs True",
+        dtype = int,
+        default = 3,
+        min = 1,
+    )
 
 # The following block adds links to this task from the Task Documentation page.
 ## \addtogroup LSST_task_documentation
@@ -101,15 +108,15 @@ class AstrometryTask(pipeBase.Task):
 
     To investigate the @ref meas_astrom_astrometry_Debug, put something like
     @code{.py}
-        import lsstDebug
-        def DebugInfo(name):
-            debug = lsstDebug.getInfo(name)        # N.b. lsstDebug.Info(name) would call us recursively
-            if name == "lsst.pipe.tasks.astrometry":
-                debug.display = True
+    import lsstDebug
+    def DebugInfo(name):
+        debug = lsstDebug.getInfo(name)        # N.b. lsstDebug.Info(name) would call us recursively
+        if name == "lsst.meas.astrom.astrometry":
+            debug.display = True
 
-            return debug
+        return debug
 
-        lsstDebug.Info = DebugInfo
+    lsstDebug.Info = DebugInfo
     @endcode
     into your debug.py file and run this task with the @c --debug flag.
     """
@@ -174,7 +181,7 @@ class AstrometryTask(pipeBase.Task):
         import lsstDebug
         debug = lsstDebug.Info(__name__)
 
-        loadRes = self.refObjLoader.loadObjectsInBBox(
+        loadRes = self.refObjLoader.loadPixelBox(
             bbox = bbox,
             wcs = initWcs,
             filterName = filterName,
@@ -191,15 +198,80 @@ class AstrometryTask(pipeBase.Task):
                 title="Reference catalog",
             )
 
-        matchRes = self.matcher.matchObjectsToSources(
+        res = None
+        wcs = initWcs
+        for i in range(self.config.maxIter):
+            tryRes = self._matchAndFitWcs( # refCat, sourceCat, refFluxField, bbox, wcs, exposure=None
+                refCat = loadRes.refCat,
+                sourceCat = sourceCat,
+                refFluxField = loadRes.fluxField,
+                bbox = bbox,
+                wcs = wcs,
+                exposure = exposure,
+            )
+
+            if self.config.forceKnownWcs:
+                # run just once; note that the number of matches has already logged
+                res = tryRes
+                break
+
+            self.log.logdebug(
+                "Fit WCS iter %s: %s matches; median scatter = %g arcsec" % \
+                    (i, len(tryRes.matches), tryRes.scatterOnSky.asArcseconds()),
+            )
+
+            if res is not None and not self.config.forceKnownWcs:
+                if len(tryRes.matches) < len(res.matches):
+                    self.log.info(
+                        "Fit WCS: use iter %s because it had more matches than the next iter: %s vs. %s" % \
+                        (i-1, len(res.matches), len(tryRes.matches)))
+                    break
+                if len(tryRes.matches) == len(res.matches) and tryRes.scatterOnSky >= res.scatterOnSky:
+                    self.log.info(
+            "Fit WCS: use iter %s because it had less scatter than the next iter: %g vs. %g arcsec" % \
+                        (i-1, res.scatterOnSky.asArcseconds(), tryRes.scatterOnSky.asArcseconds()))
+                    break
+
+            res = tryRes
+            wcs = res.wcs
+
+        return pipeBase.Struct(
             refCat = loadRes.refCat,
+            matches = res.matches,
+            initWcs = initWcs,
+            wcs = res.wcs,
+            scatterOnSky = res.scatterOnSky,
+            matchMeta = self._createMatchMetadata(bbox=bbox, wcs=res.wcs, filterName=filterName)
+        )
+
+    @pipeBase.timeMethod
+    def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, exposure=None):
+        """!Match sources to reference objects and fit a WCS
+
+        @param[in] refCat  catalog of reference objects
+        @param[in] sourceCat  catalog of sourceCat detected on the exposure (an lsst.afw.table.SourceCatalog)
+        @param[in] bbox  bounding box of exposure (an lsst.afw.geom.Box2I)
+        @param[in] wcs  initial guess for WCS of exposure (an lsst.afw.image.Wcs)
+        @param[in] exposure  exposure whose WCS is to be fit, or None; used only for the debug display
+
+        @return an lsst.pipe.base.Struct with these fields:
+        - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
+        - wcs  the fit WCS as an lsst.afw.image.Wcs
+        - scatterOnSky  median on-sky separation between reference objects and sources in "matches",
+            as an lsst.afw.geom.Angle, or None if config.forceKnownWcs is True
+        """
+        import lsstDebug
+        debug = lsstDebug.Info(__name__)
+        matchRes = self.matcher.matchObjectsToSources(
+            refCat = refCat,
             sourceCat = sourceCat,
-            wcs = initWcs,
-            refFluxField = loadRes.fluxField,
+            wcs = wcs,
+            refFluxField = refFluxField,
         )
         if debug.display:
+            frame = int(debug.frame)
             showAstrometry(
-                refCat = loadRes.refCat,
+                refCat = refCat,
                 sourceCat = sourceCat,
                 matches = matchRes.matches,
                 exposure = exposure,
@@ -210,19 +282,23 @@ class AstrometryTask(pipeBase.Task):
 
         if not self.config.forceKnownWcs:
             self.log.info("Fitting WCS")
-            fitWcs = self.wcsFitter.fitWcs(
+            fitRes = self.wcsFitter.fitWcs(
                 matches = matchRes.matches,
-                initWcs = initWcs,
+                initWcs = wcs,
                 bbox = bbox,
-                refCat = loadRes.refCat,
+                refCat = refCat,
                 sourceCat = sourceCat,
-            ).wcs
+            )
+            fitWcs = fitRes.wcs
+            scatterOnSky = fitRes.scatterOnSky
         else:
-            self.log.info("Not fitting WCS (forceKnownWcs true)")
-            fitWcs = initWcs
+            self.log.info("Not fitting WCS (forceKnownWcs true); %s matches" % (len(matchRes.matches),))
+            fitWcs = wcs
+            scatterOnSky = None
         if debug.display:
+            frame = int(debug.frame)
             showAstrometry(
-                refCat = loadRes.refCat,
+                refCat = refCat,
                 sourceCat = sourceCat,
                 matches = matchRes.matches,
                 exposure = exposure,
@@ -232,11 +308,9 @@ class AstrometryTask(pipeBase.Task):
             )
 
         return pipeBase.Struct(
-            refCat = loadRes.refCat,
             matches = matchRes.matches,
-            initWcs = initWcs,
             wcs = fitWcs,
-            matchMeta = self._createMatchMetadata(bbox=bbox, wcs=fitWcs, filterName=filterName)
+            scatterOnSky = scatterOnSky,
         )
 
     @staticmethod

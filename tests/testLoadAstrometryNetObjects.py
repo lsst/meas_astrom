@@ -65,23 +65,24 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         metadata.set("CD2_2", -5.1e-05)
         metadata.set("CD2_1",  0.0)
         self.wcs = afwImage.makeWcs(metadata)
-        self.desNumStars = 270
+        self.desNumStarsInPixelBox = 270
+        self.desNumStarsInSkyCircle = 410
 
     def tearDown(self):
         del self.ctrPix
         del self.wcs
         del self.config
 
-    def testLoadObjectsInBBox(self):
-        """Test loadObjectsInBBox
+    def testLoadPixeBox(self):
+        """Test loadPixelBox
         """
         loadANetObj = measAstrom.LoadAstrometryNetObjectsTask(config=self.config)
 
-        loadRes = loadANetObj.loadObjectsInBBox(bbox=self.bbox, wcs=self.wcs, filterName="r")
+        loadRes = loadANetObj.loadPixelBox(bbox=self.bbox, wcs=self.wcs, filterName="r")
         refCat = loadRes.refCat
 #        self.plotStars(refCat, bbox=self.bbox)
         self.assertEqual(loadRes.fluxField, "r_flux")
-        self.assertEqual(len(refCat), self.desNumStars)
+        self.assertEqual(len(refCat), self.desNumStarsInPixelBox)
         self.assertObjInBBox(refCat=refCat, bbox=self.bbox, wcs=self.wcs)
         schema = refCat.getSchema()
         filterNameList = ['u', 'g', 'r', 'i', 'z']
@@ -91,6 +92,15 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         for fieldName in ("coord", "centroid", "hasCentroid", "photometric", "resolved"):
             schema.find(fieldName)
 
+    def testLoadSkyCircle(self):
+        loadANetObj = measAstrom.LoadAstrometryNetObjectsTask(config=self.config)
+
+        ctrCoord = self.wcs.pixelToSky(afwGeom.Point2D(self.ctrPix))
+        radius = ctrCoord.angularSeparation(self.wcs.pixelToSky(afwGeom.Box2D(self.bbox).getMin()))
+
+        loadRes = loadANetObj.loadSkyCircle(ctrCoord=ctrCoord, radius=radius, filterName="r")
+        self.assertEqual(len(loadRes.refCat), self.desNumStarsInSkyCircle)
+
     def testNoMagErrs(self):
         """Exclude magnitude errors from the found catalog
         """
@@ -99,10 +109,10 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         andConfig.magErrorColumnMap = {}
         loadANetObj = measAstrom.LoadAstrometryNetObjectsTask(config = self.config, andConfig = andConfig)
 
-        loadRes = loadANetObj.loadObjectsInBBox(bbox=self.bbox, wcs=self.wcs, filterName="r")
+        loadRes = loadANetObj.loadPixelBox(bbox=self.bbox, wcs=self.wcs, filterName="r")
         refCat = loadRes.refCat
         self.assertEqual(loadRes.fluxField, "r_flux")
-        self.assertEqual(len(refCat), self.desNumStars)
+        self.assertEqual(len(refCat), self.desNumStarsInPixelBox)
         self.assertObjInBBox(refCat=refCat, bbox=self.bbox, wcs=self.wcs)
         schema = refCat.getSchema()
         for filterName in ['u', 'g', 'r', 'i', 'z']:
@@ -112,7 +122,7 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
     def testRequestForeignFilter(self):
         """The user requests a filter not in the astrometry.net catalog.
 
-        In that case, we must specify a mapping in the MeasAstromConfig to point
+        In that case, we must specify a mapping in the AstrometryConfig to point
         to an alternative filter (e.g., g instead of B).
         We should expect the returned catalog to contain references
         to the filterNameList that are in the catalog.
@@ -123,10 +133,10 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         self.config.filterMap = dict(('my_'+b, b) for b in filterNameList)
         loadANetObj = measAstrom.LoadAstrometryNetObjectsTask(config = self.config, andConfig = andConfig)
 
-        loadRes = loadANetObj.loadObjectsInBBox(bbox=self.bbox, wcs=self.wcs, filterName="my_r")
+        loadRes = loadANetObj.loadPixelBox(bbox=self.bbox, wcs=self.wcs, filterName="my_r")
         refCat = loadRes.refCat
         self.assertEqual(loadRes.fluxField, "my_r_camFlux")
-        self.assertEqual(len(refCat), self.desNumStars)
+        self.assertEqual(len(refCat), self.desNumStarsInPixelBox)
         self.assertObjInBBox(refCat=refCat, bbox=self.bbox, wcs=self.wcs)
         schema = refCat.getSchema()
         for filterName in filterNameList:
@@ -148,10 +158,10 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         andConfig.magErrorColumnMap = dict([('my_' + b, b + "_err") for b in baseNameList])
         loadANetObj = measAstrom.LoadAstrometryNetObjectsTask(config = self.config, andConfig = andConfig)
 
-        loadRes = loadANetObj.loadObjectsInBBox(bbox=self.bbox, wcs=self.wcs, filterName="my_r")
+        loadRes = loadANetObj.loadPixelBox(bbox=self.bbox, wcs=self.wcs, filterName="my_r")
         refCat = loadRes.refCat
         self.assertEqual(loadRes.fluxField, "my_r_flux")
-        self.assertEqual(len(refCat), self.desNumStars)
+        self.assertEqual(len(refCat), self.desNumStarsInPixelBox)
         self.assertObjInBBox(refCat=refCat, bbox=self.bbox, wcs=self.wcs)
         schema = refCat.getSchema()
         for nm in filterNameList:

@@ -91,6 +91,8 @@ class FitTanSipWcsTask(pipeBase.Task):
 
         @return an lsst.pipe.base.Struct with the following fields:
         - wcs  the fit WCS as an lsst.afw.image.Wcs
+        - scatterOnSky  median on-sky separation between reference objects and sources in "matches",
+            as an lsst.afw.geom.Angle
         """
         if bbox is None:
             bbox = afwGeom.Box2I()
@@ -105,6 +107,7 @@ class FitTanSipWcsTask(pipeBase.Task):
 
         return pipeBase.Struct(
             wcs = wcs,
+            scatterOnSky = sipObject.getScatterOnSky(),
         )
 
     @staticmethod

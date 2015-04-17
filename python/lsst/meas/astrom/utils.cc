@@ -62,8 +62,7 @@ getCatalogImpl(std::vector<index_t*> inds,
     std::vector<MagColInfo> const& magColInfoList,
     char const* isStarCol,
     char const* isVarCol,
-    bool uniqueIds,
-    bool getNewSchema)
+    bool uniqueIds)
 {
     /*
      If uniqueIds == true: return only reference sources with unique IDs;
@@ -110,31 +109,30 @@ getCatalogImpl(std::vector<index_t*> inds,
         // avoid the comment "flux flux"
         fluxKey.push_back(
             schema.addField<double>(
-                getNewSchema ? mc->filterName + "_flux" : mc->filterName,
-                mc->filterName == "flux" ? "flux" : mc->filterName + " flux"));
+                mc->filterName + "_flux",
+                mc->filterName + " flux"));
         if (mc->hasErr()) {
             fluxErrKey.push_back(
                 schema.addField<double>(
-                    getNewSchema ? mc->filterName + "_fluxSigma" : mc->filterName + ".err",
-                    mc->filterName == "flux" ? "flux uncertainty (sigma)" :
-                        mc->filterName + " flux uncertainty (sigma)"));
+                    mc->filterName + "_fluxSigma",
+                    mc->filterName + " flux uncertainty (sigma)"));
         }
     }
 
     afwTable::Key<afwTable::Flag> resolvedKey;
     if (isStarCol) {
         resolvedKey = schema.addField<afwTable::Flag>(
-            getNewSchema ? "resolved" : "stargal",
+            "resolved",
             "set if the reference object is resolved");
     }
     afwTable::Key<afwTable::Flag> variableKey;
     if (isVarCol) {
         variableKey = schema.addField<afwTable::Flag>(
-            getNewSchema ? "variable" : "var",
+            "variable",
             "set if the reference object is variable");
     }
     afwTable::Key<afwTable::Flag> photometricKey = schema.addField<afwTable::Flag>(
-        getNewSchema ? "photometric" : "photometric",
+        "photometric",
         "set if the reference object can be used in photometric calibration");
 
     afwTable::SimpleCatalog cat;
@@ -318,7 +316,7 @@ getCatalogImpl(std::vector<index_t*> inds,
 
             bool photometric = true;
             if (stargal) {
-                src->set(resolvedKey, getNewSchema ? !stargal[i] : stargal[i]);
+                src->set(resolvedKey, !stargal[i]);
                 photometric &= stargal[i];
             }
             if (var) {
