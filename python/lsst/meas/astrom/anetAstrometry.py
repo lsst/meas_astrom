@@ -49,13 +49,15 @@ class ANetAstrometryConfig(pexConfig.Config):
 
     ## \addtogroup LSST_task_documentation
     ## \{
-    ## \page ANetAstrometryTask
+    ## \page measAstrom_anetAstrometryTask
     ## \ref ANetAstrometryTask_ "ANetAstrometryTask"
     ## Use astrometry.net to match input sources with a reference catalog and solve for the Wcs
     ## \}
 
 class ANetAstrometryTask(pipeBase.Task):
     """!Use astrometry.net to match input sources with a reference catalog and solve for the Wcs
+
+    @anchor ANetAstrometryTask_
 
     The actual matching and solving is done by the 'solver'; this Task
     serves as a wrapper for taking into account the known optical distortion.

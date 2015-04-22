@@ -86,11 +86,11 @@ class Colorterm(object):
 
     @staticmethod
     def transformSource(band, source, reverse=False, colorterms=None):
-        """!Transform the magnitudes in <source> to the specified <band> and return it.
+        """!Transform the magnitudes in *source* to the specified *band* and return it.
 
-        The <source> must support a get(band) (e.g. source.get("r")) method, as do afw::Source and dicts.
+        The *source* must support a get(band) (e.g. source.get("r")) method, as do afw::Source and dicts.
         Use the colorterms (or the cached set if colorterms is None); if no set is available,
-        return the <band> flux.
+        return the *band* flux.
         If reverse is True, return the inverse transformed magnitude
 
         @warning reverse is not yet implemented
@@ -108,10 +108,10 @@ class Colorterm(object):
 
     @staticmethod
     def transformMags(band, primary, secondary, reverse=False, colorterms=None):
-        """!Transform the magnitudes <primary> and <secondary> to the specified <band> and return it.
+        """!Transform the magnitudes *primary* and *secondary* to the specified *band* and return it.
 
         Use the colorterms (or the cached set if colorterms is None); if no set is available,
-        return the <band> flux
+        return the *band* flux.
         If reverse is True, return the inverse transformed magnitude
 
         @warning reverse is not yet implemented

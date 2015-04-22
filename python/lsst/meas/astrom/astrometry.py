@@ -47,7 +47,7 @@ class AstrometryConfig(pexConfig.Config):
 ## \addtogroup LSST_task_documentation
 ## \{
 ## \page measAstrom_astrometryTask
-## \ref AstrometryTask "AstrometryTask"
+## \ref AstrometryTask_ "AstrometryTask"
 ##      Match an input source catalog with objects from a reference catalog and solve for the WCS
 ## \}
 

@@ -161,7 +161,7 @@ The available variables in PhotoCalTask are:
 
 \section meas_photocal_photocal_Example	A complete example of using PhotoCalTask
 
-This code is in \link photoCalTask.py\endlink in the examples directory, and can be run as \em e.g.
+This code is in \link examples/photoCalTask.py\endlink, and can be run as \em e.g.
 \code
 examples/photoCalTask.py
 \endcode
