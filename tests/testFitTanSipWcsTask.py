@@ -37,7 +37,7 @@ import lsst.afw.coord as afwCoord
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.afw.table as afwTable
-from lsst.meas.algorithms import LoadReferenceObjectsTask
+from lsst.meas.algorithms import LoadReferenceObjectsTask, setMatchDistance
 from lsst.meas.base import SingleFrameMeasurementTask
 from lsst.meas.astrom import FitTanSipWcsTask
 from lsst.meas.astrom.sip import makeCreateWcsWithSip
@@ -64,10 +64,14 @@ class BaseTestCase(unittest.TestCase):
         CD22 = arcsecPerPixel
         
         self.tanWcs = afwImage.makeWcs(crval, crpix, CD11, CD12, CD21, CD22)
+        self.loadData()
 
-        S = 3000
-        N = 5
+    def loadData(self, rangePix=3000, numPoints=5):
+        """Load catalogs and make the match list
 
+        This is a separate function so data can be reloaded if fitting more than once
+        (each time a WCS is fit it may update the source catalog, reference catalog and match list)
+        """
         if self.MatchClass == afwTable.ReferenceMatch:
             refSchema = LoadReferenceObjectsTask.makeMinimalSchema(
                 filterNameList = ["r"], addFluxSigma=True, addIsPhotometric=True)
@@ -84,22 +88,17 @@ class BaseTestCase(unittest.TestCase):
         self.srcCentroidKey_xSigma = srcSchema["slot_Centroid_xSigma"].asKey()
         self.srcCentroidKey_ySigma = srcSchema["slot_Centroid_ySigma"].asKey()
         self.sourceCat = afwTable.SourceCatalog(srcSchema)
-        self.origSourceCat = afwTable.SourceCatalog(srcSchema) # undistorted copy
+
         self.matches = []
 
-
-        for i in numpy.linspace(0., S, N):
-            for j in numpy.linspace(0., S, N):
+        for i in numpy.linspace(0., rangePix, numPoints):
+            for j in numpy.linspace(0., rangePix, numPoints):
                 src = self.sourceCat.addNew()
-                origSrc = self.origSourceCat.addNew()
                 refObj = self.refCat.addNew()
 
                 src.set(self.srcCentroidKey, afwGeom.Point2D(i, j))
                 src.set(self.srcCentroidKey_xSigma, 0.1)
                 src.set(self.srcCentroidKey_ySigma, 0.1)
-                origSrc.set(self.srcCentroidKey, afwGeom.Point2D(i, j))
-                origSrc.set(self.srcCentroidKey_xSigma, 0.1)
-                origSrc.set(self.srcCentroidKey_ySigma, 0.1)
 
                 c = self.tanWcs.pixelToSky(afwGeom.Point2D(i, j))
                 refObj.setCoord(c)
@@ -112,7 +111,6 @@ class BaseTestCase(unittest.TestCase):
 
     def tearDown(self):
         del self.refCat
-        del self.origSourceCat
         del self.sourceCat
         del self.matches
         del self.tanWcs
@@ -165,7 +163,8 @@ class BaseTestCase(unittest.TestCase):
         refCoordKey = self.refCat.schema["coord"].asKey()
         if catsUpdated:
             refCentroidKey = afwTable.Point2DKey(self.refCat.schema["centroid"])
-        for refObj, src, d in self.matches:
+        maxDistErr = afwGeom.Angle(0)
+        for refObj, src, distRad in self.matches:
             srcPixPos = src.get(self.srcCentroidKey)
             refCoord = refObj.get(refCoordKey)
             if catsUpdated:
@@ -176,6 +175,9 @@ class BaseTestCase(unittest.TestCase):
                 srcCoord = tanSipWcs.pixelToSky(srcPixPos)
 
             angSep = refCoord.angularSeparation(srcCoord)
+            dist = distRad*afwGeom.radians
+            distErr = abs(dist - angSep)
+            maxDistErr = max(maxDistErr, distErr)
             maxAngSep = max(maxAngSep, angSep)
             self.assertLess(angSep, 0.001 * afwGeom.arcseconds)
 
@@ -185,6 +187,7 @@ class BaseTestCase(unittest.TestCase):
 
         print("max angular separation = %0.4f arcsec" % (maxAngSep.asArcseconds(),))
         print("max pixel separation = %0.3f" % (maxPixSep,))
+        self.assertLess(maxDistErr.asArcseconds(), 1e-7)
 
     def doTest(self, name, func, order=3, specifyBBox=False, doPlot=False):
         """Apply func(x, y) to each source in self.sourceCat, then fit and check the resulting WCS
@@ -202,6 +205,7 @@ class BaseTestCase(unittest.TestCase):
         else:
             sipObject = makeCreateWcsWithSip(self.matches, self.tanWcs, order)
         tanSipWcs = sipObject.getNewWcs()
+        setMatchDistance(self.matches)
         fitRes = lsst.pipe.base.Struct(
             wcs = tanSipWcs,
             scatterOnSky = sipObject.getScatterOnSky(),
@@ -213,9 +217,14 @@ class BaseTestCase(unittest.TestCase):
         self.checkResults(fitRes, catsUpdated=False)
 
         if self.MatchClass == afwTable.ReferenceMatch:
+            # reset source coord and reference centroid based on initial WCS
+            FitTanSipWcsTask.updateRefCentroids(wcs=self.tanWcs, refList = self.refCat)
+            FitTanSipWcsTask.updateSourceCoords(wcs=self.tanWcs, sourceList = self.sourceCat)
+
             fitterConfig = FitTanSipWcsTask.ConfigClass()
             fitterConfig.order = order
             fitter = FitTanSipWcsTask(config=fitterConfig)
+            self.loadData()
             if specifyBBox:
                 fitRes = fitter.fitWcs(
                     matches = self.matches,

@@ -3,6 +3,7 @@ import math
 import numpy
 
 import lsst.afw.table as afwTable
+from lsst.meas.algorithms import setMatchDistance
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from .astromLib import matchOptimisticB, MatchOptimisticBControl
@@ -323,6 +324,8 @@ class MatchOptimisticBTask(pipeBase.Task):
         @param[in] minMatchedPairs  minimum number of matches
         @param[in] sourceInfo  SourceInfo for the sourceCat
         @param[in] verbose  true to print diagnostic information to std::cout
+
+        @return a list of matches, an instance of lsst.afw.table.ReferenceMatch
         """
         numSources = len(sourceCat)
         posRefBegInd = numCleanSources - numSources
@@ -352,4 +355,6 @@ class MatchOptimisticBTask(pipeBase.Task):
                         verbose,
                     )
                     if matches is not None and len(matches) != 0:
+                        setMatchDistance(matches)
                         return matches
+
