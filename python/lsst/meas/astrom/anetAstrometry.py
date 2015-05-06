@@ -133,30 +133,19 @@ class ANetAstrometryTask(pipeBase.Task):
         will be added to the schema.
         """
         pipeBase.Task.__init__(self, **kwds)
-
-        if schema.getVersion() == 0:
-            self.distortedName = "centroid.distorted"
-            self.centroidKey = schema.addField(self.distortedName, type="PointD",
-                                           doc="centroid distorted for astrometry solver")
-            self.centroidErrKey = schema.addField(self.distortedName + ".err", type="CovPointF",
-                                           doc="centroid distorted err for astrometry solver")
-            self.centroidFlagKey = schema.addField(self.distortedName + ".flag", type="Flag",
-                                           doc="centroid distorted flag astrometry solver")
-        else:
-            self.distortedName = "astrom_distorted"
-            self.centroidXKey = schema.addField(self.distortedName + "_x", type="D",
-                                           doc="centroid distorted for astrometry solver")
-            self.centroidYKey = schema.addField(self.distortedName + "_y", type="D",
-                                           doc="centroid distorted for astrometry solver")
-            self.centroidXErrKey = schema.addField(self.distortedName + "_xSigma", type="F",
-                                           doc="centroid distorted err for astrometry solver")
-            self.centroidYErrKey = schema.addField(self.distortedName + "_ySigma", type="F",
-                                           doc="centroid distorted err for astrometry solver")
-            self.centroidFlagKey = schema.addField(self.distortedName + "_flag", type="Flag",
-                                           doc="centroid distorted flag astrometry solver")
-            self.centroidKey = Point2DKey(self.centroidXKey, self.centroidYKey)
-            self.centroidErrKey = CovarianceMatrix2fKey((self.centroidXErrKey, self.centroidYErrKey))
- 
+        self.distortedName = "astrom_distorted"
+        self.centroidXKey = schema.addField(self.distortedName + "_x", type="D",
+                                            doc="centroid distorted for astrometry solver")
+        self.centroidYKey = schema.addField(self.distortedName + "_y", type="D",
+                                            doc="centroid distorted for astrometry solver")
+        self.centroidXErrKey = schema.addField(self.distortedName + "_xSigma", type="F",
+                                               doc="centroid distorted err for astrometry solver")
+        self.centroidYErrKey = schema.addField(self.distortedName + "_ySigma", type="F",
+                                               doc="centroid distorted err for astrometry solver")
+        self.centroidFlagKey = schema.addField(self.distortedName + "_flag", type="Flag",
+                                               doc="centroid distorted flag astrometry solver")
+        self.centroidKey = Point2DKey(self.centroidXKey, self.centroidYKey)
+        self.centroidErrKey = CovarianceMatrix2fKey((self.centroidXErrKey, self.centroidYErrKey))
         # postpone making the solver subtask because it may not be needed and is expensive to create
         self.solver = None
 
