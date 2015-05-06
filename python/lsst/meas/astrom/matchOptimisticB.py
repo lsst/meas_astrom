@@ -98,18 +98,14 @@ class SourceInfo(object):
 
         @throw RuntimeError if the flux field is not found
         """
-        version = schema.getVersion()
-        if version == 1:
-            self.centroidKey = afwTable.Point2DKey(schema["slot_Centroid"])
-            self.centroidFlagKey = schema["slot_Centroid_flag"].asKey()
-            self.edgeKey = schema["base_PixelFlags_flag_edge"].asKey()
-            self.saturatedKey = schema["base_PixelFlags_flag_saturated"].asKey()
-            self.fluxField = "slot_%sFlux_flux" % (fluxType,)
-            self.interpolatedCenterKey = schema["base_PixelFlags_flag_interpolatedCenter"].asKey()
-            # extra keys that might be useful
-            self.parentKey = schema["parent"].asKey()
-        else:
-            raise RuntimeError("Version %r of sourceCat schema not supported" % (version,))
+        self.centroidKey = afwTable.Point2DKey(schema["slot_Centroid"])
+        self.centroidFlagKey = schema["slot_Centroid_flag"].asKey()
+        self.edgeKey = schema["base_PixelFlags_flag_edge"].asKey()
+        self.saturatedKey = schema["base_PixelFlags_flag_saturated"].asKey()
+        self.fluxField = "slot_%sFlux_flux" % (fluxType,)
+        self.interpolatedCenterKey = schema["base_PixelFlags_flag_interpolatedCenter"].asKey()
+        # extra keys that might be useful
+        self.parentKey = schema["parent"].asKey()
 
         if self.fluxField not in schema:
             raise RuntimeError("Could not find flux field %s in source schema" % (self.fluxField,))
