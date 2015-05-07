@@ -75,8 +75,8 @@ class BaseTestCase(unittest.TestCase):
             raise RuntimeError("Unsupported MatchClass=%r" % (self.MatchClass,))
         srcSchema = afwTable.SourceTable.makeMinimalSchema()
         SingleFrameMeasurementTask(schema=srcSchema)
-        self.refCoordKey = refSchema["coord"].asKey()
-        self.srcCoordKey = srcSchema["coord"].asKey()
+        self.refCoordKey = afwTable.CoordKey(refSchema["coord"])
+        self.srcCoordKey = afwTable.CoordKey(srcSchema["coord"])
         self.srcCentroidKey = afwTable.Point2DKey(srcSchema["slot_Centroid"])
         self.sourceCat = afwTable.SourceCatalog(srcSchema)
         self.origSourceCat = afwTable.SourceCatalog(srcSchema) # undistorted copy

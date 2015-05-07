@@ -109,8 +109,9 @@ class TestMatchOptimisticB(unittest.TestCase):
             measAstrom.plotAstrometry(matches=matches, refCat=refCat, sourceCat=sourceCat)
         self.assertEqual(len(matches), 183)
 
-        refCoordKey = refCat.schema["coord"].asKey()
-        srcCoordKey = sourceCat.schema["coord"].asKey()
+        refCoordKey = afwTable.CoordKey(refCat.schema["coord"])
+        srcCoordKey = afwTable.CoordKey(sourceCat.schema["coord"])
+        refCentroidKey = afwTable.Point2DKey(refCat.getSchema()["centroid"])
         maxDistErr = afwGeom.Angle(0)
         for refObj, source, distRad in matches:
             sourceCoord = source.get(srcCoordKey)
@@ -120,7 +121,7 @@ class TestMatchOptimisticB(unittest.TestCase):
             maxDistErr = max(distErr, maxDistErr)
 
             if refObj.getId() != source.getId():
-                refCentroid = refObj.get("centroid")
+                refCentroid = refObj.get(refCentroidKey)
                 sourceCentroid = source.getCentroid()
                 radius = math.hypot(*(refCentroid - sourceCentroid))
                 self.fail("ID mismatch: %s at %s != %s at %s; error = %0.1f pix" %
@@ -138,8 +139,9 @@ class TestMatchOptimisticB(unittest.TestCase):
         refCat = afwTable.SimpleCatalog(minimalPosRefSchema)
         for source in sourceCat:
             refObj = refCat.addNew()
-            refObj.set("coord", source.get("coord"))
-            refObj.set("centroid", source.getCentroid())
+            refObj.setCoord(source.getCoord())
+            refObj.set("centroid_x", source.getX())
+            refObj.set("centroid_y", source.getY())
             refObj.set("hasCentroid", True)
             refObj.set("r_flux", source.get("slot_ApFlux_flux"))
             refObj.set("r_fluxSigma", source.get("slot_ApFlux_fluxSigma"))
