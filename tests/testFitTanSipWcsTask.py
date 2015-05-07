@@ -83,7 +83,7 @@ class BaseTestCase(unittest.TestCase):
             raise RuntimeError("Unsupported MatchClass=%r" % (self.MatchClass,))
         srcSchema = afwTable.SourceTable.makeMinimalSchema()
         SingleFrameMeasurementTask(schema=srcSchema)
-        self.srcCoordKey = srcSchema["coord"].asKey()
+        self.srcCoordKey = afwTable.CoordKey(srcSchema["coord"])
         self.srcCentroidKey = afwTable.Point2DKey(srcSchema["slot_Centroid"])
         self.srcCentroidKey_xSigma = srcSchema["slot_Centroid_xSigma"].asKey()
         self.srcCentroidKey_ySigma = srcSchema["slot_Centroid_ySigma"].asKey()
@@ -166,7 +166,7 @@ class BaseTestCase(unittest.TestCase):
         tanSipWcs = fitRes.wcs
         maxAngSep = afwGeom.Angle(0)
         maxPixSep = 0
-        refCoordKey = self.refCat.schema["coord"].asKey()
+        refCoordKey = afwTable.CoordKey(self.refCat.schema["coord"])
         if catsUpdated:
             refCentroidKey = afwTable.Point2DKey(self.refCat.schema["centroid"])
         maxDistErr = afwGeom.Angle(0)

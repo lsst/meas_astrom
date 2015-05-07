@@ -103,8 +103,8 @@ class TestAstrometricSolver(unittest.TestCase):
         self.assertFalse(results.wcs is distortedWcs)
         self.assertWcssAlmostEqual(distortedWcs, results.wcs, self.bbox)
 
-        srcCoordKey = sourceCat.schema["coord"].asKey()
-        refCoordKey = results.refCat.schema["coord"].asKey()
+        srcCoordKey = afwTable.CoordKey(sourceCat.schema["coord"])
+        refCoordKey = afwTable.CoordKey(results.refCat.schema["coord"])
         refCentroidKey = afwTable.Point2DKey(results.refCat.schema["centroid"])
         maxAngSep = afwGeom.Angle(0)
         maxPixSep = 0

@@ -31,6 +31,7 @@ import lsst.utils.tests as utilsTests
 import lsst.daf.base as dafBase
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
+import lsst.afw.table as afwTable
 import lsst.meas.astrom as measAstrom
 
 class TestLoadAstrometryNetObjects(unittest.TestCase):
@@ -73,7 +74,7 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         del self.wcs
         del self.config
 
-    def testLoadPixeBox(self):
+    def testLoadPixelBox(self):
         """Test loadPixelBox
         """
         loadANetObj = measAstrom.LoadAstrometryNetObjectsTask(config=self.config)
@@ -89,7 +90,8 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         for filterName in filterNameList:
             schema.find(filterName + "_flux").key
             schema.find(filterName + "_fluxSigma").key
-        for fieldName in ("coord", "centroid", "hasCentroid", "photometric", "resolved"):
+        for fieldName in ("coord_ra", "coord_dec", "centroid_x", "centroid_y", "hasCentroid",
+                          "photometric", "resolved"):
             schema.find(fieldName)
 
     def testLoadSkyCircle(self):
@@ -172,18 +174,19 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         """Assert that all reference objects are inside the specified pixel bounding box plus a margin
 
         @param[in] refCat  reference object catalog, an lsst.afw.table.SimpleCatalog or compatible;
-            the only fields read are "centroid_x/y" and "coord"
+            the only fields read are "centroid_x/y" and "coord_ra/dec"
         @param[in] bbox  pixel bounding box coordinates, an lsst.afw.geom.Box2I or Box2D;
             the supplied box is grown by self.config.pixelMargin before testing the stars
         @param[in] wcs  WCS, an lsst.afw.image.Wcs
         """
         bbox = afwGeom.Box2D(bbox)
         bbox.grow(self.config.pixelMargin)
-        centroidKey = refCat.schema["centroid"].asKey()
+        centroidKey = afwTable.Point2DKey(refCat.schema["centroid"])
+        coordKey = afwTable.CoordKey(refCat.schema["coord"])
         for refObj in refCat:
             point = refObj.get(centroidKey)
             if not bbox.contains(point):
-                coord = refObj.get("coord")
+                coord = refObj.get(coordKey)
                 self.fail("refObj at RA, Dec %0.3f, %0.3f point %s is not in bbox %s" % \
                     (coord[0].asDegrees(), coord[1].asDegrees(), point, bbox))
 

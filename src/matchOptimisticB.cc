@@ -499,7 +499,7 @@ namespace astrom {
     }
 
     ProxyVector makeProxies(afwTable::SimpleCatalog const & posRefCat) {
-        auto centroidKey = posRefCat.getSchema().find<afwTable::Point<double>>("centroid").key;
+        auto centroidKey = afwTable::PointKey<double>(posRefCat.getSchema()["centroid"]);
         auto hasCentroidKey = posRefCat.getSchema().find<afwTable::Flag>("hasCentroid").key;
         ProxyVector r;
         r.reserve(posRefCat.size());
