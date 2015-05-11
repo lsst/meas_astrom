@@ -68,10 +68,7 @@ indexToPQ(int const index, int const order)
 Eigen::MatrixXd
 calculateCMatrix(Eigen::VectorXd const& axis1, Eigen::VectorXd const& axis2, int const order)
 {
-    int nTerms = 0;
-    for (int i = 1; i <= order; ++i) {
-        nTerms += i;
-    }
+    int nTerms = 0.5*order*(order+1);
 
     int const n = axis1.size();
     Eigen::MatrixXd C = Eigen::MatrixXd::Zero(n, nTerms);
@@ -88,8 +85,6 @@ calculateCMatrix(Eigen::VectorXd const& axis1, Eigen::VectorXd const& axis2, int
     return C;
 }
     
-
-
 ///Given a vector b and a matrix A, solve b - Ax = 0
 /// b is an m x 1 vector, A is an n x m matrix, and x, the output is a 
 ///\param b An m x 1 vector, where m is the number of parameters in the fit
@@ -215,7 +210,12 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
         u[i] = match.second->getX() - crpix[0];
         v[i] = match.second->getY() - crpix[1];
     }
-    
+    // Scale u and v down to [-1,,+1] in order to avoid too large numbers in the polynomials
+    double uMax = u.cwiseAbs().maxCoeff();
+    double vMax = v.cwiseAbs().maxCoeff();
+    double norm = (uMax > vMax) ? uMax : vMax;
+    u = u/norm;
+    v = v/norm;
    
     // Forward transform
     int ord = _sipOrder;
@@ -233,11 +233,12 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
     assert ((indexToPQ(1,   ord) == std::pair<int, int>(0, 1)));
     assert ((indexToPQ(ord, ord) == std::pair<int, int>(1, 0)));
 
+    // Scale back CD matrix
     Eigen::Matrix2d CD;
-    CD(1,0) = nu[ord];
-    CD(1,1) = nu[1];
-    CD(0,0) = mu[ord];
-    CD(0,1) = mu[1];
+    CD(1,0) = nu[ord]/norm;
+    CD(1,1) = nu[1]/norm;
+    CD(0,0) = mu[ord]/norm;
+    CD(0,1) = mu[1]/norm;
 
     Eigen::Matrix2d CDinv = CD.inverse();   //Direct inverse OK for 2x2 matrix in Eigen
 
@@ -268,8 +269,9 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
             munu(0) = mu(i);
             munu(1) = nu(i);
             Eigen::Vector2d AB = CDinv*munu;
-            _sipA(p,q) = AB[0];
-            _sipB(p,q) = AB[1];
+            // Scale back sip coefficients
+            _sipA(p,q) = AB[0]/::pow(norm,p+q);
+            _sipB(p,q) = AB[1]/::pow(norm,p+q);
         }
     }
 }
@@ -320,6 +322,13 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
             delta2[k] = v - V[k];
         }
     }
+    
+    //Scale down U and V in order to avoid too large numbers in the polynomials
+    double UMax = U.cwiseAbs().maxCoeff();
+    double VMax = V.cwiseAbs().maxCoeff();
+    double norm = (UMax > VMax) ? UMax : VMax;
+    U = U/norm;
+    V = V/norm;
 
     // Reverse transform
     int const ord = _reverseSipOrder;
@@ -331,8 +340,9 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
     for(int j=0; j< tmpA.rows(); ++j) {
         std::pair<int, int> pq = indexToPQ(j, ord);
         int p = pq.first, q = pq.second;
-        _sipAp(p, q) = tmpA[j];
-        _sipBp(p, q) = tmpB[j];   
+        // Scale back sip coefficients
+        _sipAp(p, q) = tmpA[j]/::pow(norm,p+q);
+        _sipBp(p, q) = tmpB[j]/::pow(norm,p+q);   
     } 
 }
 
