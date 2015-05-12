@@ -19,6 +19,15 @@ namespace afwTable = lsst::afw::table;
 namespace {
     using namespace lsst::meas::astrom;
 
+    /**
+    Clear the "used" flag for each position reference objecrt
+    */
+    void clearUsed(ProxyVector const &posRefCat) {
+        for (auto posRefPtr = posRefCat.begin(); posRefPtr != posRefCat.end(); ++posRefPtr) {
+            posRefPtr->used = false;
+        }
+    }
+
     // Algorithm is based on V.Tabur 2007, PASA, 24, 189-198
     // "Fast Algorithms for Matching CCD Images to a Stellar Catalogue"
 
@@ -268,6 +277,9 @@ namespace {
 
         for (ProxyVector::const_iterator posRefPtr = posRefCat.begin();
             posRefPtr != posRefCat.end(); ++posRefPtr) {
+            if (posRefPtr->used) {
+                continue;
+            }
             d = std::hypot(posRefPtr->getX()-x, posRefPtr->getY()-y);
             if (d < d_min) {
                 foundPtr = posRefPtr;
@@ -292,6 +304,7 @@ namespace {
 
         double x0, y0, x1, y1;
         int num = 0, num_prev = -1;
+        clearUsed(posRefCat);
         for (ProxyVector::const_iterator sourcePtr = sourceCat.begin(); sourcePtr != sourceCat.end();
             ++sourcePtr) {
             x0 = sourcePtr->getX();
@@ -300,6 +313,7 @@ namespace {
             auto p = searchNearestPoint(posRefCat, x1, y1, matchingAllowancePix);
             if (p != posRefCat.end()) {
                 num++;
+                p->used = true;
                 srcMat.push_back(*sourcePtr);
                 catMat.push_back(*p);
             }
@@ -315,6 +329,7 @@ namespace {
                 catMat.clear();
                 matPair.clear();
                 num = 0;
+                clearUsed(posRefCat);
                 for (ProxyVector::const_iterator sourcePtr = sourceCat.begin();
                     sourcePtr != sourceCat.end(); ++sourcePtr) {
                     x0 = sourcePtr->getX();
@@ -323,6 +338,7 @@ namespace {
                     auto p = searchNearestPoint(posRefCat, x1, y1, matchingAllowancePix);
                     if (p != posRefCat.end()) {
                         num++;
+                        p->used = true;
                         srcMat.push_back(*sourcePtr);
                         catMat.push_back(*p);
                         matPair.push_back(afwTable::ReferenceMatch(
@@ -585,6 +601,7 @@ namespace astrom {
                             int num = 0;
                             srcMat.clear();
                             catMat.clear();
+                            clearUsed(posRefSubCat);
                             for (size_t i = 0; i < sourceSubCat.size(); i++) {
                                 x0 = sourceSubCat[i].getX();
                                 y0 = sourceSubCat[i].getY();
@@ -593,6 +610,7 @@ namespace astrom {
                                     control.matchingAllowancePix);
                                 if (p != posRefSubCat.end()) {
                                     num++;
+                                    p->used = true;
                                     srcMat.push_back(sourceSubCat[i]);
                                     catMat.push_back(*p);
                                     if (verbose) {
