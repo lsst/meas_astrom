@@ -213,7 +213,7 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
     // Scale u and v down to [-1,,+1] in order to avoid too large numbers in the polynomials
     double uMax = u.cwiseAbs().maxCoeff();
     double vMax = v.cwiseAbs().maxCoeff();
-    double norm = (uMax > vMax) ? uMax : vMax;
+    double norm = std::max(uMax, vMax);
     u = u/norm;
     v = v/norm;
    
@@ -323,7 +323,7 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
         }
     }
     
-    //Scale down U and V in order to avoid too large numbers in the polynomials
+    // Scale down U and V in order to avoid too large numbers in the polynomials
     double UMax = U.cwiseAbs().maxCoeff();
     double VMax = V.cwiseAbs().maxCoeff();
     double norm = (UMax > VMax) ? UMax : VMax;
