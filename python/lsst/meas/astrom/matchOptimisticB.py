@@ -3,9 +3,9 @@ import math
 import numpy
 
 import lsst.afw.table as afwTable
-from lsst.meas.algorithms import setMatchDistance
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
+from .setMatchDistance import setMatchDistance
 from .astromLib import matchOptimisticB, MatchOptimisticBControl
 
 __all__ = ["MatchOptimisticBTask", "MatchOptimisticBConfig"]

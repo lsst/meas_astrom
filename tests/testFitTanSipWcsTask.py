@@ -37,9 +37,9 @@ import lsst.afw.coord as afwCoord
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.afw.table as afwTable
-from lsst.meas.algorithms import LoadReferenceObjectsTask, setMatchDistance
+from lsst.meas.algorithms import LoadReferenceObjectsTask
 from lsst.meas.base import SingleFrameMeasurementTask
-from lsst.meas.astrom import FitTanSipWcsTask
+from lsst.meas.astrom import FitTanSipWcsTask, setMatchDistance
 from lsst.meas.astrom.sip import makeCreateWcsWithSip
 
 class BaseTestCase(unittest.TestCase):
