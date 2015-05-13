@@ -102,11 +102,19 @@ class TestMatchOptimisticB(unittest.TestCase):
         if doPlot:
             self.plotMatches(matches)
         self.assertEqual(len(matches), 183)
+
+        refCoordKey = refCat.schema["coord"].asKey()
+        srcCoordKey = sourceCat.schema["coord"].asKey()
         numErrors = 0
-        for match in matches:
-            if match.first.getId() != match.second.getId():
-                refObj = match.first
-                source = match.second
+        maxDistErr = afwGeom.Angle(0)
+        for refObj, source, distRad in matches:
+            sourceCoord = source.get(srcCoordKey)
+            refCoord = refObj.get(refCoordKey)
+            predDist = sourceCoord.angularSeparation(refCoord)
+            distErr = abs(predDist - distRad*afwGeom.radians)
+            maxDistErr = max(distErr, maxDistErr)
+
+            if refObj.getId() != source.getId():
                 refCentroid = refObj.get("centroid")
                 sourceCentroid = source.getCentroid()
                 radius = math.hypot(*(refCentroid - sourceCentroid))
@@ -115,6 +123,7 @@ class TestMatchOptimisticB(unittest.TestCase):
                     source.getId(), sourceCentroid, radius))
         print("num match errors=", numErrors)
         self.assertLess(numErrors, 3)
+        self.assertLess(maxDistErr.asArcseconds(), 1e-7)
 
     def computePosRefCatalog(self, sourceCat):
         """Generate a position reference catalog from a source catalog
