@@ -86,7 +86,7 @@ class TestMatchOptimisticB(unittest.TestCase):
         self.singleTestInstance(self.filename, distort.linearYDistort)
 
     def testQuadraticDistort(self):
-        self.singleTestInstance(self.filename, distort.linearYDistort)
+        self.singleTestInstance(self.filename, distort.quadraticDistort)
     
     def singleTestInstance(self, filename, distortFunc, doPlot=False):
         sourceCat = self.loadSourceCatalog(self.filename)
@@ -105,7 +105,6 @@ class TestMatchOptimisticB(unittest.TestCase):
 
         refCoordKey = refCat.schema["coord"].asKey()
         srcCoordKey = sourceCat.schema["coord"].asKey()
-        numErrors = 0
         maxDistErr = afwGeom.Angle(0)
         for refObj, source, distRad in matches:
             sourceCoord = source.get(srcCoordKey)
@@ -118,11 +117,9 @@ class TestMatchOptimisticB(unittest.TestCase):
                 refCentroid = refObj.get("centroid")
                 sourceCentroid = source.getCentroid()
                 radius = math.hypot(*(refCentroid - sourceCentroid))
-                numErrors += 1
-                print("%s at %s != %s at %s; error = %0.1f pix" % (refObj.getId(), refCentroid,
-                    source.getId(), sourceCentroid, radius))
-        print("num match errors=", numErrors)
-        self.assertLess(numErrors, 3)
+                self.fail("ID mismatch: %s at %s != %s at %s; error = %0.1f pix" %
+                    (refObj.getId(), refCentroid, source.getId(), sourceCentroid, radius))
+
         self.assertLess(maxDistErr.asArcseconds(), 1e-7)
 
     def computePosRefCatalog(self, sourceCat):

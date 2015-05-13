@@ -19,16 +19,25 @@ namespace afwTable = lsst::afw::table;
 namespace {
     using namespace lsst::meas::astrom;
 
+    /**
+    Clear the "used" flag for each position reference objecrt
+    */
+    void clearUsed(ProxyVector const &posRefCat) {
+        for (auto posRefPtr = posRefCat.begin(); posRefPtr != posRefCat.end(); ++posRefPtr) {
+            posRefPtr->used = false;
+        }
+    }
+
     // Algorithm is based on V.Tabur 2007, PASA, 24, 189-198
     // "Fast Algorithms for Matching CCD Images to a Stellar Catalogue"
 
     /**
-    Return |ang1-ang2| wrapped into the range [0, pi]
+    Return |ang1-ang2| wrapped into the range [0, 2 pi]
 
     @param[in] ang1  angle 1 (rad)
     @param[in] ang2  angle 2 (rad)
     */
-    inline double deltaAngle(double ang1, double ang2) {
+    inline double absDeltaAngle(double ang1, double ang2) {
         return std::fmod(std::fabs(ang1 - ang2), M_PI*2);
     }
 
@@ -36,8 +45,11 @@ namespace {
         return a.distance > b.distance;
     }
 
-    // Compare source based on its PsfFlux
-    // Ordering is bright to faint
+    /**
+    Return true if a has brighter flux than b
+
+    When used as a compare function for std::sort, the result is sorted by decreasing brightness
+    */
     struct CompareProxyFlux {
 
         bool operator()(RecordProxy const & a, RecordProxy const & b) const {
@@ -55,18 +67,30 @@ namespace {
         afwTable::Key<double> key;
     };
 
+    /**
+    Sort a copy of a vector of ProxyVector by decreasing brightness, and return a subset
+
+    @param[in] a  list of ProxyVector
+    @param[in] key  key of value on which to sort, in descending order
+    @param[in] num  maximum number of elements to return
+    @param[in] startInd  starting index
+
+    @throw pexExcept::InvalidParameterError if startInd is out of range
+    */
     ProxyVector selectPoint(
         ProxyVector const &a,
         afwTable::Key<double> const & key,
         std::size_t num,
-        std::size_t start=0
+        std::size_t startInd=0
     ) {
-        // copy and sort array of pointers on apFlux
+        if (startInd >= a.size()) {
+            throw LSST_EXCEPT(pexExcept::InvalidParameterError, "startInd too big");
+        }
         CompareProxyFlux cmp = {key};
         ProxyVector b(a);
         std::sort(b.begin(), b.end(), cmp);
-        std::size_t end = std::min(start + num, b.size());
-        return ProxyVector(b.begin() + start, b.begin() + end);
+        std::size_t const endInd = std::min(startInd + num, b.size());
+        return ProxyVector(b.begin() + startInd, b.begin() + endInd);
     }
 
     std::vector<ProxyPair> searchPair(
@@ -79,7 +103,7 @@ namespace {
 
         for (size_t i = 0; i < a.size(); i++) {
             double dd = std::fabs(a[i].distance - p.distance);
-            double dpa = deltaAngle(a[i].pa, p.pa);
+            double dpa = absDeltaAngle(a[i].pa, p.pa);
             if (dd < e && dpa < e_dpa) {
                 v.push_back(a[i]);
             }
@@ -104,7 +128,7 @@ namespace {
             double dd = std::fabs(i->distance - p.distance);
     #if 1
             if (dd < e &&
-                deltaAngle(p.pa, i->pa - dpa) < e_dpa &&
+                absDeltaAngle(p.pa, i->pa - dpa) < e_dpa &&
                 dd < dd_min &&
                 (i->first == q.first)) {
                 dd_min = dd;
@@ -112,7 +136,7 @@ namespace {
             }
     #else
             if (dd < e &&
-                deltaAngle(p.pa, i->pa - dpa) < dpa_min) {
+                absDeltaAngle(p.pa, i->pa - dpa) < dpa_min) {
                 dpa_min = std::fabs(p.pa - i->pa - dpa);
                 idx = i;
             }
@@ -255,6 +279,17 @@ namespace {
         return coeff;
     }
 
+    /**
+    Return the reference object nearest the given source, skipping used reference objects
+
+    @param[in] posRefCat  list of reference object ProxyRecords;
+        read: x, y, used
+    @param[in] x  source pixel position in x
+    @param[in] y  source pixel position in y
+    @param[in] e  maximum match distance, in pixels
+
+    @todo speed this up by computing distance squared to avoid sqrt
+    */
     ProxyVector::const_iterator searchNearestPoint(
         ProxyVector const &posRefCat,
         double x,
@@ -268,6 +303,9 @@ namespace {
 
         for (ProxyVector::const_iterator posRefPtr = posRefCat.begin();
             posRefPtr != posRefCat.end(); ++posRefPtr) {
+            if (posRefPtr->used) {
+                continue;
+            }
             d = std::hypot(posRefPtr->getX()-x, posRefPtr->getY()-y);
             if (d < d_min) {
                 foundPtr = posRefPtr;
@@ -292,6 +330,7 @@ namespace {
 
         double x0, y0, x1, y1;
         int num = 0, num_prev = -1;
+        clearUsed(posRefCat);
         for (ProxyVector::const_iterator sourcePtr = sourceCat.begin(); sourcePtr != sourceCat.end();
             ++sourcePtr) {
             x0 = sourcePtr->getX();
@@ -300,6 +339,7 @@ namespace {
             auto p = searchNearestPoint(posRefCat, x1, y1, matchingAllowancePix);
             if (p != posRefCat.end()) {
                 num++;
+                p->used = true;
                 srcMat.push_back(*sourcePtr);
                 catMat.push_back(*p);
             }
@@ -315,6 +355,7 @@ namespace {
                 catMat.clear();
                 matPair.clear();
                 num = 0;
+                clearUsed(posRefCat);
                 for (ProxyVector::const_iterator sourcePtr = sourceCat.begin();
                     sourcePtr != sourceCat.end(); ++sourcePtr) {
                     x0 = sourcePtr->getX();
@@ -323,6 +364,7 @@ namespace {
                     auto p = searchNearestPoint(posRefCat, x1, y1, matchingAllowancePix);
                     if (p != posRefCat.end()) {
                         num++;
+                        p->used = true;
                         srcMat.push_back(*sourcePtr);
                         catMat.push_back(*p);
                         matPair.push_back(afwTable::ReferenceMatch(
@@ -426,16 +468,24 @@ namespace astrom {
         bool verbose
     ) {
         control.validate();
+        if (posRefBegInd < 0) {
+            throw LSST_EXCEPT(pexExcept::InvalidParameterError, "posRefBegInd < 0");
+        }
+        if (posRefBegInd >= posRefCat.size()) {
+            throw LSST_EXCEPT(pexExcept::InvalidParameterError, "posRefBegInd too big");
+        }
 
-        // Select brightest Nsub stars from list of objects
-        // Process both detected from image and external catalog
-        int Nsub = control.numBrightStars;
         ProxyVector posRefProxyCat = makeProxies(posRefCat);
         ProxyVector sourceProxyCat = makeProxies(sourceCat);
+
+        // sourceSubCat contains at most the numBrightStars brightest sources, sorted by decreasing flux
         ProxyVector sourceSubCat = selectPoint(
             sourceProxyCat,
             sourceCat.getSchema().find<double>(control.sourceFluxField).key,
-            Nsub);
+            control.numBrightStars);
+
+        // posRefSubCat skips the initial posRefBegInd brightest reference objects and contains
+        // at most the next len(sourceSubCat) + 25 brightest reference objects, sorted by decreasing flux
         ProxyVector posRefSubCat = selectPoint(
             posRefProxyCat,
             posRefCat.getSchema().find<double>(control.refFluxField).key,
@@ -453,8 +503,6 @@ namespace astrom {
                 posRefPairList.push_back(ProxyPair(posRefSubCat[i], posRefSubCat[j]));
             }
         }
-
-        // Sort posRefPairList on distance
         std::sort(posRefPairList.begin(), posRefPairList.end(), cmpPair);
 
         // Construct a list of pairs of sources sorted by increasing separation
@@ -486,7 +534,8 @@ namespace astrom {
 
                 // Go through candidate pairs
                 for (size_t l = 0; l < q.size(); l++) {
-
+                    // sign matters, so don't use deltaAng; no need to wrap because
+                    // the result is used with deltaAng later
                     double dpa = p.pa - q[l].pa;
 
                     srcMatPair.clear();
@@ -526,6 +575,7 @@ namespace astrom {
                         for (size_t k = 1; k < catMatPair.size(); k++) {
                             if (catMatPair[0].first != catMatPair[k].first) {
                                 goodMatch = false;
+                                break;
                             }
                         }
                     }
@@ -585,6 +635,7 @@ namespace astrom {
                             int num = 0;
                             srcMat.clear();
                             catMat.clear();
+                            clearUsed(posRefSubCat);
                             for (size_t i = 0; i < sourceSubCat.size(); i++) {
                                 x0 = sourceSubCat[i].getX();
                                 y0 = sourceSubCat[i].getY();
@@ -593,6 +644,7 @@ namespace astrom {
                                     control.matchingAllowancePix);
                                 if (p != posRefSubCat.end()) {
                                     num++;
+                                    p->used = true;
                                     srcMat.push_back(sourceSubCat[i]);
                                     catMat.push_back(*p);
                                     if (verbose) {
