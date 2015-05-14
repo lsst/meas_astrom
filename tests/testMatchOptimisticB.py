@@ -100,7 +100,7 @@ class TestMatchOptimisticB(unittest.TestCase):
         )
         matches = matchRes.matches
         if doPlot:
-            self.plotMatches(matches)
+            measAstrom.plotMatches(matches=matches, refCat=refCat, sourceCat=sourceCat)
         self.assertEqual(len(matches), 183)
 
         refCoordKey = refCat.schema["coord"].asKey()
@@ -160,39 +160,6 @@ class TestMatchOptimisticB(unittest.TestCase):
         for src in sourceCat:
             src.updateCoord(self.wcs)
         return sourceCat
-
-    def plotMatches(self, matches):
-        """Plot the reference objects and sources in a match list
-
-        Bad matches are plotted in red
-        """
-        import matplotlib.pyplot as pyplot
-        refSchema = matches[0][0].schema
-        refCentroidKey = afwTable.Point2DKey(refSchema["centroid"])
-        srcSchema = matches[0][1].schema
-        srcCentroidKey = afwTable.Point2DKey(srcSchema["slot_Centroid"])
-        class MatchInfo(object):
-            def __init__(self, match):
-                self.refCentroid = match[0].get(refCentroidKey)
-                self.srcCentroid = match[1].get(srcCentroidKey)
-                self.isGood = match[0].getId() == match[1].getId()
-
-        matchInfoList = [MatchInfo(match) for match in matches]
-        goodRefCentroidList = [matchInfo.refCentroid for matchInfo in matchInfoList if matchInfo.isGood]
-        goodSrcCentroidList = [matchInfo.srcCentroid for matchInfo in matchInfoList if matchInfo.isGood]
-        refXArr, refYArr = zip(*goodRefCentroidList)
-        pyplot.plot(refXArr, refYArr, 'b+')
-        srcXArr, srcYArr = zip(*goodSrcCentroidList)
-        pyplot.plot(srcXArr, srcYArr, 'gx')
-
-        badRefCentroidList = [matchInfo.refCentroid for matchInfo in matchInfoList if not matchInfo.isGood]
-        badSrcCentroidList = [matchInfo.srcCentroid for matchInfo in matchInfoList if not matchInfo.isGood]
-        refXArr, refYArr = zip(*badRefCentroidList)
-        pyplot.plot(refXArr, refYArr, 'r+')
-        srcXArr, srcYArr = zip(*badSrcCentroidList)
-        pyplot.plot(srcXArr, srcYArr, 'rx')
-
-        pyplot.show()
 
         
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
