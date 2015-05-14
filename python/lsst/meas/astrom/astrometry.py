@@ -381,7 +381,8 @@ def showAstrometry(refCat, sourceCat, bbox=None, exposure=None, matches=None, fr
                 refCentroid = m.first.get(refCentroidKey)
                 sourceCentroid = m.second.get(sourceCentroidKey)
                 radArr[i] = math.hypot(*(refCentroid - sourceCentroid))
-                ds9.dot("o", x,  y, size=10, frame=frame, ctype=ds9.YELLOW)
+                x, y = sourceCentroid
+                ds9.dot("o", x, y, size=10, frame=frame, ctype=ds9.YELLOW)
                 
             print("<match radius> = %.4g +- %.4g [%d matches]" %
                 (radArr.mean(), radArr.std(), len(matches)))
