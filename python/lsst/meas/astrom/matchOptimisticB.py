@@ -8,7 +8,7 @@ import lsst.pipe.base as pipeBase
 from .setMatchDistance import setMatchDistance
 from .astromLib import matchOptimisticB, MatchOptimisticBControl
 
-__all__ = ["MatchOptimisticBTask", "MatchOptimisticBConfig"]
+__all__ = ["MatchOptimisticBTask", "MatchOptimisticBConfig", "SourceInfo"]
 
 class MatchOptimisticBConfig(pexConfig.Config):
     sourceFluxType = pexConfig.Field(

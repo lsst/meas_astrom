@@ -405,7 +405,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         if not 'useParity' in margs:
             margs.update(useParity = self.config.useWcsParity)
         margs.update(exposure=exposure)
-        return self.determineWcs2(sourceCat, **margs)
+        return self.determineWcs2(sourceCat=sourceCat, **margs)
 
     def determineWcs2(self, sourceCat, **kwargs):
         """Get a blind astrometric solution for the given catalog of sources.
