@@ -84,7 +84,7 @@ class SourceInfo(object):
 
     @throw RuntimeError if schema version unsupported or a needed field not found
     """
-    def __init__(self, schema, fluxType="Ap"):
+    def __init__(self, schema, exposure, fluxType="Ap"):
         """Construct a SourceInfo
 
         @param[in] schema  source catalog schema
@@ -100,16 +100,27 @@ class SourceInfo(object):
             self.centroidFlagKey = schema["slot.Centroid.flags"].asKey()
             self.fluxField = "slot.%sFlux" % (fluxType,)
         elif version == 1:
+            print ("**** Version 1")
             self.edgeKey = schema["base_PixelFlags_flag_edge"].asKey()
             self.saturatedKey = schema["base_PixelFlags_flag_saturated"].asKey()
             self.centroidKey = afwTable.Point2DKey(schema["slot_Centroid"])
             self.centroidFlagKey = schema["slot_Centroid_flag"].asKey()
             self.fluxField = "slot_%sFlux_flux" % (fluxType,)
+            self.crKey = schema["base_PixelFlags_flag_crCenter"].asKey()
+            self.intKey = schema["base_PixelFlags_flag_interpolated"].asKey()
+            self.extKey = schema["base_ClassificationExtendedness_value"].asKey()
+            self.flagExtKey= schema["base_ClassificationExtendedness_flag"].asKey()
         else:
             raise RuntimeError("Version %r of sourceCat schema not supported" % (version,))
 
         if self.fluxField not in schema:
             raise RuntimeError("Could not find flux field %s in source schema" % (self.fluxField,))
+         
+        exposureInfo = exposure.getInfo()    
+        self.calib = exposureInfo.getCalib()
+        
+    def isIsolated(self, source): 
+        return source.get("parent") == 0 and len(source.getFootprint().getPeaks()) == 1
 
     def hasCentroid(self, source):
         """Return True if the source has a valid centroid
@@ -120,7 +131,12 @@ class SourceInfo(object):
     def isCleanSource(self, source):
         """Return True if the source has a valid centroid and is not near the edge
         """
-        return self.hasCentroid(source) and not source.get(self.edgeKey)
+        flux = source.get('base_PsfFlux_flux')
+        if flux > 0. :
+            mag = self.calib.getMagnitude(flux)
+        else :
+            mag = 99
+        return self.hasCentroid(source) and not source.get(self.edgeKey) and not source.get(self.crKey) and self.isIsolated(source) and not source.get(self.intKey) and source.get(self.extKey)<0.5 and mag<24 and not source.get(self.flagExtKey)
 
     def isGoodSource(self, source):
         """Return True if source is clean (as per isCleanSource) and is not saturated
@@ -207,7 +223,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         return refCat
 
     @pipeBase.timeMethod
-    def matchObjectsToSources(self, refCat, sourceCat, wcs, refFluxField):
+    def matchObjectsToSources(self, refCat, sourceCat, wcs, refFluxField, exposure, minDist):
         """!Match sources to position reference stars
 
         @param[in] refCat  catalog of reference objects that overlap the exposure; reads fields for:
@@ -234,7 +250,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         if self.log: self.log.info("filterStars purged %d reference stars, leaving %d stars" % \
             (preNumObj - numRefObj, numRefObj))
 
-        sourceInfo = SourceInfo(schema=sourceCat.schema, fluxType=self.config.sourceFluxType)
+        sourceInfo = SourceInfo(schema=sourceCat.schema, exposure=exposure, fluxType=self.config.sourceFluxType)
 
         # cleanSourceCat: sources that are good but may be saturated
         numSources = len(sourceCat)
@@ -259,46 +275,62 @@ class MatchOptimisticBTask(pipeBase.Task):
                             int(self.config.minFracMatchedPairs * min([len(refCat), len(goodSources)])))
 
         # match clean (possibly saturated) sources and then purge saturated sources from the match list
+#        matches0 = self._doMatch(
+#            refCat = refCat,
+#            sourceCat = cleanSourceCat,
+#            wcs = wcs,
+#            refFluxField = refFluxField,
+#            numCleanSources = numCleanSources,
+#            minMatchedPairs = minMatchedPairs,
+#            sourceInfo = sourceInfo,
+#            verbose = debug.verbose,
+#        )
+#        if matches0 is not None:
+#           matches0 = [m for m in matches0 if sourceInfo.isGoodSource(m.second)]
+#        else:
+#            matches0 = []
+
         matches0 = self._doMatch(
             refCat = refCat,
-            sourceCat = cleanSourceCat,
+            sourceCat = goodSources,
             wcs = wcs,
             refFluxField = refFluxField,
-            numCleanSources = numCleanSources,
+            numCleanSources = numGoodSources,
             minMatchedPairs = minMatchedPairs,
+            minDist = minDist,
             sourceInfo = sourceInfo,
             verbose = debug.verbose,
         )
-        if matches0 is not None:
-            matches0 = [m for m in matches0 if sourceInfo.isGoodSource(m.second)]
-        else:
-            matches0 = []
 
         # match good (unsaturated) sources (i.e. prefilter saturated sources)
-        if len(refCat) > len(cleanSourceCat) - len(goodSources):
-            matches1 = self._doMatch(
-                refCat = refCat,
-                sourceCat = goodSources,
-                wcs = wcs,
-                refFluxField = refFluxField,
-                numCleanSources = numCleanSources,
-                minMatchedPairs = minMatchedPairs,
-                sourceInfo = sourceInfo,
-                verbose = debug.verbose,
-            )
-        else:
-            matches1 = []
-        if matches1 == None:
-            matches1 = []
+#        if len(refCat) > len(cleanSourceCat) - len(goodSources):
+#            matches1 = self._doMatch(
+#                refCat = refCat,
+#                sourceCat = goodSources,
+#                wcs = wcs,
+#                refFluxField = refFluxField,
+###          Should be numCleanSources = numGoodSources ?,
+#                numCleanSources = numCleanSources,
+#                minMatchedPairs = minMatchedPairs,
+#                sourceInfo = sourceInfo,
+#                verbose = debug.verbose,
+#            )
+#        else:
+#            matches1 = []
+#        if matches1 == None:
+#            matches1 = []
 
-        if len(matches0) == 0 and len(matches1) == 0:
-            raise RuntimeError("Unable to match sources")
+#        if len(matches0) == 0 and len(matches1) == 0:
+#            raise RuntimeError("Unable to match sources")
 
         # Adopt matches with more matches
-        if len(matches0) > len(matches1):
-            matches = matches0
-        else:
-            matches = matches1
+#        if len(matches0) > len(matches1):
+#            matches = matches0
+#        else:
+#            matches = matches1
+        
+        matches = matches0
+        print("****", len(matches))
 
         if self.log: self.log.info("Matched %d sources" % len(matches))
         if len(matches) < minMatchedPairs:
@@ -306,10 +338,11 @@ class MatchOptimisticBTask(pipeBase.Task):
 
         return pipeBase.Struct(
             matches = matches,
+            goodSources = goodSources,
         )
 
     @pipeBase.timeMethod
-    def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numCleanSources, minMatchedPairs,
+    def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numCleanSources, minMatchedPairs, minDist,
         sourceInfo, verbose):
         """!Implementation of matching sources to position reference stars
 
@@ -329,7 +362,10 @@ class MatchOptimisticBTask(pipeBase.Task):
         """
         numSources = len(sourceCat)
         posRefBegInd = numCleanSources - numSources
-        configMatchDistPix = self.config.maxMatchDistArcSec/wcs.pixelScale().asArcseconds()
+        if minDist == 0 :
+            configMatchDistPix = self.config.maxMatchDistArcSec/wcs.pixelScale().asArcseconds()
+        else :
+            configMatchDistPix = minDist/wcs.pixelScale().asArcseconds()
 
         matchControl = MatchOptimisticBControl()
         matchControl.refFluxField = refFluxField

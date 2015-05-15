@@ -8,6 +8,7 @@ from lsst.daf.base import PropertyList
 from lsst.afw.image import ExposureF
 from lsst.afw.image.utils import getDistortedWcs
 from lsst.afw.table import Point2DKey
+import lsst.afw.geom as afwGeom
 from lsst.afw.geom import Box2D
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
@@ -200,6 +201,7 @@ class AstrometryTask(pipeBase.Task):
 
         res = None
         wcs = initWcs
+        minDist = 0
         for i in range(self.config.maxIter):
             tryRes = self._matchAndFitWcs( # refCat, sourceCat, refFluxField, bbox, wcs, exposure=None
                 refCat = loadRes.refCat,
@@ -208,6 +210,7 @@ class AstrometryTask(pipeBase.Task):
                 bbox = bbox,
                 wcs = wcs,
                 exposure = exposure,
+                minDist = minDist,
             )
 
             if self.config.forceKnownWcs:
@@ -215,25 +218,34 @@ class AstrometryTask(pipeBase.Task):
                 res = tryRes
                 break
 
-            self.log.logdebug(
+            self.log.info(
                 "Fit WCS iter %s: %s matches; median scatter = %g arcsec" % \
                     (i, len(tryRes.matches), tryRes.scatterOnSky.asArcseconds()),
             )
 
-            if res is not None and not self.config.forceKnownWcs:
-                if len(tryRes.matches) < len(res.matches):
-                    self.log.info(
-                        "Fit WCS: use iter %s because it had more matches than the next iter: %s vs. %s" % \
-                        (i-1, len(res.matches), len(tryRes.matches)))
-                    break
-                if len(tryRes.matches) == len(res.matches) and tryRes.scatterOnSky >= res.scatterOnSky:
-                    self.log.info(
-            "Fit WCS: use iter %s because it had less scatter than the next iter: %g vs. %g arcsec" % \
-                        (i-1, res.scatterOnSky.asArcseconds(), tryRes.scatterOnSky.asArcseconds()))
-                    break
+#            if res is not None and not self.config.forceKnownWcs:
+#                if len(tryRes.matches) < len(res.matches):
+#                    self.log.info(
+#                        "Fit WCS: use iter %s because it had more matches than the next iter: %s vs. %s" % \
+#                        (i-1, len(res.matches), len(tryRes.matches)))
+#                    break
+#                if len(tryRes.matches) == len(res.matches) and tryRes.scatterOnSky >= res.scatterOnSky:
+#                    self.log.info(
+#            "Fit WCS: use iter %s because it had less scatter than the next iter: %g vs. %g arcsec" % \
+#                        (i-1, res.scatterOnSky.asArcseconds(), tryRes.scatterOnSky.asArcseconds()))
+#                   break
 
             res = tryRes
             wcs = res.wcs
+            
+            # Should update the maximum distance between source and reference here, in order to reject outliers 
+            matches = res.matches
+            d = []
+
+            for match in matches :
+                d.append(match.distance)
+            print("***** distance ", afwGeom.radToArcsec(numpy.mean(d)), afwGeom.radToArcsec(numpy.std(d)))
+            minDist = afwGeom.radToArcsec(numpy.mean(d))+2.0* afwGeom.radToArcsec(numpy.std(d))
 
         return pipeBase.Struct(
             refCat = loadRes.refCat,
@@ -245,7 +257,7 @@ class AstrometryTask(pipeBase.Task):
         )
 
     @pipeBase.timeMethod
-    def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, exposure=None):
+    def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, minDist=0, exposure=None):
         """!Match sources to reference objects and fit a WCS
 
         @param[in] refCat  catalog of reference objects
@@ -267,6 +279,8 @@ class AstrometryTask(pipeBase.Task):
             sourceCat = sourceCat,
             wcs = wcs,
             refFluxField = refFluxField,
+            exposure = exposure,
+            minDist = minDist,
         )
         if debug.display:
             frame = int(debug.frame)
@@ -282,13 +296,16 @@ class AstrometryTask(pipeBase.Task):
 
         if not self.config.forceKnownWcs:
             self.log.info("Fitting WCS")
-            fitRes = self.wcsFitter.fitWcs(
-                matches = matchRes.matches,
-                initWcs = wcs,
-                bbox = bbox,
-                refCat = refCat,
-                sourceCat = sourceCat,
-            )
+    # Iterate on wcsFitter 
+            for indx in range(3) :
+                fitRes = self.wcsFitter.fitWcs(
+                    matches = matchRes.matches,
+                    initWcs = wcs,
+                    bbox = bbox,
+                    refCat = refCat,
+                    sourceCat = sourceCat,
+                )
+                wcs = fitRes.wcs
             fitWcs = fitRes.wcs
             scatterOnSky = fitRes.scatterOnSky
         else:
@@ -299,7 +316,8 @@ class AstrometryTask(pipeBase.Task):
             frame = int(debug.frame)
             showAstrometry(
                 refCat = refCat,
-                sourceCat = sourceCat,
+#                sourceCat = sourceCat,
+                sourceCat = matchRes.goodSources,
                 matches = matchRes.matches,
                 exposure = exposure,
                 bbox = bbox,
@@ -380,8 +398,9 @@ def showAstrometry(refCat, sourceCat, bbox=None, exposure=None, matches=None, fr
             for i, m in enumerate(matches):
                 refCentroid = m.first.get(refCentroidKey)
                 sourceCentroid = m.second.get(sourceCentroidKey)
+                x, y = sourceCentroid
                 radArr[i] = math.hypot(*(refCentroid - sourceCentroid))
-                ds9.dot("o", x,  y, size=10, frame=frame, ctype=ds9.YELLOW)
+                ds9.dot("o", x,  y, size=20, frame=frame, ctype=ds9.YELLOW)
                 
             print("<match radius> = %.4g +- %.4g [%d matches]" %
                 (radArr.mean(), radArr.std(), len(matches)))
