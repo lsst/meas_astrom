@@ -117,15 +117,15 @@ class SourceInfo(object):
         centroid = source.get(self.centroidKey)
         return numpy.all(numpy.isfinite(centroid)) and not source.getCentroidFlag()
 
-    def isCleanSource(self, source):
+    def isUsableSource(self, source):
         """Return True if the source has a valid centroid and is not near the edge
         """
         return self.hasCentroid(source) and not source.get(self.edgeKey)
 
     def isGoodSource(self, source):
-        """Return True if source is clean (as per isCleanSource) and is not saturated
+        """Return True if source is usable (as per isUsableSource) and is not saturated
         """
-        return self.isCleanSource(source) and not source.get(self.saturatedKey)
+        return self.isUsableSource(source) and not source.get(self.saturatedKey)
 
 
 # The following block adds links to this task from the Task Documentation page.
@@ -223,6 +223,10 @@ class MatchOptimisticBTask(pipeBase.Task):
         @param[in] refFluxField  field of refCat to use for flux
         @return an lsst.pipe.base.Struct with fields:
         - matches  a list of matches, an instance of lsst.afw.table.ReferenceMatch
+        - usableSourcCat  a catalog of sources potentially usable for matching.
+            For this fitter usable sources include unresolved sources not too near the edge.
+            It includes saturated sources, even those these are removed from the final match list,
+            because saturated sources may be used to determine the match list.
         """
         import lsstDebug
         debug = lsstDebug.Info(__name__)
@@ -236,32 +240,32 @@ class MatchOptimisticBTask(pipeBase.Task):
 
         sourceInfo = SourceInfo(schema=sourceCat.schema, fluxType=self.config.sourceFluxType)
 
-        # cleanSourceCat: sources that are good but may be saturated
+        # usableSourceCat: sources that are good but may be saturated
         numSources = len(sourceCat)
-        cleanSourceCat = afwTable.SourceCatalog(sourceCat.table)
-        cleanSourceCat.extend(s for s in sourceCat if sourceInfo.isCleanSource(s))
-        numCleanSources = len(cleanSourceCat)
-        self.log.info("Purged %d unsuable sources, leaving %d clean sources" % \
+        usableSourceCat = afwTable.SourceCatalog(sourceCat.table)
+        usableSourceCat.extend(s for s in sourceCat if sourceInfo.isUsableSource(s))
+        numCleanSources = len(usableSourceCat)
+        self.log.info("Purged %d unsuable sources, leaving %d usable sources" % \
             (numSources - numCleanSources, numCleanSources))
 
         # goodSourceCat: sources that are good and not saturated
         goodSources = afwTable.SourceCatalog(sourceCat.table)
-        goodSources.extend(s for s in cleanSourceCat if sourceInfo.isGoodSource(s))
+        goodSources.extend(s for s in usableSourceCat if sourceInfo.isGoodSource(s))
         numGoodSources = len(goodSources)
         self.log.info("Purged %d saturated sources, leaving %d good sources" % \
             (numCleanSources - numGoodSources, numGoodSources))
 
-        del sourceCat # avoid accidentally using sourceCat; use cleanSourceCat or goodSources from now on
+        del sourceCat # avoid accidentally using sourceCat; use usableSourceCat or goodSources from now on
         
-        self.log.info("Matching to %d/%d good input sources" % (len(goodSources), len(cleanSourceCat)))
+        self.log.info("Matching to %d/%d good input sources" % (len(goodSources), len(usableSourceCat)))
 
         minMatchedPairs = min(self.config.minMatchedPairs,
                             int(self.config.minFracMatchedPairs * min([len(refCat), len(goodSources)])))
 
-        # match clean (possibly saturated) sources and then purge saturated sources from the match list
+        # match usable (possibly saturated) sources and then purge saturated sources from the match list
         matches0 = self._doMatch(
             refCat = refCat,
-            sourceCat = cleanSourceCat,
+            sourceCat = usableSourceCat,
             wcs = wcs,
             refFluxField = refFluxField,
             numCleanSources = numCleanSources,
@@ -275,7 +279,7 @@ class MatchOptimisticBTask(pipeBase.Task):
             matches0 = []
 
         # match good (unsaturated) sources (i.e. prefilter saturated sources)
-        if len(refCat) > len(cleanSourceCat) - len(goodSources):
+        if len(refCat) > len(usableSourceCat) - len(goodSources):
             matches1 = self._doMatch(
                 refCat = refCat,
                 sourceCat = goodSources,
@@ -306,6 +310,7 @@ class MatchOptimisticBTask(pipeBase.Task):
 
         return pipeBase.Struct(
             matches = matches,
+            usableSourceCat = usableSourceCat,
         )
 
     @pipeBase.timeMethod
@@ -319,7 +324,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         @param[in] sourceCat  catalog of sources found on the exposure
         @param[in] wcs  estimated WCS of exposure
         @param[in] refFluxField  field of refCat to use for flux
-        @param[in] numCleanSources  number of clean sources (sources with known centroid
+        @param[in] numCleanSources  number of usable sources (sources with known centroid
             that are not near the edge, but may be saturated)
         @param[in] minMatchedPairs  minimum number of matches
         @param[in] sourceInfo  SourceInfo for the sourceCat
