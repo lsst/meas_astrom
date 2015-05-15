@@ -272,12 +272,12 @@ class AstrometryTask(pipeBase.Task):
             frame = int(debug.frame)
             showAstrometry(
                 refCat = refCat,
-                sourceCat = sourceCat,
+                sourceCat = matchRes.usableSourceCat,
                 matches = matchRes.matches,
                 exposure = exposure,
                 bbox = bbox,
                 frame = frame + 1,
-                title="Match list",
+                title="Initial WCS",
             )
 
         if not self.config.forceKnownWcs:
@@ -299,12 +299,12 @@ class AstrometryTask(pipeBase.Task):
             frame = int(debug.frame)
             showAstrometry(
                 refCat = refCat,
-                sourceCat = sourceCat,
+                sourceCat = matchRes.usableSourceCat,
                 matches = matchRes.matches,
                 exposure = exposure,
                 bbox = bbox,
                 frame = frame + 2,
-                title="TAN-SIP WCS",
+                title="Fit TAN-SIP WCS",
             )
 
         return pipeBase.Struct(
@@ -381,7 +381,8 @@ def showAstrometry(refCat, sourceCat, bbox=None, exposure=None, matches=None, fr
                 refCentroid = m.first.get(refCentroidKey)
                 sourceCentroid = m.second.get(sourceCentroidKey)
                 radArr[i] = math.hypot(*(refCentroid - sourceCentroid))
-                ds9.dot("o", x,  y, size=10, frame=frame, ctype=ds9.YELLOW)
+                x, y = sourceCentroid
+                ds9.dot("o", x, y, size=10, frame=frame, ctype=ds9.YELLOW)
                 
             print("<match radius> = %.4g +- %.4g [%d matches]" %
                 (radArr.mean(), radArr.std(), len(matches)))

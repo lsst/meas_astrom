@@ -32,9 +32,9 @@ from .anetBasicAstrometry import ANetBasicAstrometryTask
 from .sip import makeCreateWcsWithSip
 
 class ANetAstrometryConfig(pexConfig.Config):
-    solver = pexConfig.ConfigField(
-        dtype = ANetBasicAstrometryTask.ConfigClass,
-        doc = "Configuration for the astrometry solver",
+    solver = pexConfig.ConfigurableField(
+        target = ANetBasicAstrometryTask,
+        doc = "Basic astrometry solver",
     )
     forceKnownWcs = pexConfig.Field(dtype=bool, doc=(
         "Assume that the input image's WCS is correct, without comparing it to any external reality." +
@@ -157,7 +157,8 @@ class ANetAstrometryTask(pipeBase.Task):
             self.centroidKey = Point2DKey(self.centroidXKey, self.centroidYKey)
             self.centroidErrKey = CovarianceMatrix2fKey((self.centroidXErrKey, self.centroidYErrKey))
  
-        self.astrometer = None
+        # postpone making the solver subtask because it may not be needed and is expensive to create
+        self.solver = None
 
     @pipeBase.timeMethod
     def run(self, exposure, sourceCat):
@@ -289,17 +290,17 @@ class ANetAstrometryTask(pipeBase.Task):
         if bbox is None:
             bbox = exposure.getBBox()
 
-        if not self.astrometer:
-            self.astrometer = ANetBasicAstrometryTask(self.config.solver, log=self.log)
+        if not self.solver:
+            self.makeSubtask("solver")
 
         if self.config.forceKnownWcs:
             self.log.info("Forcing the input exposure's WCS")
             if self.config.solver.calculateSip:
                 self.log.warn("'forceKnownWcs' and 'solver.calculateSip' options are both set." +
                               " Will try to compute a TAN-SIP WCS starting from the input WCS.")
-            astrom = self.astrometer.useKnownWcs(sourceCat=sourceCat, exposure=exposure, bbox=bbox)
+            astrom = self.solver.useKnownWcs(sourceCat=sourceCat, exposure=exposure, bbox=bbox)
         else:
-            astrom = self.astrometer.determineWcs(sourceCat=sourceCat, exposure=exposure, bbox=bbox)
+            astrom = self.solver.determineWcs(sourceCat=sourceCat, exposure=exposure, bbox=bbox)
 
         if astrom is None or astrom.getWcs() is None:
             raise RuntimeError("Unable to solve astrometry")

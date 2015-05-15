@@ -29,6 +29,7 @@ from .anetAstrometry import *
 from .loadAstrometryNetObjects import *
 from .matchOptimisticB import *
 from .setMatchDistance import *
+from .plotMatches import *
 
 from . import catalogStarSelector
 
