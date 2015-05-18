@@ -8,7 +8,7 @@ from lsst.daf.base import PropertyList
 from lsst.afw.image import ExposureF
 from lsst.afw.image.utils import getDistortedWcs
 from lsst.afw.table import Point2DKey
-from lsst.afw.geom import Box2D, radToArcsec
+from lsst.afw.geom import Box2D
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from .loadAstrometryNetObjects import LoadAstrometryNetObjectsTask
@@ -200,7 +200,6 @@ class AstrometryTask(pipeBase.Task):
 
         res = None
         wcs = initWcs
-        maxMatchDistArcSec = None
         for i in range(self.config.maxIter):
             tryRes = self._matchAndFitWcs( # refCat, sourceCat, refFluxField, bbox, wcs, exposure=None
                 refCat = loadRes.refCat,
@@ -209,7 +208,6 @@ class AstrometryTask(pipeBase.Task):
                 bbox = bbox,
                 wcs = wcs,
                 exposure = exposure,
-                maxMatchDistArcSec = maxMatchDistArcSec,
             )
 
             if self.config.forceKnownWcs:
@@ -217,7 +215,7 @@ class AstrometryTask(pipeBase.Task):
                 res = tryRes
                 break
 
-            self.log.info(
+            self.log.logdebug(
                 "Fit WCS iter %s: %s matches; median scatter = %g arcsec" % \
                     (i, len(tryRes.matches), tryRes.scatterOnSky.asArcseconds()),
             )
@@ -236,13 +234,6 @@ class AstrometryTask(pipeBase.Task):
 
             res = tryRes
             wcs = res.wcs
-            
-            # Update the maximum distance between source and reference here, in order to reject outliers
-            # to do: use our statistics module instead and use a robust computation
-            distRadList = [match.distance for match in res.matches]
-            maxMatchDistArcSec = radToArcsec(numpy.mean(distRadList) + 2.0*numpy.std(distRadList))
-            print("***** maxMatchDistArcSec=%0.2f; mean dist=%0.2f, stdDev dist=%0.2f" % \
-                (maxMatchDistArcSec, radToArcsec(numpy.mean(distRadList)), radToArcsec(numpy.std(distRadList))))
 
         return pipeBase.Struct(
             refCat = loadRes.refCat,
@@ -254,16 +245,13 @@ class AstrometryTask(pipeBase.Task):
         )
 
     @pipeBase.timeMethod
-    def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, maxMatchDistArcSec=None,
-        exposure=None):
+    def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, exposure=None):
         """!Match sources to reference objects and fit a WCS
 
         @param[in] refCat  catalog of reference objects
         @param[in] sourceCat  catalog of sourceCat detected on the exposure (an lsst.afw.table.SourceCatalog)
         @param[in] bbox  bounding box of exposure (an lsst.afw.geom.Box2I)
         @param[in] wcs  initial guess for WCS of exposure (an lsst.afw.image.Wcs)
-        @param[in] maxMatchDistArcSec  maximum distance between reference objects and sources (arcsec);
-            if None then use the matcher's default
         @param[in] exposure  exposure whose WCS is to be fit, or None; used only for the debug display
 
         @return an lsst.pipe.base.Struct with these fields:
@@ -279,8 +267,6 @@ class AstrometryTask(pipeBase.Task):
             sourceCat = sourceCat,
             wcs = wcs,
             refFluxField = refFluxField,
-            minSourceFlux = 750,
-            maxMatchDistArcSec = maxMatchDistArcSec,
         )
         if debug.display:
             frame = int(debug.frame)
