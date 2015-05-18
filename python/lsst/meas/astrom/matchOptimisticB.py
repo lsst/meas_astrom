@@ -105,43 +105,27 @@ class SourceInfo(object):
             self.centroidKey = afwTable.Point2DKey(schema["slot_Centroid"])
             self.centroidFlagKey = schema["slot_Centroid_flag"].asKey()
             self.fluxField = "slot_%sFlux_flux" % (fluxType,)
-            self.parentKey = schema["parent"].asKey()
-#            self.crKey = schema["base_PixelFlags_flag_crCenter"].asKey()
-            self.interpolatedKey = schema["base_PixelFlags_flag_interpolated"].asKey()
-            self.extendedKey = schema["base_ClassificationExtendedness_value"].asKey()
-            self.extendedFlagKey= schema["base_ClassificationExtendedness_flag"].asKey()
         else:
             raise RuntimeError("Version %r of sourceCat schema not supported" % (version,))
 
         if self.fluxField not in schema:
             raise RuntimeError("Could not find flux field %s in source schema" % (self.fluxField,))
-        
+
     def hasCentroid(self, source):
         """Return True if the source has a valid centroid
         """
         centroid = source.get(self.centroidKey)
         return numpy.all(numpy.isfinite(centroid)) and not source.getCentroidFlag()
 
-    def isUsable(self, source):
-        """Return True if the source is usable for matching, even if possibly saturated
-
-        For a source to be usable it must:
-        - have a valid centroid 
-        - not be interpolated
-        - be not too near the edge
-        - not be extended
-        - not include cosmic rays
+    def isUsableSource(self, source):
+        """Return True if the source has a valid centroid and is not near the edge
         """
-        return self.hasCentroid(source) \
-            and not source.get(self.interpolatedKey) \
-            and not source.get(self.edgeKey) \
-            and not source.get(self.extendedFlagKey) and source.get(self.extendedKey) == 0 \
-            and source.get(self.parentKey) == 0 and len(source.getFootprint().getPeaks()) == 1 # not blended
+        return self.hasCentroid(source) and not source.get(self.edgeKey)
 
-    def isGood(self, source):
-        """Return True if source is usable (as per isUsable) and is not saturated
+    def isGoodSource(self, source):
+        """Return True if source is usable (as per isUsableSource) and is not saturated
         """
-        return self.isUsable(source) and not source.get(self.saturatedKey)
+        return self.isUsableSource(source) and not source.get(self.saturatedKey)
 
 
 # The following block adds links to this task from the Task Documentation page.
@@ -259,14 +243,14 @@ class MatchOptimisticBTask(pipeBase.Task):
         # usableSourceCat: sources that are good but may be saturated
         numSources = len(sourceCat)
         usableSourceCat = afwTable.SourceCatalog(sourceCat.table)
-        usableSourceCat.extend(s for s in sourceCat if sourceInfo.isUsable(s))
+        usableSourceCat.extend(s for s in sourceCat if sourceInfo.isUsableSource(s))
         numCleanSources = len(usableSourceCat)
         self.log.info("Purged %d unsuable sources, leaving %d usable sources" % \
             (numSources - numCleanSources, numCleanSources))
 
         # goodSourceCat: sources that are good and not saturated
         goodSources = afwTable.SourceCatalog(sourceCat.table)
-        goodSources.extend(s for s in usableSourceCat if sourceInfo.isGood(s))
+        goodSources.extend(s for s in usableSourceCat if sourceInfo.isGoodSource(s))
         numGoodSources = len(goodSources)
         self.log.info("Purged %d saturated sources, leaving %d good sources" % \
             (numCleanSources - numGoodSources, numGoodSources))
@@ -290,7 +274,7 @@ class MatchOptimisticBTask(pipeBase.Task):
             verbose = debug.verbose,
         )
         if matches0 is not None:
-            matches0 = [m for m in matches0 if sourceInfo.isGood(m.second)]
+            matches0 = [m for m in matches0 if sourceInfo.isGoodSource(m.second)]
         else:
             matches0 = []
 
