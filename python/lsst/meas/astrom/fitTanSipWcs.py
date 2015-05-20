@@ -11,9 +11,23 @@ __all__ = ["FitTanSipWcsTask", "FitTanSipWcsConfig"]
 
 class FitTanSipWcsConfig(pexConfig.Config):
     order = pexConfig.RangeField(
-        doc = "order of SIP polynomial (0 for pure TAN WCS)",
+        doc = "order of SIP polynomial",
+        dtype = int,
+        default = 4,
+        min = 0,
+    )
+    numIter = pexConfig.RangeField(
+        doc = "number of iterations of fitter (which fits X and Y separately, and so benefits from " + \
+            "a few iterations",
         dtype = int,
         default = 3,
+        min = 1,
+    )
+    maxScatterArcsec = pexConfig.RangeField(
+        doc = "maximum median scatter of a WCS fit beyond which the fit fails (arcsec); " +
+            "be generous, as this is only intended to catch catastrophic failures",
+        dtype = float,
+        default = 10,
         min = 0,
     )
 
@@ -101,8 +115,10 @@ class FitTanSipWcsTask(pipeBase.Task):
         """
         if bbox is None:
             bbox = afwGeom.Box2I()
-        sipObject = makeCreateWcsWithSip(matches, initWcs, self.config.order, bbox)
-        wcs = sipObject.getNewWcs()
+        wcs = initWcs
+        for i in range(self.config.numIter):
+            sipObject = makeCreateWcsWithSip(matches, wcs, self.config.order, bbox)
+            wcs = sipObject.getNewWcs()
 
         if refCat is not None:
             self.log.info("Updating centroids in refCat")
@@ -121,9 +137,16 @@ class FitTanSipWcsTask(pipeBase.Task):
         self.log.info("Updating distance in match list")
         setMatchDistance(matches)
 
+        scatterOnSky = sipObject.getScatterOnSky()
+
+        if scatterOnSky.asArcseconds() > self.config.maxScatterArcsec:
+            raise pipeBase.TaskError(
+                "Fit failed: median scatter on sky = %0.3f arcsec > %0.3f config.maxScatterArcsec" %
+                (scatterOnSky.asArcseconds(), self.config.maxScatterArcsec))
+
         return pipeBase.Struct(
             wcs = wcs,
-            scatterOnSky = sipObject.getScatterOnSky(),
+            scatterOnSky = scatterOnSky,
         )
 
     @staticmethod

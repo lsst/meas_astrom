@@ -26,7 +26,7 @@ import math
 import os
 import unittest
 
-import numpy
+import numpy as np
 
 import eups
 import lsst.utils.tests as utilsTests
@@ -116,7 +116,7 @@ class TestAstrometricSolver(unittest.TestCase):
 
             angSep = refCoord.angularSeparation(srcCoord)
             maxAngSep = max(maxAngSep, angSep)
-            self.assertLess(refCoord.angularSeparation(srcCoord), 0.0025 * afwGeom.arcseconds)
+            self.assertLess(refCoord.angularSeparation(srcCoord).asArcseconds(), 0.0025)
 
             pixSep = math.hypot(*(srcPixPos-refPixPos))
             maxPixSep = max(maxPixSep, pixSep)
@@ -136,8 +136,11 @@ class TestAstrometricSolver(unittest.TestCase):
         self.assertTrue(resultsNoFit.wcs is distortedWcs)
         self.assertTrue(resultsNoFit.initWcs is distortedWcs)
         self.assertTrue(resultsNoFit.scatterOnSky is None)
-        # fitting may find a few more matches, since it matches again after fitting the WCS
-        self.assertTrue(0 <= len(results.matches) - len(resultsNoFit.matches) < len(results.matches) * 0.1)
+
+        # fitting should improve the quality of the matches
+        meanFitDist = np.mean([match.distance for match in results.matches])
+        meanNoFitDist = np.mean([match.distance for match in results.matches])
+        self.assertLessEqual(meanFitDist, meanNoFitDist)
 
     def makeSourceCat(self, distortedWcs):
         """Make a source catalog by reading the position reference stars and distorting the positions
@@ -147,17 +150,18 @@ class TestAstrometricSolver(unittest.TestCase):
         loadRes = loader.loadPixelBox(bbox=self.bbox, wcs=distortedWcs, filterName="r")
         refCat = loadRes.refCat
         refCentroidKey = afwTable.Point2DKey(refCat.schema["centroid"])
+        refFluxRKey = refCat.schema["r_flux"].asKey()
 
         sourceSchema = afwTable.SourceTable.makeMinimalSchema()
         measBase.SingleFrameMeasurementTask(schema=sourceSchema) # expand the schema
         sourceCat = afwTable.SourceCatalog(sourceSchema)
         sourceCentroidKey = afwTable.Point2DKey(sourceSchema["slot_Centroid"])
+        sourceFluxKey = sourceSchema["slot_ApFlux_flux"].asKey()
 
         for refObj in refCat:
             src = sourceCat.addNew()
-            refPos = refObj.get(refCentroidKey)
-            srcPos = refPos
-            src.set(sourceCentroidKey, srcPos)
+            src.set(sourceCentroidKey, refObj.get(refCentroidKey))
+            src.set(sourceFluxKey, refObj.get(refFluxRKey))
         return sourceCat
 
     def assertWcssAlmostEqual(self, wcs0, wcs1, bbox, maxSkyErr=0.01 * afwGeom.arcseconds, maxPixErr = 0.02,
@@ -177,8 +181,8 @@ class TestAstrometricSolver(unittest.TestCase):
         @throw AssertionError if the two WCSs do not match sufficiently closely
         """
         bboxd = afwGeom.Box2D(bbox)
-        xList = numpy.linspace(bboxd.getMinX(), bboxd.getMaxX(), nx)
-        yList = numpy.linspace(bboxd.getMinY(), bboxd.getMaxY(), ny)
+        xList = np.linspace(bboxd.getMinX(), bboxd.getMaxX(), nx)
+        yList = np.linspace(bboxd.getMinY(), bboxd.getMaxY(), ny)
         maxSkyErrPixPos = [afwGeom.Angle(0), None]
         maxPixErrSkyPos = [0, None]
         for x in xList:

@@ -55,7 +55,7 @@ class BaseTestCase(unittest.TestCase):
 
     def setUp(self):
         crval = afwCoord.IcrsCoord(afwGeom.PointD(44., 45.))
-        crpix = afwGeom.PointD(0, 0)
+        crpix = afwGeom.Point2D(15000, 4000)
         
         arcsecPerPixel = 1/3600.0
         CD11 = arcsecPerPixel
@@ -66,7 +66,7 @@ class BaseTestCase(unittest.TestCase):
         self.tanWcs = afwImage.makeWcs(crval, crpix, CD11, CD12, CD21, CD22)
         self.loadData()
 
-    def loadData(self, rangePix=3000, numPoints=5):
+    def loadData(self, rangePix=3000, numPoints=25):
         """Load catalogs and make the match list
 
         This is a separate function so data can be reloaded if fitting more than once
@@ -117,15 +117,18 @@ class BaseTestCase(unittest.TestCase):
 
     def testTrivial(self):
         """Add no distortion"""
-        self.doTest("testTrivial", lambda x, y: (x, y))
+        for order in (2, 4, 6):
+            self.doTest("testTrivial", lambda x, y: (x, y), order=order)
 
     def testOffset(self):
         """Add an offset"""
-        self.doTest("testOffset", lambda x, y: (x + 5, y + 7))
+        for order in (2, 4, 6):
+            self.doTest("testOffset", lambda x, y: (x + 5, y + 7), order=order)
 
     def testLinearX(self):
         """Scale x, offset y"""
-        self.doTest("testLinearX", lambda x, y: (2*x, y + 7))
+        for order in (2, 6):
+            self.doTest("testLinearX", lambda x, y: (2*x, y + 7), order=order)
 
     def testLinearXY(self):
         """Scale x and y"""
@@ -133,11 +136,13 @@ class BaseTestCase(unittest.TestCase):
 
     def testLinearYX(self):
         """Add an offset to each point; scale in y and x"""
-        self.doTest("testLinearYX", lambda x, y: (x + 0.2*y, y + 0.3*x))
+        for order in (2, 6):
+            self.doTest("testLinearYX", lambda x, y: (x + 0.2*y, y + 0.3*x), order=order)
 
     def testQuadraticX(self):
         """Add quadratic distortion in x"""
-        self.doTest("testQuadraticX", lambda x, y: (x + 1e-5*x**2, y), order=4, specifyBBox=True)
+        for order in (4, 5):
+            self.doTest("testQuadraticX", lambda x, y: (x + 1e-5*x**2, y), order=order)
 
     def testRadial(self):
         """Add radial distortion"""
@@ -145,7 +150,8 @@ class BaseTestCase(unittest.TestCase):
         def radialDistortion(x, y):
             x, y = radialTransform.forwardTransform(afwGeom.Point2D(x, y))
             return (x, y)
-        self.doTest("testRadial", radialDistortion)
+        for order in (4, 5, 6):
+            self.doTest("testRadial", radialDistortion, order=order)
 
     def checkResults(self, fitRes, catsUpdated):
         """Check results
@@ -179,7 +185,7 @@ class BaseTestCase(unittest.TestCase):
             distErr = abs(dist - angSep)
             maxDistErr = max(maxDistErr, distErr)
             maxAngSep = max(maxAngSep, angSep)
-            self.assertLess(angSep, 0.001 * afwGeom.arcseconds)
+            self.assertLess(angSep.asArcseconds(), 0.001)
 
             pixSep = math.hypot(*(srcPixPos - refPixPos))
             maxPixSep = max(maxPixSep, pixSep)
@@ -187,9 +193,14 @@ class BaseTestCase(unittest.TestCase):
 
         print("max angular separation = %0.4f arcsec" % (maxAngSep.asArcseconds(),))
         print("max pixel separation = %0.3f" % (maxPixSep,))
-        self.assertLess(maxDistErr.asArcseconds(), 1e-7)
+        if catsUpdated:
+            allowedDistErr = 1e-7
+        else:
+            allowedDistErr = 0.001
+        self.assertLess(maxDistErr.asArcseconds(), allowedDistErr,
+            "Computed distance in match list is off by %s arcsec" % (maxDistErr.asArcseconds(),))
 
-    def doTest(self, name, func, order=3, specifyBBox=False, doPlot=False):
+    def doTest(self, name, func, order=3, numIter=4, specifyBBox=False, doPlot=False):
         """Apply func(x, y) to each source in self.sourceCat, then fit and check the resulting WCS
         """
         bbox = afwGeom.Box2I()
@@ -200,11 +211,13 @@ class BaseTestCase(unittest.TestCase):
             src.set(self.srcCentroidKey, distortedPos)
             bbox.include(afwGeom.Point2I(afwGeom.Point2I(distortedPos)))
         
-        if specifyBBox:
-            sipObject = makeCreateWcsWithSip(self.matches, self.tanWcs, order, bbox)
-        else:
-            sipObject = makeCreateWcsWithSip(self.matches, self.tanWcs, order)
-        tanSipWcs = sipObject.getNewWcs()
+        tanSipWcs = self.tanWcs
+        for i in range(numIter):
+            if specifyBBox:
+                sipObject = makeCreateWcsWithSip(self.matches, tanSipWcs, order, bbox)
+            else:
+                sipObject = makeCreateWcsWithSip(self.matches, tanSipWcs, order)
+            tanSipWcs = sipObject.getNewWcs()
         setMatchDistance(self.matches)
         fitRes = lsst.pipe.base.Struct(
             wcs = tanSipWcs,
@@ -223,6 +236,7 @@ class BaseTestCase(unittest.TestCase):
 
             fitterConfig = FitTanSipWcsTask.ConfigClass()
             fitterConfig.order = order
+            fitterConfig.numIter = numIter
             fitter = FitTanSipWcsTask(config=fitterConfig)
             self.loadData()
             if specifyBBox:
