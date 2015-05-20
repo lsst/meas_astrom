@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 import math
-import numpy
+
+import numpy as np
 
 import lsst.afw.table as afwTable
 import lsst.pex.config as pexConfig
@@ -11,15 +12,17 @@ from .astromLib import matchOptimisticB, MatchOptimisticBControl
 __all__ = ["MatchOptimisticBTask", "MatchOptimisticBConfig", "SourceInfo"]
 
 class MatchOptimisticBConfig(pexConfig.Config):
+    """Configuration for MatchOptimisticBTask
+    """
     sourceFluxType = pexConfig.Field(
         doc = "Type of source flux; typically one of Ap or Psf",
         dtype = str,
         default = "Ap",
     )
     maxMatchDistArcSec = pexConfig.RangeField(
-        doc = "Maximum radius for matching sources to reference objects (arcsec)",
+        doc = "Maximum distance between reference objects and sources (arcsec)",
         dtype = float,
-        default = 1,
+        default = 3,
         min = 0,
     )
     numBrightStars = pexConfig.RangeField(
@@ -44,7 +47,7 @@ class MatchOptimisticBConfig(pexConfig.Config):
         max = 1,
     )
     maxOffsetPix = pexConfig.RangeField(
-        doc = "Maximum offset between sources and position reference objects (pixel)",
+        doc = "Maximum allowed shift of WCS, due to matching (pixel)",
         dtype = int,
         default = 300,
         max = 4000,
@@ -73,16 +76,16 @@ class MatchOptimisticBConfig(pexConfig.Config):
     )
 
 class SourceInfo(object):
-    """Provide information about sources in a source catalog for various versions of the schema
+    """Provide usability tests and catalog keys for sources in a source catalog
 
     Fields set include:
-    - edgeKey  key for field that is True if source is near an edge
-    - saturatedKey  key for field that is True if source has any saturated pixels
     - centroidKey  key for centroid
     - centroidFlagKey  key for flag that is True if centroid is valid
+    - edgeKey  key for field that is True if source is near an edge
+    - saturatedKey  key for field that is True if source has any saturated pixels
     - fluxField  name of flux field
 
-    @throw RuntimeError if schema version unsupported or a needed field not found
+    @throw RuntimeError if schema version unsupported or a needed field is not found
     """
     def __init__(self, schema, fluxType="Ap"):
         """Construct a SourceInfo
@@ -93,39 +96,58 @@ class SourceInfo(object):
         @throw RuntimeError if the flux field is not found
         """
         version = schema.getVersion()
-        if version == 0:
-            self.edgeKey = schema["flags.pixel.edge"].asKey()
-            self.saturatedKey = schema["flags.pixel.saturated.any"].asKey()
-            self.centroidKey = afwTable.Point2DKey(schema["slot.Centroid"])
-            self.centroidFlagKey = schema["slot.Centroid.flags"].asKey()
-            self.fluxField = "slot.%sFlux" % (fluxType,)
-        elif version == 1:
-            self.edgeKey = schema["base_PixelFlags_flag_edge"].asKey()
-            self.saturatedKey = schema["base_PixelFlags_flag_saturated"].asKey()
+        if version == 1:
             self.centroidKey = afwTable.Point2DKey(schema["slot_Centroid"])
             self.centroidFlagKey = schema["slot_Centroid_flag"].asKey()
+            self.edgeKey = schema["base_PixelFlags_flag_edge"].asKey()
+            self.saturatedKey = schema["base_PixelFlags_flag_saturated"].asKey()
             self.fluxField = "slot_%sFlux_flux" % (fluxType,)
+            # extra keys that might be useful
+            self.parentKey = schema["parent"].asKey()
+            self.interpolatedKey = schema["base_PixelFlags_flag_interpolated"].asKey()
         else:
             raise RuntimeError("Version %r of sourceCat schema not supported" % (version,))
 
         if self.fluxField not in schema:
             raise RuntimeError("Could not find flux field %s in source schema" % (self.fluxField,))
 
+    def _isResolved(self, source):
+        """Return True if source is resolved
+        """
+        if source.get(self.parentKey) != 0:
+            return True
+        footprint = source.getFootprint()
+        if footprint is not None and len(footprint.getPeaks()) > 1:
+            return True
+        return False
+
     def hasCentroid(self, source):
         """Return True if the source has a valid centroid
         """
         centroid = source.get(self.centroidKey)
-        return numpy.all(numpy.isfinite(centroid)) and not source.getCentroidFlag()
+        return np.all(np.isfinite(centroid)) and not source.getCentroidFlag()
 
-    def isUsableSource(self, source):
-        """Return True if the source has a valid centroid and is not near the edge
-        """
-        return self.hasCentroid(source) and not source.get(self.edgeKey)
+    def isUsable(self, source):
+        """Return True if the source is usable for matching, even if possibly saturated
 
-    def isGoodSource(self, source):
-        """Return True if source is usable (as per isUsableSource) and is not saturated
+        For a source to be usable it must:
+        - have a valid centroid 
+        - not be interpolated
+        - be not too near the edge
+        - not be extended
+        - not include cosmic rays
         """
-        return self.isUsableSource(source) and not source.get(self.saturatedKey)
+        return (
+            self.hasCentroid(source)
+            and not source.get(self.edgeKey)
+            # and not source.get(self.interpolatedKey)
+            # and not self._isResolved(source)
+        )
+
+    def isGood(self, source):
+        """Return True if source is usable for matching (as per isUsable) and is not saturated
+        """
+        return self.isUsable(source) and not source.get(self.saturatedKey)
 
 
 # The following block adds links to this task from the Task Documentation page.
@@ -167,6 +189,9 @@ class MatchOptimisticBTask(pipeBase.Task):
 
     See @ref MatchOptimisticBConfig
 
+    To modify the tests for usable sources and good sources, subclass SourceInfo and
+    set MatchOptimisticBTask.SourceInfoClass to your subclass.
+
     @section meas_astrom_matchOptimisticB_Example  A complete example of using MatchOptimisticBTask
 
     MatchOptimisticBTask is a subtask of AstrometryTask, which is called by PhotoCalTask.
@@ -200,6 +225,7 @@ class MatchOptimisticBTask(pipeBase.Task):
     """
     ConfigClass = MatchOptimisticBConfig
     _DefaultName = "matchObjectsToSources"
+    SourceInfoClass = SourceInfo
 
     def filterStars(self, refCat):
         """Extra filtering pass; subclass if desired
@@ -207,7 +233,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         return refCat
 
     @pipeBase.timeMethod
-    def matchObjectsToSources(self, refCat, sourceCat, wcs, refFluxField):
+    def matchObjectsToSources(self, refCat, sourceCat, wcs, refFluxField, maxMatchDistArcSec=None):
         """!Match sources to position reference stars
 
         @param[in] refCat  catalog of reference objects that overlap the exposure; reads fields for:
@@ -221,6 +247,9 @@ class MatchOptimisticBTask(pipeBase.Task):
             - aperture flux, if found, else PSF flux
         @param[in] wcs  estimated WCS
         @param[in] refFluxField  field of refCat to use for flux
+        @param[in] maxMatchDistArcSec  maximum distance between reference objects and sources (arcsec);
+            if specified then min(config.maxMatchDistArcSec, maxMatchDistArcSec) is used
+            if None then config.maxMatchDistArcSec is used
         @return an lsst.pipe.base.Struct with fields:
         - matches  a list of matches, an instance of lsst.afw.table.ReferenceMatch
         - usableSourcCat  a catalog of sources potentially usable for matching.
@@ -238,71 +267,42 @@ class MatchOptimisticBTask(pipeBase.Task):
         if self.log: self.log.info("filterStars purged %d reference stars, leaving %d stars" % \
             (preNumObj - numRefObj, numRefObj))
 
-        sourceInfo = SourceInfo(schema=sourceCat.schema, fluxType=self.config.sourceFluxType)
+        sourceInfo = self.SourceInfoClass(
+            schema = sourceCat.schema,
+            fluxType = self.config.sourceFluxType,
+        )
 
         # usableSourceCat: sources that are good but may be saturated
         numSources = len(sourceCat)
         usableSourceCat = afwTable.SourceCatalog(sourceCat.table)
-        usableSourceCat.extend(s for s in sourceCat if sourceInfo.isUsableSource(s))
-        numCleanSources = len(usableSourceCat)
+        usableSourceCat.extend(s for s in sourceCat if sourceInfo.isUsable(s))
+        numUsableSources = len(usableSourceCat)
         self.log.info("Purged %d unsuable sources, leaving %d usable sources" % \
-            (numSources - numCleanSources, numCleanSources))
+            (numSources - numUsableSources, numUsableSources))
 
-        # goodSourceCat: sources that are good and not saturated
-        goodSources = afwTable.SourceCatalog(sourceCat.table)
-        goodSources.extend(s for s in usableSourceCat if sourceInfo.isGoodSource(s))
-        numGoodSources = len(goodSources)
-        self.log.info("Purged %d saturated sources, leaving %d good sources" % \
-            (numCleanSources - numGoodSources, numGoodSources))
+        if len(usableSourceCat) == 0:
+            raise pipeBase.TaskError("No sources are usable")
 
-        del sourceCat # avoid accidentally using sourceCat; use usableSourceCat or goodSources from now on
-        
-        self.log.info("Matching to %d/%d good input sources" % (len(goodSources), len(usableSourceCat)))
+        del sourceCat # avoid accidentally using sourceCat; use usableSourceCat or goodSourceCat from now on
 
         minMatchedPairs = min(self.config.minMatchedPairs,
-                            int(self.config.minFracMatchedPairs * min([len(refCat), len(goodSources)])))
+                            int(self.config.minFracMatchedPairs * min([len(refCat), len(usableSourceCat)])))
 
         # match usable (possibly saturated) sources and then purge saturated sources from the match list
-        matches0 = self._doMatch(
+        matches = self._doMatch(
             refCat = refCat,
             sourceCat = usableSourceCat,
             wcs = wcs,
             refFluxField = refFluxField,
-            numCleanSources = numCleanSources,
+            numUsableSources = numUsableSources,
             minMatchedPairs = minMatchedPairs,
+            maxMatchDistArcSec = maxMatchDistArcSec,
             sourceInfo = sourceInfo,
             verbose = debug.verbose,
         )
-        if matches0 is not None:
-            matches0 = [m for m in matches0 if sourceInfo.isGoodSource(m.second)]
-        else:
-            matches0 = []
 
-        # match good (unsaturated) sources (i.e. prefilter saturated sources)
-        if len(refCat) > len(usableSourceCat) - len(goodSources):
-            matches1 = self._doMatch(
-                refCat = refCat,
-                sourceCat = goodSources,
-                wcs = wcs,
-                refFluxField = refFluxField,
-                numCleanSources = numCleanSources,
-                minMatchedPairs = minMatchedPairs,
-                sourceInfo = sourceInfo,
-                verbose = debug.verbose,
-            )
-        else:
-            matches1 = []
-        if matches1 == None:
-            matches1 = []
-
-        if len(matches0) == 0 and len(matches1) == 0:
+        if len(matches) == 0:
             raise RuntimeError("Unable to match sources")
-
-        # Adopt matches with more matches
-        if len(matches0) > len(matches1):
-            matches = matches0
-        else:
-            matches = matches1
 
         if self.log: self.log.info("Matched %d sources" % len(matches))
         if len(matches) < minMatchedPairs:
@@ -314,8 +314,8 @@ class MatchOptimisticBTask(pipeBase.Task):
         )
 
     @pipeBase.timeMethod
-    def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numCleanSources, minMatchedPairs,
-        sourceInfo, verbose):
+    def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numUsableSources, minMatchedPairs,
+        maxMatchDistArcSec, sourceInfo, verbose):
         """!Implementation of matching sources to position reference stars
 
         Unlike matchObjectsToSources, this method does not check if the sources are suitable.
@@ -324,17 +324,24 @@ class MatchOptimisticBTask(pipeBase.Task):
         @param[in] sourceCat  catalog of sources found on the exposure
         @param[in] wcs  estimated WCS of exposure
         @param[in] refFluxField  field of refCat to use for flux
-        @param[in] numCleanSources  number of usable sources (sources with known centroid
+        @param[in] numUsableSources  number of usable sources (sources with known centroid
             that are not near the edge, but may be saturated)
         @param[in] minMatchedPairs  minimum number of matches
+        @param[in] maxMatchDistArcSec  maximum distance between reference objects and sources (arcsec);
+            if specified then min(config.maxMatchDistArcSec, maxMatchDistArcSec) is used
+            if None then config.maxMatchDistArcSec is used
         @param[in] sourceInfo  SourceInfo for the sourceCat
         @param[in] verbose  true to print diagnostic information to std::cout
 
         @return a list of matches, an instance of lsst.afw.table.ReferenceMatch
         """
         numSources = len(sourceCat)
-        posRefBegInd = numCleanSources - numSources
-        configMatchDistPix = self.config.maxMatchDistArcSec/wcs.pixelScale().asArcseconds()
+        posRefBegInd = numUsableSources - numSources
+        if maxMatchDistArcSec is None:
+            maxMatchDistArcSec = self.config.maxMatchDistArcSec
+        else:
+            maxMatchDistArcSec = min(maxMatchDistArcSec, self.config.maxMatchDistArcSec)
+        configMatchDistPix = maxMatchDistArcSec/wcs.pixelScale().asArcseconds()
 
         matchControl = MatchOptimisticBControl()
         matchControl.refFluxField = refFluxField
@@ -359,7 +366,7 @@ class MatchOptimisticBTask(pipeBase.Task):
                         posRefBegInd,
                         verbose,
                     )
-                    if matches is not None and len(matches) != 0:
+                    if matches is not None and len(matches) > 0:
                         setMatchDistance(matches)
                         return matches
-
+        return matches
