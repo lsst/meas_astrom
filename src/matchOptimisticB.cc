@@ -310,7 +310,6 @@ namespace {
             if (d < d_min) {
                 foundPtr = posRefPtr;
                 d_min = d;
-                break;
             }
         }
 
