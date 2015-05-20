@@ -2,10 +2,16 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <utility>
 #include <vector>
 
 #include "boost/scoped_array.hpp"
 #include "boost/shared_array.hpp"
+#include "boost/multi_index_container.hpp"
+#include "boost/multi_index/sequenced_index.hpp"
+#include "boost/multi_index/ordered_index.hpp"
+#include "boost/multi_index/global_fun.hpp"
+
 #include "gsl/gsl_linalg.h"
 
 #include "lsst/utils/ieee.h"
@@ -19,14 +25,26 @@ namespace afwTable = lsst::afw::table;
 namespace {
     using namespace lsst::meas::astrom;
 
-    /**
-    Clear the "used" flag for each position reference objecrt
-    */
-    void clearUsed(ProxyVector const &posRefCat) {
-        for (auto posRefPtr = posRefCat.begin(); posRefPtr != posRefCat.end(); ++posRefPtr) {
-            posRefPtr->used = false;
-        }
+    afwTable::RecordId getRefId(ProxyPair const &proxyPair) {
+        return proxyPair.first.record->getId();
     }
+
+    // a collection of ReferenceMatch indexed by insertion order and by reference object ID
+    struct refIdTag{}; // tag for retrieval by reference object ID
+    struct insertionOrderTag{}; // tag for retrieval by insertion order
+    typedef boost::multi_index_container<
+        ProxyPair,
+        boost::multi_index::indexed_by<         // index by insertion order, so brightest sources first
+            boost::multi_index::sequenced<
+                boost::multi_index::tag<insertionOrderTag>
+            >,
+            boost::multi_index::ordered_unique< // index by reference object ID
+                boost::multi_index::tag<refIdTag>,
+                boost::multi_index::global_fun<
+                    ProxyPair const &, afwTable::RecordId , &getRefId
+            > >
+        >
+    > MultiIndexedProxyPairList;
 
     // Algorithm is based on V.Tabur 2007, PASA, 24, 189-198
     // "Fast Algorithms for Matching CCD Images to a Stellar Catalogue"
@@ -280,40 +298,83 @@ namespace {
     }
 
     /**
-    Return the reference object nearest the given source, skipping used reference objects
+    Return the reference object nearest the given source
 
     @param[in] posRefCat  list of reference object ProxyRecords;
-        read: x, y, used
+        read: x, y
     @param[in] x  source pixel position in x
     @param[in] y  source pixel position in y
-    @param[in] e  maximum match distance, in pixels
-
-    @todo speed this up by computing distance squared to avoid sqrt
+    @param[in] matchingAllowancePix  maximum match distance, in pixels
     */
-    ProxyVector::const_iterator searchNearestPoint(
+    std::pair<ProxyVector::const_iterator, double> searchNearestPoint(
         ProxyVector const &posRefCat,
         double x,
         double y,
-        double e
+        double matchingAllowancePix
     ) {
+        double minDistSq = matchingAllowancePix*matchingAllowancePix;
         ProxyVector::const_iterator foundPtr = posRefCat.end();
-        double d_min, d;
-
-        d_min = e;
-
         for (ProxyVector::const_iterator posRefPtr = posRefCat.begin();
             posRefPtr != posRefCat.end(); ++posRefPtr) {
-            if (posRefPtr->used) {
-                continue;
-            }
-            d = std::hypot(posRefPtr->getX()-x, posRefPtr->getY()-y);
-            if (d < d_min) {
+            double dx = posRefPtr->getX() - x;
+            double dy = posRefPtr->getY() - y;
+            double distSq = dx*dx + dy*dy;
+            if (distSq < minDistSq) {
                 foundPtr = posRefPtr;
-                d_min = d;
+                minDistSq = distSq;
             }
         }
+        return std::make_pair(foundPtr, std::sqrt(minDistSq));
+    }
 
-        return foundPtr;
+    /**
+    Find nearest reference object and add source and reference object to proxyPairList
+    */
+    void addNearestMatch(
+        MultiIndexedProxyPairList &proxyPairList,
+        boost::shared_array<double> coeff,
+        ProxyVector const & posRefCat,
+        RecordProxy const &source,
+        double matchingAllowancePix,
+        bool verbose=false
+    ) {
+        double x1, y1;
+        auto x0 = source.getX();
+        auto y0 = source.getY();
+        transform(1, coeff, x0, y0, &x1, &y1);
+        auto refObjDist = searchNearestPoint(posRefCat, x1, y1, matchingAllowancePix);
+        if (refObjDist.first == posRefCat.end()) {
+            // no reference object sufficiently close; do nothing
+            return;
+        }
+        auto existingMatch = proxyPairList.get<refIdTag>().find(refObjDist.first->record->getId()); 
+        if (existingMatch == proxyPairList.get<refIdTag>().end()) {
+            // reference object not used before; add new entry
+            auto proxyPair = ProxyPair(*refObjDist.first, source);
+            proxyPairList.get<refIdTag>().insert(proxyPair);
+            return;
+        } else if (false) {
+            // this code appears to be unnecessary and it may even be undesirable
+            // since the image may have very faint sources or even unreal sources
+            if (existingMatch->distance <= refObjDist.second) {
+                // reference object used before and old source is closer; do nothing
+                if (verbose) {
+                    std::cout << "addNearestMatch refId " << refObjDist.first->record->getId()
+                        << " found again; old source closer\n";
+                }
+                return;
+            } else {
+                // reference object used before, but new source is closer; delete old entry and add new
+                if (verbose) {
+                    std::cout << "addNearestMatch refId " << refObjDist.first->record->getId()
+                        << " found again; new source closer\n";
+                }
+                proxyPairList.get<refIdTag>().erase(existingMatch);
+                auto proxyPair = ProxyPair(*refObjDist.first, source);
+                proxyPairList.get<refIdTag>().insert(proxyPair);
+                return;
+            }
+        }
     }
 
     afwTable::ReferenceMatchVector FinalVerify(
@@ -323,73 +384,43 @@ namespace {
         double matchingAllowancePix,
         bool verbose
     ) {
-        ProxyVector srcMat;
-        ProxyVector catMat;
-        afwTable::ReferenceMatchVector matPair;
+        MultiIndexedProxyPairList proxyPairList;
 
-        double x0, y0, x1, y1;
-        int num = 0, num_prev = -1;
-        clearUsed(posRefCat);
         for (ProxyVector::const_iterator sourcePtr = sourceCat.begin(); sourcePtr != sourceCat.end();
             ++sourcePtr) {
-            x0 = sourcePtr->getX();
-            y0 = sourcePtr->getY();
-            transform(1, coeff, x0, y0, &x1, &y1);
-            auto p = searchNearestPoint(posRefCat, x1, y1, matchingAllowancePix);
-            if (p != posRefCat.end()) {
-                num++;
-                p->used = true;
-                srcMat.push_back(*sourcePtr);
-                catMat.push_back(*p);
-            }
+            addNearestMatch(proxyPairList, coeff, posRefCat, *sourcePtr, matchingAllowancePix);
         }
-
-        //std::cout << num << std::endl;
         int order = 1;
-        if (num > 5) {
-            coeff = polyfit(order, srcMat, catMat);
-
+        if (proxyPairList.size() > 5) {
             for (int j = 0; j < 100; j++) {
-                srcMat.clear();
-                catMat.clear();
-                matPair.clear();
-                num = 0;
-                clearUsed(posRefCat);
+                int prevNumMatches = proxyPairList.size();
+                ProxyVector srcMat;
+                ProxyVector catMat;
+                for (auto matchPtr = proxyPairList.get<refIdTag>().begin();
+                    matchPtr != proxyPairList.get<refIdTag>().end(); ++matchPtr) {
+                    catMat.push_back(matchPtr->first);
+                    srcMat.push_back(matchPtr->second);
+                }
+                coeff = polyfit(order, srcMat, catMat);
+                proxyPairList.clear();
+
                 for (ProxyVector::const_iterator sourcePtr = sourceCat.begin();
                     sourcePtr != sourceCat.end(); ++sourcePtr) {
-                    x0 = sourcePtr->getX();
-                    y0 = sourcePtr->getY();
-                    transform(order, coeff, x0, y0, &x1, &y1);
-                    auto p = searchNearestPoint(posRefCat, x1, y1, matchingAllowancePix);
-                    if (p != posRefCat.end()) {
-                        num++;
-                        p->used = true;
-                        srcMat.push_back(*sourcePtr);
-                        catMat.push_back(*p);
-                        matPair.push_back(afwTable::ReferenceMatch(
-                            *p, boost::static_pointer_cast<afwTable::SourceRecord>(sourcePtr->record), 0.0));
-                    }
+                    addNearestMatch(proxyPairList, coeff, posRefCat, *sourcePtr, matchingAllowancePix);
                 }
-                //std::cout << "# of objects matched: " << num << " " << num_prev << std::endl;
-                if (num == num_prev) break;
-                //if (num > 50) order = 3;
-                coeff = polyfit(order, srcMat, catMat);
-                num_prev = num;
+                if (proxyPairList.size() == prevNumMatches) {
+                    break;
+                }
             }
-            if (verbose) {
-                //std::cout << "# of objects matched: " << num << std::endl;
-                //for (int i = 0; i < 10; i++) {
-                //printf("%2d %12.5e %12.5e\n", i, coeff[i], coeff[10+i]);
-                //}
-                //printf("\n");
-            }
-        } else {
-            for (unsigned int i = 0; i < srcMat.size(); i++) {
-                matPair.push_back(
-                    afwTable::ReferenceMatch(
-                        catMat[i], boost::static_pointer_cast<afwTable::SourceRecord>(srcMat[i].record), 0.0)
-                );
-            }
+        }
+        afwTable::ReferenceMatchVector matPair;
+        for (auto proxyPairIter = proxyPairList.get<insertionOrderTag>().begin();
+            proxyPairIter != proxyPairList.get<insertionOrderTag>().end(); ++proxyPairIter) {
+            matPair.push_back(afwTable::ReferenceMatch(
+                proxyPairIter->first.record,
+                boost::static_pointer_cast<afwTable::SourceRecord>(proxyPairIter->second.record),
+                proxyPairIter->distance
+            ));
         }
 
         return matPair;
@@ -634,22 +665,21 @@ namespace astrom {
                             int num = 0;
                             srcMat.clear();
                             catMat.clear();
-                            clearUsed(posRefSubCat);
                             for (size_t i = 0; i < sourceSubCat.size(); i++) {
                                 x0 = sourceSubCat[i].getX();
                                 y0 = sourceSubCat[i].getY();
                                 transform(1, coeff, x0, y0, &x1, &y1);
-                                auto p = searchNearestPoint(posRefSubCat, x1, y1,
+                                auto refObjDist = searchNearestPoint(posRefSubCat, x1, y1,
                                     control.matchingAllowancePix);
-                                if (p != posRefSubCat.end()) {
+                                if (refObjDist.first != posRefSubCat.end()) {
                                     num++;
-                                    p->used = true;
                                     srcMat.push_back(sourceSubCat[i]);
-                                    catMat.push_back(*p);
+                                    catMat.push_back(*refObjDist.first);
                                     if (verbose) {
                                         std::cout << "Match: " << x0 << "," << y0 << " --> "
-                                            << x1 << "," << y1 <<
-                                            " <==> " << p->getX() << "," << p->getY() << std::endl;
+                                            << x1 << "," << y1 << " <==> "
+                                            << refObjDist.first->getX() << "," << refObjDist.first->getY()
+                                            << std::endl;
                                     }
                                 }
                             }
