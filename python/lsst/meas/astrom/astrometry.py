@@ -1,9 +1,5 @@
 from __future__ import absolute_import, division, print_function
 
-import math
-
-import numpy
-
 from lsst.daf.base import PropertyList
 from lsst.afw.image import ExposureF
 from lsst.afw.image.utils import getDistortedWcs
@@ -14,7 +10,7 @@ import lsst.pipe.base as pipeBase
 from .loadAstrometryNetObjects import LoadAstrometryNetObjectsTask
 from .matchOptimisticB import MatchOptimisticBTask
 from .fitTanSipWcs import FitTanSipWcsTask
-
+from .display import displayAstrometry
 
 class AstrometryConfig(pexConfig.Config):
     refObjLoader = pexConfig.ConfigurableField(
@@ -189,7 +185,7 @@ class AstrometryTask(pipeBase.Task):
         )
         if debug.display:
             frame = int(debug.frame)
-            showAstrometry(
+            displayAstrometry(
                 refCat = loadRes.refCat,
                 sourceCat = sourceCat,
                 exposure = exposure,
@@ -270,7 +266,7 @@ class AstrometryTask(pipeBase.Task):
         )
         if debug.display:
             frame = int(debug.frame)
-            showAstrometry(
+            displayAstrometry(
                 refCat = refCat,
                 sourceCat = matchRes.usableSourceCat,
                 matches = matchRes.matches,
@@ -297,7 +293,7 @@ class AstrometryTask(pipeBase.Task):
             scatterOnSky = None
         if debug.display:
             frame = int(debug.frame)
-            showAstrometry(
+            displayAstrometry(
                 refCat = refCat,
                 sourceCat = matchRes.usableSourceCat,
                 matches = matchRes.matches,
@@ -340,49 +336,3 @@ class AstrometryTask(pipeBase.Task):
         if filterName is not None:
             matchMeta.add('FILTER', filterName, 'filter name for tagalong data')
         return matchMeta
-
-
-def showAstrometry(refCat, sourceCat, bbox=None, exposure=None, matches=None, frame=1, title=""):
-    """Show an astrometry debug image
-
-    @param[in] refCat  reference object catalog; must have fields "centroid_x" and "centroid_y"
-    @param[in] sourceCat  source catalog; must have field "slot_Centroid_x" and "slot_Centroid_y"
-    @param[in] exposure  exposure to display, or None for a blank exposure
-    @param[in] bbox  bounding box of exposure; required if exposure is None and ignored otherwise
-    @param[in] matches  list of matches (an lsst.afw.table.ReferenceMatchVector), or None
-    @param[in] frame  frame number for ds9 display
-    @param[in] title  title for ds9 display
-
-    @throw RuntimeError if exposure and bbox are both None
-    """
-    import lsst.afw.display.ds9 as ds9
-
-    if exposure is None:
-        if bbox is None:
-            raise RuntimeError("must specify exposure or bbox")
-        exposure = ExposureF(bbox)
-    ds9.mtv(exposure, frame=frame, title=title)
-
-    with ds9.Buffering():
-        refCentroidKey = Point2DKey(refCat.schema["centroid"])
-        for refObj in refCat:
-            x, y = refObj.get(refCentroidKey)
-            ds9.dot("x", x, y, size=10, frame=frame, ctype=ds9.RED)
-
-        sourceCentroidKey = Point2DKey(sourceCat.schema["slot_Centroid"])
-        for source in sourceCat:
-            x, y = source.get(sourceCentroidKey)
-            ds9.dot("+", x,  y, size=10, frame=frame, ctype=ds9.GREEN)
-
-        if matches:
-            radArr = numpy.ndarray(len(matches))
-
-            for i, m in enumerate(matches):
-                refCentroid = m.first.get(refCentroidKey)
-                sourceCentroid = m.second.get(sourceCentroidKey)
-                radArr[i] = math.hypot(*(refCentroid - sourceCentroid))
-                x, y = sourceCentroid
-                ds9.dot("o", x, y, size=10, frame=frame, ctype=ds9.YELLOW)
-                
-            print("<match radius> = %.4g +- %.4g [%d matches]" %
-                (radArr.mean(), radArr.std(), len(matches)))
