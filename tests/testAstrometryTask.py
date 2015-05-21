@@ -137,9 +137,11 @@ class TestAstrometricSolver(unittest.TestCase):
         self.assertTrue(resultsNoFit.initWcs is distortedWcs)
         self.assertTrue(resultsNoFit.scatterOnSky is None)
 
-        # fitting should improve the quality of the matches
+        # fitting should result in matches that are at least as good
+        # (strictly speaking fitting might result in a larger match list with
+        # some outliers, but in practice this test passes)
         meanFitDist = np.mean([match.distance for match in results.matches])
-        meanNoFitDist = np.mean([match.distance for match in results.matches])
+        meanNoFitDist = np.mean([match.distance for match in resultsNoFit.matches])
         self.assertLessEqual(meanFitDist, meanNoFitDist)
 
     def makeSourceCat(self, distortedWcs):
