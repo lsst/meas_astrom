@@ -34,7 +34,7 @@ class AstrometryConfig(pexConfig.Config):
         doc = "maximum number of iterations of match sources and fit WCS; " +
             "ignored if forceKnownWcs True",
         dtype = int,
-        default = 6,
+        default = 3,
         min = 1,
     )
     matchDistanceSigma = pexConfig.RangeField(

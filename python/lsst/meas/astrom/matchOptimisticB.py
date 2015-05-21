@@ -84,6 +84,8 @@ class SourceInfo(object):
     - centroidFlagKey  key for flag that is True if centroid is valid
     - edgeKey  key for field that is True if source is near an edge
     - saturatedKey  key for field that is True if source has any saturated pixels
+    - interpolatedCenterKey  key for field that is True if center pixels have interpolated values;
+        interpolation is triggered by saturation, cosmic rays and bad pixels, and possibly other reasons
     - fluxField  name of flux field
 
     @throw RuntimeError if schema version unsupported or a needed field is not found
@@ -103,9 +105,9 @@ class SourceInfo(object):
             self.edgeKey = schema["base_PixelFlags_flag_edge"].asKey()
             self.saturatedKey = schema["base_PixelFlags_flag_saturated"].asKey()
             self.fluxField = "slot_%sFlux_flux" % (fluxType,)
+            self.interpolatedCenterKey = schema["base_PixelFlags_flag_interpolatedCenter"].asKey()
             # extra keys that might be useful
             self.parentKey = schema["parent"].asKey()
-            self.interpolatedCenterKey = schema["base_PixelFlags_flag_interpolatedCenter"].asKey()
         else:
             raise RuntimeError("Version %r of sourceCat schema not supported" % (version,))
 
@@ -133,15 +135,15 @@ class SourceInfo(object):
         - have a valid centroid 
         - be not too near the edge
         """
-        return (
-            self.hasCentroid(source)
-            and not source.get(self.edgeKey)
-        )
+        return self.hasCentroid(source) and not source.get(self.edgeKey)
 
     def isGood(self, source):
-        """Return True if source is usable for matching (as per isUsable) and is not saturated
+        """Return True if source is usable for matching (as per isUsable) and likely has a good centroid
+
+        For a source to have a good centroid it should not be interpolated in the center;
+        this includes saturated sources so we don't have to test separately for that.
         """
-        return self.isUsable(source) and not source.get(self.saturatedKey)
+        return self.isUsable(source) and not source.get(self.interpolatedCenterKey)
 
 
 # The following block adds links to this task from the Task Documentation page.
@@ -245,7 +247,7 @@ class MatchOptimisticBTask(pipeBase.Task):
             if specified then min(config.maxMatchDistArcSec, maxMatchDistArcSec) is used
             if None then config.maxMatchDistArcSec is used
         @return an lsst.pipe.base.Struct with fields:
-        - matches  a list of matches, an instance of lsst.afw.table.ReferenceMatch
+        - matches  a list of matches, each instance of lsst.afw.table.ReferenceMatch
         - usableSourcCat  a catalog of sources potentially usable for matching.
             For this fitter usable sources include unresolved sources not too near the edge.
             It includes saturated sources, even those these are removed from the final match list,
@@ -283,7 +285,7 @@ class MatchOptimisticBTask(pipeBase.Task):
                             int(self.config.minFracMatchedPairs * min([len(refCat), len(usableSourceCat)])))
 
         # match usable (possibly saturated) sources and then purge saturated sources from the match list
-        matches = self._doMatch(
+        usableMatches = self._doMatch(
             refCat = refCat,
             sourceCat = usableSourceCat,
             wcs = wcs,
@@ -295,10 +297,19 @@ class MatchOptimisticBTask(pipeBase.Task):
             verbose = debug.verbose,
         )
 
+        # cull non-good sources
+        matches = []
+        for match in usableMatches:
+            if sourceInfo.isGood(match.second):
+                matches.append(match)
+
+        self.log.logdebug("Found %d usable matches, of which %d had good sources" %
+            (len(usableMatches), len(matches)))
+
         if len(matches) == 0:
             raise RuntimeError("Unable to match sources")
 
-        if self.log: self.log.info("Matched %d sources" % len(matches))
+        self.log.info("Matched %d sources" % len(matches))
         if len(matches) < minMatchedPairs:
             self.log.warn("Number of matches is smaller than request")
 
