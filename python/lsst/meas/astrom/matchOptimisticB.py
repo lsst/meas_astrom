@@ -20,7 +20,8 @@ class MatchOptimisticBConfig(pexConfig.Config):
         default = "Ap",
     )
     maxMatchDistArcSec = pexConfig.RangeField(
-        doc = "Maximum distance between reference objects and sources (arcsec)",
+        doc = "Maximum separation between reference objects and sources "
+            "beyond which they will not be considered a match (arcsec)",
         dtype = float,
         default = 3,
         min = 0,
@@ -52,16 +53,16 @@ class MatchOptimisticBConfig(pexConfig.Config):
         default = 300,
         max = 4000,
     )
-    rotationAllowedInRad = pexConfig.RangeField(
-        doc = "Rotation angle allowed between sources and position reference objects (radian)",
+    maxRotationDeg = pexConfig.RangeField(
+        doc = "Rotation angle allowed between sources and position reference objects (degrees)",
         dtype = float,
-        default = 0.02,
-        max = 0.1,
+        default = 1.0,
+        max = 6.0,
     )
-    angleDiffFrom90 = pexConfig.RangeField(
-        doc = "Difference of angle between x and y from 90 degree allowed (degree)",
+    allowedNonperpDeg = pexConfig.RangeField(
+        doc = "Allowed non-perpendicularity of x and y (degree)",
         dtype = float,
-        default = 0.2,
+        default = 3.0,
         max = 45.0,
     )
     numPointsForShape = pexConfig.Field(
@@ -353,12 +354,12 @@ class MatchOptimisticBTask(pipeBase.Task):
         matchControl.maxDeterminant = self.config.maxDeterminant
 
         for maxRotInd in range(4):
-            matchControl.maxRotationRad = self.config.rotationAllowedInRad * math.pow(2.0, 0.5*maxRotInd)
+            matchControl.maxRotationDeg = self.config.maxRotationDeg * math.pow(2.0, 0.5*maxRotInd)
             for matchRadInd in range(3):
                 matchControl.matchingAllowancePix = configMatchDistPix * math.pow(1.25, matchRadInd)
                                   
                 for angleDiffInd in range(3):
-                    matchControl.angleDiffFrom90 = self.config.angleDiffFrom90*(angleDiffInd+1)
+                    matchControl.allowedNonperpDeg = self.config.allowedNonperpDeg*(angleDiffInd+1)
                     matches = matchOptimisticB(
                         refCat,
                         sourceCat,

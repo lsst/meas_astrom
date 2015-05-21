@@ -80,8 +80,8 @@ namespace astrom {
         LSST_CONTROL_FIELD(matchingAllowancePix, double,
             "maximum allowed distance between reference objects and sources (pixels)");
         LSST_CONTROL_FIELD(maxOffsetPix, double, "maximum allowed frame translation (pixels)");
-        LSST_CONTROL_FIELD(maxRotationRad, double, "maximum allowed frame rotation (rad)");
-        LSST_CONTROL_FIELD(angleDiffFrom90, double, "? (deg)");
+        LSST_CONTROL_FIELD(maxRotationDeg, double, "maximum allowed frame rotation (deg)");
+        LSST_CONTROL_FIELD(allowedNonperpDeg, double, "allowed non-perpendicularity of x and y axes (deg)");
         LSST_CONTROL_FIELD(numPointsForShape, int, "number of points in a matching shape");
         LSST_CONTROL_FIELD(maxDeterminant, double, "?");
 
@@ -92,8 +92,8 @@ namespace astrom {
             minMatchedPairs(50),
             matchingAllowancePix(10.0),
             maxOffsetPix(300),
-            maxRotationRad(0.02),
-            angleDiffFrom90(0.05),
+            maxRotationDeg(1.0),
+            allowedNonperpDeg(3.0),
             numPointsForShape(6),
             maxDeterminant(0.02)
         {
