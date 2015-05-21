@@ -37,6 +37,21 @@ class AstrometryConfig(pexConfig.Config):
         default = 6,
         min = 1,
     )
+    matchDistanceSigma = pexConfig.RangeField(
+        doc = "the maximum match distance is set to "
+            " mean_match_distance + matchDistanceSigma*std_dev_match_distance; " +
+            "ignored if forceKnownWcs True",
+        dtype = float,
+        default = 2,
+        min = 0,
+    )
+    minMatchDistanceArcSec = pexConfig.RangeField(
+        doc = "the match distance below which further iteration is pointless (arcsec); "
+            "ignored if forceKnownWcs True",
+        dtype = float,
+        default = 0.001,
+        min = 0,
+    )
 
 # The following block adds links to this task from the Task Documentation page.
 ## \addtogroup LSST_task_documentation
@@ -197,6 +212,7 @@ class AstrometryTask(pipeBase.Task):
         wcs = initWcs
         maxMatchDistArcSec = None
         for i in range(self.config.maxIter):
+            iterNum = i + 1
             try:
                 tryRes = self._matchAndFitWcs( # refCat, sourceCat, refFluxField, bbox, wcs, exposure=None
                     refCat = loadRes.refCat,
@@ -210,38 +226,54 @@ class AstrometryTask(pipeBase.Task):
             except Exception as e:
                 # if we have had a succeessful iteration then use that; otherwise fail
                 if i > 0:
-                    self.log.info("Fit WCS iter %d failed; using previous iteration: %s" % (i, e))
+                    self.log.info("Fit WCS iter %d failed; using previous iteration: %s" % (iterNum, e))
+                    iterNum -= 1
                     break
                 else:
                     raise
-
-            if self.config.forceKnownWcs:
-                # run just once; note that the number of matches has already logged
-                res = tryRes
-                break
 
             distRadList = [match.distance for match in tryRes.matches]
             distRadStats = afwMath.makeStatistics(distRadList, afwMath.MEANCLIP | afwMath.STDEVCLIP)
             distArcsecMean = radToArcsec(distRadStats.getValue(afwMath.MEANCLIP))
             distArcsecStdDev = radToArcsec(distRadStats.getValue(afwMath.STDEVCLIP))
 
-            self.log.info("Fit WCS iter %d: %d matches; scatter = %0.3f +- %0.3f arcsec" %
-                    (i, len(tryRes.matches), distArcsecMean, distArcsecStdDev))
+            if self.config.forceKnownWcs:
+                # run just once; note that the number of matches has already logged
+                res = tryRes
+                break
 
-            newMaxMatchDistArcSec = distArcsecMean + 2.0*distArcsecStdDev
+            newMaxMatchDistArcSec = distArcsecMean + self.config.matchDistanceSigma*distArcsecStdDev
+            self.log.logdebug(
+                "Match and fit WCS iteration %d: found %d matches with scatter = %0.3f +- %0.3f arcsec; "
+                "max match distance = %0.3f arcsec" %
+                (iterNum, len(tryRes.matches), distArcsecMean, distArcsecStdDev, newMaxMatchDistArcSec))
             if maxMatchDistArcSec is not None:
                 if newMaxMatchDistArcSec >= maxMatchDistArcSec:
-                    self.log.warn(
-                        "Iteration %d had no better mean + 2sigma scatter; using previous iteration" % (i,))
+                    self.log.logdebug(
+                        "Iteration %d had no better maxMatchDist; using previous iteration" %  (iterNum,))
+                    iterNum -= 1
                     break
 
             maxMatchDistArcSec = newMaxMatchDistArcSec
             res = tryRes
             wcs = res.wcs
-            if newMaxMatchDistArcSec < 0.001:
-                self.log.info(
-                    "Iteration %d had mean + 2sigma scatter < 0.001 arcsec; that's good enough" % (i,))
+            if newMaxMatchDistArcSec < self.config.minMatchDistanceArcSec:
+                self.log.logdebug(
+                    "Max match distance = %0.3f arcsec < %0.3f = config.minMatchDistanceArcSec; "
+                    "that's good enough" %
+                    (newMaxMatchDistArcSec, self.config.minMatchDistanceArcSec))
                 break
+
+        if self.config.forceKnownWcs:
+            self.log.info(
+                "Using known WCS (config.forceKnownWcs true); "
+                "found %d matches with scatter = %0.3f +- %0.3f arcsec; " %
+                (len(tryRes.matches), distArcsecMean, distArcsecStdDev))
+        else:
+            self.log.info(
+                "Matched and fit WCS in %d iterations; "
+                "found %d matches with scatter = %0.3f +- %0.3f arcsec" %
+                (iterNum, len(tryRes.matches), distArcsecMean, distArcsecStdDev))
 
         return pipeBase.Struct(
             refCat = loadRes.refCat,
@@ -280,7 +312,7 @@ class AstrometryTask(pipeBase.Task):
             refFluxField = refFluxField,
             maxMatchDistArcSec = maxMatchDistArcSec,
         )
-        self.log.info("Found %s matches" % (len(matchRes.matches),))
+        self.log.logdebug("Found %s matches" % (len(matchRes.matches),))
         if debug.display:
             frame = int(debug.frame)
             displayAstrometry(
@@ -294,7 +326,7 @@ class AstrometryTask(pipeBase.Task):
             )
 
         if not self.config.forceKnownWcs:
-            self.log.info("Fitting WCS")
+            self.log.logdebug("Fitting WCS")
             fitRes = self.wcsFitter.fitWcs(
                 matches = matchRes.matches,
                 initWcs = wcs,
@@ -305,7 +337,7 @@ class AstrometryTask(pipeBase.Task):
             fitWcs = fitRes.wcs
             scatterOnSky = fitRes.scatterOnSky
         else:
-            self.log.info("Not fitting WCS (forceKnownWcs true)")
+            self.log.logdebug("Not fitting WCS (forceKnownWcs true)")
             fitWcs = wcs
             scatterOnSky = None
         if debug.display:
