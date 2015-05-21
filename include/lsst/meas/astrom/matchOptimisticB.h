@@ -77,10 +77,11 @@ namespace astrom {
         LSST_CONTROL_FIELD(sourceFluxField, std::string, "name of flux field in source catalog");
         LSST_CONTROL_FIELD(numBrightStars, int, "maximum number of bright reference stars to use");
         LSST_CONTROL_FIELD(minMatchedPairs, int, "minimum number of matches");
-        LSST_CONTROL_FIELD(matchingAllowancePix, double, "?");
-        LSST_CONTROL_FIELD(maxOffsetPix, double, "maximum translation allowed (pixels)");
-        LSST_CONTROL_FIELD(maxRotationRad, double, "maximum allowed rotation (rad)");
-        LSST_CONTROL_FIELD(angleDiffFrom90, double, "? (deg)");
+        LSST_CONTROL_FIELD(matchingAllowancePix, double,
+            "maximum allowed distance between reference objects and sources (pixels)");
+        LSST_CONTROL_FIELD(maxOffsetPix, double, "maximum allowed frame translation (pixels)");
+        LSST_CONTROL_FIELD(maxRotationDeg, double, "maximum allowed frame rotation (deg)");
+        LSST_CONTROL_FIELD(allowedNonperpDeg, double, "allowed non-perpendicularity of x and y axes (deg)");
         LSST_CONTROL_FIELD(numPointsForShape, int, "number of points in a matching shape");
         LSST_CONTROL_FIELD(maxDeterminant, double, "?");
 
@@ -91,8 +92,8 @@ namespace astrom {
             minMatchedPairs(50),
             matchingAllowancePix(10.0),
             maxOffsetPix(300),
-            maxRotationRad(0.02),
-            angleDiffFrom90(0.05),
+            maxRotationDeg(1.0),
+            allowedNonperpDeg(3.0),
             numPointsForShape(6),
             maxDeterminant(0.02)
         {
@@ -121,6 +122,7 @@ namespace astrom {
     @param[in] control  control object
     @param[in] posRefBegInd  index of first start to use in posRefCat
     @param[in] verbose  true to print diagnostic information to std::cout
+    @return a list of matches; the d field may be set, but you should not rely on it
     */
     lsst::afw::table::ReferenceMatchVector matchOptimisticB(
         lsst::afw::table::SimpleCatalog const &posRefCat,

@@ -100,7 +100,7 @@ class TestMatchOptimisticB(unittest.TestCase):
         )
         matches = matchRes.matches
         if doPlot:
-            measAstrom.plotMatches(matches=matches, refCat=refCat, sourceCat=sourceCat)
+            measAstrom.plotAstrometry(matches=matches, refCat=refCat, sourceCat=sourceCat)
         self.assertEqual(len(matches), 183)
 
         refCoordKey = refCat.schema["coord"].asKey()

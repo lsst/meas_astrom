@@ -1,20 +1,15 @@
 from __future__ import absolute_import, division, print_function
 
-import math
-
-import numpy
-
 from lsst.daf.base import PropertyList
-from lsst.afw.image import ExposureF
 from lsst.afw.image.utils import getDistortedWcs
-from lsst.afw.table import Point2DKey
-from lsst.afw.geom import Box2D
+from lsst.afw.geom import Box2D, radToArcsec
+import lsst.afw.math as afwMath
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from .loadAstrometryNetObjects import LoadAstrometryNetObjectsTask
 from .matchOptimisticB import MatchOptimisticBTask
 from .fitTanSipWcs import FitTanSipWcsTask
-
+from .display import displayAstrometry
 
 class AstrometryConfig(pexConfig.Config):
     refObjLoader = pexConfig.ConfigurableField(
@@ -41,6 +36,21 @@ class AstrometryConfig(pexConfig.Config):
         dtype = int,
         default = 3,
         min = 1,
+    )
+    matchDistanceSigma = pexConfig.RangeField(
+        doc = "the maximum match distance is set to "
+            " mean_match_distance + matchDistanceSigma*std_dev_match_distance; " +
+            "ignored if forceKnownWcs True",
+        dtype = float,
+        default = 2,
+        min = 0,
+    )
+    minMatchDistanceArcSec = pexConfig.RangeField(
+        doc = "the match distance below which further iteration is pointless (arcsec); "
+            "ignored if forceKnownWcs True",
+        dtype = float,
+        default = 0.001,
+        min = 0,
     )
 
 # The following block adds links to this task from the Task Documentation page.
@@ -189,7 +199,7 @@ class AstrometryTask(pipeBase.Task):
         )
         if debug.display:
             frame = int(debug.frame)
-            showAstrometry(
+            displayAstrometry(
                 refCat = loadRes.refCat,
                 sourceCat = sourceCat,
                 exposure = exposure,
@@ -200,40 +210,70 @@ class AstrometryTask(pipeBase.Task):
 
         res = None
         wcs = initWcs
+        maxMatchDistArcSec = None
         for i in range(self.config.maxIter):
-            tryRes = self._matchAndFitWcs( # refCat, sourceCat, refFluxField, bbox, wcs, exposure=None
-                refCat = loadRes.refCat,
-                sourceCat = sourceCat,
-                refFluxField = loadRes.fluxField,
-                bbox = bbox,
-                wcs = wcs,
-                exposure = exposure,
-            )
+            iterNum = i + 1
+            try:
+                tryRes = self._matchAndFitWcs( # refCat, sourceCat, refFluxField, bbox, wcs, exposure=None
+                    refCat = loadRes.refCat,
+                    sourceCat = sourceCat,
+                    refFluxField = loadRes.fluxField,
+                    bbox = bbox,
+                    wcs = wcs,
+                    exposure = exposure,
+                    maxMatchDistArcSec = maxMatchDistArcSec,
+                )
+            except Exception as e:
+                # if we have had a succeessful iteration then use that; otherwise fail
+                if i > 0:
+                    self.log.info("Fit WCS iter %d failed; using previous iteration: %s" % (iterNum, e))
+                    iterNum -= 1
+                    break
+                else:
+                    raise
+
+            distRadList = [match.distance for match in tryRes.matches]
+            distRadStats = afwMath.makeStatistics(distRadList, afwMath.MEANCLIP | afwMath.STDEVCLIP)
+            distArcsecMean = radToArcsec(distRadStats.getValue(afwMath.MEANCLIP))
+            distArcsecStdDev = radToArcsec(distRadStats.getValue(afwMath.STDEVCLIP))
 
             if self.config.forceKnownWcs:
                 # run just once; note that the number of matches has already logged
                 res = tryRes
                 break
 
+            newMaxMatchDistArcSec = distArcsecMean + self.config.matchDistanceSigma*distArcsecStdDev
             self.log.logdebug(
-                "Fit WCS iter %s: %s matches; median scatter = %g arcsec" % \
-                    (i, len(tryRes.matches), tryRes.scatterOnSky.asArcseconds()),
-            )
-
-            if res is not None and not self.config.forceKnownWcs:
-                if len(tryRes.matches) < len(res.matches):
-                    self.log.info(
-                        "Fit WCS: use iter %s because it had more matches than the next iter: %s vs. %s" % \
-                        (i-1, len(res.matches), len(tryRes.matches)))
-                    break
-                if len(tryRes.matches) == len(res.matches) and tryRes.scatterOnSky >= res.scatterOnSky:
-                    self.log.info(
-            "Fit WCS: use iter %s because it had less scatter than the next iter: %g vs. %g arcsec" % \
-                        (i-1, res.scatterOnSky.asArcseconds(), tryRes.scatterOnSky.asArcseconds()))
+                "Match and fit WCS iteration %d: found %d matches with scatter = %0.3f +- %0.3f arcsec; "
+                "max match distance = %0.3f arcsec" %
+                (iterNum, len(tryRes.matches), distArcsecMean, distArcsecStdDev, newMaxMatchDistArcSec))
+            if maxMatchDistArcSec is not None:
+                if newMaxMatchDistArcSec >= maxMatchDistArcSec:
+                    self.log.logdebug(
+                        "Iteration %d had no better maxMatchDist; using previous iteration" %  (iterNum,))
+                    iterNum -= 1
                     break
 
+            maxMatchDistArcSec = newMaxMatchDistArcSec
             res = tryRes
             wcs = res.wcs
+            if newMaxMatchDistArcSec < self.config.minMatchDistanceArcSec:
+                self.log.logdebug(
+                    "Max match distance = %0.3f arcsec < %0.3f = config.minMatchDistanceArcSec; "
+                    "that's good enough" %
+                    (newMaxMatchDistArcSec, self.config.minMatchDistanceArcSec))
+                break
+
+        if self.config.forceKnownWcs:
+            self.log.info(
+                "Using known WCS (config.forceKnownWcs true); "
+                "found %d matches with scatter = %0.3f +- %0.3f arcsec; " %
+                (len(tryRes.matches), distArcsecMean, distArcsecStdDev))
+        else:
+            self.log.info(
+                "Matched and fit WCS in %d iterations; "
+                "found %d matches with scatter = %0.3f +- %0.3f arcsec" %
+                (iterNum, len(tryRes.matches), distArcsecMean, distArcsecStdDev))
 
         return pipeBase.Struct(
             refCat = loadRes.refCat,
@@ -245,13 +285,16 @@ class AstrometryTask(pipeBase.Task):
         )
 
     @pipeBase.timeMethod
-    def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, exposure=None):
+    def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, maxMatchDistArcSec=None,
+        exposure=None):
         """!Match sources to reference objects and fit a WCS
 
         @param[in] refCat  catalog of reference objects
         @param[in] sourceCat  catalog of sourceCat detected on the exposure (an lsst.afw.table.SourceCatalog)
         @param[in] bbox  bounding box of exposure (an lsst.afw.geom.Box2I)
         @param[in] wcs  initial guess for WCS of exposure (an lsst.afw.image.Wcs)
+        @param[in] maxMatchDistArcSec  maximum distance between reference objects and sources (arcsec);
+            if None then use the matcher's default
         @param[in] exposure  exposure whose WCS is to be fit, or None; used only for the debug display
 
         @return an lsst.pipe.base.Struct with these fields:
@@ -267,10 +310,12 @@ class AstrometryTask(pipeBase.Task):
             sourceCat = sourceCat,
             wcs = wcs,
             refFluxField = refFluxField,
+            maxMatchDistArcSec = maxMatchDistArcSec,
         )
+        self.log.logdebug("Found %s matches" % (len(matchRes.matches),))
         if debug.display:
             frame = int(debug.frame)
-            showAstrometry(
+            displayAstrometry(
                 refCat = refCat,
                 sourceCat = matchRes.usableSourceCat,
                 matches = matchRes.matches,
@@ -281,7 +326,7 @@ class AstrometryTask(pipeBase.Task):
             )
 
         if not self.config.forceKnownWcs:
-            self.log.info("Fitting WCS")
+            self.log.logdebug("Fitting WCS")
             fitRes = self.wcsFitter.fitWcs(
                 matches = matchRes.matches,
                 initWcs = wcs,
@@ -292,12 +337,12 @@ class AstrometryTask(pipeBase.Task):
             fitWcs = fitRes.wcs
             scatterOnSky = fitRes.scatterOnSky
         else:
-            self.log.info("Not fitting WCS (forceKnownWcs true); %s matches" % (len(matchRes.matches),))
+            self.log.logdebug("Not fitting WCS (forceKnownWcs true)")
             fitWcs = wcs
             scatterOnSky = None
         if debug.display:
             frame = int(debug.frame)
-            showAstrometry(
+            displayAstrometry(
                 refCat = refCat,
                 sourceCat = matchRes.usableSourceCat,
                 matches = matchRes.matches,
@@ -340,49 +385,3 @@ class AstrometryTask(pipeBase.Task):
         if filterName is not None:
             matchMeta.add('FILTER', filterName, 'filter name for tagalong data')
         return matchMeta
-
-
-def showAstrometry(refCat, sourceCat, bbox=None, exposure=None, matches=None, frame=1, title=""):
-    """Show an astrometry debug image
-
-    @param[in] refCat  reference object catalog; must have fields "centroid_x" and "centroid_y"
-    @param[in] sourceCat  source catalog; must have field "slot_Centroid_x" and "slot_Centroid_y"
-    @param[in] exposure  exposure to display, or None for a blank exposure
-    @param[in] bbox  bounding box of exposure; required if exposure is None and ignored otherwise
-    @param[in] matches  list of matches (an lsst.afw.table.ReferenceMatchVector), or None
-    @param[in] frame  frame number for ds9 display
-    @param[in] title  title for ds9 display
-
-    @throw RuntimeError if exposure and bbox are both None
-    """
-    import lsst.afw.display.ds9 as ds9
-
-    if exposure is None:
-        if bbox is None:
-            raise RuntimeError("must specify exposure or bbox")
-        exposure = ExposureF(bbox)
-    ds9.mtv(exposure, frame=frame, title=title)
-
-    with ds9.Buffering():
-        refCentroidKey = Point2DKey(refCat.schema["centroid"])
-        for refObj in refCat:
-            x, y = refObj.get(refCentroidKey)
-            ds9.dot("x", x, y, size=10, frame=frame, ctype=ds9.RED)
-
-        sourceCentroidKey = Point2DKey(sourceCat.schema["slot_Centroid"])
-        for source in sourceCat:
-            x, y = source.get(sourceCentroidKey)
-            ds9.dot("+", x,  y, size=10, frame=frame, ctype=ds9.GREEN)
-
-        if matches:
-            radArr = numpy.ndarray(len(matches))
-
-            for i, m in enumerate(matches):
-                refCentroid = m.first.get(refCentroidKey)
-                sourceCentroid = m.second.get(sourceCentroidKey)
-                radArr[i] = math.hypot(*(refCentroid - sourceCentroid))
-                x, y = sourceCentroid
-                ds9.dot("o", x, y, size=10, frame=frame, ctype=ds9.YELLOW)
-                
-            print("<match radius> = %.4g +- %.4g [%d matches]" %
-                (radArr.mean(), radArr.std(), len(matches)))
