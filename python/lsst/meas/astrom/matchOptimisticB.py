@@ -105,22 +105,20 @@ class SourceInfo(object):
             self.fluxField = "slot_%sFlux_flux" % (fluxType,)
             # extra keys that might be useful
             self.parentKey = schema["parent"].asKey()
-            self.interpolatedKey = schema["base_PixelFlags_flag_interpolated"].asKey()
+            self.interpolatedCenterKey = schema["base_PixelFlags_flag_interpolatedCenter"].asKey()
         else:
             raise RuntimeError("Version %r of sourceCat schema not supported" % (version,))
 
         if self.fluxField not in schema:
             raise RuntimeError("Could not find flux field %s in source schema" % (self.fluxField,))
 
-    def _isResolved(self, source):
-        """Return True if source is resolved
+    def _isMultiple(self, source):
+        """Return True if source is likely multiple sources
         """
         if source.get(self.parentKey) != 0:
             return True
         footprint = source.getFootprint()
-        if footprint is not None and len(footprint.getPeaks()) > 1:
-            return True
-        return False
+        return footprint is not None and len(footprint.getPeaks()) > 1
 
     def hasCentroid(self, source):
         """Return True if the source has a valid centroid
@@ -133,16 +131,11 @@ class SourceInfo(object):
 
         For a source to be usable it must:
         - have a valid centroid 
-        - not be interpolated
         - be not too near the edge
-        - not be extended
-        - not include cosmic rays
         """
         return (
             self.hasCentroid(source)
             and not source.get(self.edgeKey)
-            # and not source.get(self.interpolatedKey)
-            # and not self._isResolved(source)
         )
 
     def isGood(self, source):
