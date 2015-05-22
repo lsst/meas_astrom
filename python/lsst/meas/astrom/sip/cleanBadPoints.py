@@ -24,7 +24,6 @@
 import os
 import numpy as np
 
-import eups
 import lsst.afw.detection as det
 
 import sipLib as sip

@@ -21,7 +21,7 @@
 #
 
 import math, os, sys
-import eups
+import lsst.utils
 import lsst.pex.policy as policy
 import lsst.afw.detection as afwDetection
 import lsst.afw.geom as afwGeom
