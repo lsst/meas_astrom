@@ -158,7 +158,7 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
 
         if self.andConfig is None:
             # use andConfig.py in the astrometry_net product setup in eups
-            anDir = os.environ.get('ASTROMETRY_NET_DATA_DIR')
+            anDir = lsst.utils.getPackageDir('astrometry_net_data')
             if anDir is None:
                 raise RuntimeError("astrometry_net_data is not setup")
 
@@ -228,7 +228,7 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
         if os.path.isabs(fn):
             absFn = fn
         else:
-            anDir = os.environ.get('ASTROMETRY_NET_DATA_DIR')
+            anDir = lsst.utils.getPackageDir('astrometry_net_data')
             if anDir is not None:
                 absFn = os.path.join(anDir, fn)
 

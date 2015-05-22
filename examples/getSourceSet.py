@@ -140,7 +140,8 @@ def detectSources(exposure, threshold, psf=None):
     #
     # Time to actually measure
     #
-    moPolicy = policy.Policy.createPolicy(os.path.join(eups.productDir("meas_pipeline"),
+    measPipelineDir = lsst.utils.getPackageDir('meas_pipeline')
+    moPolicy = policy.Policy.createPolicy(os.path.join(measPipelineDir,
                                                        "policy", "MeasureSources.paf"))
     moPolicy = moPolicy.getPolicy("measureObjects")
 

@@ -104,7 +104,8 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
     print
 
     # *sigh*.
-    path=os.path.join(os.environ['ASTROMETRY_NET_DATA_DIR'], "metadata.paf")
+    anDir = lsst.utils.getPackageDir('astrometry_net_data')
+    path=os.path.join(anDir, "metadata.paf")
     solver = astromNet.GlobalAstrometrySolution(path, log)
     matchThreshold = policy.get('matchThreshold')
     solver.setMatchThreshold(matchThreshold)
