@@ -3,6 +3,7 @@ import sys
 import types
 from optparse import OptionParser
 
+import lsst.utils
 import lsst.meas.astrom as measAstrom
 import lsst.pex.policy  as pexPolicy
 import lsst.pex.logging as pexLog

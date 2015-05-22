@@ -23,8 +23,8 @@
 #
 
 import os
+import sys
 import unittest
-import eups
 import lsst.meas.astrom            as measAstrom
 import lsst.afw.geom               as afwGeom
 import lsst.afw.table              as afwTable
@@ -34,6 +34,12 @@ from lsst.pex.logging import Log
 from astrometry.util import ttime
 
 from lsst.meas.astrom import AstrometryNetDataConfig
+
+try:
+    import eups
+except ImportError:
+    print "warning: import of eups failed; tests will be skipped"
+    sys.exit(0)
 
 class MultiIndexTest(unittest.TestCase):
 

@@ -24,9 +24,9 @@ from __future__ import absolute_import, division, print_function
 #
 import math
 import os
+import sys
 import unittest
 
-import eups
 import lsst.daf.base as dafBase
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
@@ -35,6 +35,12 @@ import lsst.afw.image as afwImage
 from lsst.meas.algorithms import LoadReferenceObjectsTask
 import lsst.meas.astrom.sip.genDistortedImage as distort
 import lsst.meas.astrom as measAstrom
+
+try:
+    import eups
+except ImportError:
+    print("warning: import of eups failed; tests will be skipped")
+    sys.exit(0)
 
 ############################
 # Set up local astrometry_net_data

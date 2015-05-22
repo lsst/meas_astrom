@@ -28,7 +28,7 @@ import unittest
 
 import numpy as np
 
-import eups
+import sys
 import lsst.utils.tests as utilsTests
 import lsst.daf.base as dafBase
 import lsst.afw.geom as afwGeom
@@ -36,6 +36,12 @@ import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.meas.base as measBase
 import lsst.meas.astrom as measAstrom
+
+try:
+    import eups
+except ImportError:
+    print("warning: import of eups failed; tests will be skipped")
+    sys.exit(0)
 
 class TestAstrometricSolver(unittest.TestCase):
 
