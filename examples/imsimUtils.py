@@ -8,7 +8,7 @@ def addOptions(parser, input=True, output=False):
     if output:
         parser.add_option('-o', '--output', dest='outRoot', default='.', help='output root')
     parser.add_option('-R', '--registry', help='registry', dest='registry')
-    parser.add_option('-v', '--visit', type='int', dest='visit', action='append', type='int', default=[])
+    parser.add_option('-v', '--visit', dest='visit', action='append', type='int', default=[])
     parser.add_option('-r', '--raft', dest='raft', action='append', default=[])
     parser.add_option('-s', '--sensor', dest='sensor', action='append', default=[])
 
