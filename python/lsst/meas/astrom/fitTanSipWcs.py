@@ -102,11 +102,11 @@ class FitTanSipWcsTask(pipeBase.Task):
         @param[in,out] refCat  reference object catalog, or None.
             If provided then all centroids are updated with the new WCS,
             otherwise only the centroids for ref objects in matches are updated.
-            Required fields are "centroid_x", "centroid_y" and "coord".
+            Required fields are "centroid_x", "centroid_y", "coord_ra", and "coord_dec".
         @param[in,out] sourceCat  source catalog, or None.
             If provided then coords are updated with the new WCS;
             otherwise only the coords for sources in matches are updated.
-            Required fields are "slot_Centroid_x", "slot_Centroid_y" and "coord".
+            Required fields are "slot_Centroid_x", "slot_Centroid_y", and "coord_ra", and "coord_dec".
 
         @return an lsst.pipe.base.Struct with the following fields:
         - wcs  the fit WCS as an lsst.afw.image.Wcs
@@ -156,7 +156,7 @@ class FitTanSipWcsTask(pipeBase.Task):
         if len(refList) < 1:
             return
         schema = refList[0].schema
-        coordKey = schema["coord"].asKey()
+        coordKey = afwTable.CoordKey(schema["coord"])
         centroidKey = afwTable.Point2DKey(schema["centroid"])
         for refObj in refList:
             refObj.set(centroidKey, wcs.skyToPixel(refObj.get(coordKey)))
@@ -165,10 +165,10 @@ class FitTanSipWcsTask(pipeBase.Task):
     def updateSourceCoords(wcs, sourceList):
         """Update coords in a collection of sources, given a WCS
         """
+
         if len(sourceList) < 1:
             return
         schema = sourceList[1].schema
-        srcCoordKey = schema["coord"].asKey()
+        srcCoordKey = afwTable.CoordKey(schema["coord"])
         for src in sourceList:
             src.set(srcCoordKey, wcs.pixelToSky(src.getCentroid()))
-

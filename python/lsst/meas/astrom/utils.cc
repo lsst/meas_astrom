@@ -94,7 +94,7 @@ getCatalogImpl(std::vector<index_t*> inds,
 
     afwTable::Schema schema = afwTable::SimpleTable::makeMinimalSchema(); // contains id and coord
 
-    schema.addField<afwTable::Point<double>>("centroid",
+    afw::table::PointKey<double>::addFields(schema, "centroid",
         "centroid on some exposure; invalid unless \"hasCentroid\" is true)", "pixels");
     auto hasCentroidKey = schema.addField<afwTable::Flag>("hasCentroid",
         "true if centroid field has been set");
