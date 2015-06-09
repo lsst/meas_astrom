@@ -25,7 +25,7 @@
 import os
 import unittest
 
-import eups
+import sys
 import lsst.afw.table as afwTable
 import lsst.utils.tests as utilsTests
 import lsst.afw.geom as afwGeom
@@ -34,6 +34,12 @@ import lsst.meas.astrom as measAstrom
 import lsst.meas.astrom.sip as sip
 import lsst.meas.astrom.sip.genDistortedImage as distort
 import lsst.meas.astrom.sip.cleanBadPoints as cleanBadPoints
+
+try:
+    import eups
+except ImportError:
+    print "warning: import of eups failed; tests will be skipped"
+    sys.exit(0)
 
 ############################
 # Set up local astrometry_net_data

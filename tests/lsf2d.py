@@ -29,7 +29,6 @@ import math
 import pdb                          # we may want to say pdb.set_trace()
 import unittest
 
-import eups
 import lsst.afw.image as afwImage
 import lsst.utils.tests as utilsTests
 import lsst.afw.image as img

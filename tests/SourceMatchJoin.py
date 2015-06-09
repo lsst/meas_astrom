@@ -1,14 +1,20 @@
 #!/usr/bin/env python
 
 import os
+import sys
 import unittest
-import eups
 import lsst.utils.tests as utilsTests
 import lsst.afw.table as afwTable
 import lsst.meas.astrom as measAstrom
 from lsst.pex.logging import Log
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImg
+
+try:
+    import eups
+except ImportError:
+    print "warning: import of eups failed; tests will be skipped"
+    sys.exit(0)
 
 try:
     type(verbose)

@@ -21,7 +21,7 @@
 #
 
 import math, os, sys
-import eups
+import lsst.utils
 import lsst.pex.policy as policy
 import lsst.afw.detection as afwDetection
 import lsst.afw.geom as afwGeom
@@ -140,7 +140,8 @@ def detectSources(exposure, threshold, psf=None):
     #
     # Time to actually measure
     #
-    moPolicy = policy.Policy.createPolicy(os.path.join(eups.productDir("meas_pipeline"),
+    measPipelineDir = lsst.utils.getPackageDir('meas_pipeline')
+    moPolicy = policy.Policy.createPolicy(os.path.join(measPipelineDir,
                                                        "policy", "MeasureSources.paf"))
     moPolicy = moPolicy.getPolicy("measureObjects")
 

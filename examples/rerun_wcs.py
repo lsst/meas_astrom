@@ -3,6 +3,7 @@ import sys
 import types
 from optparse import OptionParser
 
+import lsst.utils
 import lsst.meas.astrom as measAstrom
 import lsst.pex.policy  as pexPolicy
 import lsst.pex.logging as pexLog
@@ -104,7 +105,8 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
     print
 
     # *sigh*.
-    path=os.path.join(os.environ['ASTROMETRY_NET_DATA_DIR'], "metadata.paf")
+    anDir = lsst.utils.getPackageDir('astrometry_net_data')
+    path=os.path.join(anDir, "metadata.paf")
     solver = astromNet.GlobalAstrometrySolution(path, log)
     matchThreshold = policy.get('matchThreshold')
     solver.setMatchThreshold(matchThreshold)
