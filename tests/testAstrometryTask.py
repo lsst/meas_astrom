@@ -43,7 +43,7 @@ except ImportError:
     print("warning: import of eups failed; tests will be skipped")
     sys.exit(0)
 
-class TestAstrometricSolver(unittest.TestCase):
+class TestAstrometricSolver(utilsTests.TestCase):
 
     def setUp(self):
         mypath = eups.productDir("meas_astrom")
@@ -107,7 +107,8 @@ class TestAstrometricSolver(unittest.TestCase):
         )
         self.assertTrue(results.initWcs is distortedWcs)
         self.assertFalse(results.wcs is distortedWcs)
-        self.assertWcssAlmostEqual(distortedWcs, results.wcs, self.bbox)
+        self.assertWcsNearlyEqualOverBBox(distortedWcs, results.wcs, self.bbox,
+            maxDiffSky=0.01*afwGeom.arcseconds, maxDiffPix=0.02)
 
         srcCoordKey = sourceCat.schema["coord"].asKey()
         refCoordKey = results.refCat.schema["coord"].asKey()
@@ -171,54 +172,6 @@ class TestAstrometricSolver(unittest.TestCase):
             src.set(sourceCentroidKey, refObj.get(refCentroidKey))
             src.set(sourceFluxKey, refObj.get(refFluxRKey))
         return sourceCat
-
-    def assertWcssAlmostEqual(self, wcs0, wcs1, bbox, maxSkyErr=0.01 * afwGeom.arcseconds, maxPixErr = 0.02,
-        nx = 5, ny = 5, msg="WCSs differ"):
-        """Assert that two WCSs give nearly equal results for pixelToSky and skyToPixel
-
-        @param[in] wcs0  WCS 0 (an lsst.afw.image.Wcs)
-        @param[in] wcs1  WCS 1 (an lsst.afw.image.Wcs)
-        @param[in] bbox  boundaries of pixel grid over which to compare the WCSs (an lsst.afw.geom.Box2I or Box2D)
-        @param[in] maxSkyErr  maximum separation between sky positions computed using Wcs.pixelToSky
-            (an lsst.afw.geom.Angle)
-        @param[in] maxPixErr  maximum separation between pixel positions computed using Wcs.skyToPixel
-        @param[in] nx  number of points in x for the grid of pixel positions
-        @param[in] ny  number of points in y for the grid of pixel positions
-        @param[in] msg  prefix for error messages; details of the error are appended after ": "
-
-        @throw AssertionError if the two WCSs do not match sufficiently closely
-        """
-        bboxd = afwGeom.Box2D(bbox)
-        xList = np.linspace(bboxd.getMinX(), bboxd.getMaxX(), nx)
-        yList = np.linspace(bboxd.getMinY(), bboxd.getMaxY(), ny)
-        maxSkyErrPixPos = [afwGeom.Angle(0), None]
-        maxPixErrSkyPos = [0, None]
-        for x in xList:
-            for y in yList:
-                fromPixPos = afwGeom.Point2D(x, y)
-                sky0 = wcs0.pixelToSky(fromPixPos)
-                sky1 = wcs1.pixelToSky(fromPixPos)
-                skyErr = sky0.angularSeparation(sky1)
-                if skyErr > maxSkyErrPixPos[0]:
-                    maxSkyErrPixPos = (skyErr, fromPixPos)
-
-                toPixPos0 = wcs0.skyToPixel(sky0)
-                toPixPos1 = wcs1.skyToPixel(sky0)
-                pixErr = math.hypot(*(toPixPos0 - toPixPos1))
-                if pixErr > maxPixErrSkyPos[0]:
-                    maxPixErrSkyPos = (pixErr, sky0)
-
-        errStrList = []
-        if maxSkyErrPixPos[0] > maxSkyErr:
-            skyErr, pixPos = maxSkyErrPixPos
-            errStrList.append("%f arcsec sky error > %f arcsec max sky error at pixPos=%s" %
-                (skyErr.asArcseconds(), maxSkyErr.asArcseconds(), pixPos))
-        if maxPixErrSkyPos[0] > maxPixErr:
-            pixErr, skyPos = maxPixErrSkyPos
-            errStrList.append("%f pix error > %f max pix error at skyPos=%s" %
-                    (pixErr, maxPixErr, skyPos))
-        if errStrList:
-            raise AssertionError("%s: %s" % (msg, "; ".join(errStrList)))
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
