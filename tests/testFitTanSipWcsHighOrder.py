@@ -36,7 +36,7 @@ def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, useTanWcs=False):
     
     # create a matchList consisting of a grid of points covering the bbox
     refSchema = afwTable.SimpleTable.makeMinimalSchema()
-    refCoordKey = refSchema["coord"].asKey()
+    refCoordKey = afwTable.CoordKey(refSchema["coord"])
     refCat = afwTable.SimpleCatalog(refSchema)
 
     sourceSchema = afwTable.SourceTable.makeMinimalSchema()

@@ -20,6 +20,9 @@ from __future__ import absolute_import, division, print_function
 # the GNU General Public License along with this program.  If not, 
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
+
+import lsst.afw.table as afwTable
+
 __all__ = ["setMatchDistance"]
 
 def setMatchDistance(matches):
@@ -34,8 +37,8 @@ def setMatchDistance(matches):
     if len(matches) < 1:
         return
 
-    sourceCoordKey = matches[0].first.schema["coord"].asKey()
-    refObjCoordKey = matches[0].second.schema["coord"].asKey()
+    sourceCoordKey = afwTable.CoordKey(matches[0].first.schema["coord"])
+    refObjCoordKey = afwTable.CoordKey(matches[0].second.schema["coord"])
     for match in matches:
         sourceCoord = match.first.get(sourceCoordKey)
         refObjCoord = match.second.get(refObjCoordKey)
