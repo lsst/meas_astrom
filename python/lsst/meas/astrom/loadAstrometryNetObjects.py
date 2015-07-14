@@ -128,7 +128,7 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
             True, # eliminate duplicate IDs
         )
 
-        self.log.info("search for objects at %s with radius %s deg" % (ctrCoord, radius.asDegrees()))
+        self.log.logdebug("search for objects at %s with radius %s deg" % (ctrCoord, radius.asDegrees()))
         with LoadMultiIndexes(multiInds):
             # We just want to pass the star kd-trees, so just pass the
             # first element of each multi-index.
@@ -139,7 +139,7 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
 
         fluxField = getRefFluxField(schema=refCat.schema, filterName=filterName)
 
-        self.log.info("found %d objects" % (len(refCat),))
+        self.log.logdebug("found %d objects" % (len(refCat),))
         return pipeBase.Struct(
             refCat = refCat,
             fluxField = fluxField,
@@ -152,7 +152,7 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
         if self.haveIndexFiles:
             return
 
-        self.log.info("read index files")
+        self.log.logdebug("read index files")
 
         self.multiInds = []
         self.haveIndexFiles = True # just try once
