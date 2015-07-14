@@ -263,7 +263,7 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
 
 
 class LoadMultiIndexes(object):
-    """Context manager for loading astrometry.net multi-index files, then unloading and finalizing a.net
+    """Context manager for loading and unloading astrometry.net multi-index files
     """
     def __init__(self, multiInds):
         self.multiInds = multiInds
@@ -274,4 +274,3 @@ class LoadMultiIndexes(object):
     def __exit__(self, typ, val, trace):
         for mi in self.multiInds:
             mi.unload()
-        astromNet.finalize()
