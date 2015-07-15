@@ -217,7 +217,8 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         pipeBase.Task.__init__(self, config=config, **kwargs)
         self.config = config
         # this is not a subtask because it cannot safely be retargeted
-        self.refObjLoader = LoadAstrometryNetObjectsTask(config=self.config, andConfig=andConfig)
+        self.refObjLoader = LoadAstrometryNetObjectsTask(config=self.config, andConfig=andConfig, log=self.log,
+                                                         name="loadAN")
         self.refObjLoader._readIndexFiles()
 
     def memusage(self, prefix=''):
