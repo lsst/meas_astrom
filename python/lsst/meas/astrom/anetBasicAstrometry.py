@@ -217,7 +217,8 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         pipeBase.Task.__init__(self, config=config, **kwargs)
         self.config = config
         # this is not a subtask because it cannot safely be retargeted
-        self.refObjLoader = LoadAstrometryNetObjectsTask(config=self.config, andConfig=andConfig)
+        self.refObjLoader = LoadAstrometryNetObjectsTask(config=self.config, andConfig=andConfig, log=self.log,
+                                                         name="loadAN")
         self.refObjLoader._readIndexFiles()
 
     def memusage(self, prefix=''):
@@ -636,12 +637,12 @@ class ANetBasicAstrometryTask(pipeBase.Task):
                             scatPix, matchSize, lastScatPix))
             # Hack convergence tests
             if len(proposedMatchlist) < matchSize:
-                self.log.info(
+                self.log.logdebug(
                     "Fit WCS: use iter %s because it had more matches than the next iter: %s vs. %s" % \
                     (i, matchSize, len(proposedMatchlist)))
                 break
             if len(proposedMatchlist) == matchSize and scatPix >= lastScatPix:
-                self.log.info(
+                self.log.logdebug(
             "Fit WCS: use iter %s because it had less linear scatter than the next iter: %g vs. %g pixels" % \
                     (i, lastScatPix, scatPix))
                 break
