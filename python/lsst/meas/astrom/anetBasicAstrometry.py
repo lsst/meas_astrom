@@ -16,6 +16,7 @@ import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.meas.algorithms.utils as maUtils
 from .loadAstrometryNetObjects import LoadAstrometryNetObjectsTask, LoadMultiIndexes
+from .display import displayAstrometry
 
 from . import sip as astromSip
 
@@ -849,6 +850,13 @@ class ANetBasicAstrometryTask(pipeBase.Task):
                     continue
                 toload_multiInds.add(mi)
                 toload_inds.append(ind)
+
+        import lsstDebug
+        if lsstDebug.Info(__name__).display:
+            # Use separate context for display, since astrometry.net can segfault if we don't...
+            with LoadMultiIndexes(toload_multiInds):
+                displayAstrometry(refCat=self.refObjLoader.loadPixelBox(bbox, wcs, filterName).refCat,
+                                  frame=lsstDebug.Info(__name__).frame, pause=lsstDebug.Info(__name__).pause)
 
         with LoadMultiIndexes(toload_multiInds):
             solver.addIndices(toload_inds)
