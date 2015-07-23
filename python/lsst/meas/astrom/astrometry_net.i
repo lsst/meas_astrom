@@ -26,6 +26,7 @@ Python interface to Astrometry.net
 #include "astrometry/fitstable.h"
 #include "astrometry/log.h"
 #include "astrometry/tic.h"
+#include "astrometry/healpix.h"
 
 #undef ATTRIB_FORMAT
 #undef FALSE
@@ -51,6 +52,7 @@ Python interface to Astrometry.net
 #include "lsst/afw/image/Wcs.h"
 #include "lsst/afw/image/TanWcs.h"
 #include "lsst/afw/geom.h"
+#include "lsst/afw/coord.h"
 
 namespace afwCoord = lsst::afw::coord;
 namespace afwTable = lsst::afw::table;
@@ -183,6 +185,16 @@ void set_an_log(PTR(pexLog::Log) newlog);
     }
     void an_log_set_level(int lvl) {
         log_set_level((log_level)lvl);
+    }
+
+    /// Calculate the distance from coordinates to a healpix
+    ///
+    /// Note that this assumes that the astrometry.net catalog reference system is ICRS.
+    lsst::afw::geom::Angle healpixDistance(int hp, int Nside, lsst::afw::coord::Coord const& coord) {
+        lsst::afw::coord::IcrsCoord icrs = coord.toIcrs();
+        return lsst::afw::geom::Angle(healpix_distance_to_radec(hp, Nside, icrs.getLongitude().asDegrees(),
+                                                                icrs.getLatitude().asDegrees(), NULL),
+                                      lsst::afw::geom::degrees);
     }
 %}
 

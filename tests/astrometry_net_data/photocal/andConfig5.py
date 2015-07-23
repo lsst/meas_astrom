@@ -7,4 +7,4 @@ root.magErrorColumnMap = dict([(f, f + '_err') for f in filters])
 root.multiIndexFiles = [ ['index-photocal-test.fits',
                           'index-photocal-test.fits', ] ,]
 root.indexFiles = [ 'index-photocal-test-4.fits' ]
-
+root.allowCache = False # To prevent race conditions from tests using different index files

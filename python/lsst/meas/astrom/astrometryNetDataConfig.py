@@ -75,6 +75,8 @@ class AstrometryNetDataConfig(object):
           'List of Astrometry.net index filenames'),
         ('multiIndexFiles', list, [], _checkMultiIndexList,
          'Astrometry.net multi-index filename lists.  Each item in this list must itself be a list of filenames.  The first filename is the file that contains the star kd-tree and tag-along tables.  Subsequent filenames must be files containing just the non-star index parts (quads and code kd-tree).  Note that this means you may need to repeat the first filename if it contains a star kd-tree and the first index.'),
+        ('allowCache', bool, True, None,
+         'Allow use of cache for reading index file regions?'),
          ]
 
     def load(self, fn):
