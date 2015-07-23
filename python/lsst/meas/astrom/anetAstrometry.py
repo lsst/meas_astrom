@@ -30,6 +30,7 @@ import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from .anetBasicAstrometry import ANetBasicAstrometryTask
 from .sip import makeCreateWcsWithSip
+from .display import displayAstrometry
 
 class ANetAstrometryConfig(pexConfig.Config):
     solver = pexConfig.ConfigurableField(
@@ -223,11 +224,18 @@ class ANetAstrometryTask(pipeBase.Task):
             s.set(self.centroidErrKey, s.getCentroidErr())
             s.set(self.centroidFlagKey, s.getCentroidFlag())
 
-
         # Get distorted image size so that astrometry_net does not clip.
         bboxD = afwGeom.Box2D()
         for corner in detector.getCorners(TAN_PIXELS):
             bboxD.include(corner)
+
+        import lsstDebug
+        if lsstDebug.Info(__name__).display:
+            frame = lsstDebug.Info(__name__).frame
+            pause = lsstDebug.Info(__name__).pause
+            displayAstrometry(sourceCat=sourceCat, distortedCentroidKey=self.centroidKey,
+                              exposure=exposure, frame=frame, pause=pause)
+
         return afwGeom.Box2I(bboxD)
 
     @contextmanager
