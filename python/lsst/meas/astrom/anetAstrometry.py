@@ -430,7 +430,6 @@ def showAstrometry(exposure, wcs, allMatches, useMatches, frame=0, title=None, p
             except EOFError:
                 reply = ""
 
-            reply = reply.split()
             if len(reply) > 1:
                 reply = reply[0]
             if reply == "p":
