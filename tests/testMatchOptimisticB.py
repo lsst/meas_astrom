@@ -36,21 +36,11 @@ from lsst.meas.algorithms import LoadReferenceObjectsTask
 import lsst.meas.astrom.sip.genDistortedImage as distort
 import lsst.meas.astrom as measAstrom
 
-try:
-    import eups
-except ImportError:
-    print("warning: import of eups failed; tests will be skipped")
-    sys.exit(0)
+import testFindAstrometryNetDataDir as helper
 
 ############################
 # Set up local astrometry_net_data
-meas_astrom_dir = eups.productDir("meas_astrom")
-datapath = os.path.join(meas_astrom_dir, 'tests', 'astrometry_net_data', 'cfhttemplate')
-eupsObj = eups.Eups(root=datapath)
-ok, version, reason = eupsObj.setup('astrometry_net_data')
-if not ok:
-    raise ValueError("Can't find astrometry_net_data version cfhttemplate (from path: %s): %s" %
-                     (datapath, reason))
+helper.setupAstrometryNetDataDir('cfhttemplate')
 
 class TestMatchOptimisticB(unittest.TestCase):
     def setUp(self):
@@ -75,8 +65,7 @@ class TestMatchOptimisticB(unittest.TestCase):
         metadata.set("CD2_1",  0.0)
         self.wcs = afwImage.makeWcs(metadata)
 
-        path=eups.productDir("meas_astrom")
-        self.filename=os.path.join(path, "tests", "cat.xy.fits")
+        self.filename=os.path.join(os.path.dirname(__file__), "cat.xy.fits")
         self.tolArcsec = .4 
         self.tolPixel = .1
 

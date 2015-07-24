@@ -10,11 +10,7 @@ from lsst.pex.logging import Log
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImg
 
-try:
-    import eups
-except ImportError:
-    print "warning: import of eups failed; tests will be skipped"
-    sys.exit(0)
+import testFindAstrometryNetDataDir as helper
 
 try:
     type(verbose)
@@ -28,12 +24,7 @@ class matchlistTestCase(unittest.TestCase):
         # Load sample input from disk
         testDir=os.path.dirname(__file__)
         # Set up local astrometry_net_data
-        datapath = os.path.join(testDir, 'astrometry_net_data', 'photocal')
-        print 'Setting up astrometry_net_data:', datapath
-        eupsObj = eups.Eups(root=datapath)
-        ok, version, reason = eupsObj.setup('astrometry_net_data')
-        if not ok:
-            raise ValueError("Couldn't set up local photocal version of astrometry_net_data (from path: %s): %s" % (datapath, reason))
+        helper.setupAstrometryNetDataDir('photocal', verbose=True)
 
         self.srcSet = afwTable.SourceCatalog.readFits(os.path.join(testDir, "v695833-e0-c000.xy.fits"))
         self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(2048, 4612)) # approximate

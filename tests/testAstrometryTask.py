@@ -37,24 +37,14 @@ import lsst.afw.image as afwImage
 import lsst.meas.base as measBase
 import lsst.meas.astrom as measAstrom
 
-try:
-    import eups
-except ImportError:
-    print("warning: import of eups failed; tests will be skipped")
-    sys.exit(0)
+import testFindAstrometryNetDataDir as helper
+
 
 class TestAstrometricSolver(utilsTests.TestCase):
 
     def setUp(self):
-        mypath = eups.productDir("meas_astrom")
         # Set up local astrometry_net_data
-        datapath = os.path.join(mypath, 'tests', 'astrometry_net_data', 'photocal')
-        eupsObj = eups.Eups(root=datapath)
-        ok, version, reason = eupsObj.setup('astrometry_net_data')
-        if not ok:
-            raise ValueError("Need photocal version of astrometry_net_data (from path: %s): %s" %
-                             (datapath, reason))
-        self.datapath = datapath
+        self.datapath = helper.setupAstrometryNetDataDir('photocal')
 
         self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(3001, 3001))
         self.ctrPix = afwGeom.Point2I(1500, 1500)

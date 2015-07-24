@@ -36,11 +36,7 @@ from astrometry.util import ttime
 from lsst.meas.astrom import AstrometryNetDataConfig
 from lsst.meas.astrom.multiindex import generateCache
 
-try:
-    import eups
-except ImportError:
-    print "warning: import of eups failed; tests will be skipped"
-    sys.exit(0)
+import testFindAstrometryNetDataDir as helper
 
 class MultiIndexTest(unittest.TestCase):
 
@@ -56,13 +52,7 @@ class MultiIndexTest(unittest.TestCase):
         self.exposure = afwImg.ExposureF(os.path.join(testDir, "v695833-e0-c000-a00.sci.fits"))
         
         # Set up local astrometry_net_data
-        datapath = os.path.join(testDir, 'astrometry_net_data', 'photocal')
-        eupsObj = eups.Eups(root=datapath)
-        ok, version, reason = eupsObj.setup('astrometry_net_data')
-        if not ok:
-            raise ValueError("Need photocal version of astrometry_net_data (from path: %s): %s" %
-                             (datapath, reason))
-        self.an_data_dir = datapath
+        self.an_data_dir = helper.setupAstrometryNetDataDir('photocal')
         
     def tearDown(self):
         del self.srcCat

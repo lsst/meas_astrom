@@ -31,6 +31,8 @@ import lsst.utils.tests as utilsTests
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 
+import testFindAstrometryNetDataDir as helper
+
 
 # http://stackoverflow.com/a/7142094/834250
 def getOpenFiles():
@@ -77,8 +79,7 @@ class OpenFilesTest(unittest.TestCase):
         self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(2048, 4612)) # approximate
 
     def getAstrom(self):
-        andpath = os.path.join(self.mypath, 'astrometry_net_data', 'photocal')
-        os.environ['ASTROMETRY_NET_DATA_DIR'] = andpath
+        andpath = helper.setupAstrometryNetDataDir('photocal', rootDir=self.mypath)
         andcfn = os.path.join(andpath, 'andConfigOpenFiles.py')
 
         andconfig = measAstrom.AstrometryNetDataConfig()

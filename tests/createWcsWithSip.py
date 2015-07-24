@@ -35,21 +35,11 @@ import lsst.meas.astrom.sip as sip
 import lsst.meas.astrom.sip.genDistortedImage as distort
 import lsst.meas.astrom.sip.cleanBadPoints as cleanBadPoints
 
-try:
-    import eups
-except ImportError:
-    print "warning: import of eups failed; tests will be skipped"
-    sys.exit(0)
+import testFindAstrometryNetDataDir as helper
 
 ############################
 # Set up local astrometry_net_data
-meas_astrom_dir = eups.productDir("meas_astrom")
-datapath = os.path.join(meas_astrom_dir, 'tests', 'astrometry_net_data', 'cfhttemplate')
-eupsObj = eups.Eups(root=datapath)
-ok, version, reason = eupsObj.setup('astrometry_net_data')
-if not ok:
-    raise ValueError("Can't find astrometry_net_data version cfhttemplate (from path: %s): %s" %
-                     (datapath, reason))
+helper.setupAstrometryNetDataDir('cfhttemplate')
 
 class CreateWcsWithSipCase(unittest.TestCase):
     def setUp(self):
