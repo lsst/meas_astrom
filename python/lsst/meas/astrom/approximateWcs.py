@@ -27,10 +27,12 @@ import lsst.afw.table as afwTable
 import lsst.afw.geom as afwGeom
 from lsst.meas.base import SingleFrameMeasurementTask
 from lsst.meas.astrom.sip import makeCreateWcsWithSip
+from lsst.afw.image.basicUtils import wcsNearlyEqualOverBBox
 
 __all__ = ["approximateWcs"]
 
-def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, useTanWcs=False):
+def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3, \
+                   skyTolerance=0.001*afwGeom.arcseconds, pixelTolerance=0.02, useTanWcs=False):
     """Approximate an existing WCS as a TAN-SIP WCS
 
     The fit is performed by evaluating the WCS at a uniform grid of points within a bounding box.
@@ -40,6 +42,11 @@ def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, useTanWcs=False):
     @param[in] order  order of SIP fit
     @param[in] nx  number of grid points along x
     @param[in] ny  number of grid points along y
+    @param[in] iterations number of times to iterate over fitting
+    @param[in] skyTolerance maximum allowed difference in world coordinates between
+               input wcs and approximate wcs (default is 0.001 arcsec)
+    @param[in] pixelTolerance maximum allowed difference in pixel coordinates between
+               input wcs and approximate wcs (default is 0.02 pixels)
     @param[in] useTanWcs  send a TAN version of wcs to the fitter? It is documented to require that,
         but I don't think the fitter actually cares
     @return the fit TAN-SIP WCS
@@ -80,7 +87,15 @@ def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, useTanWcs=False):
             matchList.append(afwTable.ReferenceMatch(refObj, source, 0.0))
             
     # The TAN-SIP fitter is fitting x and y separately, so we have to iterate to make it converge 
-    for indx in range(3) :
+    for indx in range(iterations) :
         sipObject = makeCreateWcsWithSip(matchList, tanWcs, order, bbox)
         tanWcs = sipObject.getNewWcs()
-    return sipObject.getNewWcs()
+    fitWcs = sipObject.getNewWcs()
+
+    isValid, msgList = wcsNearlyEqualOverBBox(wcs, fitWcs, bbox,
+                                               maxDiffSky=skyTolerance, maxDiffPix=pixelTolerance)
+    if not isValid:
+        print msgList
+        raise UserWarning("approximateWcs could not achieve desired tolerance")
+
+    return fitWcs
