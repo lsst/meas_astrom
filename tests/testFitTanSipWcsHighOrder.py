@@ -8,64 +8,7 @@ import lsst.utils.tests as tests
 import lsst.daf.base as dafBase
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
-import lsst.afw.table as afwTable
-from lsst.meas.base import SingleFrameMeasurementTask
-from lsst.meas.astrom.sip import makeCreateWcsWithSip
-
-def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, useTanWcs=False):
-    """Approximate an existing WCS as a TAN-SIP WCS
-
-    The fit is performed by evaluating the WCS at a uniform grid of points within a bounding box.
-
-    @param[in] wcs  wcs to approximate
-    @param[in] bbox  the region over which the WCS will be fit
-    @param[in] order  order of SIP fit
-    @param[in] nx  number of grid points along x
-    @param[in] ny  number of grid points along y
-    @param[in] useTanWcs  send a TAN version of wcs to the fitter? It is documented to require that,
-        but I don't think the fitter actually cares
-    @return the fit TAN-SIP WCS
-    """
-    if useTanWcs:
-        crCoord = wcs.getSkyOrigin()
-        crPix = wcs.getPixelOrigin()
-        cdMat = wcs.getCDMatrix()
-        tanWcs = afwImage.makeWcs(crCoord, crPix, cdMat[0,0], cdMat[0,1], cdMat[1,0], cdMat[1,1])
-    else:
-        tanWcs = wcs
-    
-    # create a matchList consisting of a grid of points covering the bbox
-    refSchema = afwTable.SimpleTable.makeMinimalSchema()
-    refCoordKey = afwTable.CoordKey(refSchema["coord"])
-    refCat = afwTable.SimpleCatalog(refSchema)
-
-    sourceSchema = afwTable.SourceTable.makeMinimalSchema()
-    SingleFrameMeasurementTask(schema=sourceSchema) # expand the schema
-    sourceCentroidKey = afwTable.Point2DKey(sourceSchema["slot_Centroid"])
-        
-    sourceCat = afwTable.SourceCatalog(sourceSchema)
-
-    matchList = afwTable.ReferenceMatchVector()
-
-    bboxd = afwGeom.Box2D(bbox)
-    for x in numpy.linspace(bboxd.getMinX(), bboxd.getMaxX(), nx):
-        for y in numpy.linspace(bboxd.getMinY(), bboxd.getMaxY(), ny):
-            pixelPos = afwGeom.Point2D(x, y)
-            skyCoord = wcs.pixelToSky(pixelPos)
-
-            refObj = refCat.addNew()
-            refObj.set(refCoordKey, skyCoord)
-
-            source = sourceCat.addNew()
-            source.set(sourceCentroidKey, pixelPos)
-
-            matchList.append(afwTable.ReferenceMatch(refObj, source, 0.0))
-            
-    # The TAN-SIP fitter is fitting x and y separately, so we have to iterate to make it converge 
-    for indx in range(3) :
-        sipObject = makeCreateWcsWithSip(matchList, tanWcs, order, bbox)
-        tanWcs = sipObject.getNewWcs()
-    return sipObject.getNewWcs()
+from lsst.meas.astrom import approximateWcs
 
 
 class ApproximateWcsTestCase(tests.TestCase):
