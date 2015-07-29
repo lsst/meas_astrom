@@ -95,7 +95,8 @@ def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3, \
     isValid, msgList = wcsNearlyEqualOverBBox(wcs, fitWcs, bbox,
                                                maxDiffSky=skyTolerance, maxDiffPix=pixelTolerance)
     if not isValid:
-        print msgList
+        for msg in msgList:
+            print msg
         raise UserWarning("approximateWcs could not achieve desired tolerance")
 
     return fitWcs
