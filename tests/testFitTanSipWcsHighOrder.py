@@ -10,7 +10,6 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 from lsst.meas.astrom import approximateWcs
 
-
 class ApproximateWcsTestCase(tests.TestCase):
     """A test case for CreateWcsWithSip
 
