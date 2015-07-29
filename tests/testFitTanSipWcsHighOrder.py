@@ -65,13 +65,10 @@ class ApproximateWcsTestCase(tests.TestCase):
         if doPlot:
             self.plotWcs(wcs, fitWcs, self.bbox, xyTransform)
 
-        try:
-            msg = "ERROR: %s failed with order %s" % (name, order)
-            self.assertWcsNearlyEqualOverBBox(wcs, fitWcs, self.bbox,
-                maxDiffSky=0.001*afwGeom.arcseconds, maxDiffPix=0.02, msg=msg)
-            print "OK: %s succeeded with order %s" % (name, order)
-        except Exception, e:
-            print e
+        msg = "ERROR: %s failed with order %s" % (name, order)
+        self.assertWcsNearlyEqualOverBBox(wcs, fitWcs, self.bbox,
+            maxDiffSky=0.001*afwGeom.arcseconds, maxDiffPix=0.02, msg=msg)
+
 
     def plotWcs(self, wcs0, wcs1, bbox, xyTransform):
         bboxd = afwGeom.Box2D(bbox)
