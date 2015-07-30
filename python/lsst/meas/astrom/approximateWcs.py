@@ -1,7 +1,7 @@
-# 
+#
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
-# 
+#
 # This product includes software developed by the
 # LSST Project (http://www.lsst.org/).
 #
@@ -9,14 +9,14 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
-# You should have received a copy of the LSST License Statement and 
-# the GNU General Public License along with this program.  If not, 
+#
+# You should have received a copy of the LSST License Statement and
+# the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
@@ -65,7 +65,7 @@ def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3, \
         tanWcs = afwImage.makeWcs(crCoord, crPix, cdMat[0,0], cdMat[0,1], cdMat[1,0], cdMat[1,1])
     else:
         tanWcs = wcs
-    
+
     # create a matchList consisting of a grid of points covering the bbox
     refSchema = afwTable.SimpleTable.makeMinimalSchema()
     refCoordKey = afwTable.CoordKey(refSchema["coord"])
@@ -74,7 +74,7 @@ def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3, \
     sourceSchema = afwTable.SourceTable.makeMinimalSchema()
     SingleFrameMeasurementTask(schema=sourceSchema) # expand the schema
     sourceCentroidKey = afwTable.Point2DKey(sourceSchema["slot_Centroid"])
-        
+
     sourceCat = afwTable.SourceCatalog(sourceSchema)
 
     matchList = afwTable.ReferenceMatchVector()
