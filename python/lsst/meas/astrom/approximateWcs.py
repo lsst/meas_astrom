@@ -27,9 +27,16 @@ import lsst.afw.table as afwTable
 import lsst.afw.geom as afwGeom
 from lsst.meas.base import SingleFrameMeasurementTask
 from lsst.meas.astrom.sip import makeCreateWcsWithSip
-from lsst.afw.image.basicUtils import wcsNearlyEqualOverBBox
+from lsst.afw.image.basicUtils import assertWcsNearlyEqualOverBBox
 
 __all__ = ["approximateWcs"]
+
+class _MockTestCase(object):
+    """A fake unit test case class that will enable us to call
+    assertWcsNearlyEqualOverBBox from the method approximateWcs"""
+
+    def fail(self, msgStr):
+        raise UserWarning("WCS fitting failed " + msgStr)
 
 def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3, \
                    skyTolerance=0.001*afwGeom.arcseconds, pixelTolerance=0.02, useTanWcs=False):
@@ -85,18 +92,15 @@ def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3, \
             source.set(sourceCentroidKey, pixelPos)
 
             matchList.append(afwTable.ReferenceMatch(refObj, source, 0.0))
-            
-    # The TAN-SIP fitter is fitting x and y separately, so we have to iterate to make it converge 
+
+    # The TAN-SIP fitter is fitting x and y separately, so we have to iterate to make it converge
     for indx in range(iterations) :
         sipObject = makeCreateWcsWithSip(matchList, tanWcs, order, bbox)
         tanWcs = sipObject.getNewWcs()
     fitWcs = sipObject.getNewWcs()
 
-    isValid, msgList = wcsNearlyEqualOverBBox(wcs, fitWcs, bbox,
-                                               maxDiffSky=skyTolerance, maxDiffPix=pixelTolerance)
-    if not isValid:
-        for msg in msgList:
-            print msg
-        raise UserWarning("approximateWcs could not achieve desired tolerance")
+    mockTest = _MockTestCase()
+    assertWcsNearlyEqualOverBBox(mockTest, wcs, fitWcs, bbox, maxDiffSky=skyTolerance,
+                                 maxDiffPix=pixelTolerance)
 
     return fitWcs
