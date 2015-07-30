@@ -30,6 +30,7 @@ from .loadAstrometryNetObjects import *
 from .matchOptimisticB import *
 from .setMatchDistance import *
 from .display import *
+from .approximateWcs import *
 
 from . import catalogStarSelector
 
