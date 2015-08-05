@@ -96,12 +96,12 @@ class ANetAstrometryTask(pipeBase.Task):
     The available variables in ANetAstrometryTask are:
     <DL>
       <DT> \c display
-      <DD> If True call astrometry.showAstrometry while iterating ANetAstrometryConfig.rejectIter times,
-      and also after converging.
+      <DD> If True call showAstrometry while iterating ANetAstrometryConfig.rejectIter times,
+      and also after converging; and call displayAstrometry after applying the distortion correction.
       <DT> \c frame
-      <DD> ds9 frame to use in astrometry.showAstrometry
+      <DD> ds9 frame to use in showAstrometry and displayAstrometry
       <DT> \c pause
-      <DD> Pause within astrometry.showAstrometry
+      <DD> Pause after showAstrometry and displayAstrometry?
     </DL>
 
     \section pipe_tasks_astrometry_Example	A complete example of using ANetAstrometryTask
@@ -113,8 +113,10 @@ class ANetAstrometryTask(pipeBase.Task):
         import lsstDebug
         def DebugInfo(name):
             di = lsstDebug.getInfo(name)        # N.b. lsstDebug.Info(name) would call us recursively
-            if name == "lsst.pipe.tasks.astrometry":
+            if name in ("lsst.pipe.tasks.anetAstrometry", "lsst.pipe.tasks.anetBasicAstrometry"):
                 di.display = 1
+                di.frame = 1
+                di.pause = True
 
             return di
 
