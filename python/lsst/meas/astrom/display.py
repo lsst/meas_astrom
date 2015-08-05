@@ -18,25 +18,23 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
     - distorted sources in sourceCat (position given by distortedCentroidKey) are shown as green o
     - matches are shown as a yellow circle around the source and a yellow line
         connecting the reference object and source
+    - if both exposure and bbox are None, no image is displayed
 
     @param[in] refCat  reference object catalog; must have fields "centroid_x" and "centroid_y"
     @param[in] sourceCat  source catalog; must have field "slot_Centroid_x" and "slot_Centroid_y"
     @param[in] distortedCentroidKey  key for sourceCat with field to use for distorted positions, or None
     @param[in] exposure  exposure to display, or None for a blank exposure
-    @param[in] bbox  bounding box of exposure; required if exposure is None and ignored otherwise
+    @param[in] bbox  bounding box of exposure; used if exposure is None for a blank image
     @param[in] matches  list of matches (an lsst.afw.table.ReferenceMatchVector), or None
     @param[in] frame  frame number for ds9 display
     @param[in] title  title for ds9 display
-
-    @throw RuntimeError if exposure and bbox are both None
     """
     import lsst.afw.display.ds9 as ds9
 
-    if exposure is None:
-        if bbox is None:
-            raise RuntimeError("must specify exposure or bbox")
-        exposure = ExposureF(bbox)
-    ds9.mtv(exposure, frame=frame, title=title)
+    if exposure is not None:
+        ds9.mtv(exposure, frame=frame, title=title)
+    elif bbox is not None:
+        ds9.mtv(exposure=ExposureF(bbox), frame=frame, title=title)
 
     with ds9.Buffering():
         if refCat is not None:
