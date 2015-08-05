@@ -10,7 +10,7 @@ from lsst.afw.table import Point2DKey
 __all__ = ["displayAstrometry", "plotAstrometry"]
 
 def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bbox=None, exposure=None,
-                      matches=None, frame=1, title=""):
+                      matches=None, frame=1, title="", pause=True):
     """Show an astrometry debug image
 
     - reference objects in refCat are shown as red X
@@ -28,6 +28,7 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
     @param[in] matches  list of matches (an lsst.afw.table.ReferenceMatchVector), or None
     @param[in] frame  frame number for ds9 display
     @param[in] title  title for ds9 display
+    @param[in] pause  pause for inspection of display? This is done by dropping into pdb.
     """
     import lsst.afw.display.ds9 as ds9
 
@@ -68,6 +69,10 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
                 
             print("<match radius> = %.4g +- %.4g [%d matches]" %
                 (radArr.mean(), radArr.std(), len(matches)))
+
+    if pause:
+        print("Dropping into debugger to allow inspection of display. Type 'continue' when done.")
+        import pdb;pdb.set_trace()
 
 def plotAstrometry(
     matches,
