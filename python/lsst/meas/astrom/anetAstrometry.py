@@ -30,6 +30,7 @@ import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from .anetBasicAstrometry import ANetBasicAstrometryTask
 from .sip import makeCreateWcsWithSip
+from .display import displayAstrometry
 
 class ANetAstrometryConfig(pexConfig.Config):
     solver = pexConfig.ConfigurableField(
@@ -95,12 +96,12 @@ class ANetAstrometryTask(pipeBase.Task):
     The available variables in ANetAstrometryTask are:
     <DL>
       <DT> \c display
-      <DD> If True call astrometry.showAstrometry while iterating ANetAstrometryConfig.rejectIter times,
-      and also after converging.
+      <DD> If True call showAstrometry while iterating ANetAstrometryConfig.rejectIter times,
+      and also after converging; and call displayAstrometry after applying the distortion correction.
       <DT> \c frame
-      <DD> ds9 frame to use in astrometry.showAstrometry
+      <DD> ds9 frame to use in showAstrometry and displayAstrometry
       <DT> \c pause
-      <DD> Pause within astrometry.showAstrometry
+      <DD> Pause after showAstrometry and displayAstrometry?
     </DL>
 
     \section pipe_tasks_astrometry_Example	A complete example of using ANetAstrometryTask
@@ -112,8 +113,10 @@ class ANetAstrometryTask(pipeBase.Task):
         import lsstDebug
         def DebugInfo(name):
             di = lsstDebug.getInfo(name)        # N.b. lsstDebug.Info(name) would call us recursively
-            if name == "lsst.pipe.tasks.astrometry":
+            if name in ("lsst.pipe.tasks.anetAstrometry", "lsst.pipe.tasks.anetBasicAstrometry"):
                 di.display = 1
+                di.frame = 1
+                di.pause = True
 
             return di
 
@@ -223,11 +226,18 @@ class ANetAstrometryTask(pipeBase.Task):
             s.set(self.centroidErrKey, s.getCentroidErr())
             s.set(self.centroidFlagKey, s.getCentroidFlag())
 
-
         # Get distorted image size so that astrometry_net does not clip.
         bboxD = afwGeom.Box2D()
         for corner in detector.getCorners(TAN_PIXELS):
             bboxD.include(corner)
+
+        import lsstDebug
+        if lsstDebug.Info(__name__).display:
+            frame = lsstDebug.Info(__name__).frame
+            pause = lsstDebug.Info(__name__).pause
+            displayAstrometry(sourceCat=sourceCat, distortedCentroidKey=self.centroidKey,
+                              exposure=exposure, frame=frame, pause=pause)
+
         return afwGeom.Box2I(bboxD)
 
     @contextmanager
@@ -430,7 +440,6 @@ def showAstrometry(exposure, wcs, allMatches, useMatches, frame=0, title=None, p
             except EOFError:
                 reply = ""
 
-            reply = reply.split()
             if len(reply) > 1:
                 reply = reply[0]
             if reply == "p":

@@ -9,31 +9,33 @@ from lsst.afw.table import Point2DKey
 
 __all__ = ["displayAstrometry", "plotAstrometry"]
 
-def displayAstrometry(refCat=None, sourceCat=None, bbox=None, exposure=None, matches=None, frame=1, title=""):
+def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bbox=None, exposure=None,
+                      matches=None, frame=1, title="", pause=True):
     """Show an astrometry debug image
 
     - reference objects in refCat are shown as red X
     - sources in sourceCat are shown as green +
+    - distorted sources in sourceCat (position given by distortedCentroidKey) are shown as green o
     - matches are shown as a yellow circle around the source and a yellow line
         connecting the reference object and source
+    - if both exposure and bbox are None, no image is displayed
 
     @param[in] refCat  reference object catalog; must have fields "centroid_x" and "centroid_y"
     @param[in] sourceCat  source catalog; must have field "slot_Centroid_x" and "slot_Centroid_y"
+    @param[in] distortedCentroidKey  key for sourceCat with field to use for distorted positions, or None
     @param[in] exposure  exposure to display, or None for a blank exposure
-    @param[in] bbox  bounding box of exposure; required if exposure is None and ignored otherwise
+    @param[in] bbox  bounding box of exposure; used if exposure is None for a blank image
     @param[in] matches  list of matches (an lsst.afw.table.ReferenceMatchVector), or None
     @param[in] frame  frame number for ds9 display
     @param[in] title  title for ds9 display
-
-    @throw RuntimeError if exposure and bbox are both None
+    @param[in] pause  pause for inspection of display? This is done by dropping into pdb.
     """
     import lsst.afw.display.ds9 as ds9
 
-    if exposure is None:
-        if bbox is None:
-            raise RuntimeError("must specify exposure or bbox")
-        exposure = ExposureF(bbox)
-    ds9.mtv(exposure, frame=frame, title=title)
+    if exposure is not None:
+        ds9.mtv(exposure, frame=frame, title=title)
+    elif bbox is not None:
+        ds9.mtv(exposure=ExposureF(bbox), frame=frame, title=title)
 
     with ds9.Buffering():
         if refCat is not None:
@@ -47,6 +49,10 @@ def displayAstrometry(refCat=None, sourceCat=None, bbox=None, exposure=None, mat
             for source in sourceCat:
                 sx, sy = source.get(sourceCentroidKey)
                 ds9.dot("+", sx,  sy, size=10, frame=frame, ctype=ds9.GREEN)
+                if distortedCentroidKey is not None:
+                    dx, dy = source.get(distortedCentroidKey)
+                    ds9.dot("o", dx, dy, size=10, frame=frame, ctype=ds9.GREEN)
+                    ds9.line([(sx, sy), (dx, dy)], ctype=ds9.GREEN, frame=frame)
 
         if matches is not None:
             refCentroidKey = Point2DKey(matches[0].first.schema["centroid"])
@@ -63,6 +69,10 @@ def displayAstrometry(refCat=None, sourceCat=None, bbox=None, exposure=None, mat
                 
             print("<match radius> = %.4g +- %.4g [%d matches]" %
                 (radArr.mean(), radArr.std(), len(matches)))
+
+    if pause:
+        print("Dropping into debugger to allow inspection of display. Type 'continue' when done.")
+        import pdb;pdb.set_trace()
 
 def plotAstrometry(
     matches,
