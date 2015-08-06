@@ -168,6 +168,8 @@ class ANetAstrometryTask(pipeBase.Task):
             - wcs (the initial value is used as an initial guess, and is required)
         @param[in] sourceCat  catalog of sourceCat detected on the exposure (an lsst.afw.table.SourceCatalog)
         @return an lsst.pipe.base.Struct with these fields:
+        - refCat  reference object catalog of objects that overlap the exposure (with some margin)
+            (an lsst::afw::table::SimpleCatalog)
         - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
         - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
         """
@@ -183,6 +185,8 @@ class ANetAstrometryTask(pipeBase.Task):
         \param[in,out] exposure Exposure to calibrate; wcs is updated
         \param[in] sourceCat catalog of measured sources (an lsst.afw.table.SourceCatalog)
         \return a pipeBase.Struct with fields:
+        - refCat  reference object catalog of objects that overlap the exposure (with some margin)
+            (an lsst::afw::table::SimpleCatalog)
         - matches: Astrometric matches, as an lsst.afw.table.ReferenceMatchVector
         - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
 
@@ -307,6 +311,8 @@ class ANetAstrometryTask(pipeBase.Task):
         @param[in] sourceCat  catalog of sourceCat detected on the exposure (an lsst.afw.table.SourceCatalog)
 
         @return an lsst.pipe.base.Struct with these fields:
+        - refCat  reference object catalog of objects that overlap the exposure (with some margin)
+            (an lsst::afw::table::SimpleCatalog)
         - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
         - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
 
@@ -335,6 +341,7 @@ class ANetAstrometryTask(pipeBase.Task):
             self.display('astrometry', exposure=exposure, sources=sourceCat, matches=matches)
 
             return pipeBase.Struct(
+                refCat = astrom.refCat,
                 matches = matches,
                 matchMeta = matchMeta,
             )
@@ -376,6 +383,7 @@ class ANetAstrometryTask(pipeBase.Task):
         self.display('astrometry', exposure=exposure, sources=sourceCat, matches=matches)
 
         return pipeBase.Struct(
+            refCat = astrom.refCat,
             matches = matches,
             matchMeta = matchMeta,
         )

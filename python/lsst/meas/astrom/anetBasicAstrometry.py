@@ -35,6 +35,7 @@ class InitialAstrometry(object):
     tanMatches (MatchList)
     sipWcs (Wcs)
     sipMatches (MatchList)
+    refCat (lsst::afw::table::SimpleCatalog)
     matchMetadata (PropertyList)
     """
     def __init__(self):
@@ -42,6 +43,7 @@ class InitialAstrometry(object):
         self.tanMatches = None
         self.sipWcs = None
         self.sipMatches = None
+        self.refCat = None
         self.matchMetadata = dafBase.PropertyList()
         self.solveQa = None
 
@@ -309,6 +311,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
             filterName = filterName,
             calib = None,
         ).refCat
+        astrom.refCat = refCat
         catids = [src.getId() for src in refCat]
         uids = set(catids)
         self.log.logdebug('%i reference sources; %i unique IDs' % (len(catids), len(uids)))
