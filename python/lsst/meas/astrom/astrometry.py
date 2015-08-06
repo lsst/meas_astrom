@@ -26,13 +26,13 @@ class AstrometryConfig(pexConfig.Config):
     )
     forceKnownWcs = pexConfig.Field(
         dtype = bool,
-        doc= "Assume that the input image's WCS is correct, without comparing it to any external reality " +
-            "  (but still match reference objects to sources)",
+        doc= "If True then load reference objects and match sources but do not fit a WCS; " +
+            " this simply controls whether 'run' calls 'solve' or 'loadAndMatch'",
         default = False,
     )
     maxIter = pexConfig.RangeField(
-        doc = "maximum number of iterations of match sources and fit WCS; " +
-            "ignored if forceKnownWcs True",
+        doc = "maximum number of iterations of match sources and fit WCS" +
+            "ignored if not fitting a WCS",
         dtype = int,
         default = 3,
         min = 1,
@@ -40,14 +40,14 @@ class AstrometryConfig(pexConfig.Config):
     matchDistanceSigma = pexConfig.RangeField(
         doc = "the maximum match distance is set to "
             " mean_match_distance + matchDistanceSigma*std_dev_match_distance; " +
-            "ignored if forceKnownWcs True",
+            "ignored if not fitting a WCS",
         dtype = float,
         default = 2,
         min = 0,
     )
     minMatchDistanceArcSec = pexConfig.RangeField(
         doc = "the match distance below which further iteration is pointless (arcsec); "
-            "ignored if forceKnownWcs True",
+            "ignored if not fitting a WCS",
         dtype = float,
         default = 0.001,
         min = 0,
@@ -91,6 +91,8 @@ class AstrometryTask(pipeBase.Task):
     @section meas_astrom_astrometry_IO       Invoking the Task
 
     @copydoc run
+
+    @copydoc loadAndMatch
 
     @section meas_astrom_astrometry_Config       Configuration parameters
 
@@ -145,7 +147,9 @@ class AstrometryTask(pipeBase.Task):
 
     @pipeBase.timeMethod
     def run(self, exposure, sourceCat):
-        """!Fit a WCS given a source catalog and exposure
+        """!Load reference objects, match sources and optionally fit a WCS
+
+        This is a thin layer around solve or loadAndMatch, depending on config.forceKnownWcs
 
         @param[in,out] exposure  exposure whose WCS is to be fit
             The following are read only:
@@ -156,46 +160,107 @@ class AstrometryTask(pipeBase.Task):
             The following are updated:
             - wcs (the initial value is used as an initial guess, and is required)
         @param[in] sourceCat  catalog of sourceCat detected on the exposure (an lsst.afw.table.SourceCatalog)
-        @return the same struct as the "solve" method
+        @return an lsst.pipe.base.Struct with these fields:
+        - refCat  reference object catalog of objects that overlap the exposure (with some margin)
+            (an lsst::afw::table::SimpleCatalog)
+        - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
+        - scatterOnSky  median on-sky separation between reference objects and sources in "matches"
+            (an lsst.afw.geom.Angle), or None if config.forceKnownWcs True
+        - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
         """
-        bbox = exposure.getBBox()
-        exposureInfo = exposure.getInfo()
-        initWcs = getDistortedWcs(exposureInfo, log=self.log)
-        calib = exposureInfo.getCalib() if exposureInfo.hasCalib() else None
-        filterName = exposureInfo.getFilter().getName() or None
-
-        retVal = self.solve(sourceCat=sourceCat, bbox=bbox, initWcs=initWcs, filterName=filterName,
-            calib=calib, exposure=exposure)
-        exposure.setWcs(retVal.wcs)
-        return retVal
+        if self.config.forceKnownWcs:
+            res = self.loadAndMatch(exposure=exposure, sourceCat=sourceCat)
+            res.scatterOnSky = None
+        else:
+            res = self.solve(exposure=exposure, sourceCat=sourceCat)
+        return res
 
     @pipeBase.timeMethod
-    def solve(self, sourceCat, bbox, initWcs, filterName=None, calib=None, exposure=None):
-        """!Fit a WCS given a source catalog and exposure matchMetadata
+    def loadAndMatch(self, exposure, sourceCat):
+        """!Load reference objects overlapping an exposure and match to sources detected on that exposure
 
+        @param[in] exposure  exposure whose WCS is to be fit
         @param[in] sourceCat  catalog of sourceCat detected on the exposure (an lsst.afw.table.SourceCatalog)
-        @param[in] bbox  bounding box of exposure (an lsst.afw.geom.Box2I)
-        @param[in] wcs  initial guess for WCS of exposure (an lsst.afw.image.Wcs)
-        @param[in] filterName  filter name, or None or "" if unknown (a string)
-        @param[in] calib  calibration for exposure, or None if unknown (an lsst.afw.image.Calib)
-        @param[in] exposure  exposure whose WCS is to be fit, or None; used only for the debug display
 
         @return an lsst.pipe.base.Struct with these fields:
         - refCat  reference object catalog of objects that overlap the exposure (with some margin)
             (an lsst::afw::table::SimpleCatalog)
         - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
-        - initWcs  initial WCS from exposure (possibly tweaked) (an lsst.afw.image.Wcs)
-        - wcs  fit WCS (an lsst.afw.image.Wcs)
-        - matchMeta  metadata about the field
+        - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
+
+        @note ignores config.forceKnownWcs, config.maxIter, config.matchDistanceSigma
+            and config.minMatchDistanceArcSec
         """
         import lsstDebug
         debug = lsstDebug.Info(__name__)
 
+        expMd = self._getExposureMetadata(exposure)
+
         loadRes = self.refObjLoader.loadPixelBox(
-            bbox = bbox,
-            wcs = initWcs,
-            filterName = filterName,
-            calib = calib,
+            bbox = expMd.bbox,
+            wcs = expMd.wcs,
+            filterName = expMd.filterName,
+            calib = expMd.calib,
+        )
+
+        matchRes = self.matcher.matchObjectsToSources(
+            refCat = loadRes.refCat,
+            sourceCat = sourceCat,
+            wcs = expMd.wcs,
+            refFluxField = loadRes.fluxField,
+            maxMatchDistArcSec = None,
+        )
+
+        distRadList = [match.distance for match in matchRes.matches]
+        distRadStats = afwMath.makeStatistics(distRadList, afwMath.MEANCLIP | afwMath.STDEVCLIP)
+        distArcsecMean = radToArcsec(distRadStats.getValue(afwMath.MEANCLIP))
+        distArcsecStdDev = radToArcsec(distRadStats.getValue(afwMath.STDEVCLIP))
+        self.log.info(
+            "Found %d matches with scatter = %0.3f +- %0.3f arcsec; " %
+            (len(matchRes.matches), distArcsecMean, distArcsecStdDev))
+
+        if debug.display:
+            frame = int(debug.frame)
+            displayAstrometry(
+                refCat = loadRes.refCat,
+                sourceCat = sourceCat,
+                matches = matchRes.matches,
+                exposure = exposure,
+                bbox = expMd.bbox,
+                frame = frame,
+                title="Matches",
+            )
+
+        return pipeBase.Struct(
+            refCat = loadRes.refCat,
+            matches = matchRes.matches,
+            matchMeta = self._createMatchMetadata(bbox=expMd.bbox, wcs=expMd.wcs, filterName=expMd.filterName),
+        )
+
+    @pipeBase.timeMethod
+    def solve(self, exposure, sourceCat):
+        """!Load reference objects overlapping an exposure, match to sources and fit a WCS
+
+        @return an lsst.pipe.base.Struct with these fields:
+        - refCat  reference object catalog of objects that overlap the exposure (with some margin)
+            (an lsst::afw::table::SimpleCatalog)
+        - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
+        - scatterOnSky  median on-sky separation between reference objects and sources in "matches"
+            (an lsst.afw.geom.Angle)
+        - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
+
+        @note ignores config.forceKnownWcs
+        """
+        import lsstDebug
+        debug = lsstDebug.Info(__name__)
+
+        expMd = self._getExposureMetadata(exposure)
+
+        loadRes = self.refObjLoader.loadPixelBox(
+            bbox = expMd.bbox,
+            wcs = expMd.wcs,
+            filterName = expMd.filterName,
+            calib = expMd.calib,
         )
         if debug.display:
             frame = int(debug.frame)
@@ -203,13 +268,13 @@ class AstrometryTask(pipeBase.Task):
                 refCat = loadRes.refCat,
                 sourceCat = sourceCat,
                 exposure = exposure,
-                bbox = bbox,
+                bbox = expMd.bbox,
                 frame = frame,
                 title="Reference catalog",
             )
 
         res = None
-        wcs = initWcs
+        wcs = expMd.wcs
         maxMatchDistArcSec = None
         for i in range(self.config.maxIter):
             iterNum = i + 1
@@ -218,7 +283,7 @@ class AstrometryTask(pipeBase.Task):
                     refCat = loadRes.refCat,
                     sourceCat = sourceCat,
                     refFluxField = loadRes.fluxField,
-                    bbox = bbox,
+                    bbox = expMd.bbox,
                     wcs = wcs,
                     exposure = exposure,
                     maxMatchDistArcSec = maxMatchDistArcSec,
@@ -236,11 +301,6 @@ class AstrometryTask(pipeBase.Task):
             distRadStats = afwMath.makeStatistics(distRadList, afwMath.MEANCLIP | afwMath.STDEVCLIP)
             distArcsecMean = radToArcsec(distRadStats.getValue(afwMath.MEANCLIP))
             distArcsecStdDev = radToArcsec(distRadStats.getValue(afwMath.STDEVCLIP))
-
-            if self.config.forceKnownWcs:
-                # run just once; note that the number of matches has already logged
-                res = tryRes
-                break
 
             newMaxMatchDistArcSec = distArcsecMean + self.config.matchDistanceSigma*distArcsecStdDev
             self.log.logdebug(
@@ -264,24 +324,38 @@ class AstrometryTask(pipeBase.Task):
                     (newMaxMatchDistArcSec, self.config.minMatchDistanceArcSec))
                 break
 
-        if self.config.forceKnownWcs:
-            self.log.info(
-                "Using known WCS (config.forceKnownWcs true); "
-                "found %d matches with scatter = %0.3f +- %0.3f arcsec; " %
-                (len(tryRes.matches), distArcsecMean, distArcsecStdDev))
-        else:
-            self.log.info(
-                "Matched and fit WCS in %d iterations; "
-                "found %d matches with scatter = %0.3f +- %0.3f arcsec" %
-                (iterNum, len(tryRes.matches), distArcsecMean, distArcsecStdDev))
+        self.log.info(
+            "Matched and fit WCS in %d iterations; "
+            "found %d matches with scatter = %0.3f +- %0.3f arcsec" %
+            (iterNum, len(tryRes.matches), distArcsecMean, distArcsecStdDev))
+
+        exposure.setWcs(res.wcs)
 
         return pipeBase.Struct(
             refCat = loadRes.refCat,
             matches = res.matches,
-            initWcs = initWcs,
-            wcs = res.wcs,
             scatterOnSky = res.scatterOnSky,
-            matchMeta = self._createMatchMetadata(bbox=bbox, wcs=res.wcs, filterName=filterName)
+            matchMeta = self._createMatchMetadata(bbox=expMd.bbox, wcs=res.wcs, filterName=expMd.filterName)
+        )
+
+    def _getExposureMetadata(self, exposure):
+        """!Extract metadata from an exposure
+
+        @return an lsst.pipe.base.Struct containing the following exposure metadata:
+        - bbox: parent bounding box
+        - wcs: WCS (an lsst.afw.image.Wcs)
+        - calib calibration (an lsst.afw.image.Calib), or None if unknown
+        - filterName: name of filter, or None if unknown
+        """
+        exposureInfo = exposure.getInfo()
+        filterName = exposureInfo.getFilter().getName() or None
+        if filterName == "_unknown_":
+            filterName = None
+        return pipeBase.Struct(
+            bbox = exposure.getBBox(),
+            wcs = getDistortedWcs(exposureInfo, log=self.log),
+            calib = exposureInfo.getCalib() if exposureInfo.hasCalib() else None,
+            filterName = filterName,
         )
 
     @pipeBase.timeMethod
@@ -291,6 +365,7 @@ class AstrometryTask(pipeBase.Task):
 
         @param[in] refCat  catalog of reference objects
         @param[in] sourceCat  catalog of sourceCat detected on the exposure (an lsst.afw.table.SourceCatalog)
+        @param[in] refFluxField  field of refCat to use for flux
         @param[in] bbox  bounding box of exposure (an lsst.afw.geom.Box2I)
         @param[in] wcs  initial guess for WCS of exposure (an lsst.afw.image.Wcs)
         @param[in] maxMatchDistArcSec  maximum distance between reference objects and sources (arcsec);
@@ -299,9 +374,9 @@ class AstrometryTask(pipeBase.Task):
 
         @return an lsst.pipe.base.Struct with these fields:
         - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
-        - wcs  the fit WCS as an lsst.afw.image.Wcs
-        - scatterOnSky  median on-sky separation between reference objects and sources in "matches",
-            as an lsst.afw.geom.Angle, or None if config.forceKnownWcs is True
+        - wcs  the fit WCS (an lsst.afw.image.Wcs)
+        - scatterOnSky  median on-sky separation between reference objects and sources in "matches"
+            (an lsst.afw.geom.Angle)
         """
         import lsstDebug
         debug = lsstDebug.Info(__name__)
@@ -325,21 +400,16 @@ class AstrometryTask(pipeBase.Task):
                 title="Initial WCS",
             )
 
-        if not self.config.forceKnownWcs:
-            self.log.logdebug("Fitting WCS")
-            fitRes = self.wcsFitter.fitWcs(
-                matches = matchRes.matches,
-                initWcs = wcs,
-                bbox = bbox,
-                refCat = refCat,
-                sourceCat = sourceCat,
-            )
-            fitWcs = fitRes.wcs
-            scatterOnSky = fitRes.scatterOnSky
-        else:
-            self.log.logdebug("Not fitting WCS (forceKnownWcs true)")
-            fitWcs = wcs
-            scatterOnSky = None
+        self.log.logdebug("Fitting WCS")
+        fitRes = self.wcsFitter.fitWcs(
+            matches = matchRes.matches,
+            initWcs = wcs,
+            bbox = bbox,
+            refCat = refCat,
+            sourceCat = sourceCat,
+        )
+        fitWcs = fitRes.wcs
+        scatterOnSky = fitRes.scatterOnSky
         if debug.display:
             frame = int(debug.frame)
             displayAstrometry(
@@ -363,14 +433,11 @@ class AstrometryTask(pipeBase.Task):
         """Create matchMeta metadata required for regenerating the catalog
 
         This is copied from Astrom and I'm not sure why it is needed.
-        I did not put this in any subtask because none have all the necessary info:
-        - The matcher does not have the fit wcs
-        - The fitter does not have the filter name
 
         @param bbox  bounding box of exposure (an lsst.afw.geom.Box2I or Box2D)
         @param wcs  WCS of exposure
         @param filterName Name of filter, used for magnitudes
-        @return Metadata
+        @return metadata about the field (a daf_base PropertyList)
         """
         matchMeta = PropertyList()
         bboxd = Box2D(bbox)

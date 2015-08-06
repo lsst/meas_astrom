@@ -269,13 +269,9 @@ class ANetBasicAstrometryTask(pipeBase.Task):
             raise RuntimeError("wcs or exposure (with a WCS) must be specified")
         return bbox, wcs, filterName
 
-    def useKnownWcs(self, sourceCat, wcs=None, exposure=None, filterName=None, bbox=None):
+    def useKnownWcs(self, sourceCat, wcs=None, exposure=None, filterName=None, bbox=None, calculateSip=None):
         """!Return an InitialAstrometry object, just like determineWcs,
         but assuming the given input WCS is correct.
-
-        This is enabled by the ANetBasicAstrometryConfig
-        'forceKnownWcs' option.  If you are using that option, you
-        probably also want to turn OFF 'calculateSip'.
 
         This involves searching for reference sources within the WCS
         area, and matching them to the given 'sourceCat'.  If
@@ -288,12 +284,17 @@ class ANetBasicAstrometryTask(pipeBase.Task):
             if None then you must specify wcs, filterName and bbox
         @param[in] filterName  string, filter name, eg "i", or None to get from exposure`
         @param[in] bbox  bounding box of image, or None to get from exposure
+        @param[in] calculateSip  calculate SIP distortion terms for the WCS? If None
+            then use self.config.calculateSip. To disable WCS fitting set calculateSip=False
 
         @note this function is also called by 'determineWcs' (via 'determineWcs2'), since the steps are all
         the same.
         """
         # return value:
         astrom = InitialAstrometry()
+
+        if calculateSip is None:
+            calculateSip = self.config.calculateSip
 
         bbox, wcs, filterName = self._getImageParams(
             exposure = exposure,
@@ -329,7 +330,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
             assert(m.second.getId() in srcids)
             assert(m.second in sourceCat)
 
-        if self.config.calculateSip:
+        if calculateSip:
             sipwcs,matches = self._calculateSipTerms(wcs, refCat, sourceCat, matches, bbox=bbox)
             if sipwcs == wcs:
                 self.log.logdebug('Failed to find a SIP WCS better than the initial one.')
