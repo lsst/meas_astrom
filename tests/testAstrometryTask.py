@@ -23,12 +23,10 @@ from __future__ import absolute_import, division, print_function
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 import math
-import os
 import unittest
 
 import numpy as np
 
-import sys
 import lsst.utils.tests as utilsTests
 import lsst.daf.base as dafBase
 import lsst.afw.geom as afwGeom
