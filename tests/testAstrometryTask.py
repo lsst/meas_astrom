@@ -23,12 +23,10 @@ from __future__ import absolute_import, division, print_function
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 import math
-import os
 import unittest
 
 import numpy as np
 
-import sys
 import lsst.utils.tests as utilsTests
 import lsst.daf.base as dafBase
 import lsst.afw.geom as afwGeom
@@ -64,10 +62,14 @@ class TestAstrometricSolver(utilsTests.TestCase):
         metadata.set("CD2_2", -5.1e-05)
         metadata.set("CD2_1",  0.0)
         self.tanWcs = afwImage.cast_TanWcs(afwImage.makeWcs(metadata))
+        self.exposure = afwImage.ExposureF(self.bbox)
+        self.exposure.setWcs(self.tanWcs)
+        self.exposure.setFilter(afwImage.Filter("r", True))
 
     def tearDown(self):
         del self.ctrPix
         del self.tanWcs
+        del self.exposure
 
     def testTrivial(self):
         """Test fit with no distortion
@@ -85,19 +87,18 @@ class TestAstrometricSolver(utilsTests.TestCase):
         """Test using pixelsToTanPixels to distort the source positions
         """
         distortedWcs = afwImage.DistortedTanWcs(self.tanWcs, pixelsToTanPixels)
+        self.exposure.setWcs(distortedWcs)
         sourceCat = self.makeSourceCat(distortedWcs)
         config = measAstrom.AstrometryTask.ConfigClass()
         config.wcsFitter.order = order
         solver = measAstrom.AstrometryTask(config=config)
-        results = solver.solve(
+        results = solver.run(
             sourceCat = sourceCat,
-            bbox = self.bbox,
-            initWcs = distortedWcs,
-            filterName = 'r'
+            exposure = self.exposure,
         )
-        self.assertTrue(results.initWcs is distortedWcs)
-        self.assertFalse(results.wcs is distortedWcs)
-        self.assertWcsNearlyEqualOverBBox(distortedWcs, results.wcs, self.bbox,
+        fitWcs = self.exposure.getWcs()
+        self.assertRaises(Exception, self.assertWcsNearlyEqualOverBBox, fitWcs, distortedWcs)
+        self.assertWcsNearlyEqualOverBBox(distortedWcs, fitWcs, self.bbox,
             maxDiffSky=0.01*afwGeom.arcseconds, maxDiffPix=0.02)
 
         srcCoordKey = afwTable.CoordKey(sourceCat.schema["coord"])
@@ -124,14 +125,11 @@ class TestAstrometricSolver(utilsTests.TestCase):
         # try again, but without fitting the WCS
         config.forceKnownWcs = True
         solverNoFit = measAstrom.AstrometryTask(config=config)
-        resultsNoFit = solverNoFit.solve(
+        self.exposure.setWcs(distortedWcs)
+        resultsNoFit = solverNoFit.run(
             sourceCat = sourceCat,
-            bbox = self.bbox,
-            initWcs = distortedWcs,
-            filterName = 'r'
+            exposure = self.exposure,
         )
-        self.assertTrue(resultsNoFit.wcs is distortedWcs)
-        self.assertTrue(resultsNoFit.initWcs is distortedWcs)
         self.assertTrue(resultsNoFit.scatterOnSky is None)
 
         # fitting should result in matches that are at least as good

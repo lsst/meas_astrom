@@ -154,13 +154,41 @@ class ANetAstrometryTask(pipeBase.Task):
 
     @pipeBase.timeMethod
     def run(self, exposure, sourceCat):
+        """!Load reference objects, match sources and optionally fit a WCS
+
+        This is a thin layer around solve or loadAndMatch, depending on config.forceKnownWcs
+
+        @param[in,out] exposure  exposure whose WCS is to be fit
+            The following are read only:
+            - bbox
+            - calib (may be absent)
+            - filter (may be unset)
+            - detector (if wcs is pure tangent; may be absent)
+            The following are updated:
+            - wcs (the initial value is used as an initial guess, and is required)
+        @param[in] sourceCat  catalog of sourceCat detected on the exposure (an lsst.afw.table.SourceCatalog)
+        @return an lsst.pipe.base.Struct with these fields:
+        - refCat  reference object catalog of objects that overlap the exposure (with some margin)
+            (an lsst::afw::table::SimpleCatalog)
+        - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
+        - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
+        """
+        if self.config.forceKnownWcs:
+            return self.loadAndMatch(exposure=exposure, sourceCat=sourceCat)
+        else:
+            return self.solve(exposure=exposure, sourceCat=sourceCat)
+
+    @pipeBase.timeMethod
+    def solve(self, exposure, sourceCat):
         """!Match with reference sources and calculate an astrometric solution
 
-        \param[in,out] exposure Exposure to calibrate
+        \param[in,out] exposure Exposure to calibrate; wcs is updated
         \param[in] sourceCat catalog of measured sources (an lsst.afw.table.SourceCatalog)
         \return a pipeBase.Struct with fields:
+        - refCat  reference object catalog of objects that overlap the exposure (with some margin)
+            (an lsst::afw::table::SimpleCatalog)
         - matches: Astrometric matches, as an lsst.afw.table.ReferenceMatchVector
-        - matchMeta: Metadata for astrometric matches
+        - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
 
         The reference catalog actually used is up to the implementation
         of the solver; it will be manifested in the returned matches as
@@ -175,9 +203,11 @@ class ANetAstrometryTask(pipeBase.Task):
         should therefore simply use the centroids provided by calling
         afw.table.Source.getCentroid() on the individual source records.  This column \em must
         be present in the sources table.
+
+        \note ignores config.forceKnownWcs
         """
         with self.distortionContext(sourceCat=sourceCat, exposure=exposure) as bbox:
-            results = self.astrometry(sourceCat=sourceCat, exposure=exposure, bbox=bbox)
+            results = self._astrometry(sourceCat=sourceCat, exposure=exposure, bbox=bbox)
 
         if results.matches:
             self.refitWcs(sourceCat=sourceCat, exposure=exposure, matches=results.matches)
@@ -274,32 +304,69 @@ class ANetAstrometryTask(pipeBase.Task):
                 wcs.shiftReferencePixel(-bbox.getMinX() + x0, -bbox.getMinY() + y0)
 
     @pipeBase.timeMethod
-    def astrometry(self, sourceCat, exposure, bbox=None):
+    def loadAndMatch(self, exposure, sourceCat, bbox=None):
+        """!Load reference objects overlapping an exposure and match to sources detected on that exposure
+
+        @param[in] exposure  exposure whose WCS is to be fit
+        @param[in] sourceCat  catalog of sourceCat detected on the exposure (an lsst.afw.table.SourceCatalog)
+
+        @return an lsst.pipe.base.Struct with these fields:
+        - refCat  reference object catalog of objects that overlap the exposure (with some margin)
+            (an lsst::afw::table::SimpleCatalog)
+        - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
+        - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
+
+        @note ignores config.forceKnownWcs
+        """
+        with self.distortionContext(sourceCat=sourceCat, exposure=exposure) as bbox:
+            if not self.solver:
+                self.makeSubtask("solver")
+
+            astrom = self.solver.useKnownWcs(
+                sourceCat = sourceCat,
+                exposure = exposure,
+                bbox = bbox,
+                calculateSip = False,
+            )
+
+            if astrom is None or astrom.getWcs() is None:
+                raise RuntimeError("Unable to solve astrometry")
+
+            matches = astrom.getMatches()
+            matchMeta = astrom.getMatchMetadata()
+            if matches is None or len(matches) == 0:
+                raise RuntimeError("No astrometric matches")
+            self.log.info("%d astrometric matches" %  (len(matches)))
+
+            self.display('astrometry', exposure=exposure, sources=sourceCat, matches=matches)
+
+            return pipeBase.Struct(
+                refCat = astrom.refCat,
+                matches = matches,
+                matchMeta = matchMeta,
+            )
+
+    @pipeBase.timeMethod
+    def _astrometry(self, sourceCat, exposure, bbox=None):
         """!Solve astrometry to produce WCS
 
-        \param sourceCat Sources on exposure, an lsst.afw.table.SourceCatalog
-        \param exposure Exposure to process, an lsst.afw.image.ExposureF or D
-        \param bbox Bounding box, or None to use exposure
+        \param[in] sourceCat Sources on exposure, an lsst.afw.table.SourceCatalog
+        \param[in,out] exposure Exposure to process, an lsst.afw.image.ExposureF or D; wcs is updated
+        \param[in] bbox Bounding box, or None to use exposure
         \return a pipe.base.Struct with fields:
-         - matches: star matches
-         - matchMeta: match metadata
+        - refCat  reference object catalog of objects that overlap the exposure (with some margin)
+            (an lsst::afw::table::SimpleCatalog)
+        - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
+        - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
         """
-        if not self.config.forceKnownWcs:
-            self.log.info("Solving astrometry")
+        self.log.info("Solving astrometry")
         if bbox is None:
             bbox = exposure.getBBox()
 
         if not self.solver:
             self.makeSubtask("solver")
 
-        if self.config.forceKnownWcs:
-            self.log.info("Forcing the input exposure's WCS")
-            if self.config.solver.calculateSip:
-                self.log.warn("'forceKnownWcs' and 'solver.calculateSip' options are both set." +
-                              " Will try to compute a TAN-SIP WCS starting from the input WCS.")
-            astrom = self.solver.useKnownWcs(sourceCat=sourceCat, exposure=exposure, bbox=bbox)
-        else:
-            astrom = self.solver.determineWcs(sourceCat=sourceCat, exposure=exposure, bbox=bbox)
+        astrom = self.solver.determineWcs(sourceCat=sourceCat, exposure=exposure, bbox=bbox)
 
         if astrom is None or astrom.getWcs() is None:
             raise RuntimeError("Unable to solve astrometry")
@@ -310,13 +377,16 @@ class ANetAstrometryTask(pipeBase.Task):
             raise RuntimeError("No astrometric matches")
         self.log.info("%d astrometric matches" %  (len(matches)))
 
-        if not self.config.forceKnownWcs:
-            # Note that this is the Wcs for the provided positions, which may be distorted
-            exposure.setWcs(astrom.getWcs())
+        # Note that this is the Wcs for the provided positions, which may be distorted
+        exposure.setWcs(astrom.getWcs())
 
         self.display('astrometry', exposure=exposure, sources=sourceCat, matches=matches)
 
-        return pipeBase.Struct(matches=matches, matchMeta=matchMeta)
+        return pipeBase.Struct(
+            refCat = astrom.refCat,
+            matches = matches,
+            matchMeta = matchMeta,
+        )
 
     @pipeBase.timeMethod
     def refitWcs(self, sourceCat, exposure, matches):
