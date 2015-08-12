@@ -207,7 +207,7 @@ class ANetAstrometryTask(pipeBase.Task):
         \note ignores config.forceKnownWcs
         """
         with self.distortionContext(sourceCat=sourceCat, exposure=exposure) as bbox:
-            results = self.astrometry(sourceCat=sourceCat, exposure=exposure, bbox=bbox)
+            results = self._astrometry(sourceCat=sourceCat, exposure=exposure, bbox=bbox)
 
         if results.matches:
             self.refitWcs(sourceCat=sourceCat, exposure=exposure, matches=results.matches)
@@ -347,7 +347,7 @@ class ANetAstrometryTask(pipeBase.Task):
             )
 
     @pipeBase.timeMethod
-    def astrometry(self, sourceCat, exposure, bbox=None):
+    def _astrometry(self, sourceCat, exposure, bbox=None):
         """!Solve astrometry to produce WCS
 
         \param[in] sourceCat Sources on exposure, an lsst.afw.table.SourceCatalog
