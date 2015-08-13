@@ -36,7 +36,7 @@ class InitialAstrometry(object):
     sipWcs (Wcs)
     sipMatches (MatchList)
     refCat (lsst::afw::table::SimpleCatalog)
-    matchMeta (PropertyList)
+    matchMetadata (PropertyList)
     """
     def __init__(self):
         self.tanWcs = None
@@ -44,7 +44,7 @@ class InitialAstrometry(object):
         self.sipWcs = None
         self.sipMatches = None
         self.refCat = None
-        self.matchMeta = dafBase.PropertyList()
+        self.matchMetadata = dafBase.PropertyList()
         self.solveQa = None
 
     def getMatches(self):
@@ -76,7 +76,7 @@ class InitialAstrometry(object):
     def getTanMatches(self):
         return self.tanMatches
     def getMatchMetadata(self):
-        return self.matchMeta
+        return self.matchMetadata
     def getSolveQaMetadata(self):
         return self.solveQa
 
@@ -348,7 +348,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         # Here, we make them consistent with the WCS we are returning.
         for src in sourceCat:
             src.updateCoord(wcs)
-        astrom.matchMeta = _createMetadata(bbox, wcs, filterName)
+        astrom.matchMetadata = _createMetadata(bbox, wcs, filterName)
         return astrom
 
     def determineWcs(self,

@@ -49,7 +49,7 @@ class matchlistTestCase(unittest.TestCase):
         res = self.getAstrometrySolution()
 
         matches = res.matches
-        matchmeta = res.matchMeta
+        matchmeta = res.matchMetadata
 
         normalized = afwTable.packMatches(matches)
         normalized.table.setMetadata(matchmeta)
@@ -71,7 +71,7 @@ class matchlistTestCase(unittest.TestCase):
         res = self.getAstrometrySolution()
 
         matches = res.matches
-        matchmeta = res.matchMeta
+        matchmeta = res.matchMetadata
 
         normalized = afwTable.packMatches(matches)
         normalized.table.setMetadata(matchmeta)
