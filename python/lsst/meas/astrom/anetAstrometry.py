@@ -289,19 +289,22 @@ class ANetAstrometryTask(pipeBase.Task):
         \param exposure Exposure holding Wcs, an lsst.afw.image.ExposureF or D
         \return bounding box of distorted exposure
         """
-        # Apply distortion
-        bbox = self.distort(sourceCat=sourceCat, exposure=exposure)
-        oldCentroidName = sourceCat.table.getCentroidDefinition()
-        sourceCat.table.defineCentroid(self.distortedName)
-        try:
-            yield bbox # Execute 'with' block, providing bbox to 'as' variable
-        finally:
-            # Un-apply distortion
-            sourceCat.table.defineCentroid(oldCentroidName)
-            x0, y0 = exposure.getXY0()
-            wcs = exposure.getWcs()
-            if wcs:
-                wcs.shiftReferencePixel(-bbox.getMinX() + x0, -bbox.getMinY() + y0)
+        # Apply distortion, if not already present in the exposure's WCS
+        if exposure.getWcs().hasDistortion():
+            yield exposure.getBBox()
+        else:
+            bbox = self.distort(sourceCat=sourceCat, exposure=exposure)
+            oldCentroidName = sourceCat.table.getCentroidDefinition()
+            sourceCat.table.defineCentroid(self.distortedName)
+            try:
+                yield bbox # Execute 'with' block, providing bbox to 'as' variable
+            finally:
+                # Un-apply distortion
+                sourceCat.table.defineCentroid(oldCentroidName)
+                x0, y0 = exposure.getXY0()
+                wcs = exposure.getWcs()
+                if wcs:
+                    wcs.shiftReferencePixel(-bbox.getMinX() + x0, -bbox.getMinY() + y0)
 
     @pipeBase.timeMethod
     def loadAndMatch(self, exposure, sourceCat, bbox=None):
