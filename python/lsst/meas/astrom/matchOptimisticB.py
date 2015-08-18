@@ -364,6 +364,7 @@ class MatchOptimisticBTask(pipeBase.Task):
                         refCat,
                         sourceCat,
                         matchControl,
+                        wcs,
                         posRefBegInd,
                         verbose,
                     )

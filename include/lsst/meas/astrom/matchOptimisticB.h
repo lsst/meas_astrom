@@ -52,9 +52,14 @@ namespace astrom {
 
     typedef std::vector<RecordProxy> ProxyVector;
 
-    ProxyVector makeProxies(lsst::afw::table::SourceCatalog const & sourceCat);
+    ProxyVector makeProxies(lsst::afw::table::SourceCatalog const & sourceCat,
+                            afw::image::Wcs const& distortedWcs,
+                            afw::image::Wcs const& tanWcs
+        );
 
-    ProxyVector makeProxies(lsst::afw::table::SimpleCatalog const & posRefCat);
+    ProxyVector makeProxies(lsst::afw::table::SimpleCatalog const & posRefCat,
+                            afw::image::Wcs const& tanWcs
+        );
 
     struct ProxyPair {
         RecordProxy first;
@@ -111,13 +116,13 @@ namespace astrom {
     Optimistic Pattern Matching is described in V. Tabur 2007, PASA, 24, 189-198
     "Fast Algorithms for Matching CCD Images to a Stellar Catalogue"
 
-    @param[in] posRefCat  catalog of position reference stars
-        fields that are used:
-        coord
-        centroid
-        hasCentroid
-        control.refFluxField  flux for desired filter
-    @param[in] sourceCat  catalog of detected sources
+    @param[in] posRefCat  catalog of position reference stars; fields read:
+        - "coord"
+        - control.refFluxField
+    @param[in] sourceCat  catalog of detected sources; fields read:
+        - "Centroid_x"
+        - "Centroid_y"
+        - control.refFluxField
     @param[in] wcs  estimated WCS
     @param[in] control  control object
     @param[in] posRefBegInd  index of first start to use in posRefCat
@@ -128,6 +133,7 @@ namespace astrom {
         lsst::afw::table::SimpleCatalog const &posRefCat,
         lsst::afw::table::SourceCatalog const &sourceCat,
         MatchOptimisticBControl const &control,
+        afw::image::Wcs const& wcs,
         int posRefBegInd=0,
         bool verbose = false
     );
