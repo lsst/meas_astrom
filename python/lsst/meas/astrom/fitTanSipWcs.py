@@ -1,5 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
+import lsst.afw.image as afwImage
+import lsst.afw.coord as afwCoord
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.pex.config as pexConfig
@@ -115,7 +117,7 @@ class FitTanSipWcsTask(pipeBase.Task):
         """
         if bbox is None:
             bbox = afwGeom.Box2I()
-        wcs = initWcs
+        wcs = self.initialWcs(matches, initWcs)
         for i in range(self.config.numIter):
             sipObject = makeCreateWcsWithSip(matches, wcs, self.config.order, bbox)
             wcs = sipObject.getNewWcs()
@@ -148,6 +150,26 @@ class FitTanSipWcsTask(pipeBase.Task):
             wcs = wcs,
             scatterOnSky = scatterOnSky,
         )
+
+    def initialWcs(self, matches, wcs):
+        """Generate a guess Wcs from the astrometric matches
+
+        We create a Wcs anchored at the center of the matches, with the scale
+        of the input Wcs.  This is necessary because matching returns only
+        matches with no estimated Wcs, and the input Wcs is a wild guess.
+        We're using the best of each: positions from the matches, and scale
+        from the input Wcs.
+        """
+        crpix = afwGeom.Extent2D(0, 0)
+        crval = afwGeom.Extent3D(0, 0, 0)
+        for mm in matches:
+            crpix += afwGeom.Extent2D(mm.second.getCentroid())
+            crval += afwGeom.Extent3D(mm.first.getCoord().toIcrs().getVector())
+        crpix /= len(matches)
+        crval /= len(matches)
+        newWcs = afwImage.Wcs(afwCoord.IcrsCoord(afwGeom.Point3D(crval)).getPosition(),
+                              afwGeom.Point2D(crpix), wcs.getCDMatrix())
+        return newWcs
 
     @staticmethod
     def updateRefCentroids(wcs, refList):
