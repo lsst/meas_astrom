@@ -534,7 +534,6 @@ namespace astrom {
             throw LSST_EXCEPT(pexExcept::InvalidParameterError, "posRefBegInd too big");
         }
         double const maxRotationRad = afw::geom::degToRad(control.maxRotationDeg);
-        double const allowedNonperpRad = afw::geom::degToRad(control.allowedNonperpDeg);
 
         CONST_PTR(afw::image::Wcs) tanWcs; // Undistorted Wcs, providing tangent plane
         if (wcs.hasDistortion()) {
@@ -708,7 +707,7 @@ namespace astrom {
                         }
                         if (std::fabs(coeff[1] * coeff[5] - coeff[2] * coeff[4] - 1.) 
                                 > control.maxDeterminant ||
-                            std::fabs(theta - 90.) > allowedNonperpRad ||
+                            std::fabs(theta - 90.) > control.allowedNonperpDeg ||
                             std::fabs(coeff[0]) > control.maxOffsetPix ||
                             std::fabs(coeff[3]) > control.maxOffsetPix) {
                             if (verbose) {
