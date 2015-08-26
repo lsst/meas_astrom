@@ -269,7 +269,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         usableSourceCat = afwTable.SourceCatalog(sourceCat.table)
         usableSourceCat.extend(s for s in sourceCat if sourceInfo.isUsable(s))
         numUsableSources = len(usableSourceCat)
-        self.log.info("Purged %d unsuable sources, leaving %d usable sources" % \
+        self.log.info("Purged %d unusable sources, leaving %d usable sources" % \
             (numSources - numUsableSources, numUsableSources))
 
         if len(usableSourceCat) == 0:
@@ -364,6 +364,7 @@ class MatchOptimisticBTask(pipeBase.Task):
                         refCat,
                         sourceCat,
                         matchControl,
+                        wcs,
                         posRefBegInd,
                         verbose,
                     )

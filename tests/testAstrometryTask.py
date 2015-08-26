@@ -91,6 +91,7 @@ class TestAstrometricSolver(utilsTests.TestCase):
         sourceCat = self.makeSourceCat(distortedWcs)
         config = measAstrom.AstrometryTask.ConfigClass()
         config.wcsFitter.order = order
+        config.wcsFitter.numRejIter = 0
         solver = measAstrom.AstrometryTask(config=config)
         results = solver.run(
             sourceCat = sourceCat,

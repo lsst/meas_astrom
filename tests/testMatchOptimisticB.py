@@ -64,6 +64,7 @@ class TestMatchOptimisticB(unittest.TestCase):
         metadata.set("CD2_2",  5.17e-05)
         metadata.set("CD2_1",  0.0)
         self.wcs = afwImage.makeWcs(metadata)
+        self.distortedWcs = self.wcs
 
         self.filename=os.path.join(os.path.dirname(__file__), "cat.xy.fits")
         self.tolArcsec = .4 
@@ -73,6 +74,7 @@ class TestMatchOptimisticB(unittest.TestCase):
         del self.config
         del self.matchOptimisticB
         del self.wcs
+        del self.distortedWcs
         
     def testLinearXDistort(self):
         self.singleTestInstance(self.filename, distort.linearXDistort)
@@ -83,14 +85,52 @@ class TestMatchOptimisticB(unittest.TestCase):
     def testQuadraticDistort(self):
         self.singleTestInstance(self.filename, distort.quadraticDistort)
     
+
+    def testLargeDistortion(self):
+        # This transform is about as extreme as I can get:
+        # using 0.0005 in the last value appears to produce numerical issues.
+        # It produces a maximum deviation of 459 pixels, which should be sufficient.
+        pixelsToTanPixels = afwGeom.RadialXYTransform([0.0, 1.1, 0.0004])
+        tanWcs = afwImage.TanWcs.cast(self.wcs)
+        self.distortedWcs = afwImage.DistortedTanWcs(tanWcs, pixelsToTanPixels)
+
+        def applyDistortion(src):
+            out = src.table.copyRecord(src)
+            out.set(out.table.getCentroidKey(),
+                    pixelsToTanPixels.reverseTransform(src.getCentroid()))
+            return out
+
+        self.singleTestInstance(self.filename, applyDistortion)
+
     def singleTestInstance(self, filename, distortFunc, doPlot=False):
         sourceCat = self.loadSourceCatalog(self.filename)
         refCat = self.computePosRefCatalog(sourceCat)
-        sourceCat = distort.distortList(sourceCat, distortFunc)
+        distortedCat = distort.distortList(sourceCat, distortFunc)
+
+        if doPlot:
+            import numpy
+            import matplotlib.pyplot as plt
+            undistorted = [self.wcs.skyToPixel(self.distortedWcs.pixelToSky(ss.getCentroid())) for
+                           ss in distortedCat]
+            refs = [self.wcs.skyToPixel(ss.getCoord()) for ss in refCat]
+
+            def plot(catalog, symbol):
+                plt.plot([ss.getX() for ss in catalog], [ss.getY() for ss in catalog], symbol)
+
+            #plot(sourceCat, 'k+') # Original positions: black +
+            plot(distortedCat, 'b+') # Distorted positions: blue +
+            plot(undistorted, 'g+') # Undistorted positions: green +
+            plot(refs, 'rx') # Reference catalog: red x
+            # The green + should overlap with the red x, because that's how matchOptimisticB does it.
+            # The black + happens to overlap with those also, but that's beside the point.
+            plt.show()
+
+        sourceCat = distortedCat
+
         matchRes = self.matchOptimisticB.matchObjectsToSources(
             refCat = refCat,
             sourceCat = sourceCat,
-            wcs = self.wcs,
+            wcs = self.distortedWcs,
             refFluxField = "r_flux",
         )
         matches = matchRes.matches
