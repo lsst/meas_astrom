@@ -696,18 +696,19 @@ namespace astrom {
                         double b = coeff[2];
                         double c = coeff[4];
                         double d = coeff[5];
-                        double theta = std::acos((a*b+c*d)/(std::sqrt(a*a+c*c)*std::sqrt(b*b+d*d))) /
-                            M_PI * 180.0;
+                        afw::geom::Angle const theta(std::acos((a*b+c*d)/
+                                                               (std::sqrt(a*a+c*c)*std::sqrt(b*b+d*d))),
+                                                     afw::geom::radians);
                         if (verbose) {
                             std::cout << "Linear fit from match:" << std::endl;
                             std::cout << coeff[0] << " " << coeff[1] << " " << coeff[2] << std::endl;
                             std::cout << coeff[3] << " " << coeff[4] << " " << coeff[5] << std::endl;
                             std::cout << coeff[1] * coeff[5] - coeff[2] * coeff[4] - 1. << std::endl;
-                            std::cout << theta << std::endl;
+                            std::cout << theta.asDegrees() << std::endl;
                         }
                         if (std::fabs(coeff[1] * coeff[5] - coeff[2] * coeff[4] - 1.) 
                                 > control.maxDeterminant ||
-                            std::fabs(theta - 90.) > control.allowedNonperpDeg ||
+                            std::fabs(theta.asDegrees() - 90) > control.allowedNonperpDeg ||
                             std::fabs(coeff[0]) > control.maxOffsetPix ||
                             std::fabs(coeff[3]) > control.maxOffsetPix) {
                             if (verbose) {
