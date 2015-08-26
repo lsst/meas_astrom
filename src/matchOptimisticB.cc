@@ -703,7 +703,10 @@ namespace astrom {
                             std::cout << "Linear fit from match:" << std::endl;
                             std::cout << coeff[0] << " " << coeff[1] << " " << coeff[2] << std::endl;
                             std::cout << coeff[3] << " " << coeff[4] << " " << coeff[5] << std::endl;
+                            std::cout << "Determinant (max " << control.maxDeterminant << "): ";
                             std::cout << coeff[1] * coeff[5] - coeff[2] * coeff[4] - 1. << std::endl;
+                            std::cout << "Angle between axes (deg; allowed 90 +/- ";
+                            std::cout << control.allowedNonperpDeg << "): ";
                             std::cout << theta.asDegrees() << std::endl;
                         }
                         if (std::fabs(coeff[1] * coeff[5] - coeff[2] * coeff[4] - 1.) 
