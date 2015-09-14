@@ -20,12 +20,10 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
-import math, sys
 import numpy
 
 import lsst.afw.detection as afwDetection
 import lsst.afw.geom as afwGeom
-import lsst.afw.image as afwImage
 import lsst.afw.math as afwMath
 import lsst.meas.algorithms as measAlg
 

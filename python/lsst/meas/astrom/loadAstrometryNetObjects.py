@@ -1,12 +1,8 @@
 from __future__ import absolute_import, division, print_function
 
-import os
-
-import lsst.utils
 import lsst.pipe.base as pipeBase
 from lsst.meas.algorithms import LoadReferenceObjectsTask, getRefFluxField
 from . import astrometry_net as astromNet
-from .astrometryNetDataConfig import AstrometryNetDataConfig
 from .multiindex import AstrometryNetCatalog, getConfigFromEnvironment
 
 __all__ = ["LoadAstrometryNetObjectsTask", "LoadAstrometryNetObjectsConfig"]

@@ -23,7 +23,6 @@
 #
 
 import os
-import sys
 import unittest
 
 from lsst.afw.coord import IcrsCoord

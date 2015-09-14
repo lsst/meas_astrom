@@ -23,7 +23,6 @@
 #
 
 import os
-import sys
 import unittest
 import lsst.meas.astrom            as measAstrom
 import lsst.afw.geom               as afwGeom

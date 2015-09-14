@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import os
-import sys
 import unittest
 import lsst.utils.tests as utilsTests
 import lsst.afw.table as afwTable

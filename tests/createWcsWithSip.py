@@ -25,7 +25,6 @@
 import os
 import unittest
 
-import sys
 import lsst.afw.table as afwTable
 import lsst.utils.tests as utilsTests
 import lsst.afw.geom as afwGeom
@@ -79,6 +78,7 @@ class CreateWcsWithSipCase(unittest.TestCase):
             src.set(yKey, src.get(yKey) - 500 + y0)
         bbox = afwGeom.Box2I(afwGeom.Point2I(x0, y0), afwGeom.Extent2I(1000, 1000))
         res = self.astrom.determineWcs2(cat, bbox=bbox)
+        self.assertTrue(res.sipWcs is not None, "Failed to fit SIP terms")
         print 'Got result', res
         print 'SIP:', res.sipWcs.getFitsMetadata().toString()
 
