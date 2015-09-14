@@ -127,10 +127,6 @@ class CatalogStarSelector(object):
         #
         # Read the reference catalogue
         #
-        wcs = exposure.getWcs()
-        imageSize = exposure.getDimensions()
-        filterName = exposure.getFilter().getName()
-        calib = exposure.getCalib()
         isGoodSource = CheckSource(sources, self._fluxLim, self._fluxMax, self._badStarPixelFlags)
 
         #
