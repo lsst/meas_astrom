@@ -105,28 +105,28 @@ public:
      projecting reference sources from RA,Dec to pixels using the SIP WCS, and
      comparing with the matched source pixel positions.
      */
-    double getScatterInPixels();
+    double getScatterInPixels() const;
 
     /*
      Returns the median separation between points in this object's match list,
      projecting sources from pixel space to RA,Dec using the SIP WCS, and
      comparing with the reference source RA,Dec positions.
      */
-    afw::geom::Angle getScatterOnSky();
+    afw::geom::Angle getScatterOnSky() const;
 
     /*
      Returns the median separation between points in this object's match list,
      projecting reference sources from RA,Dec to pixels using the input TAN
      (linear) WCS, and comparing with the matched source pixel positions.
      */
-    double getLinearScatterInPixels();
+    double getLinearScatterInPixels() const;
 
     /*
      Returns the median separation between points in this object's match list,
      projecting sources from pixel space to RA,Dec using the input TAN (linear)
      WCS, and comparing with the reference source RA,Dec positions.
      */
-    afw::geom::Angle getLinearScatterOnSky();
+    afw::geom::Angle getLinearScatterOnSky() const;
 
     /// Get the number of terms in the SIP matrix
     int getOrder() const { return  _sipA.rows(); }
@@ -153,14 +153,14 @@ private:
     PTR(afw::image::TanWcs) _newWcs;
 
     double _getScatterPixels(afw::image::Wcs const& wcs,
-                             std::vector<MatchT> const & matches);
+                             std::vector<MatchT> const & matches) const;
     afw::geom::Angle _getScatterSky(afw::image::Wcs const& wcs,
-                                    std::vector<MatchT> const & matches);
+                                    std::vector<MatchT> const & matches) const;
     
     void _calculateForwardMatrices();
     void _calculateReverseMatrices();
     
-    afw::geom::Point2D _getCrvalAsGeomPoint();
+    afw::geom::Point2D _getCrvalAsGeomPoint() const;
 };    
 
 /// Factory function for CreateWcsWithSip
