@@ -16,6 +16,7 @@ Python interface to lsst::meas::astrom
 #include "lsst/afw/image/Wcs.h"
 #include "lsst/afw/image/TanWcs.h"
 #include "lsst/meas/astrom/matchOptimisticB.h"
+#include "lsst/meas/astrom/makeMatchStatistics.h"
 %}
 
 %include "lsst/p_lsstSwig.i"
@@ -27,5 +28,17 @@ Python interface to lsst::meas::astrom
 
 %import "lsst/afw/table/tableLib.i"
 %import "lsst/afw/image/wcs.i"
+%import "lsst/afw/math/statistics.i"
 
 %include "lsst/meas/astrom/matchOptimisticB.h"
+
+%include "lsst/meas/astrom/makeMatchStatistics.h"
+
+%define %declareMakeMatchStatisticsFunctions(MATCH)
+%template(makeMatchStatistics) lsst::meas::astrom::makeMatchStatistics<MATCH>;
+%template(makeMatchStatisticsInPixels) lsst::meas::astrom::makeMatchStatisticsInPixels<MATCH>;
+%template(makeMatchStatisticsInRadians) lsst::meas::astrom::makeMatchStatisticsInRadians<MATCH>;
+%enddef
+
+%declareMakeMatchStatisticsFunctions(lsst::afw::table::ReferenceMatch);
+%declareMakeMatchStatisticsFunctions(lsst::afw::table::SourceMatch);
