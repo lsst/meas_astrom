@@ -170,11 +170,6 @@ private:
 
     PTR(afw::image::TanWcs) _newWcs;
 
-    double _getScatterPixels(afw::image::Wcs const& wcs,
-                             std::vector<MatchT> const & matches) const;
-    afw::geom::Angle _getScatterSky(afw::image::Wcs const& wcs,
-                                    std::vector<MatchT> const & matches) const;
-    
     void _calculateForwardMatrices();
     void _calculateReverseMatrices();
     
