@@ -29,9 +29,11 @@
 
 #include "lsst/pex/exceptions/Runtime.h"
 #include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
+#include "lsst/afw/geom/Angle.h"
 #include "lsst/afw/math/Statistics.h"
 #include "lsst/afw/image/TanWcs.h"
 #include "lsst/pex/logging/Log.h"
+#include "lsst/meas/astrom/makeMatchStatistics.h"
 
 namespace lsst { 
 namespace meas { 
@@ -349,77 +351,28 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
 template<class MatchT>
 double CreateWcsWithSip<MatchT>::getScatterInPixels() const {
     assert(_newWcs.get());
-    return _getScatterPixels(*_newWcs, _matches);
+    return makeMatchStatisticsInPixels(*_newWcs, _matches, afw::math::MEDIAN).getValue();
 }
 
 template<class MatchT>
 double CreateWcsWithSip<MatchT>::getLinearScatterInPixels() const {
     assert(_linearWcs.get());
-    return _getScatterPixels(*_linearWcs, _matches);
+    return makeMatchStatisticsInPixels(*_linearWcs, _matches, afw::math::MEDIAN).getValue();
 }
-
-template<class MatchT>
-double CreateWcsWithSip<MatchT>::_getScatterPixels(
-    afwImg::Wcs const& wcs,
-    std::vector<MatchT> const & matches) const {
-    std::vector<double> val;
-    val.reserve(matches.size());
-
-    for (
-        typename std::vector<MatchT>::const_iterator ptr = matches.begin();
-        ptr != matches.end();
-        ++ptr
-    ) {
-        afwTable::ReferenceMatch const & match = *ptr;
-        PTR(afwTable::SimpleRecord) cat = match.first;
-        PTR(afwTable::SourceRecord) src = match.second;
-        double imgX = src->getX();
-        double imgY = src->getY();
-        afwGeom::Point2D xy = wcs.skyToPixel(cat->getCoord());
-        double catX = xy[0];
-        double catY = xy[1];
-        val.push_back(::hypot(imgX - catX, imgY - catY));
-   }
-    return afwMath::makeStatistics(val, afwMath::MEDIAN).getValue();
-}
-    
 
 template<class MatchT>
 afwGeom::Angle CreateWcsWithSip<MatchT>::getScatterOnSky() const {
     assert(_newWcs.get());
-    return _getScatterSky(*_newWcs, _matches);
+    return makeMatchStatisticsInRadians(
+        *_newWcs, _matches, afw::math::MEDIAN).getValue()*afw::geom::radians;
 }
 
 template<class MatchT>
 afwGeom::Angle CreateWcsWithSip<MatchT>::getLinearScatterOnSky() const {
     assert(_linearWcs.get());
-    return _getScatterSky(*_linearWcs, _matches);
+    return makeMatchStatisticsInRadians(
+        *_linearWcs, _matches, afw::math::MEDIAN).getValue()*afw::geom::radians;
 }
-
-template<class MatchT>
-afwGeom::Angle CreateWcsWithSip<MatchT>::_getScatterSky(
-    afwImg::Wcs const & wcs,
-    std::vector<MatchT> const & matches) const {
-    std::vector<double> val;
-    val.reserve(matches.size());
-
-    for (
-        typename std::vector<MatchT>::const_iterator ptr = matches.begin();
-        ptr != matches.end();
-        ++ptr
-    ) {
-        afwTable::ReferenceMatch const & match = *ptr;
-        PTR(afwTable::SimpleRecord) cat = match.first;
-        PTR(afwTable::SourceRecord) src = match.second;
-        afwCoord::IcrsCoord catRadec = cat->getCoord();
-        CONST_PTR(afwCoord::Coord) imgRadec = wcs.pixelToSky(src->getCentroid());
-        afwGeom::Angle sep = catRadec.angularSeparation(*imgRadec);
-        val.push_back(sep.asDegrees());
-    }
-    assert(val.size() > 0);
-    return afwMath::makeStatistics(val, afwMath::MEDIAN).getValue()*afwGeom::degrees;
-}
-
 
 template<class MatchT>
 afwGeom::Point2D CreateWcsWithSip<MatchT>::_getCrvalAsGeomPoint() const {
