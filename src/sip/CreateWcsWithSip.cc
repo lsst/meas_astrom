@@ -347,13 +347,13 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
 }
 
 template<class MatchT>
-double CreateWcsWithSip<MatchT>::getScatterInPixels() {
+double CreateWcsWithSip<MatchT>::getScatterInPixels() const {
     assert(_newWcs.get());
     return _getScatterPixels(*_newWcs, _matches);
 }
 
 template<class MatchT>
-double CreateWcsWithSip<MatchT>::getLinearScatterInPixels() {
+double CreateWcsWithSip<MatchT>::getLinearScatterInPixels() const {
     assert(_linearWcs.get());
     return _getScatterPixels(*_linearWcs, _matches);
 }
@@ -361,7 +361,7 @@ double CreateWcsWithSip<MatchT>::getLinearScatterInPixels() {
 template<class MatchT>
 double CreateWcsWithSip<MatchT>::_getScatterPixels(
     afwImg::Wcs const& wcs,
-    std::vector<MatchT> const & matches) {
+    std::vector<MatchT> const & matches) const {
     std::vector<double> val;
     val.reserve(matches.size());
 
@@ -385,13 +385,13 @@ double CreateWcsWithSip<MatchT>::_getScatterPixels(
     
 
 template<class MatchT>
-afwGeom::Angle CreateWcsWithSip<MatchT>::getScatterOnSky() {
+afwGeom::Angle CreateWcsWithSip<MatchT>::getScatterOnSky() const {
     assert(_newWcs.get());
     return _getScatterSky(*_newWcs, _matches);
 }
 
 template<class MatchT>
-afwGeom::Angle CreateWcsWithSip<MatchT>::getLinearScatterOnSky() {
+afwGeom::Angle CreateWcsWithSip<MatchT>::getLinearScatterOnSky() const {
     assert(_linearWcs.get());
     return _getScatterSky(*_linearWcs, _matches);
 }
@@ -399,7 +399,7 @@ afwGeom::Angle CreateWcsWithSip<MatchT>::getLinearScatterOnSky() {
 template<class MatchT>
 afwGeom::Angle CreateWcsWithSip<MatchT>::_getScatterSky(
     afwImg::Wcs const & wcs,
-    std::vector<MatchT> const & matches) {
+    std::vector<MatchT> const & matches) const {
     std::vector<double> val;
     val.reserve(matches.size());
 
@@ -422,7 +422,7 @@ afwGeom::Angle CreateWcsWithSip<MatchT>::_getScatterSky(
 
 
 template<class MatchT>
-afwGeom::Point2D CreateWcsWithSip<MatchT>::_getCrvalAsGeomPoint() {
+afwGeom::Point2D CreateWcsWithSip<MatchT>::_getCrvalAsGeomPoint() const {
     afwCoord::Fk5Coord coo = _linearWcs->getSkyOrigin()->toFk5();
     return coo.getPosition(afwGeom::degrees);
 }
