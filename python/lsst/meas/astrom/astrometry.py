@@ -140,6 +140,7 @@ class AstrometryTask(pipeBase.Task):
         """!Construct an AstrometryTask
 
         @param[in] schema  ignored; available for compatibility with an older astrometry task
+        @param[in] kwargs  additional keyword arguments for pipe_base Task.\_\_init\_\_
         """
         pipeBase.Task.__init__(self, **kwargs)
         self.makeSubtask("refObjLoader")
