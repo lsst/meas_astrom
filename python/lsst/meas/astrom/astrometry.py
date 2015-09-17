@@ -209,7 +209,7 @@ class AstrometryTask(pipeBase.Task):
             sourceCat = sourceCat,
             wcs = expMd.wcs,
             refFluxField = loadRes.fluxField,
-            maxMatchDistArcSec = None,
+            maxMatchDist = None,
         )
 
         distStats = self._computeMatchStatsOnSky(matchRes.matches)
@@ -285,7 +285,7 @@ class AstrometryTask(pipeBase.Task):
                     bbox = expMd.bbox,
                     wcs = wcs,
                     exposure = exposure,
-                    maxMatchDistArcSec = maxMatchDist.asArcseconds() if maxMatchDist else None,
+                    maxMatchDist = maxMatchDist,
                 )
             except Exception as e:
                 # if we have had a succeessful iteration then use that; otherwise fail
@@ -374,7 +374,7 @@ class AstrometryTask(pipeBase.Task):
         )
 
     @pipeBase.timeMethod
-    def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, maxMatchDistArcSec=None,
+    def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, maxMatchDist=None,
         exposure=None):
         """!Match sources to reference objects and fit a WCS
 
@@ -383,8 +383,8 @@ class AstrometryTask(pipeBase.Task):
         @param[in] refFluxField  field of refCat to use for flux
         @param[in] bbox  bounding box of exposure (an lsst.afw.geom.Box2I)
         @param[in] wcs  initial guess for WCS of exposure (an lsst.afw.image.Wcs)
-        @param[in] maxMatchDistArcSec  maximum distance between reference objects and sources (arcsec);
-            if None then use the matcher's default
+        @param[in] maxMatchDist  maximum on-sky distance between reference objects and sources
+            (an lsst.afw.geom.Angle); if None then use the matcher's default
         @param[in] exposure  exposure whose WCS is to be fit, or None; used only for the debug display
 
         @return an lsst.pipe.base.Struct with these fields:
@@ -400,7 +400,7 @@ class AstrometryTask(pipeBase.Task):
             sourceCat = sourceCat,
             wcs = wcs,
             refFluxField = refFluxField,
-            maxMatchDistArcSec = maxMatchDistArcSec,
+            maxMatchDist = maxMatchDist,
         )
         self.log.logdebug("Found %s matches" % (len(matchRes.matches),))
         if debug.display:

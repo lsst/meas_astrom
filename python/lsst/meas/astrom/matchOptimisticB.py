@@ -225,7 +225,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         return refCat
 
     @pipeBase.timeMethod
-    def matchObjectsToSources(self, refCat, sourceCat, wcs, refFluxField, maxMatchDistArcSec=None):
+    def matchObjectsToSources(self, refCat, sourceCat, wcs, refFluxField, maxMatchDist=None):
         """!Match sources to position reference stars
 
         @param[in] refCat  catalog of reference objects that overlap the exposure; reads fields for:
@@ -239,9 +239,9 @@ class MatchOptimisticBTask(pipeBase.Task):
             - aperture flux, if found, else PSF flux
         @param[in] wcs  estimated WCS
         @param[in] refFluxField  field of refCat to use for flux
-        @param[in] maxMatchDistArcSec  maximum distance between reference objects and sources (arcsec);
-            if specified then min(config.maxMatchDistArcSec, maxMatchDistArcSec) is used
-            if None then config.maxMatchDistArcSec is used
+        @param[in] maxMatchDist  maximum on-sky distance between reference objects and sources
+            (an lsst.afw.geom.Angle); if specified then the smaller of config.maxMatchDistArcSec or
+            maxMatchDist is used; if None then config.maxMatchDistArcSec is used
         @return an lsst.pipe.base.Struct with fields:
         - matches  a list of matches, each instance of lsst.afw.table.ReferenceMatch
         - usableSourcCat  a catalog of sources potentially usable for matching.
@@ -288,7 +288,7 @@ class MatchOptimisticBTask(pipeBase.Task):
             refFluxField = refFluxField,
             numUsableSources = numUsableSources,
             minMatchedPairs = minMatchedPairs,
-            maxMatchDistArcSec = maxMatchDistArcSec,
+            maxMatchDist = maxMatchDist,
             sourceInfo = sourceInfo,
             verbose = debug.verbose,
         )
@@ -316,7 +316,7 @@ class MatchOptimisticBTask(pipeBase.Task):
 
     @pipeBase.timeMethod
     def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numUsableSources, minMatchedPairs,
-        maxMatchDistArcSec, sourceInfo, verbose):
+        maxMatchDist, sourceInfo, verbose):
         """!Implementation of matching sources to position reference stars
 
         Unlike matchObjectsToSources, this method does not check if the sources are suitable.
@@ -328,9 +328,9 @@ class MatchOptimisticBTask(pipeBase.Task):
         @param[in] numUsableSources  number of usable sources (sources with known centroid
             that are not near the edge, but may be saturated)
         @param[in] minMatchedPairs  minimum number of matches
-        @param[in] maxMatchDistArcSec  maximum distance between reference objects and sources (arcsec);
-            if specified then min(config.maxMatchDistArcSec, maxMatchDistArcSec) is used
-            if None then config.maxMatchDistArcSec is used
+        @param[in] maxMatchDist  maximum on-sky distance between reference objects and sources
+            (an lsst.afw.geom.Angle); if specified then the smaller of config.maxMatchDistArcSec or
+            maxMatchDist is used; if None then config.maxMatchDistArcSec is used
         @param[in] sourceInfo  SourceInfo for the sourceCat
         @param[in] verbose  true to print diagnostic information to std::cout
 
@@ -338,10 +338,10 @@ class MatchOptimisticBTask(pipeBase.Task):
         """
         numSources = len(sourceCat)
         posRefBegInd = numUsableSources - numSources
-        if maxMatchDistArcSec is None:
+        if maxMatchDist is None:
             maxMatchDistArcSec = self.config.maxMatchDistArcSec
         else:
-            maxMatchDistArcSec = min(maxMatchDistArcSec, self.config.maxMatchDistArcSec)
+            maxMatchDistArcSec = min(maxMatchDist.asArcseconds(), self.config.maxMatchDistArcSec)
         configMatchDistPix = maxMatchDistArcSec/wcs.pixelScale().asArcseconds()
 
         matchControl = MatchOptimisticBControl()
