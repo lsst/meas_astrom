@@ -230,6 +230,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         @param[in] config  configuration (an instance of self.ConfigClass)
         @param[in] andConfig  astrometry.net data config (an instance of AstromNetDataConfig, or None);
             if None then use andConfig.py in the astrometry_net_data product (which must be setup)
+        @param[in] kwargs  additional keyword arguments for pipe_base Task.\_\_init\_\_
 
         @throw RuntimeError if andConfig is None and the configuration cannot be found,
             either because astrometry_net_data is not setup in eups
@@ -556,7 +557,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         @param[in] wcs  initial WCS
         @param[in] bbox  bounding box of image
         @param[in] ngrid  number of grid points along x and y for fitting (fit at ngrid^2 points)
-        @param[in] linearizeCenter  if True, get a linear approximation of the input
+        @param[in] linearizeAtCenter  if True, get a linear approximation of the input
           WCS at the image center and use that as the TAN initialization for
           the TAN-SIP solution.  You probably want this if your WCS has its
           CRPIX outside the image bounding box.
