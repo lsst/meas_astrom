@@ -23,7 +23,6 @@
 #
 
 import os
-import sys
 import unittest
 import lsst.meas.astrom            as measAstrom
 import lsst.afw.geom               as afwGeom
@@ -70,7 +69,7 @@ class MultiIndexTest(unittest.TestCase):
     def _testGetSolution(self, **kwargs):
         res = self.getAstrometrySolution(logLevel=Log.DEBUG, **kwargs)
         self.assertTrue(res is not None)
-        self.assertTrue(len(res.getMatches()) > 50)
+        self.assertGreater(len(res.getMatches()), 50)
 
     # This is the "vanilla" no-multiIndex setup
     def testMultiIndexA(self):
@@ -150,7 +149,7 @@ class MultiIndexTest(unittest.TestCase):
 
         # Number of used file descriptors should not grow.  Magic 10
         # is just margin from other things going on in the python process
-        self.assertTrue(fd1 < (fd0 + 10))
+        self.assertLess(fd1, fd0 + 10)
 
         res = astrom.determineWcs(self.srcCat, self.exposure, bbox=self.bbox)
 
@@ -162,7 +161,7 @@ class MultiIndexTest(unittest.TestCase):
 
         # Number of used file descriptors should not grow.  Magic 10
         # is just margin from other things going on in the python process
-        self.assertTrue(fd2 < (fd0 + 10))
+        self.assertLess(fd2, fd0 + 10)
 
         del res
         del astrom

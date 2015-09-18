@@ -1,12 +1,8 @@
 from __future__ import absolute_import, division, print_function
 
-import os
-
-import lsst.utils
 import lsst.pipe.base as pipeBase
 from lsst.meas.algorithms import LoadReferenceObjectsTask, getRefFluxField
 from . import astrometry_net as astromNet
-from .astrometryNetDataConfig import AstrometryNetDataConfig
 from .multiindex import AstrometryNetCatalog, getConfigFromEnvironment
 
 __all__ = ["LoadAstrometryNetObjectsTask", "LoadAstrometryNetObjectsConfig"]
@@ -69,6 +65,7 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
         @param[in] config  configuration (an instance of self.ConfigClass)
         @param[in] andConfig  astrometry.net data config (an instance of AstromNetDataConfig, or None);
             if None then use andConfig.py in the astrometry_net_data product (which must be setup)
+        @param[in] kwargs  additional keyword arguments for pipe_base Task.\_\_init\_\_
 
         @throw RuntimeError if andConfig is None and the configuration cannot be found,
             either because astrometry_net_data is not setup in eups

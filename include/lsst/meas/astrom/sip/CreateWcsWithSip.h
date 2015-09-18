@@ -51,38 +51,38 @@ namespace astrom {
 namespace sip {
 
 
-///
-/// \brief Measure the distortions in an image plane and express them a SIP polynomials 
-///
-/// Given a list of matching sources between a catalogue and an image,
-/// and a linear Wcs that describes the mapping from pixel space in the image
-/// and ra/dec space in the catalogue, calculate discrepancies between the two
-/// and compute SIP distortion polynomials to describe the discrepancy
-///
-/// SIP polynomials are defined in Shupe at al. (2005) ASPC 347 491.
-///
-/// Note that the SIP standard insists (although it is only mentioned obliquly
-/// between Eqns 3 and 4) that the lowest three terms in the distortion
-/// polynomials be zero (A00, A10, A01, B00, etc.). To achieve this, we need to 
-/// adjust the values of CD and CRPIX from the input wcs. This may not be the 
-/// behaviour you expect.
-/// 
-/// A Wcs may be created in a variety of ways (e.g. lsst::meas::astrom::net::GlobalAstrometrySolution ), 
-/// and the list of matched sources (matches) can be generated with the matchRaDec function.
-/// 
-/// \code
-/// #Example usage 
-/// matches = matchRaDec(catSet, srcSet, 1.0*afwGeom.arcseconds, true)
-/// wcs = getWcsFromSomewhere()
-/// 
-/// maxScatter=0.1
-/// maxOrder= 10
-/// sipObject = CreateWcsWithSip(matches, wcs, maxScatter, maxOrder)
-/// wcs = sipObject.getNewWcs()
-/// \endcode
-/// 
-/// Note that the matches must be one-to-one; this is ensured by passing closest=true to matchRaDec.
-///
+/**
+ \brief Measure the distortions in an image plane and express them a SIP polynomials 
+
+ Given a list of matching sources between a catalogue and an image,
+ and a linear Wcs that describes the mapping from pixel space in the image
+ and ra/dec space in the catalogue, calculate discrepancies between the two
+ and compute SIP distortion polynomials to describe the discrepancy
+
+ SIP polynomials are defined in Shupe at al. (2005) ASPC 347 491.
+
+ Note that the SIP standard insists (although it is only mentioned obliquly
+ between Eqns 3 and 4) that the lowest three terms in the distortion
+ polynomials be zero (A00, A10, A01, B00, etc.). To achieve this, we need to 
+ adjust the values of CD and CRPIX from the input wcs. This may not be the 
+ behaviour you expect.
+
+ A Wcs may be created in a variety of ways (e.g. lsst::meas::astrom::net::GlobalAstrometrySolution ), 
+ and the list of matched sources (matches) can be generated with the matchRaDec function.
+
+ \code
+ #Example usage 
+ matches = matchRaDec(catSet, srcSet, 1.0*afwGeom.arcseconds, true)
+ wcs = getWcsFromSomewhere()
+
+ maxScatter=0.1
+ maxOrder= 10
+ sipObject = CreateWcsWithSip(matches, wcs, maxScatter, maxOrder)
+ wcs = sipObject.getNewWcs()
+ \endcode
+
+ Note that the matches must be one-to-one; this is ensured by passing closest=true to matchRaDec.
+ */
 template<class MatchT>
 class CreateWcsWithSip {
 public:
@@ -90,6 +90,20 @@ public:
     typedef boost::shared_ptr<CreateWcsWithSip> Ptr;
     typedef boost::shared_ptr<CreateWcsWithSip const> ConstPtr;
 
+    /**
+     Construct a CreateWcsWithSip
+
+     \param[in] matches  list of matches
+     \param[in] linearWcs  initial WCS, typically pure TAN but need not be
+     \param[in] order  SIP order for fit WCS
+     \param[in] bbox  bounding box over which to compute the reverse SIP transform.
+                         If empty then a bounding box is computed based on the matches,
+                         extended a bit to allow for the fact that the sources
+                         will not necessarily reach to each edge of the image.
+                         Specifially the box is grown by dimensions/sqrt(number of matches).
+     \param[in] ngrid  number of points along x or y for the grid of points on which
+                         the reverse SIP transform is computed
+     */
     CreateWcsWithSip(
         std::vector<MatchT> const & matches,
         afw::image::Wcs const & linearWcs,
@@ -100,35 +114,39 @@ public:
 
     PTR(afw::image::TanWcs) getNewWcs() { return _newWcs; }
 
-    /*
-     Returns the median separation between points in this object's match list,
-     projecting reference sources from RA,Dec to pixels using the SIP WCS, and
-     comparing with the matched source pixel positions.
-     */
-    double getScatterInPixels();
+    /**
+     Compute the median separation, in pixels, between items in this object's match list
 
-    /*
-     Returns the median separation between points in this object's match list,
-     projecting sources from pixel space to RA,Dec using the SIP WCS, and
-     comparing with the reference source RA,Dec positions.
+     For each match, project the reference object coord to pixels using the fit TAN-SIP WCS,
+     and measure the radial separation to the source centroid
      */
-    afw::geom::Angle getScatterOnSky();
+    double getScatterInPixels() const;
 
-    /*
-     Returns the median separation between points in this object's match list,
-     projecting reference sources from RA,Dec to pixels using the input TAN
-     (linear) WCS, and comparing with the matched source pixel positions.
+    /**
+     Compute the median on-sky separation between items in this object's match list
+
+     For each match, project the source centroid to RA,Dec using the fit TAN-SIP WCS,
+     and measure the on-sky angular separation to the reference source coord.
      */
-    double getLinearScatterInPixels();
+    afw::geom::Angle getScatterOnSky() const;
 
-    /*
-     Returns the median separation between points in this object's match list,
-     projecting sources from pixel space to RA,Dec using the input TAN (linear)
-     WCS, and comparing with the reference source RA,Dec positions.
+    /**
+     Compute the median radial separation between items in this object's match list
+
+     For each match, project the reference object coord to pixels using the initial "linearWcs" WCS,
+     and measure the radial separation to the source centroid.
      */
-    afw::geom::Angle getLinearScatterOnSky();
+    double getLinearScatterInPixels() const;
 
-    /// Get the number of terms in the SIP matrix
+    /**
+     Compute the median on-sky separation between items in this object's match list,
+
+     For each match, project the source centroid to RA,Dec using the initial "linearWcs" WCS,
+     and measure the on-sky angular separation to the reference source coord.
+     */
+    afw::geom::Angle getLinearScatterOnSky() const;
+
+    /// Return the number of terms in the SIP matrix
     int getOrder() const { return  _sipA.rows(); }
     /// Return the number of points in the catalogue
     int getNPoints() const { return _matches.size(); }
@@ -152,15 +170,10 @@ private:
 
     PTR(afw::image::TanWcs) _newWcs;
 
-    double _getScatterPixels(afw::image::Wcs const& wcs,
-                             std::vector<MatchT> const & matches);
-    afw::geom::Angle _getScatterSky(afw::image::Wcs const& wcs,
-                                    std::vector<MatchT> const & matches);
-    
     void _calculateForwardMatrices();
     void _calculateReverseMatrices();
     
-    afw::geom::Point2D _getCrvalAsGeomPoint();
+    afw::geom::Point2D _getCrvalAsGeomPoint() const;
 };    
 
 /// Factory function for CreateWcsWithSip

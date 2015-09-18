@@ -12,11 +12,13 @@ import lsst.pex.exceptions as pexExceptions
 import lsst.pipe.base as pipeBase
 import lsst.afw.coord as afwCoord
 import lsst.afw.geom as afwGeom
+import lsst.afw.math as afwMath
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.meas.algorithms.utils as maUtils
 from .loadAstrometryNetObjects import LoadAstrometryNetObjectsTask, LoadMultiIndexes
 from .display import displayAstrometry
+from .astromLib import makeMatchStatisticsInRadians
 
 from . import sip as astromSip
 
@@ -168,6 +170,22 @@ class ANetBasicAstrometryConfig(LoadAstrometryNetObjectsTask.ConfigClass):
         dtype = bool,
         default = True,
     )
+    maxIter = RangeField(
+        doc = "maximum number of iterations of match sources and fit WCS" +
+            "ignored if not fitting a WCS",
+        dtype = int,
+        default = 5,
+        min = 1,
+    )
+    matchDistanceSigma = RangeField(
+        doc = "The match and fit loop stops when maxMatchDist minimized: "
+            " maxMatchDist = meanMatchDist + matchDistanceSigma*stdDevMatchDistance " +
+            " (where the mean and std dev are computed using outlier rejection);" +
+            " ignored if not fitting a WCS",
+        dtype = float,
+        default = 2,
+        min = 0,
+    )
 
 
 class ANetBasicAstrometryTask(pipeBase.Task):
@@ -212,6 +230,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         @param[in] config  configuration (an instance of self.ConfigClass)
         @param[in] andConfig  astrometry.net data config (an instance of AstromNetDataConfig, or None);
             if None then use andConfig.py in the astrometry_net_data product (which must be setup)
+        @param[in] kwargs  additional keyword arguments for pipe_base Task.\_\_init\_\_
 
         @throw RuntimeError if andConfig is None and the configuration cannot be found,
             either because astrometry_net_data is not setup in eups
@@ -538,7 +557,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         @param[in] wcs  initial WCS
         @param[in] bbox  bounding box of image
         @param[in] ngrid  number of grid points along x and y for fitting (fit at ngrid^2 points)
-        @param[in] linearizeCenter  if True, get a linear approximation of the input
+        @param[in] linearizeAtCenter  if True, get a linear approximation of the input
           WCS at the image center and use that as the TAN initialization for
           the TAN-SIP solution.  You probably want this if your WCS has its
           CRPIX outside the image bounding box.
@@ -619,44 +638,45 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         sipOrder = self.config.sipOrder
         wcs = origWcs
 
-        i=0
-        lastScatPix = None
-        while True:
+        lastMatchSize = len(matches)
+        lastMatchStats = self._computeMatchStatsOnSky(wcs=wcs, matchList=matches)
+        for i in range(self.config.maxIter):
+            # fit SIP terms
             try:
                 sipObject = astromSip.makeCreateWcsWithSip(matches, wcs, sipOrder, bbox)
-                if lastScatPix is None:
-                    lastScatPix = sipObject.getLinearScatterInPixels()
                 proposedWcs = sipObject.getNewWcs()
-                scatPix = sipObject.getScatterInPixels()
                 self.plotSolution(matches, proposedWcs, bbox.getDimensions())
             except pexExceptions.Exception as e:
                 self.log.warn('Failed to calculate distortion terms. Error: ' + str(e))
                 break
 
-            matchSize = len(matches)
             # use new WCS to get new matchlist.
             proposedMatchlist = self._getMatchList(sourceCat, refCat, proposedWcs)
+            proposedMatchSize = len(proposedMatchlist)
+            proposedMatchStats = self._computeMatchStatsOnSky(wcs=proposedWcs, matchList=proposedMatchlist)
 
-            self.log.logdebug('SIP iteration %i: %i objects match.  Median scatter is %g arcsec = %g pixels (vs previous: %i matches, %g pixels)' %
-                        (i, len(proposedMatchlist), sipObject.getScatterOnSky().asArcseconds(),
-                            scatPix, matchSize, lastScatPix))
-            # Hack convergence tests
-            if len(proposedMatchlist) < matchSize:
+            self.log.logdebug(
+                "SIP iteration %i: %i objects match, previous = %i;" %
+                    (i, proposedMatchSize, lastMatchSize) +
+                " clipped mean scatter = %s arcsec, previous = %s; " %
+                    (proposedMatchStats.distMean.asArcseconds(), lastMatchStats.distMean.asArcseconds()) +
+                " max match dist = %s arcsec, previous = %s" % 
+                    (proposedMatchStats.maxMatchDist.asArcseconds(),
+                        lastMatchStats.maxMatchDist.asArcseconds())
+            )
+
+            if lastMatchStats.maxMatchDist <= proposedMatchStats.maxMatchDist:
                 self.log.logdebug(
-                    "Fit WCS: use iter %s because it had more matches than the next iter: %s vs. %s" % \
-                    (i, matchSize, len(proposedMatchlist)))
+                    "Fit WCS: use iter %s because max match distance no better in next iter: " % (i-1,) +
+                    " %g < %g arcsec" % (lastMatchStats.maxMatchDist.asArcseconds(),
+                                        proposedMatchStats.maxMatchDist.asArcseconds()))
                 break
-            if len(proposedMatchlist) == matchSize and scatPix >= lastScatPix:
-                self.log.logdebug(
-            "Fit WCS: use iter %s because it had less linear scatter than the next iter: %g vs. %g pixels" % \
-                    (i, lastScatPix, scatPix))
-                break
+
 
             wcs = proposedWcs
             matches = proposedMatchlist
-            lastScatPix = scatPix
-            matchSize = len(matches)
-            i += 1
+            lastMatchSize = proposedMatchSize
+            lastMatchStats = proposedMatchStats
 
         return wcs, matches
 
@@ -737,6 +757,28 @@ class ANetBasicAstrometryTask(pipeBase.Task):
                 elif reply == "Q":
                     sys.exit(1)
                 break
+
+    def _computeMatchStatsOnSky(self, wcs, matchList):
+        """Compute on-sky radial distance statistics for a match list
+
+        @param[in] wcs  WCS for match list; an lsst.afw.image.Wcs
+        @param[in] matchList  list of matches between reference object and sources;
+            a list of lsst.afw.table.ReferenceMatch;
+            the source centroid and reference object coord are read
+
+        @return a pipe_base Struct containing these fields:
+        - distMean  clipped mean of on-sky radial separation
+        - distStdDev  clipped standard deviation of on-sky radial separation
+        - maxMatchDist  distMean + self.config.matchDistanceSigma*distStdDev
+        """
+        distStatsInRadians = makeMatchStatisticsInRadians(wcs, matchList, afwMath.MEANCLIP | afwMath.STDEVCLIP)
+        distMean = distStatsInRadians.getValue(afwMath.MEANCLIP)*afwGeom.radians
+        distStdDev = distStatsInRadians.getValue(afwMath.STDEVCLIP)*afwGeom.radians
+        return pipeBase.Struct(
+            distMean = distMean,
+            distStdDev = distStdDev,
+            maxMatchDist = distMean + self.config.matchDistanceSigma*distStdDev,
+        )
 
     def _getMatchList(self, sourceCat, refCat, wcs):
         dist = self.config.catalogMatchDist * afwGeom.arcseconds

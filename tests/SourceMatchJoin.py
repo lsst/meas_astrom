@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import os
-import sys
 import unittest
 import lsst.utils.tests as utilsTests
 import lsst.afw.table as afwTable
@@ -77,7 +76,7 @@ class matchlistTestCase(unittest.TestCase):
         normalized.table.setMetadata(matchmeta)
 
         matches2 = self.astrom.joinMatchListWithCatalog(normalized, self.srcSet)
-        self.assertTrue(len(matches2) > 0)
+        self.assertGreater(len(matches2), 0)
         ref = matches2[0][0]
 
         names = ref.getSchema().getNames()
