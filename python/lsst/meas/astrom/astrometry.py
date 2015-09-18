@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 from lsst.daf.base import PropertyList
 from lsst.afw.image.utils import getDistortedWcs
-from lsst.afw.geom import Box2D, radToArcsec
+import lsst.afw.geom as afwGeom
 import lsst.afw.math as afwMath
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
@@ -10,6 +10,7 @@ from .loadAstrometryNetObjects import LoadAstrometryNetObjectsTask
 from .matchOptimisticB import MatchOptimisticBTask
 from .fitTanSipWcs import FitTanSipWcsTask
 from .display import displayAstrometry
+from .astromLib import makeMatchStatistics
 
 class AstrometryConfig(pexConfig.Config):
     refObjLoader = pexConfig.ConfigurableField(
@@ -139,6 +140,7 @@ class AstrometryTask(pipeBase.Task):
         """!Construct an AstrometryTask
 
         @param[in] schema  ignored; available for compatibility with an older astrometry task
+        @param[in] kwargs  additional keyword arguments for pipe_base Task.\_\_init\_\_
         """
         pipeBase.Task.__init__(self, **kwargs)
         self.makeSubtask("refObjLoader")
@@ -208,16 +210,14 @@ class AstrometryTask(pipeBase.Task):
             sourceCat = sourceCat,
             wcs = expMd.wcs,
             refFluxField = loadRes.fluxField,
-            maxMatchDistArcSec = None,
+            maxMatchDist = None,
         )
 
-        distRadList = [match.distance for match in matchRes.matches]
-        distRadStats = afwMath.makeStatistics(distRadList, afwMath.MEANCLIP | afwMath.STDEVCLIP)
-        distArcsecMean = radToArcsec(distRadStats.getValue(afwMath.MEANCLIP))
-        distArcsecStdDev = radToArcsec(distRadStats.getValue(afwMath.STDEVCLIP))
+        distStats = self._computeMatchStatsOnSky(matchRes.matches)
         self.log.info(
             "Found %d matches with scatter = %0.3f +- %0.3f arcsec; " %
-            (len(matchRes.matches), distArcsecMean, distArcsecStdDev))
+            (len(matchRes.matches), distStats.distMean.asArcseconds(), distStats.distStdDev.asArcseconds())
+        )
 
         if debug.display:
             frame = int(debug.frame)
@@ -275,7 +275,7 @@ class AstrometryTask(pipeBase.Task):
 
         res = None
         wcs = expMd.wcs
-        maxMatchDistArcSec = None
+        maxMatchDist = None
         for i in range(self.config.maxIter):
             iterNum = i + 1
             try:
@@ -286,7 +286,7 @@ class AstrometryTask(pipeBase.Task):
                     bbox = expMd.bbox,
                     wcs = wcs,
                     exposure = exposure,
-                    maxMatchDistArcSec = maxMatchDistArcSec,
+                    maxMatchDist = maxMatchDist,
                 )
             except Exception as e:
                 # if we have had a succeessful iteration then use that; otherwise fail
@@ -297,37 +297,34 @@ class AstrometryTask(pipeBase.Task):
                 else:
                     raise
 
-            distRadList = [match.distance for match in tryRes.matches]
-            distRadStats = afwMath.makeStatistics(distRadList, afwMath.MEANCLIP | afwMath.STDEVCLIP)
-            distArcsecMean = radToArcsec(distRadStats.getValue(afwMath.MEANCLIP))
-            distArcsecStdDev = radToArcsec(distRadStats.getValue(afwMath.STDEVCLIP))
-
-            newMaxMatchDistArcSec = distArcsecMean + self.config.matchDistanceSigma*distArcsecStdDev
+            tryMatchDist = self._computeMatchStatsOnSky(tryRes.matches)
             self.log.logdebug(
                 "Match and fit WCS iteration %d: found %d matches with scatter = %0.3f +- %0.3f arcsec; "
                 "max match distance = %0.3f arcsec" %
-                (iterNum, len(tryRes.matches), distArcsecMean, distArcsecStdDev, newMaxMatchDistArcSec))
-            if maxMatchDistArcSec is not None:
-                if newMaxMatchDistArcSec >= maxMatchDistArcSec:
+                (iterNum, len(tryRes.matches), tryMatchDist.distMean.asArcseconds(),
+                 tryMatchDist.distStdDev.asArcseconds(), tryMatchDist.maxMatchDist.asArcseconds()))
+            if maxMatchDist is not None:
+                if tryMatchDist.maxMatchDist >= maxMatchDist:
                     self.log.logdebug(
                         "Iteration %d had no better maxMatchDist; using previous iteration" %  (iterNum,))
                     iterNum -= 1
                     break
 
-            maxMatchDistArcSec = newMaxMatchDistArcSec
+            maxMatchDist = tryMatchDist.maxMatchDist
             res = tryRes
             wcs = res.wcs
-            if newMaxMatchDistArcSec < self.config.minMatchDistanceArcSec:
+            if tryMatchDist.maxMatchDist.asArcseconds() < self.config.minMatchDistanceArcSec:
                 self.log.logdebug(
                     "Max match distance = %0.3f arcsec < %0.3f = config.minMatchDistanceArcSec; "
                     "that's good enough" %
-                    (newMaxMatchDistArcSec, self.config.minMatchDistanceArcSec))
+                    (tryMatchDist.maxMatchDist.asArcseconds(), self.config.minMatchDistanceArcSec))
                 break
 
         self.log.info(
             "Matched and fit WCS in %d iterations; "
             "found %d matches with scatter = %0.3f +- %0.3f arcsec" %
-            (iterNum, len(tryRes.matches), distArcsecMean, distArcsecStdDev))
+            (iterNum, len(tryRes.matches), tryMatchDist.distMean.asArcseconds(),
+                tryMatchDist.distStdDev.asArcseconds()))
 
         exposure.setWcs(res.wcs)
 
@@ -338,6 +335,25 @@ class AstrometryTask(pipeBase.Task):
             matchMeta = self._createMatchMetadata(bbox=expMd.bbox, wcs=res.wcs, filterName=expMd.filterName)
         )
 
+    def _computeMatchStatsOnSky(self, matchList):
+        """Compute on-sky radial distance statistics for a match list
+
+        @param[in] matchList  list of matches between reference object and sources;
+            the distance field is the only field read and it must be set to distance in radians
+
+        @return a pipe_base Struct containing these fields:
+        - distMean  clipped mean of on-sky radial separation
+        - distStdDev  clipped standard deviation of on-sky radial separation
+        - maxMatchDist  distMean + self.config.matchDistanceSigma*distStdDev
+        """
+        distStatsInRadians = makeMatchStatistics(matchList, afwMath.MEANCLIP | afwMath.STDEVCLIP)
+        distMean = distStatsInRadians.getValue(afwMath.MEANCLIP)*afwGeom.radians
+        distStdDev = distStatsInRadians.getValue(afwMath.STDEVCLIP)*afwGeom.radians
+        return pipeBase.Struct(
+            distMean = distMean,
+            distStdDev = distStdDev,
+            maxMatchDist = distMean + self.config.matchDistanceSigma*distStdDev,
+        )
     def _getExposureMetadata(self, exposure):
         """!Extract metadata from an exposure
 
@@ -359,7 +375,7 @@ class AstrometryTask(pipeBase.Task):
         )
 
     @pipeBase.timeMethod
-    def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, maxMatchDistArcSec=None,
+    def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, maxMatchDist=None,
         exposure=None):
         """!Match sources to reference objects and fit a WCS
 
@@ -368,8 +384,8 @@ class AstrometryTask(pipeBase.Task):
         @param[in] refFluxField  field of refCat to use for flux
         @param[in] bbox  bounding box of exposure (an lsst.afw.geom.Box2I)
         @param[in] wcs  initial guess for WCS of exposure (an lsst.afw.image.Wcs)
-        @param[in] maxMatchDistArcSec  maximum distance between reference objects and sources (arcsec);
-            if None then use the matcher's default
+        @param[in] maxMatchDist  maximum on-sky distance between reference objects and sources
+            (an lsst.afw.geom.Angle); if None then use the matcher's default
         @param[in] exposure  exposure whose WCS is to be fit, or None; used only for the debug display
 
         @return an lsst.pipe.base.Struct with these fields:
@@ -385,7 +401,7 @@ class AstrometryTask(pipeBase.Task):
             sourceCat = sourceCat,
             wcs = wcs,
             refFluxField = refFluxField,
-            maxMatchDistArcSec = maxMatchDistArcSec,
+            maxMatchDist = maxMatchDist,
         )
         self.log.logdebug("Found %s matches" % (len(matchRes.matches),))
         if debug.display:
@@ -440,7 +456,7 @@ class AstrometryTask(pipeBase.Task):
         @return metadata about the field (a daf_base PropertyList)
         """
         matchMeta = PropertyList()
-        bboxd = Box2D(bbox)
+        bboxd = afwGeom.Box2D(bbox)
         ctrPos = bboxd.getCenter()
         ctrCoord = wcs.pixelToSky(ctrPos).toIcrs()
         llCoord = wcs.pixelToSky(bboxd.getMin())

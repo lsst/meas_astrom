@@ -25,7 +25,6 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import unittest
-import sys
 
 import lsst.utils.tests as utilsTests
 import lsst.daf.base as dafBase

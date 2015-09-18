@@ -312,6 +312,7 @@ class ANetAstrometryTask(pipeBase.Task):
 
         @param[in] exposure  exposure whose WCS is to be fit
         @param[in] sourceCat  catalog of sourceCat detected on the exposure (an lsst.afw.table.SourceCatalog)
+        @param[in] bbox  bounding box go use for finding reference objects; if None, use exposure's bbox
 
         @return an lsst.pipe.base.Struct with these fields:
         - refCat  reference object catalog of objects that overlap the exposure (with some margin)

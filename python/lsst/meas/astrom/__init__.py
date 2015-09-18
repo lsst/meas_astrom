@@ -31,6 +31,7 @@ from .matchOptimisticB import *
 from .setMatchDistance import *
 from .display import *
 from .approximateWcs import *
+from .astromLib import *
 
 from . import catalogStarSelector
 

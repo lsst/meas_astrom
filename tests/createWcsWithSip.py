@@ -25,7 +25,6 @@
 import os
 import unittest
 
-import sys
 import lsst.afw.table as afwTable
 import lsst.utils.tests as utilsTests
 import lsst.afw.geom as afwGeom
@@ -79,6 +78,7 @@ class CreateWcsWithSipCase(unittest.TestCase):
             src.set(yKey, src.get(yKey) - 500 + y0)
         bbox = afwGeom.Box2I(afwGeom.Point2I(x0, y0), afwGeom.Extent2I(1000, 1000))
         res = self.astrom.determineWcs2(cat, bbox=bbox)
+        self.assertIsNotNone(res.sipWcs, "Failed to fit SIP terms")
         print 'Got result', res
         print 'SIP:', res.sipWcs.getFitsMetadata().toString()
 
@@ -90,8 +90,8 @@ class CreateWcsWithSipCase(unittest.TestCase):
             #print 'rd', rd
             #print 'xy', xy
             #print 'dx,dy', xy[0] - src.getX(), xy[1] - src.getY()
-            self.assertTrue(abs(xy[0] - src.getX()) < 0.1)
-            self.assertTrue(abs(xy[1] - src.getY()) < 0.1)
+            self.assertLess(abs(xy[0] - src.getX()), 0.1)
+            self.assertLess(abs(xy[1] - src.getY()), 0.1)
         
     def testLinearXDistort(self):
         print "linearXDistort"
@@ -141,11 +141,11 @@ class CreateWcsWithSipCase(unittest.TestCase):
         scatter = sipObject.getScatterOnSky().asArcseconds()
         print "Scatter in arcsec is %g" % (scatter)
 
-        self.assertTrue(scatter < self.tolArcsec, "Scatter exceeds tolerance in arcsec")
+        self.assertLess(scatter, self.tolArcsec, "Scatter exceeds tolerance in arcsec")
 
         if False:
             scatter = sipObject.getScatterInPixels()
-            self.assertTrue(scatter < self.tolPixel, "Scatter exceeds tolerance in pixels: %g" %(scatter))
+            self.assertLess(scatter, self.tolPixel, "Scatter exceeds tolerance in pixels: %g" %(scatter))
         
 
     def loadCatalogue(self, filename):
