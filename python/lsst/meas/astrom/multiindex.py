@@ -142,7 +142,7 @@ class MultiIndexCache(object):
         @param coord   Coordinate to check (lsst.afw.coord.Coord)
         @param distance   Angular distance (lsst.afw.geom.Angle)
         """
-        return (self._nside == 0 or healpixDistance(self._healpix, self._nside, coord) <= distance)
+        return (self._healpix == -1 or healpixDistance(self._healpix, self._nside, coord) <= distance)
 
     def __getitem__(self, i):
         self.reload()
