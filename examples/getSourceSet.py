@@ -254,7 +254,7 @@ def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF
                     data = imageFactory(filename)
                     
                 ampImage = ccdImage.Factory(ccdImage, ampBBox[a])
-                ampImage <<= data
+                ampImage[:] = data
                 del ampImage
 
     try:
