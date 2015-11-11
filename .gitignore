@@ -27,3 +27,4 @@ doc/*.tag
 version.py
 python/lsst/meas/astrom/astrometry_net.py
 python/lsst/meas/astrom/astrometry_net_wrap.cc
+bin/generateANetCache.py
