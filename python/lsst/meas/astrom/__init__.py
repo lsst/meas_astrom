@@ -32,6 +32,7 @@ from .setMatchDistance import *
 from .display import *
 from .approximateWcs import *
 from .astromLib import *
+from .readMatches import *
 
 from . import catalogStarSelector
 
