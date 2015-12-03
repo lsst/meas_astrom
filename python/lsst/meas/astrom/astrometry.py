@@ -234,7 +234,11 @@ class AstrometryTask(pipeBase.Task):
         return pipeBase.Struct(
             refCat = loadRes.refCat,
             matches = matchRes.matches,
-            matchMeta = self._createMatchMetadata(bbox=expMd.bbox, wcs=expMd.wcs, filterName=expMd.filterName),
+            matchMeta = self._createMatchMetadata(
+                bbox = expMd.bbox,
+                wcs = expMd.wcs,
+                filterName = expMd.filterName,
+            ),
         )
 
     @pipeBase.timeMethod

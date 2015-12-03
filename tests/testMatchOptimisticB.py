@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 from __future__ import absolute_import, division, print_function
 
-# 
+#
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
-# 
+#
 # This product includes software developed by the
 # LSST Project (http://www.lsst.org/).
 #
@@ -12,19 +12,18 @@ from __future__ import absolute_import, division, print_function
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
-# You should have received a copy of the LSST License Statement and 
-# the GNU General Public License along with this program.  If not, 
+#
+# You should have received a copy of the LSST License Statement and
+# the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 import math
 import os
-import sys
 import unittest
 
 import lsst.daf.base as dafBase
@@ -67,7 +66,7 @@ class TestMatchOptimisticB(unittest.TestCase):
         self.distortedWcs = self.wcs
 
         self.filename=os.path.join(os.path.dirname(__file__), "cat.xy.fits")
-        self.tolArcsec = .4 
+        self.tolArcsec = .4
         self.tolPixel = .1
 
     def tearDown(self):
@@ -75,7 +74,7 @@ class TestMatchOptimisticB(unittest.TestCase):
         del self.matchOptimisticB
         del self.wcs
         del self.distortedWcs
-        
+
     def testLinearXDistort(self):
         self.singleTestInstance(self.filename, distort.linearXDistort)
 
@@ -84,7 +83,7 @@ class TestMatchOptimisticB(unittest.TestCase):
 
     def testQuadraticDistort(self):
         self.singleTestInstance(self.filename, distort.quadraticDistort)
-    
+
 
     def testLargeDistortion(self):
         # This transform is about as extreme as I can get:
@@ -108,7 +107,6 @@ class TestMatchOptimisticB(unittest.TestCase):
         distortedCat = distort.distortList(sourceCat, distortFunc)
 
         if doPlot:
-            import numpy
             import matplotlib.pyplot as plt
             undistorted = [self.wcs.skyToPixel(self.distortedWcs.pixelToSky(ss.getCentroid())) for
                            ss in distortedCat]
@@ -192,13 +190,13 @@ class TestMatchOptimisticB(unittest.TestCase):
         for src in sourceCat:
             adjCentroid = src.get(centroidKey) - afwGeom.Extent2D(500, 500)
             src.set(centroidKey, adjCentroid)
-            
+
         # Set catalog coord
         for src in sourceCat:
             src.updateCoord(self.wcs)
         return sourceCat
 
-        
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 
@@ -219,6 +217,6 @@ def run(exit=False):
 
 
 
- 
+
 if __name__ == "__main__":
     run(True)

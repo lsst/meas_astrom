@@ -48,7 +48,8 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
 
     See @ref LoadAstrometryNetObjectsConfig
 
-    @section meas_astrom_loadAstrometryNetObjects_Example  A complete example of using LoadAstrometryNetObjectsTask
+    @section meas_astrom_loadAstrometryNetObjects_Example  A complete example of using
+        LoadAstrometryNetObjectsTask
 
     LoadAstrometryNetObjectsTask is a subtask of AstrometryTask, which is called by PhotoCalTask.
     See \ref meas_photocal_photocal_Example.

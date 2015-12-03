@@ -2,7 +2,7 @@
 
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
-# 
+#
 # This product includes software developed by the
 # LSST Project (http://www.lsst.org/).
 #
@@ -10,14 +10,14 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
-# You should have received a copy of the LSST License Statement and 
-# the GNU General Public License along with this program.  If not, 
+#
+# You should have received a copy of the LSST License Statement and
+# the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 import math
@@ -49,20 +49,20 @@ class BaseTestCase(unittest.TestCase):
     * MatchClass: match class, e.g. ReferenceMatch or SourceMatch
 
     This test is a bit messy because it exercises two templatings of makeCreateWcsWithSip,
-    the underlying TAN-SIP WCS fitter, but only one of those is supported by FitTanSipWcsTask 
+    the underlying TAN-SIP WCS fitter, but only one of those is supported by FitTanSipWcsTask
     """
     MatchClass = None
 
     def setUp(self):
         crval = afwCoord.IcrsCoord(afwGeom.PointD(44., 45.))
         crpix = afwGeom.Point2D(15000, 4000)
-        
+
         arcsecPerPixel = 1/3600.0
         CD11 = arcsecPerPixel
         CD12 = 0
         CD21 = 0
         CD22 = arcsecPerPixel
-        
+
         self.tanWcs = afwImage.makeWcs(crval, crpix, CD11, CD12, CD21, CD22)
         self.loadData()
 
@@ -102,7 +102,7 @@ class BaseTestCase(unittest.TestCase):
 
                 c = self.tanWcs.pixelToSky(afwGeom.Point2D(i, j))
                 refObj.setCoord(c)
-                
+
                 if False:
                     print "x,y = (%.1f, %.1f) pixels -- RA,Dec = (%.3f, %.3f) deg" % \
                         (i, j, c.toFk5().getRa().asDegrees(), c.toFk5().getDec().asDegrees())
@@ -210,7 +210,7 @@ class BaseTestCase(unittest.TestCase):
             distortedPos = afwGeom.Point2D(*func(*origPos))
             src.set(self.srcCentroidKey, distortedPos)
             bbox.include(afwGeom.Point2I(afwGeom.Point2I(distortedPos)))
-        
+
         tanSipWcs = self.tanWcs
         for i in range(numIter):
             if specifyBBox:
@@ -226,7 +226,7 @@ class BaseTestCase(unittest.TestCase):
 
         if doPlot:
             self.plotWcs(tanSipWcs, name=name)
-        
+
         self.checkResults(fitRes, catsUpdated=False)
 
         if self.MatchClass == afwTable.ReferenceMatch:
@@ -279,7 +279,7 @@ class BaseTestCase(unittest.TestCase):
         ys = numpy.array(ys)
         xc = numpy.array(xc)
         yc = numpy.array(yc)
-            
+
         pylab.clf()
         pylab.plot(xs, ys, "r.")
         pylab.plot(xc, yc, "bx")

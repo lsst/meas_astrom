@@ -1,7 +1,7 @@
-# 
+#
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
-# 
+#
 # This product includes software developed by the
 # LSST Project (http://www.lsst.org/).
 #
@@ -9,14 +9,14 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
-# You should have received a copy of the LSST License Statement and 
-# the GNU General Public License along with this program.  If not, 
+#
+# You should have received a copy of the LSST License Statement and
+# the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 import numpy
@@ -43,7 +43,8 @@ class CatalogStarSelectorConfig(pexConfig.Config):
     badStarPixelFlags = pexConfig.ListField(
         doc = "PSF candidate objects may not have any of these bits set",
         dtype = str,
-        default = ["base_PixelFlags_flag_edge", "base_PixelFlags_flag_interpolatedCenter", "base_PixelFlags_flag_saturatedCenter"],
+        default = ["base_PixelFlags_flag_edge", "base_PixelFlags_flag_interpolatedCenter",
+            "base_PixelFlags_flag_saturatedCenter"],
         )
     kernelSize = pexConfig.Field(
         doc = "size of the kernel to create",
@@ -69,7 +70,7 @@ class CheckSource(object):
         for k in self.keys:
             if source.get(k):
                 return False
-        if self.fluxLim != None and source.getPsfFlux() < self.fluxLim: # ignore faint objects
+        if self.fluxLim is not None and source.getPsfFlux() < self.fluxLim: # ignore faint objects
             return False
         if self.fluxMax != 0.0 and source.getPsfFlux() > self.fluxMax: # ignore bright objects
             return False
@@ -80,9 +81,9 @@ class CatalogStarSelector(object):
 
     def __init__(self, config=None):
         """Construct a star selector that uses second moments
-        
+
         This is a naive algorithm and should be used with caution.
-        
+
         @param[in] config: An instance of CatalogStarSelectorConfig
         """
         if not config:
@@ -93,18 +94,18 @@ class CatalogStarSelector(object):
         self._fluxLim  = config.fluxLim
         self._fluxMax  = config.fluxMax
         self._badStarPixelFlags = config.badStarPixelFlags
-            
+
     def selectStars(self, exposure, sources, matches=None):
         """Return a list of PSF candidates that represent likely stars
-        
+
         A list of PSF candidates may be used by a PSF fitter to construct a PSF.
-        
+
         @param[in] exposure: the exposure containing the sources
         @param[in] sources: a source list containing sources that may be stars
         @param[in] matches: a match vector as produced by meas_astrom; not actually optional
                             (passing None just allows us to handle the exception better here
                             than in calling code)
-        
+
         @return psfCandidateList: a list of PSF candidates.
         """
         import lsstDebug
@@ -118,7 +119,7 @@ class CatalogStarSelector(object):
                 )
 
         mi = exposure.getMaskedImage()
-        
+
         if display:
             frames = {}
             if displayExposure:
@@ -178,4 +179,3 @@ class CatalogStarSelector(object):
         return psfCandidateList
 
 measAlg.starSelectorRegistry.register("catalog", CatalogStarSelector)
-
