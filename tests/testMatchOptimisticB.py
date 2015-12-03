@@ -31,6 +31,7 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.utils.tests as utilsTests
 import lsst.afw.image as afwImage
+import lsst.pex.exceptions as pexExcept
 from lsst.meas.algorithms import LoadReferenceObjectsTask
 import lsst.meas.astrom.sip.genDistortedImage as distort
 import lsst.meas.astrom as measAstrom
@@ -195,6 +196,50 @@ class TestMatchOptimisticB(unittest.TestCase):
         for src in sourceCat:
             src.updateCoord(self.wcs)
         return sourceCat
+
+    def testArgumentErrors(self):
+        """Test argument sanity checking in matchOptimisticB
+        """
+        matchControl = measAstrom.MatchOptimisticBControl()
+
+        sourceCat = self.loadSourceCatalog(self.filename)
+        emptySourceCat = afwTable.SourceCatalog(sourceCat.schema)
+
+        refCat = self.computePosRefCatalog(sourceCat)
+        emptyRefCat = afwTable.SimpleCatalog(refCat.schema)
+
+        with self.assertRaises(pexExcept.InvalidParameterError):
+            measAstrom.matchOptimisticB(
+                emptyRefCat,
+                sourceCat,
+                matchControl,
+                self.wcs,
+                0,
+            )
+        with self.assertRaises(pexExcept.InvalidParameterError):
+            measAstrom.matchOptimisticB(
+                refCat,
+                emptySourceCat,
+                matchControl,
+                self.wcs,
+                0,
+            )
+        with self.assertRaises(pexExcept.InvalidParameterError):
+            measAstrom.matchOptimisticB(
+                refCat,
+                sourceCat,
+                matchControl,
+                self.wcs,
+                len(refCat),
+            )
+        with self.assertRaises(pexExcept.InvalidParameterError):
+            measAstrom.matchOptimisticB(
+                refCat,
+                sourceCat,
+                matchControl,
+                self.wcs,
+                -1,
+            )
 
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
