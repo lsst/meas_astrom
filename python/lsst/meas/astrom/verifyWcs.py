@@ -1,7 +1,7 @@
-# 
+#
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
-# 
+#
 # This product includes software developed by the
 # LSST Project (http://www.lsst.org/).
 #
@@ -9,14 +9,14 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
-# You should have received a copy of the LSST License Statement and 
-# the GNU General Public License along with this program.  If not, 
+#
+# You should have received a copy of the LSST License Statement and
+# the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
@@ -30,7 +30,7 @@ import lsst.meas.algorithms as measAlg
 def checkMatches(srcMatchSet, exposure, log=None):
     if not exposure:
         return {}
-    
+
     im = exposure.getMaskedImage().getImage()
     width, height = im.getWidth(), im.getHeight()
     nx, ny = 3, 3
@@ -45,7 +45,7 @@ def checkMatches(srcMatchSet, exposure, log=None):
         h = 1
     while ny*h < height:
         h += 1
-        
+
     cellSet = afwMath.SpatialCellSet(
         afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(width, height)), w, h)
     #
@@ -54,7 +54,7 @@ def checkMatches(srcMatchSet, exposure, log=None):
     i = -1
     for m in srcMatchSet:
         i += 1
-        
+
         src = m.second
         csrc = afwDetection.Source()
         csrc.setId(i)
@@ -68,14 +68,14 @@ def checkMatches(srcMatchSet, exposure, log=None):
 
     ncell = len(cellSet.getCellList())
     nobj = numpy.ndarray(ncell, dtype='i')
-        
+
     for i in range(ncell):
         cell = cellSet.getCellList()[i]
 
         nobj[i] = cell.size()
 
         dx = numpy.ndarray(cell.size())
-        dy = numpy.ndarray(cell.size())   
+        dy = numpy.ndarray(cell.size())
 
         j = 0
         for cand in cell:
@@ -84,7 +84,7 @@ def checkMatches(srcMatchSet, exposure, log=None):
             # a SpatialCellCandidate so we need an explicit (dynamic) cast
             #
             cand = measAlg.cast_PsfCandidateF(cand)
-            
+
             mid = cand.getSource().getId()
             dx[j] = srcMatchSet[mid].first.getXAstrom() - srcMatchSet[mid].second.getXAstrom()
             dy[j] = srcMatchSet[mid].first.getYAstrom() - srcMatchSet[mid].second.getYAstrom()

@@ -128,7 +128,7 @@ class SourceInfo(object):
         """Return True if the source is usable for matching, even if possibly saturated
 
         For a source to be usable it must:
-        - have a valid centroid 
+        - have a valid centroid
         - be not too near the edge
         """
         return self.hasCentroid(source) and not source.get(self.edgeKey)
@@ -256,8 +256,9 @@ class MatchOptimisticBTask(pipeBase.Task):
         refCat = self.filterStars(refCat)
         numRefObj = len(refCat)
 
-        if self.log: self.log.info("filterStars purged %d reference stars, leaving %d stars" % \
-            (preNumObj - numRefObj, numRefObj))
+        if self.log:
+            self.log.info("filterStars purged %d reference stars, leaving %d stars" %
+                (preNumObj - numRefObj, numRefObj))
 
         sourceInfo = self.SourceInfoClass(
             schema = sourceCat.schema,
@@ -357,7 +358,7 @@ class MatchOptimisticBTask(pipeBase.Task):
             matchControl.maxRotationDeg = self.config.maxRotationDeg * math.pow(2.0, 0.5*maxRotInd)
             for matchRadInd in range(3):
                 matchControl.matchingAllowancePix = configMatchDistPix * math.pow(1.25, matchRadInd)
-                                  
+
                 for angleDiffInd in range(3):
                     matchControl.allowedNonperpDeg = self.config.allowedNonperpDeg*(angleDiffInd+1)
                     matches = matchOptimisticB(

@@ -66,13 +66,14 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
                 sx, sy = sourceCentroid
                 ds9.dot("o", sx, sy, size=10, frame=frame, ctype=ds9.YELLOW)
                 ds9.line([refCentroid, sourceCentroid], ctype=ds9.YELLOW)
-                
+
             print("<match radius> = %.4g +- %.4g [%d matches]" %
                 (radArr.mean(), radArr.std(), len(matches)))
 
     if pause:
         print("Dropping into debugger to allow inspection of display. Type 'continue' when done.")
-        import pdb;pdb.set_trace()
+        import pdb
+        pdb.set_trace()
 
 def plotAstrometry(
     matches,

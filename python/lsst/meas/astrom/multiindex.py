@@ -98,7 +98,8 @@ class MultiIndexCache(object):
             return
         fn = getIndexPath(self._filenameList[0])
         if not os.path.exists(fn):
-            raise RuntimeError("Unable to get filename for astrometry star file %s" % (self._filenameList[0],))
+            raise RuntimeError(
+                "Unable to get filename for astrometry star file %s" % (self._filenameList[0],))
         self._mi = multiindex_new(fn)
         if self._mi is None:
             # Can't proceed at all without stars

@@ -78,7 +78,7 @@ namespace {
             if (lsst::utils::isnan(aFlux)) {
                 aFlux = 0.0;
             }
-            if (lsst::utils::isnan(bFlux)) { 
+            if (lsst::utils::isnan(bFlux)) {
                 bFlux = 0.0;
             }
             return aFlux > bFlux;
@@ -224,9 +224,9 @@ namespace {
                     a_data[i*ncoeff+j] = 0.0;
                     for (size_t k = 0; k < img.size(); k++) {
                         if (flag[k] == 1) {
-                            a_data[i*ncoeff+j] += pow(img[k].getX(), xorder[i]) * 
-                                pow(img[k].getY(), yorder[i]) * 
-                                pow(img[k].getX(), xorder[j]) * 
+                            a_data[i*ncoeff+j] += pow(img[k].getX(), xorder[i]) *
+                                pow(img[k].getY(), yorder[i]) *
+                                pow(img[k].getX(), xorder[j]) *
                                 pow(img[k].getY(), yorder[j]);
                         }
                     }
@@ -234,11 +234,11 @@ namespace {
                 b_data[i] = c_data[i] = 0.0;
                 for (unsigned int k = 0; k < img.size(); k++) {
                     if (flag[k] == 1) {
-                        b_data[i] += pow(img[k].getX(), xorder[i]) * 
-                            pow(img[k].getY(), yorder[i]) * 
+                        b_data[i] += pow(img[k].getX(), xorder[i]) *
+                            pow(img[k].getY(), yorder[i]) *
                             posRefCat[k].getX();
-                        c_data[i] += pow(img[k].getX(), xorder[i]) * 
-                            pow(img[k].getY(), yorder[i]) * 
+                        c_data[i] += pow(img[k].getX(), xorder[i]) *
+                            pow(img[k].getY(), yorder[i]) *
                             posRefCat[k].getY();
                     }
                 }
@@ -282,7 +282,7 @@ namespace {
             double x_sig = std::sqrt((Sxx - Sx * Sx / S) / S);
             double y_sig = std::sqrt((Syy - Sy * Sy / S) / S);
             //std::cout << x_sig << " " << y_sig << std::endl;
-    
+
             for (size_t k = 0; k < img.size(); k++) {
                 double x0 = img[k].getX();
                 double y0 = img[k].getY();
@@ -365,7 +365,7 @@ namespace {
             // no reference object sufficiently close; do nothing
             return;
         }
-        auto existingMatch = proxyPairList.get<refIdTag>().find(refObjDist.first->record->getId()); 
+        auto existingMatch = proxyPairList.get<refIdTag>().find(refObjDist.first->record->getId());
         if (existingMatch == proxyPairList.get<refIdTag>().end()) {
             // reference object not used before; add new entry
             auto proxyPair = ProxyPair(*refObjDist.first, source);
@@ -527,6 +527,12 @@ namespace astrom {
         bool verbose
     ) {
         control.validate();
+        if (posRefCat.empty()) {
+            throw LSST_EXCEPT(pexExcept::InvalidParameterError, "no entries in posRefCat");
+        }
+        if (sourceCat.empty()) {
+            throw LSST_EXCEPT(pexExcept::InvalidParameterError, "no entries in sourceCat");
+        }
         if (posRefBegInd < 0) {
             throw LSST_EXCEPT(pexExcept::InvalidParameterError, "posRefBegInd < 0");
         }
@@ -636,7 +642,7 @@ namespace astrom {
                         if (p.first == sourceSubCat[k] || p.second == sourceSubCat[k]) continue;
 
                         ProxyPair pp(p.first, sourceSubCat[k]);
-                
+
                         std::vector<ProxyPair>::iterator r = searchPair3(posRefPairList, pp, q[l],
                             control.matchingAllowancePix, dpa, maxRotationRad);
                         if (r != posRefPairList.end()) {
@@ -709,7 +715,7 @@ namespace astrom {
                             std::cout << control.allowedNonperpDeg << "): ";
                             std::cout << theta.asDegrees() << std::endl;
                         }
-                        if (std::fabs(coeff[1] * coeff[5] - coeff[2] * coeff[4] - 1.) 
+                        if (std::fabs(coeff[1] * coeff[5] - coeff[2] * coeff[4] - 1.)
                                 > control.maxDeterminant ||
                             std::fabs(theta.asDegrees() - 90) > control.allowedNonperpDeg ||
                             std::fabs(coeff[0]) > control.maxOffsetPix ||

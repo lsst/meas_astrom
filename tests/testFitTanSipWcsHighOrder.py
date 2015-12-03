@@ -48,7 +48,8 @@ class ApproximateWcsTestCase(tests.TestCase):
     def testRadial(self):
         """Add a radial transform"""
         for order in (4, 5, 6):
-            self.doTest("testRadial", afwGeom.RadialXYTransform([0, 1.001, 0.000003]), order=order, doPlot=False)
+            self.doTest("testRadial", afwGeom.RadialXYTransform([0, 1.001, 0.000003]), order=order,
+            doPlot=False)
 
     def testWarnings(self):
         """Test that approximateWcs raises a UserWarning when it cannot achieve desired tolerance"""

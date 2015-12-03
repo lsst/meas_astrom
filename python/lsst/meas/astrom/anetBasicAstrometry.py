@@ -65,7 +65,7 @@ class InitialAstrometry(object):
 
     matches = property(getMatches)
     wcs = property(getWcs)
-    
+
     ### "Not very pythonic!" complains Paul.
     # Consider these methods deprecated; if you want these elements, just
     # .grab them.
@@ -126,8 +126,9 @@ class ANetBasicAstrometryConfig(LoadAstrometryNetObjectsTask.ConfigClass):
         min=0.0,
     )
     pixelScaleUncertainty = RangeField(
-        doc = "Range of pixel scales, around the value in the WCS header, to search.  If the value of this field " +
-            "is X and the nominal scale is S, the range searched will be  S/X to S*X",
+        doc = "Range of pixel scales, around the value in the WCS header, to search. " +
+            "If the value of this field is X and the nominal scale is S, " +
+            "the range searched will be  S/X to S*X",
         dtype = float,
         default = 1.1,
         min=1.001,
@@ -160,7 +161,7 @@ class ANetBasicAstrometryConfig(LoadAstrometryNetObjectsTask.ConfigClass):
         dtype = str,
         default = [
             "slot_Centroid_flag", # bad centroids
-            "base_PixelFlags_flag_edge", 
+            "base_PixelFlags_flag_edge",
             "base_PixelFlags_flag_saturated",
             "base_PixelFlags_flag_crCenter", # cosmic rays
         ],
@@ -195,7 +196,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
     that the initial WCS is probably only a pure TAN SIP, yet we may have
     significant distortion and a good estimate for that distortion.
 
-    
+
     About Astrometry.net index files (astrometry_net_data):
 
     There are three components of an index file: a list of stars
@@ -239,8 +240,12 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         pipeBase.Task.__init__(self, config=config, **kwargs)
         self.config = config
         # this is not a subtask because it cannot safely be retargeted
-        self.refObjLoader = LoadAstrometryNetObjectsTask(config=self.config, andConfig=andConfig, log=self.log,
-                                                         name="loadAN")
+        self.refObjLoader = LoadAstrometryNetObjectsTask(
+            config = self.config,
+            andConfig = andConfig,
+            log = self.log,
+            name = "loadAN",
+        )
         self.refObjLoader._readIndexFiles()
 
     def memusage(self, prefix=''):
@@ -346,7 +351,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         self.log.logdebug('%i reference objects match input sources using input WCS' % (len(matches)))
         astrom.tanMatches = matches
         astrom.tanWcs = wcs
-        
+
         srcids = [s.getId() for s in sourceCat]
         for m in matches:
             assert(m.second.getId() in srcids)
@@ -361,7 +366,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
                     (len(matches),))
                 astrom.sipWcs = sipwcs
                 astrom.sipMatches = matches
-                
+
         wcs = astrom.getWcs()
         # _getMatchList() modifies the source list RA,Dec coordinates.
         # Here, we make them consistent with the WCS we are returning.
@@ -421,13 +426,13 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         assert(exposure is not None)
 
         margs = kwargs.copy()
-        if not 'searchRadius' in margs:
+        if 'searchRadius' not in margs:
             margs.update(searchRadius = self.config.raDecSearchRadius * afwGeom.degrees)
-        if not 'usePixelScale' in margs:
+        if 'usePixelScale' not in margs:
             margs.update(usePixelScale = self.config.useWcsPixelScale)
-        if not 'useRaDecCenter' in margs:
+        if 'useRaDecCenter' not in margs:
             margs.update(useRaDecCenter = self.config.useWcsRaDecCenter)
-        if not 'useParity' in margs:
+        if 'useParity' not in margs:
             margs.update(useParity = self.config.useWcsParity)
         margs.update(exposure=exposure)
         return self.determineWcs2(sourceCat=sourceCat, **margs)
@@ -444,7 +449,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
              --> RA,Dec center
              --> pixel scale
              --> "parity"
-             
+
         (all of which are metadata of Exposure).
 
         filterName: string
@@ -463,7 +468,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         astrom.tanWcs = wcs
         return astrom
 
-    def getBlindWcsSolution(self, sourceCat, 
+    def getBlindWcsSolution(self, sourceCat,
                             exposure=None,
                             wcs=None,
                             bbox=None,
@@ -596,11 +601,11 @@ class ANetBasicAstrometryTask(pipeBase.Task):
             aff = wcs.linearizePixelToSky(crval)
             cd = aff.getLinear().getMatrix()
             wcs = afwImage.Wcs(crval, crpix, cd)
-                
+
         return self.getSipWcsFromCorrespondences(wcs, cref, csrc, (W,H),
                                                  x0=x0, y0=y0)
 
-    
+
     def getSipWcsFromCorrespondences(self, origWcs, refCat, sourceCat, bbox):
         """Produce a SIP solution given a list of known correspondences.
 
@@ -622,7 +627,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
 
         sipObject = astromSip.makeCreateWcsWithSip(matches, origWcs, sipOrder, bbox)
         return sipObject.getNewWcs()
-    
+
     def _calculateSipTerms(self, origWcs, refCat, sourceCat, matches, bbox):
         """!Iteratively calculate SIP distortions and regenerate matches based on improved WCS.
 
@@ -660,7 +665,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
                     (i, proposedMatchSize, lastMatchSize) +
                 " clipped mean scatter = %s arcsec, previous = %s; " %
                     (proposedMatchStats.distMean.asArcseconds(), lastMatchStats.distMean.asArcseconds()) +
-                " max match dist = %s arcsec, previous = %s" % 
+                " max match dist = %s arcsec, previous = %s" %
                     (proposedMatchStats.maxMatchDist.asArcseconds(),
                         lastMatchStats.maxMatchDist.asArcseconds())
             )
@@ -688,7 +693,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         @param imageSize   2-tuple with the image size (W,H)
         """
         import lsstDebug
-        display = lsstDebug.Info(__name__).display 
+        display = lsstDebug.Info(__name__).display
         if not display:
             return
 
@@ -753,7 +758,8 @@ class ANetBasicAstrometryTask(pipeBase.Task):
                     print "h[elp] p[db] Q[uit]"
                     continue
                 elif reply == "p":
-                    import pdb; pdb.set_trace() 
+                    import pdb
+                    pdb.set_trace()
                 elif reply == "Q":
                     sys.exit(1)
                 break
@@ -771,7 +777,8 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         - distStdDev  clipped standard deviation of on-sky radial separation
         - maxMatchDist  distMean + self.config.matchDistanceSigma*distStdDev
         """
-        distStatsInRadians = makeMatchStatisticsInRadians(wcs, matchList, afwMath.MEANCLIP | afwMath.STDEVCLIP)
+        distStatsInRadians = makeMatchStatisticsInRadians(wcs, matchList,
+            afwMath.MEANCLIP | afwMath.STDEVCLIP)
         distMean = distStatsInRadians.getValue(afwMath.MEANCLIP)*afwGeom.radians
         distStdDev = distStatsInRadians.getValue(afwMath.STDEVCLIP)*afwGeom.radians
         return pipeBase.Struct(
@@ -953,7 +960,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         bbox: an afwImage.Box2D
         wcs:  if not None, will be used to compute the xy positions on-the-fly;
               this is required when sources actually contains SimpleRecords.
-        
+
         Returns:
         a list of Source objects with xAstrom,yAstrom within the bbox.
         """
@@ -967,8 +974,8 @@ class ANetBasicAstrometryTask(pipeBase.Task):
     def joinMatchListWithCatalog(self, packedMatches, sourceCat):
         """
         This function is required to reconstitute a ReferenceMatchVector after being
-        unpersisted.  The persisted form of a ReferenceMatchVector is the 
-        normalized Catalog of IDs produced by afw.table.packMatches(), with the result of 
+        unpersisted.  The persisted form of a ReferenceMatchVector is the
+        normalized Catalog of IDs produced by afw.table.packMatches(), with the result of
         InitialAstrometry.getMatchMetadata() in the associated tables\' metadata.
 
         The "live" form of a matchlist has links to
@@ -979,14 +986,14 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         -- sets the "matches[*].first" and "matches[*].second" entries
         to point to the sources in the "sourceCat" argument, and to the
         reference sources fetched from the astrometry_net_data files.
-    
+
         @param[in] packedMatches  Unpersisted match list (an lsst.afw.table.BaseCatalog).
                                   packedMatches.table.getMetadata() must contain the
                                   values from InitialAstrometry.getMatchMetadata()
         @param[in,out] sourceCat  Source catalog used for the 'second' side of the matches
                                   (an lsst.afw.table.SourceCatalog).  As a side effect,
                                   the catalog will be sorted by ID.
-        
+
         @return An lsst.afw.table.ReferenceMatchVector of denormalized matches.
         """
         matchmeta = packedMatches.table.getMetadata()
@@ -997,7 +1004,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         ctrCoord = afwCoord.IcrsCoord(
             matchmeta.getDouble('RA') * afwGeom.degrees,
             matchmeta.getDouble('DEC') * afwGeom.degrees,
-        )        
+        )
         rad = matchmeta.getDouble('RADIUS') * afwGeom.degrees
         refCat = self.refObjLoader.loadSkyCircle(ctrCoord, rad, filterName).refCat
         refCat.sort()
