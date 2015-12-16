@@ -53,17 +53,19 @@ class matchlistTestCase(unittest.TestCase):
         normalized = afwTable.packMatches(matches)
         normalized.table.setMetadata(matchmeta)
 
-        matches2 = self.astrom.joinMatchListWithCatalog(normalized, self.srcSet)
+        # Test function with AstrometryTask passed as caller initilized and None
+        for astrom in (self.astrom, None):
+            matches2 = measAstrom.joinMatchListWithCatalog(normalized, self.srcSet, astrom)
 
-        self.assertEqual(len(matches2), len(matches))
-        for i in xrange(len(matches)):
-            self.assertEqual(matches2[i].second.table, matches[i].second.table)
-            self.assertEqual(matches2[i].second.getId(), matches[i].second.getId())
-            self.assertEqual(matches2[i].second, matches[i].second) # no deep copying, so we can compare ptrs
-            self.assertEqual(matches2[i].first.getId(), matches[i].first.getId())
-            self.assertEqual(matches2[i].first.getRa().asDegrees(), matches[i].first.getRa().asDegrees())
-            self.assertEqual(matches2[i].first.getDec().asDegrees(), matches[i].first.getDec().asDegrees())
-            self.assertEqual(matches2[i].first.get("i_flux"), matches[i].first.get("i_flux"))
+            self.assertEqual(len(matches2), len(matches))
+            for i in xrange(len(matches)):
+                self.assertEqual(matches2[i].second.table, matches[i].second.table)
+                self.assertEqual(matches2[i].second.getId(), matches[i].second.getId())
+                self.assertEqual(matches2[i].second, matches[i].second) # no deep copy, so we can compare ptrs
+                self.assertEqual(matches2[i].first.getId(), matches[i].first.getId())
+                self.assertEqual(matches2[i].first.getRa().asDegrees(), matches[i].first.getRa().asDegrees())
+                self.assertEqual(matches2[i].first.getDec().asDegrees(), matches[i].first.getDec().asDegrees())
+                self.assertEqual(matches2[i].first.get("i_flux"), matches[i].first.get("i_flux"))
 
     def testJoinAllFluxes(self):
         """Test that we can read all the fluxes back from an a.n.d catalogue"""
@@ -75,14 +77,16 @@ class matchlistTestCase(unittest.TestCase):
         normalized = afwTable.packMatches(matches)
         normalized.table.setMetadata(matchmeta)
 
-        matches2 = self.astrom.joinMatchListWithCatalog(normalized, self.srcSet)
-        self.assertGreater(len(matches2), 0)
-        ref = matches2[0][0]
+        # Test function with AstrometryTask passed as caller initilized and None
+        for astrom in (self.astrom, None):
+            matches2 = measAstrom.joinMatchListWithCatalog(normalized, self.srcSet, astrom)
+            self.assertGreater(len(matches2), 0)
+            ref = matches2[0][0]
 
-        names = ref.getSchema().getNames()
-        for b in ("u", "g", "r", "i", "z"):
-            self.assertTrue("%s_flux" % (b,) in names)
-            self.assertTrue("%s_fluxSigma" % (b,) in names)
+            names = ref.getSchema().getNames()
+            for b in ("u", "g", "r", "i", "z"):
+                self.assertTrue("%s_flux" % (b,) in names)
+                self.assertTrue("%s_fluxSigma" % (b,) in names)
             
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= silly boilerplate -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
