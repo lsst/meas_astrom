@@ -7,7 +7,7 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
-from .setMatchDistance import setMatchDistance
+from .matchUtils import setMatchDistance
 from .sip import makeCreateWcsWithSip
 
 __all__ = ["FitTanSipWcsTask", "FitTanSipWcsConfig"]

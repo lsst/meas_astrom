@@ -28,7 +28,7 @@ from .astrometry import *
 from .anetAstrometry import *
 from .loadAstrometryNetObjects import *
 from .matchOptimisticB import *
-from .setMatchDistance import *
+from .matchUtils import *
 from .display import *
 from .approximateWcs import *
 from .astromLib import *

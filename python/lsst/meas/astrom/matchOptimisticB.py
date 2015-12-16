@@ -6,7 +6,7 @@ import numpy as np
 import lsst.afw.table as afwTable
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
-from .setMatchDistance import setMatchDistance
+from .matchUtils import setMatchDistance
 from .astromLib import matchOptimisticB, MatchOptimisticBControl
 
 __all__ = ["MatchOptimisticBTask", "MatchOptimisticBConfig", "SourceInfo"]

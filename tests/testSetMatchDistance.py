@@ -31,7 +31,7 @@ import lsst.afw.image as afwImage
 import lsst.afw.table as afwTable
 from lsst.meas.algorithms import LoadReferenceObjectsTask
 from lsst.meas.base import SingleFrameMeasurementTask
-from lsst.meas.astrom import setMatchDistance
+from lsst.meas.astrom.matchUtils import setMatchDistance
 
 class BaseTestCase(unittest.TestCase):
     """A test case for setMatchDistance
