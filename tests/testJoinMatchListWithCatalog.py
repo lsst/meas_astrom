@@ -1,24 +1,38 @@
 #!/usr/bin/env python
-
+#
+# LSST Data Management System
+# Copyright 2008-2015 AURA/LSST.
+#
+# This product includes software developed by the
+# LSST Project (http://www.lsst.org/).
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the LSST License Statement and
+# the GNU General Public License along with this program.  If not,
+# see <https://www.lsstcorp.org/LegalNotices/>.
+#
 import os
 import unittest
+
 import lsst.utils.tests as utilsTests
+import lsst.afw.geom as afwGeom
+import lsst.afw.image as afwImg
 import lsst.afw.table as afwTable
 import lsst.meas.astrom as measAstrom
 from lsst.pex.logging import Log
-import lsst.afw.geom as afwGeom
-import lsst.afw.image as afwImg
 
 import testFindAstrometryNetDataDir as helper
 
-try:
-    type(verbose)
-except NameError:
-    display = False
-    verbose = 0
-
-
-class matchlistTestCase(unittest.TestCase):
+class joinMatchListTestCase(unittest.TestCase):
     def setUp(self):
         # Load sample input from disk
         testDir=os.path.dirname(__file__)
@@ -31,7 +45,6 @@ class matchlistTestCase(unittest.TestCase):
 
         config = measAstrom.ANetBasicAstrometryConfig()
         logLevel = Log.INFO
-        #logLevel = Log.DEBUG
         self.astrom = measAstrom.ANetBasicAstrometryTask(config)
         self.astrom.log.setThreshold(logLevel)
 
@@ -40,7 +53,7 @@ class matchlistTestCase(unittest.TestCase):
         del self.bbox
         del self.exposure
         del self.astrom
-        
+
     def getAstrometrySolution(self):
         return self.astrom.determineWcs(self.srcSet, self.exposure, bbox=self.bbox)
 
@@ -87,19 +100,20 @@ class matchlistTestCase(unittest.TestCase):
             for b in ("u", "g", "r", "i", "z"):
                 self.assertTrue("%s_flux" % (b,) in names)
                 self.assertTrue("%s_fluxSigma" % (b,) in names)
-            
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= silly boilerplate -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def suite():
+    """Returns a suite containing all the test cases in this module."""
     utilsTests.init()
     suites = []
-    suites += unittest.makeSuite(matchlistTestCase)
+    suites += unittest.makeSuite(joinMatchListTestCase)
     suites += unittest.makeSuite(utilsTests.MemoryTestCase)
     return unittest.TestSuite(suites)
 
-def run(exit=False):
+def run(shouldExit=False):
     """Run the utilsTests"""
-    utilsTests.run(suite(), exit)
+    utilsTests.run(suite(), shouldExit)
 
 if __name__ == "__main__":
     run(True)
