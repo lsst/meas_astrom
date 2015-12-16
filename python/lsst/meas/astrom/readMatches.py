@@ -25,17 +25,11 @@ from lsst.meas.astrom.anetBasicAstrometry import ANetBasicAstrometryTask, ANetBa
 
 __all__ = ["readMatches"]
 
-def readMatches(butler, dataId, sourcesName='icSrc', matchesName='icMatch',
-                config=ANetBasicAstrometryConfig(), sourcesFlags=afwTable.SOURCE_IO_NO_FOOTPRINTS):
+def readMatches(sources, packedMatches):
     """Read matches, sources and catalogue; combine.
-    \param[in] butler Data butler
-    \param[in] dataId Data identifier for butler
-    \param[in] sourcesName Name for sources from butler
-    \param[in] matchesName Name for matches from butler
-    \param[in] sourcesFlags Flags to pass for source retrieval
+    \param[in] sources
+    \param[in] matches
     \returns Matches
     """
-    sources = butler.get(sourcesName, dataId, flags=sourcesFlags)
-    packedMatches = butler.get(matchesName, dataId)
-    astrom = ANetBasicAstrometryTask(config)
+    astrom = ANetBasicAstrometryTask(ANetBasicAstrometryConfig())
     return astrom.joinMatchListWithCatalog(packedMatches, sources)
