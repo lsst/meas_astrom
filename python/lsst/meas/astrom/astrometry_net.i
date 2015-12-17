@@ -357,7 +357,7 @@ void set_an_log(PTR(pexLog::Log) newlog);
         tan_t* wcs = &(match->wcstan);
 
         afwGeom::Point2D crpix(wcs->crpix[0], wcs->crpix[1]);
-        afwCoord::Coord::ConstPtr crval
+        PTR(afwCoord::Coord const) crval
             (new afwCoord::Coord(wcs->crval[0] * afwGeom::degrees,
                                  wcs->crval[1] * afwGeom::degrees));
         return afwImage::makeWcs(*crval, crpix,
