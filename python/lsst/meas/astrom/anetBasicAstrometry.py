@@ -971,46 +971,6 @@ class ANetBasicAstrometryTask(pipeBase.Task):
                 keep.append(s)
         return keep
 
-    def joinMatchListWithCatalog(self, packedMatches, sourceCat):
-        """
-        This function is required to reconstitute a ReferenceMatchVector after being
-        unpersisted.  The persisted form of a ReferenceMatchVector is the
-        normalized Catalog of IDs produced by afw.table.packMatches(), with the result of
-        InitialAstrometry.getMatchMetadata() in the associated tables\' metadata.
-
-        The "live" form of a matchlist has links to
-        the real record objects that are matched; it is "denormalized".
-        This function takes a normalized match catalog, along with the catalog of
-        sources to which the match catalog refers.  It fetches the reference
-        sources that are within range, and then denormalizes the matches
-        -- sets the "matches[*].first" and "matches[*].second" entries
-        to point to the sources in the "sourceCat" argument, and to the
-        reference sources fetched from the astrometry_net_data files.
-
-        @param[in] packedMatches  Unpersisted match list (an lsst.afw.table.BaseCatalog).
-                                  packedMatches.table.getMetadata() must contain the
-                                  values from InitialAstrometry.getMatchMetadata()
-        @param[in,out] sourceCat  Source catalog used for the 'second' side of the matches
-                                  (an lsst.afw.table.SourceCatalog).  As a side effect,
-                                  the catalog will be sorted by ID.
-
-        @return An lsst.afw.table.ReferenceMatchVector of denormalized matches.
-        """
-        matchmeta = packedMatches.table.getMetadata()
-        version = matchmeta.getInt('SMATCHV')
-        if version != 1:
-            raise ValueError('SourceMatchVector version number is %i, not 1.' % version)
-        filterName = matchmeta.getString('FILTER').strip()
-        ctrCoord = afwCoord.IcrsCoord(
-            matchmeta.getDouble('RA') * afwGeom.degrees,
-            matchmeta.getDouble('DEC') * afwGeom.degrees,
-        )
-        rad = matchmeta.getDouble('RADIUS') * afwGeom.degrees
-        refCat = self.refObjLoader.loadSkyCircle(ctrCoord, rad, filterName).refCat
-        refCat.sort()
-        sourceCat.sort()
-        return afwTable.unpackMatches(packedMatches, refCat, sourceCat)
-
 
 def _createMetadata(bbox, wcs, filterName):
     """
