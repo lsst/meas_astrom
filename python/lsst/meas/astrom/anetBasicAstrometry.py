@@ -1,9 +1,30 @@
 from __future__ import absolute_import, division
-
+# 
+# LSST Data Management System
+#
+# Copyright 2008-2015 AURA/LSST.
+# 
+# This product includes software developed by the
+# LSST Project (http://www.lsst.org/).
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the LSST License Statement and 
+# the GNU General Public License along with this program.  If not, 
+# see <https://www.lsstcorp.org/LegalNotices/>.
+#
 import math
 import sys
 
-import numpy as np # for isfinite()
+import numpy as np
 
 import lsst.daf.base as dafBase
 import lsst.pex.logging as pexLog
@@ -12,9 +33,9 @@ import lsst.pex.exceptions as pexExceptions
 import lsst.pipe.base as pipeBase
 import lsst.afw.coord as afwCoord
 import lsst.afw.geom as afwGeom
+import lsst.afw.image as afwImage
 import lsst.afw.math as afwMath
 import lsst.afw.table as afwTable
-import lsst.afw.image as afwImage
 import lsst.meas.algorithms.utils as maUtils
 from .loadAstrometryNetObjects import LoadAstrometryNetObjectsTask, LoadMultiIndexes
 from .display import displayAstrometry
@@ -358,7 +379,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
             assert(m.second in sourceCat)
 
         if calculateSip:
-            sipwcs,matches = self._calculateSipTerms(wcs, refCat, sourceCat, matches, bbox=bbox)
+            sipwcs, matches = self._calculateSipTerms(wcs, refCat, sourceCat, matches, bbox=bbox)
             if sipwcs == wcs:
                 self.log.logdebug('Failed to find a SIP WCS better than the initial one.')
             else:
@@ -375,10 +396,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         astrom.matchMeta = _createMetadata(bbox, wcs, filterName)
         return astrom
 
-    def determineWcs(self,
-                     sourceCat,
-                     exposure,
-                     **kwargs):
+    def determineWcs(self, sourceCat, exposure, **kwargs):
         """Find a WCS solution for the given 'sourceCat' in the given
         'exposure', getting other parameters from config.
 
@@ -457,7 +475,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         pixelScale: afwGeom::Angle per pixel.
         radecCenter: afwCoord::Coord
         """
-        wcs,qa = self.getBlindWcsSolution(sourceCat, **kwargs)
+        wcs, qa = self.getBlindWcsSolution(sourceCat, **kwargs)
         kw = {}
         # Keys passed to useKnownWcs
         for key in ['exposure', 'bbox', 'filterName']:
@@ -534,7 +552,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
             sourceCat = self._trimBadPoints(sourceCat, exposureBBoxD)
             self.log.logdebug("Trimming: kept %i of %i sources" % (n, len(sourceCat)))
 
-        wcs,qa = self._solve(
+        wcs, qa = self._solve(
             sourceCat = sourceCat,
             wcs = wcs,
             bbox = bbox,
@@ -551,7 +569,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         rdc = wcs.pixelToSky(xc, yc)
         self.log.logdebug('New WCS says image center pixel (%.1f, %.1f) -> RA,Dec (%.3f, %.3f)' %
                     (xc, yc, rdc.getLongitude().asDegrees(), rdc.getLatitude().asDegrees()))
-        return wcs,qa
+        return wcs, qa
 
     def getSipWcsFromWcs(self, wcs, bbox, ngrid=20, linearizeAtCenter=True):
         """!Get a TAN-SIP WCS, starting from an existing WCS.
@@ -576,7 +594,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         refs = afwTable.SimpleTable.make(afwTable.SimpleTable.makeMinimalSchema())
         cref = []
         csrc = []
-        (W,H) = bbox.getDimensions()
+        (W, H) = bbox.getDimensions()
         x0, y0 = bbox.getMin()
         for xx in np.linspace(0., W, ngrid):
             for yy in np.linspace(0, H, ngrid):
@@ -602,8 +620,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
             cd = aff.getLinear().getMatrix()
             wcs = afwImage.Wcs(crval, crpix, cd)
 
-        return self.getSipWcsFromCorrespondences(wcs, cref, csrc, (W,H),
-                                                 x0=x0, y0=y0)
+        return self.getSipWcsFromCorrespondences(wcs, cref, csrc, (W, H), x0=x0, y0=y0)
 
 
     def getSipWcsFromCorrespondences(self, origWcs, refCat, sourceCat, bbox):
@@ -622,7 +639,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         """
         sipOrder = self.config.sipOrder
         matches = []
-        for ci,si in zip(refCat, sourceCat):
+        for ci, si in zip(refCat, sourceCat):
             matches.append(afwTable.ReferenceMatch(ci, si, 0.))
 
         sipObject = astromSip.makeCreateWcsWithSip(matches, origWcs, sipOrder, bbox)
@@ -835,14 +852,13 @@ class ANetBasicAstrometryTask(pipeBase.Task):
                           (filterName, default))
             return default
 
-    def _solve(self, sourceCat, wcs, bbox, pixelScale, radecCenter,
-               searchRadius, parity, filterName=None):
+    def _solve(self, sourceCat, wcs, bbox, pixelScale, radecCenter, searchRadius, parity, filterName=None):
         solver = self.refObjLoader._getSolver()
 
         imageSize = bbox.getDimensions()
         x0, y0 = bbox.getMin()
 
-        # select sources with valid x,y, flux
+        # select sources with valid x, y, flux
         xybb = afwGeom.Box2D()
         goodsources = afwTable.SourceCatalog(sourceCat.table)
         badkeys = [goodsources.getSchema().find(name).key for name in self.config.badFlags]
@@ -866,9 +882,8 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         solver.setMatchThreshold(self.config.matchThreshold)
         raDecRadius = None
         if radecCenter is not None:
-            raDecRadius = (radecCenter.getLongitude().asDegrees(),
-                        radecCenter.getLatitude().asDegrees(),
-                        searchRadius.asDegrees())
+            raDecRadius = (radecCenter.getLongitude().asDegrees(), radecCenter.getLatitude().asDegrees(),
+                           searchRadius.asDegrees())
             solver.setRaDecRadius(*raDecRadius)
             self.log.logdebug('Searching for match around RA,Dec = (%g, %g) with radius %g deg' %
                               raDecRadius)
@@ -892,7 +907,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
             multiInds = self.refObjLoader._getMIndexesWithinRange(radecCenter, searchRadius)
         else:
             multiInds = self.refObjLoader.multiInds
-        qlo,qhi = solver.getQuadSizeLow(), solver.getQuadSizeHigh()
+        qlo, qhi = solver.getQuadSizeLow(), solver.getQuadSizeHigh()
 
         toload_multiInds = set()
         toload_inds = []
@@ -962,7 +977,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
               this is required when sources actually contains SimpleRecords.
 
         Returns:
-        a list of Source objects with xAstrom,yAstrom within the bbox.
+        a list of Source objects with xAstrom, yAstrom within the bbox.
         """
         keep = type(sourceCat)(sourceCat.table)
         for s in sourceCat:
