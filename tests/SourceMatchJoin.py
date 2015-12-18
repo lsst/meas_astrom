@@ -53,7 +53,7 @@ class matchlistTestCase(unittest.TestCase):
         normalized = afwTable.packMatches(matches)
         normalized.table.setMetadata(matchmeta)
 
-        matches2 = self.astrom.joinMatchListWithCatalog(normalized, self.srcSet)
+        matches2 = self.astrom.refObjLoader.joinMatchListWithCatalog(normalized, self.srcSet)
 
         self.assertEqual(len(matches2), len(matches))
         for i in xrange(len(matches)):
@@ -75,7 +75,7 @@ class matchlistTestCase(unittest.TestCase):
         normalized = afwTable.packMatches(matches)
         normalized.table.setMetadata(matchmeta)
 
-        matches2 = self.astrom.joinMatchListWithCatalog(normalized, self.srcSet)
+        matches2 = self.astrom.refObjLoader.joinMatchListWithCatalog(normalized, self.srcSet)
         self.assertGreater(len(matches2), 0)
         ref = matches2[0][0]
 
