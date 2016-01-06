@@ -1,9 +1,30 @@
+#
+# LSST Data Management System
+# Copyright 2008-2016 AURA/LSST.
+#
+# This product includes software developed by the
+# LSST Project (http://www.lsst.org/).
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the LSST License Statement and
+# the GNU General Public License along with this program.  If not,
+# see <http://www.lsstcorp.org/LegalNotices/>.
+#
 from __future__ import absolute_import, division, print_function
-
 import math
 
 import numpy as np
 
+import lsst.afw.display as afwDisplay
 from lsst.afw.image import ExposureF
 from lsst.afw.table import Point2DKey
 
@@ -30,29 +51,29 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
     @param[in] title  title for ds9 display
     @param[in] pause  pause for inspection of display? This is done by dropping into pdb.
     """
-    import lsst.afw.display.ds9 as ds9
+    disp = afwDisplay.getDisplay(frame)
 
     if exposure is not None:
-        ds9.mtv(exposure, frame=frame, title=title)
+        disp.mtv(exposure, title=title)
     elif bbox is not None:
-        ds9.mtv(exposure=ExposureF(bbox), frame=frame, title=title)
+        disp.mtv(exposure=ExposureF(bbox), title=title)
 
-    with ds9.Buffering():
+    with disp.Buffering():
         if refCat is not None:
             refCentroidKey = Point2DKey(refCat.schema["centroid"])
             for refObj in refCat:
                 rx, ry = refObj.get(refCentroidKey)
-                ds9.dot("x", rx, ry, size=10, frame=frame, ctype=ds9.RED)
+                disp.dot("x", rx, ry, size=10, ctype=afwDisplay.RED)
 
         if sourceCat is not None:
             sourceCentroidKey = Point2DKey(sourceCat.schema["slot_Centroid"])
             for source in sourceCat:
                 sx, sy = source.get(sourceCentroidKey)
-                ds9.dot("+", sx,  sy, size=10, frame=frame, ctype=ds9.GREEN)
+                disp.dot("+", sx,  sy, size=10, ctype=afwDisplay.GREEN)
                 if distortedCentroidKey is not None:
                     dx, dy = source.get(distortedCentroidKey)
-                    ds9.dot("o", dx, dy, size=10, frame=frame, ctype=ds9.GREEN)
-                    ds9.line([(sx, sy), (dx, dy)], ctype=ds9.GREEN, frame=frame)
+                    disp.dot("o", dx, dy, size=10, ctype=afwDisplay.GREEN)
+                    disp.line([(sx, sy), (dx, dy)], ctype=afwDisplay.GREEN)
 
         if matches is not None:
             refCentroidKey = Point2DKey(matches[0].first.schema["centroid"])
@@ -64,8 +85,8 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
                 sourceCentroid = m.second.get(sourceCentroidKey)
                 radArr[i] = math.hypot(*(refCentroid - sourceCentroid))
                 sx, sy = sourceCentroid
-                ds9.dot("o", sx, sy, size=10, frame=frame, ctype=ds9.YELLOW)
-                ds9.line([refCentroid, sourceCentroid], ctype=ds9.YELLOW)
+                disp.dot("o", sx, sy, size=10, ctype=afwDisplay.YELLOW)
+                disp.line([refCentroid, sourceCentroid], ctype=afwDisplay.YELLOW)
 
             print("<match radius> = %.4g +- %.4g [%d matches]" %
                 (radArr.mean(), radArr.std(), len(matches)))
