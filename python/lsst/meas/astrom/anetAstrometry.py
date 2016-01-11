@@ -1,6 +1,6 @@
 #
 # LSST Data Management System
-# Copyright 2008, 2009, 2010, 2011 LSST Corporation.
+# Copyright 2008-2016 AURA/LSST.
 #
 # This product includes software developed by the
 # LSST Project (http://www.lsst.org/).
@@ -22,6 +22,7 @@
 import numpy
 from contextlib import contextmanager
 
+import lsstDebug
 import lsst.pex.exceptions
 import lsst.afw.geom as afwGeom
 from lsst.afw.cameraGeom import TAN_PIXELS
@@ -262,7 +263,6 @@ class ANetAstrometryTask(pipeBase.Task):
         for corner in detector.getCorners(TAN_PIXELS):
             bboxD.include(corner)
 
-        import lsstDebug
         if lsstDebug.Info(__name__).display:
             frame = lsstDebug.Info(__name__).frame
             pause = lsstDebug.Info(__name__).pause
@@ -343,7 +343,10 @@ class ANetAstrometryTask(pipeBase.Task):
                 raise RuntimeError("No astrometric matches")
             self.log.info("%d astrometric matches" %  (len(matches)))
 
-            self.display('astrometry', exposure=exposure, sources=sourceCat, matches=matches)
+            if self._display:
+                frame = lsstDebug.Info(__name__).frame
+                displayAstrometry(exposure=exposure, sourceCat=sourceCat, matches=matches,
+                                  frame=frame, pause=False)
 
             return pipeBase.Struct(
                 refCat = astrom.refCat,
@@ -385,7 +388,10 @@ class ANetAstrometryTask(pipeBase.Task):
         # Note that this is the Wcs for the provided positions, which may be distorted
         exposure.setWcs(astrom.getWcs())
 
-        self.display('astrometry', exposure=exposure, sources=sourceCat, matches=matches)
+        if self._display:
+            frame = lsstDebug.Info(__name__).frame
+            displayAstrometry(exposure=exposure, sourceCat=sourceCat, matches=matches,
+                              frame=frame, pause=False)
 
         return pipeBase.Struct(
             refCat = astrom.refCat,
@@ -463,7 +469,10 @@ class ANetAstrometryTask(pipeBase.Task):
         else:
             self.log.warn("Not calculating a SIP solution; matches may be suspect")
 
-        self.display('astrometry', exposure=exposure, sources=sourceCat, matches=matches)
+        if self._display:
+            frame = lsstDebug.Info(__name__).frame
+            displayAstrometry(exposure=exposure, sourceCat=sourceCat, matches=matches,
+                              frame=frame, pause=False)
 
         return sip
 
