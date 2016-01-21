@@ -1,6 +1,5 @@
 from __future__ import absolute_import, division, print_function
 
-from lsst.daf.base import PropertyList
 from lsst.afw.image.utils import getDistortedWcs
 import lsst.afw.geom as afwGeom
 import lsst.afw.math as afwMath
@@ -11,6 +10,7 @@ from .matchOptimisticB import MatchOptimisticBTask
 from .fitTanSipWcs import FitTanSipWcsTask
 from .display import displayAstrometry
 from .astromLib import makeMatchStatistics
+from .createMatchMetadata import createMatchMetadata
 
 class AstrometryConfig(pexConfig.Config):
     refObjLoader = pexConfig.ConfigurableField(
@@ -168,7 +168,7 @@ class AstrometryTask(pipeBase.Task):
         - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
         - scatterOnSky  median on-sky separation between reference objects and sources in "matches"
             (an lsst.afw.geom.Angle), or None if config.forceKnownWcs True
-        - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
+        - matchMeta  metadata needed to unpersist matches (an lsst.daf.base.PropertyList)
         """
         if self.config.forceKnownWcs:
             res = self.loadAndMatch(exposure=exposure, sourceCat=sourceCat)
@@ -188,7 +188,7 @@ class AstrometryTask(pipeBase.Task):
         - refCat  reference object catalog of objects that overlap the exposure (with some margin)
             (an lsst::afw::table::SimpleCatalog)
         - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
-        - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
+        - matchMeta  metadata needed to unpersist matches (an lsst.daf.base.PropertyList)
 
         @note ignores config.forceKnownWcs, config.maxIter, config.matchDistanceSigma
             and config.minMatchDistanceArcSec
@@ -234,11 +234,7 @@ class AstrometryTask(pipeBase.Task):
         return pipeBase.Struct(
             refCat = loadRes.refCat,
             matches = matchRes.matches,
-            matchMeta = self._createMatchMetadata(
-                bbox = expMd.bbox,
-                wcs = expMd.wcs,
-                filterName = expMd.filterName,
-            ),
+            matchMeta = createMatchMetadata(exposure),
         )
 
     @pipeBase.timeMethod
@@ -251,7 +247,7 @@ class AstrometryTask(pipeBase.Task):
         - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
         - scatterOnSky  median on-sky separation between reference objects and sources in "matches"
             (an lsst.afw.geom.Angle)
-        - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
+        - matchMeta  metadata needed to unpersist matches (an lsst.daf.base.PropertyList)
 
         @note ignores config.forceKnownWcs
         """
@@ -336,7 +332,7 @@ class AstrometryTask(pipeBase.Task):
             refCat = loadRes.refCat,
             matches = res.matches,
             scatterOnSky = res.scatterOnSky,
-            matchMeta = self._createMatchMetadata(bbox=expMd.bbox, wcs=res.wcs, filterName=expMd.filterName)
+            matchMeta = createMatchMetadata(exposure)
         )
 
     def _computeMatchStatsOnSky(self, matchList):
@@ -448,27 +444,3 @@ class AstrometryTask(pipeBase.Task):
             scatterOnSky = scatterOnSky,
         )
 
-    @staticmethod
-    def _createMatchMetadata(bbox, wcs, filterName):
-        """Create matchMeta metadata required for regenerating the catalog
-
-        This is copied from Astrom and I'm not sure why it is needed.
-
-        @param bbox  bounding box of exposure (an lsst.afw.geom.Box2I or Box2D)
-        @param wcs  WCS of exposure
-        @param filterName Name of filter, used for magnitudes
-        @return metadata about the field (a daf_base PropertyList)
-        """
-        matchMeta = PropertyList()
-        bboxd = afwGeom.Box2D(bbox)
-        ctrPos = bboxd.getCenter()
-        ctrCoord = wcs.pixelToSky(ctrPos).toIcrs()
-        llCoord = wcs.pixelToSky(bboxd.getMin())
-        approxRadius = ctrCoord.angularSeparation(llCoord)
-        matchMeta.add('RA', ctrCoord.getRa().asDegrees(), 'field center in degrees')
-        matchMeta.add('DEC', ctrCoord.getDec().asDegrees(), 'field center in degrees')
-        matchMeta.add('RADIUS', approxRadius.asDegrees(), 'field radius in degrees, approximate')
-        matchMeta.add('SMATCHV', 1, 'SourceMatchVector version number')
-        if filterName is not None:
-            matchMeta.add('FILTER', filterName, 'filter name for tagalong data')
-        return matchMeta
