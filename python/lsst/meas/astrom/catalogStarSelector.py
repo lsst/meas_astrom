@@ -78,6 +78,7 @@ class CheckSource(object):
 
 class CatalogStarSelector(object):
     ConfigClass = CatalogStarSelectorConfig
+    usesMatches = True # selectStars uses (requires) its matches argument
 
     def __init__(self, config=None):
         """Construct a star selector that uses second moments
