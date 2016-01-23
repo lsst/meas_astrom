@@ -1,3 +1,24 @@
+#
+# LSST Data Management System
+# Copyright 2008-2016 AURA/LSST.
+#
+# This product includes software developed by the
+# LSST Project (http://www.lsst.org/).
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the LSST License Statement and
+# the GNU General Public License along with this program.  If not,
+# see <https://www.lsstcorp.org/LegalNotices/>.
+#
 from __future__ import absolute_import, division, print_function
 
 from lsst.afw.image.utils import getDistortedWcs
@@ -161,7 +182,7 @@ class AstrometryTask(pipeBase.Task):
             - detector (if wcs is pure tangent; may be absent)
             The following are updated:
             - wcs (the initial value is used as an initial guess, and is required)
-        @param[in] sourceCat  catalog of sourceCat detected on the exposure (an lsst.afw.table.SourceCatalog)
+        @param[in] sourceCat  catalog of sources detected on the exposure (an lsst.afw.table.SourceCatalog)
         @return an lsst.pipe.base.Struct with these fields:
         - refCat  reference object catalog of objects that overlap the exposure (with some margin)
             (an lsst::afw::table::SimpleCatalog)
@@ -181,8 +202,8 @@ class AstrometryTask(pipeBase.Task):
     def loadAndMatch(self, exposure, sourceCat):
         """!Load reference objects overlapping an exposure and match to sources detected on that exposure
 
-        @param[in] exposure  exposure whose WCS is to be fit
-        @param[in] sourceCat  catalog of sourceCat detected on the exposure (an lsst.afw.table.SourceCatalog)
+        @param[in] exposure  exposure that the sources overlap
+        @param[in] sourceCat  catalog of sources detected on the exposure (an lsst.afw.table.SourceCatalog)
 
         @return an lsst.pipe.base.Struct with these fields:
         - refCat  reference object catalog of objects that overlap the exposure (with some margin)
@@ -380,7 +401,7 @@ class AstrometryTask(pipeBase.Task):
         """!Match sources to reference objects and fit a WCS
 
         @param[in] refCat  catalog of reference objects
-        @param[in] sourceCat  catalog of sourceCat detected on the exposure (an lsst.afw.table.SourceCatalog)
+        @param[in] sourceCat  catalog of sources detected on the exposure (an lsst.afw.table.SourceCatalog)
         @param[in] refFluxField  field of refCat to use for flux
         @param[in] bbox  bounding box of exposure (an lsst.afw.geom.Box2I)
         @param[in] wcs  initial guess for WCS of exposure (an lsst.afw.image.Wcs)
