@@ -95,16 +95,15 @@ class CatalogStarSelector(object):
         self._fluxMax  = config.fluxMax
         self._badStarPixelFlags = config.badStarPixelFlags
 
-    def selectStars(self, exposure, sources, matches=None):
-        """Return a list of PSF candidates that represent likely stars
+    def selectStars(self, exposure, sourceCat, matches=None):
+        """!Return a list of PSF candidates that represent likely stars
 
         A list of PSF candidates may be used by a PSF fitter to construct a PSF.
 
-        @param[in] exposure: the exposure containing the sources
-        @param[in] sources: a source list containing sources that may be stars
-        @param[in] matches: a match vector as produced by meas_astrom; not actually optional
-                            (passing None just allows us to handle the exception better here
-                            than in calling code)
+        @param[in] exposure  the exposure containing the sources
+        @param[in] sourceCat  catalog of sources that may be stars (an lsst.afw.table.SourceCatalog)
+        @param[in] matches  a match vector as produced by meas_astrom; required
+                            (defaults to None to match the StarSelector API and improve error handling)
 
         @return psfCandidateList: a list of PSF candidates.
         """
@@ -114,9 +113,7 @@ class CatalogStarSelector(object):
         pauseAtEnd = lsstDebug.Info(__name__).pauseAtEnd               # pause when done
 
         if matches is None:
-            raise RuntimeError(
-                "Cannot use catalog star selector without running astrometry."
-                )
+            raise RuntimeError("CatalogStarSelector requires matches")
 
         mi = exposure.getMaskedImage()
 
@@ -128,7 +125,7 @@ class CatalogStarSelector(object):
         #
         # Read the reference catalogue
         #
-        isGoodSource = CheckSource(sources, self._fluxLim, self._fluxMax, self._badStarPixelFlags)
+        isGoodSource = CheckSource(sourceCat, self._fluxLim, self._fluxMax, self._badStarPixelFlags)
 
         #
         # Go through and find all the PSFs in the catalogue
