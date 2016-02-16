@@ -104,7 +104,6 @@ class SourceInfo(object):
         self.saturatedKey = schema["base_PixelFlags_flag_saturated"].asKey()
         self.fluxField = "slot_%sFlux_flux" % (fluxType,)
         self.interpolatedCenterKey = schema["base_PixelFlags_flag_interpolatedCenter"].asKey()
-        # extra keys that might be useful
         self.parentKey = schema["parent"].asKey()
 
         if self.fluxField not in schema:
@@ -130,8 +129,9 @@ class SourceInfo(object):
         For a source to be usable it must:
         - have a valid centroid
         - be not too near the edge
+        - not be deblended
         """
-        return self.hasCentroid(source) and not source.get(self.edgeKey)
+        return self.hasCentroid(source) and source.get(self.parentKey) == 0 and not source.get(self.edgeKey)
 
     def isGood(self, source):
         """Return True if source is usable for matching (as per isUsable) and likely has a good centroid
