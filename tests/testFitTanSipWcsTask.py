@@ -31,6 +31,7 @@
 # both the testing class and the implementation class allowing test
 # discovery to only run tests found in the subclasses.
 
+from __future__ import print_function
 import math
 import unittest
 
@@ -115,8 +116,8 @@ class BaseTestCase(unittest.TestCase):
                 refObj.setCoord(c)
 
                 if False:
-                    print "x,y = (%.1f, %.1f) pixels -- RA,Dec = (%.3f, %.3f) deg" % \
-                        (i, j, c.toFk5().getRa().asDegrees(), c.toFk5().getDec().asDegrees())
+                    print("x,y = (%.1f, %.1f) pixels -- RA,Dec = (%.3f, %.3f) deg" % \
+                        (i, j, c.toFk5().getRa().asDegrees(), c.toFk5().getDec().asDegrees()))
 
                 self.matches.append(self.MatchClass(refObj, src, 0.0))
 
@@ -258,7 +259,7 @@ class BaseTestCase(unittest.TestCase):
         pylab.plot(xc, yc, "bx")
         fileName = "%s_%i.png" % (fileNamePrefix, pnum)
         pylab.savefig(fileName)
-        print "Wrote", fileName
+        print("Wrote", fileName)
         pnum += 1
 
         pylab.clf()
@@ -267,7 +268,7 @@ class BaseTestCase(unittest.TestCase):
         pylab.xlabel("x(source)")
         pylab.ylabel("x(ref - src)")
         pylab.savefig(fileName)
-        print "Wrote", fileName
+        print("Wrote", fileName)
         pnum += 1
 
         pylab.clf()
@@ -275,7 +276,7 @@ class BaseTestCase(unittest.TestCase):
         pylab.plot(rc, dc, "bx")
         fileName = "%s_%i.png" % (fileNamePrefix, pnum)
         pylab.savefig(fileName)
-        print "Wrote", fileName
+        print("Wrote", fileName)
         pnum += 1
 
         pylab.clf()
@@ -294,7 +295,7 @@ class BaseTestCase(unittest.TestCase):
             pylab.plot(x0, x1-x0, "b-")
         fileName = "%s_%i.png" % (fileNamePrefix, pnum)
         pylab.savefig(fileName)
-        print "Wrote", fileName
+        print("Wrote", fileName)
         pnum += 1
 
 class SideLoadTestCases():
