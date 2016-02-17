@@ -20,6 +20,18 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
+# The classes in this test are a little non-standard to reduce code
+# duplication and support automated unittest discovery.
+# A base class includes all the code that implements the testing and
+# itself inherits from unittest.TestCase. unittest automated discovery
+# will scan all classes that inherit from unittest.TestCase and invoke
+# any test methods found. To prevent this base class from being executed
+# the test methods are placed in a different class that does not inherit
+# from unittest.TestCase. The actual test classes then inherit from
+# both the testing class and the implementation class allowing test
+# discovery to only run tests found in the subclasses.
+
+from __future__ import print_function
 import math
 import unittest
 
@@ -104,8 +116,8 @@ class BaseTestCase(unittest.TestCase):
                 refObj.setCoord(c)
 
                 if False:
-                    print "x,y = (%.1f, %.1f) pixels -- RA,Dec = (%.3f, %.3f) deg" % \
-                        (i, j, c.toFk5().getRa().asDegrees(), c.toFk5().getDec().asDegrees())
+                    print("x,y = (%.1f, %.1f) pixels -- RA,Dec = (%.3f, %.3f) deg" % \
+                        (i, j, c.toFk5().getRa().asDegrees(), c.toFk5().getDec().asDegrees()))
 
                 self.matches.append(self.MatchClass(refObj, src, 0.0))
 
@@ -114,44 +126,6 @@ class BaseTestCase(unittest.TestCase):
         del self.sourceCat
         del self.matches
         del self.tanWcs
-
-    def testTrivial(self):
-        """Add no distortion"""
-        for order in (2, 4, 6):
-            self.doTest("testTrivial", lambda x, y: (x, y), order=order)
-
-    def testOffset(self):
-        """Add an offset"""
-        for order in (2, 4, 6):
-            self.doTest("testOffset", lambda x, y: (x + 5, y + 7), order=order)
-
-    def testLinearX(self):
-        """Scale x, offset y"""
-        for order in (2, 6):
-            self.doTest("testLinearX", lambda x, y: (2*x, y + 7), order=order)
-
-    def testLinearXY(self):
-        """Scale x and y"""
-        self.doTest("testLinearXY", lambda x, y: (2*x, 3*y))
-
-    def testLinearYX(self):
-        """Add an offset to each point; scale in y and x"""
-        for order in (2, 6):
-            self.doTest("testLinearYX", lambda x, y: (x + 0.2*y, y + 0.3*x), order=order)
-
-    def testQuadraticX(self):
-        """Add quadratic distortion in x"""
-        for order in (4, 5):
-            self.doTest("testQuadraticX", lambda x, y: (x + 1e-5*x**2, y), order=order)
-
-    def testRadial(self):
-        """Add radial distortion"""
-        radialTransform = afwGeom.RadialXYTransform([0, 1.01, 1e-8])
-        def radialDistortion(x, y):
-            x, y = radialTransform.forwardTransform(afwGeom.Point2D(x, y))
-            return (x, y)
-        for order in (4, 5, 6):
-            self.doTest("testRadial", radialDistortion, order=order)
 
     def checkResults(self, fitRes, catsUpdated):
         """Check results
@@ -285,7 +259,7 @@ class BaseTestCase(unittest.TestCase):
         pylab.plot(xc, yc, "bx")
         fileName = "%s_%i.png" % (fileNamePrefix, pnum)
         pylab.savefig(fileName)
-        print "Wrote", fileName
+        print("Wrote", fileName)
         pnum += 1
 
         pylab.clf()
@@ -294,7 +268,7 @@ class BaseTestCase(unittest.TestCase):
         pylab.xlabel("x(source)")
         pylab.ylabel("x(ref - src)")
         pylab.savefig(fileName)
-        print "Wrote", fileName
+        print("Wrote", fileName)
         pnum += 1
 
         pylab.clf()
@@ -302,7 +276,7 @@ class BaseTestCase(unittest.TestCase):
         pylab.plot(rc, dc, "bx")
         fileName = "%s_%i.png" % (fileNamePrefix, pnum)
         pylab.savefig(fileName)
-        print "Wrote", fileName
+        print("Wrote", fileName)
         pnum += 1
 
         pylab.clf()
@@ -321,13 +295,61 @@ class BaseTestCase(unittest.TestCase):
             pylab.plot(x0, x1-x0, "b-")
         fileName = "%s_%i.png" % (fileNamePrefix, pnum)
         pylab.savefig(fileName)
-        print "Wrote", fileName
+        print("Wrote", fileName)
         pnum += 1
 
-def makeTestCase(_MatchClass):
-    class CreateWcsWithSipTestCase(BaseTestCase):
-        MatchClass = _MatchClass
-    return CreateWcsWithSipTestCase
+class SideLoadTestCases():
+    """Base class implementations of testing methods.
+
+    Explicitly does not inherit from unittest.TestCase"""
+
+
+    def testTrivial(self):
+        """Add no distortion"""
+        for order in (2, 4, 6):
+            self.doTest("testTrivial", lambda x, y: (x, y), order=order)
+
+    def testOffset(self):
+        """Add an offset"""
+        for order in (2, 4, 6):
+            self.doTest("testOffset", lambda x, y: (x + 5, y + 7), order=order)
+
+    def testLinearX(self):
+        """Scale x, offset y"""
+        for order in (2, 6):
+            self.doTest("testLinearX", lambda x, y: (2*x, y + 7), order=order)
+
+    def testLinearXY(self):
+        """Scale x and y"""
+        self.doTest("testLinearXY", lambda x, y: (2*x, 3*y))
+
+    def testLinearYX(self):
+        """Add an offset to each point; scale in y and x"""
+        for order in (2, 6):
+            self.doTest("testLinearYX", lambda x, y: (x + 0.2*y, y + 0.3*x), order=order)
+
+    def testQuadraticX(self):
+        """Add quadratic distortion in x"""
+        for order in (4, 5):
+            self.doTest("testQuadraticX", lambda x, y: (x + 1e-5*x**2, y), order=order)
+
+    def testRadial(self):
+        """Add radial distortion"""
+        radialTransform = afwGeom.RadialXYTransform([0, 1.01, 1e-8])
+        def radialDistortion(x, y):
+            x, y = radialTransform.forwardTransform(afwGeom.Point2D(x, y))
+            return (x, y)
+        for order in (4, 5, 6):
+            self.doTest("testRadial", radialDistortion, order=order)
+
+# The test classes inherit from two base classes and differ in the match
+# class being used.
+
+class CreateWcsWithSipTestCaseReferenceMatch(BaseTestCase, SideLoadTestCases):
+    MatchClass = afwTable.ReferenceMatch
+
+class CreateWcsWithSipTestCaseSourceMatch(BaseTestCase, SideLoadTestCases):
+    MatchClass = afwTable.SourceMatch
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -336,8 +358,8 @@ def suite():
     tests.init()
 
     suites = []
-    suites += unittest.makeSuite(makeTestCase(afwTable.ReferenceMatch))
-    suites += unittest.makeSuite(makeTestCase(afwTable.SourceMatch))
+    suites += unittest.makeSuite(CreateWcsWithSipTestCaseReferenceMatch)
+    suites += unittest.makeSuite(CreateWcsWithSipTestCaseSourceMatch)
     suites += unittest.makeSuite(tests.MemoryTestCase)
     return unittest.TestSuite(suites)
 

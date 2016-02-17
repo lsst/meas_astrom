@@ -20,6 +20,18 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
+#
+# The classes in this test are a little non-standard to reduce code
+# duplication and support automated unittest discovery.
+# A base class includes all the code that implements the testing and
+# itself inherits from unittest.TestCase. unittest automated discovery
+# will scan all classes that inherit from unittest.TestCase and invoke
+# any test methods found. To prevent this base class from being executed
+# the test methods are placed in a different class that does not inherit
+# from unittest.TestCase. The actual test classes then inherit from
+# both the testing class and the implementation class allowing test
+# discovery to only run tests found in the subclasses.
+
 import unittest
 
 import numpy
@@ -101,22 +113,6 @@ class BaseTestCase(unittest.TestCase):
         del self.matches
         del self.tanWcs
 
-    def testTrivial(self):
-        """Add no distortion"""
-        self.doTest("testTrivial", lambda x, y: (x, y))
-
-    def testQuadraticX(self):
-        """Add quadratic distortion in x"""
-        self.doTest("testQuadraticX", lambda x, y: (x + 1e-4*x**2, y))
-
-    def testRadial(self):
-        """Add radial distortion"""
-        radialTransform = afwGeom.RadialXYTransform([0, 1.02, 1e-6])
-        def radialDistortion(x, y):
-            x, y = radialTransform.forwardTransform(afwGeom.Point2D(x, y))
-            return (x, y)
-        self.doTest("testRadial", radialDistortion)
-
     def doTest(self, name, func):
         """Apply func(x, y) to each source in self.sourceCat, then set coord, compute and check dist
         """
@@ -138,10 +134,36 @@ class BaseTestCase(unittest.TestCase):
 
         self.assertLess(maxDistErr.asArcseconds(), 1e-7)
 
-def makeTestCase(_MatchClass):
-    class SetMatchDistanceTestCase(BaseTestCase):
-        MatchClass = _MatchClass
-    return SetMatchDistanceTestCase
+class SideLoadTestCases():
+    """Base class implementations of testing methods.
+
+    Explicitly does not inherit from unittest.TestCase"""
+
+
+    def testTrivial(self):
+        """Add no distortion"""
+        self.doTest("testTrivial", lambda x, y: (x, y))
+
+    def testQuadraticX(self):
+        """Add quadratic distortion in x"""
+        self.doTest("testQuadraticX", lambda x, y: (x + 1e-4*x**2, y))
+
+    def testRadial(self):
+        """Add radial distortion"""
+        radialTransform = afwGeom.RadialXYTransform([0, 1.02, 1e-6])
+        def radialDistortion(x, y):
+            x, y = radialTransform.forwardTransform(afwGeom.Point2D(x, y))
+            return (x, y)
+        self.doTest("testRadial", radialDistortion)
+
+# The test classes inherit from two base classes and differ in the match
+# class being used.
+
+class SetMatchDistanceTestCaseReferenceMatch(BaseTestCase, SideLoadTestCases):
+    MatchClass = afwTable.ReferenceMatch
+
+class SetMatchDistanceTestCaseSourceMatch(BaseTestCase, SideLoadTestCases):
+    MatchClass = afwTable.SourceMatch
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -150,8 +172,8 @@ def suite():
     tests.init()
 
     suites = []
-    suites += unittest.makeSuite(makeTestCase(afwTable.ReferenceMatch))
-    suites += unittest.makeSuite(makeTestCase(afwTable.SourceMatch))
+    suites += unittest.makeSuite(SetMatchDistanceTestCaseReferenceMatch)
+    suites += unittest.makeSuite(SetMatchDistanceTestCaseSourceMatch)
     suites += unittest.makeSuite(tests.MemoryTestCase)
     return unittest.TestSuite(suites)
 
