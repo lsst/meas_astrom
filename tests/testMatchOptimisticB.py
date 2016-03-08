@@ -181,8 +181,9 @@ class TestMatchOptimisticB(unittest.TestCase):
         """
         sourceCat = afwTable.SourceCatalog.readFits(filename)
         aliasMap = sourceCat.schema.getAliasMap()
-        aliasMap.set("slot_ApFlux_flux", "base_PsfFlux_flux")
-        aliasMap.set("slot_ApFlux_fluxSigma", "base_PsfFlux_fluxSigma")
+        aliasMap.set("slot_ApFlux", "base_PsfFlux")
+        fluxKey = sourceCat.schema["slot_ApFlux_flux"].asKey()
+        fluxSigmaKey = sourceCat.schema["slot_ApFlux_fluxSigma"].asKey()
 
         # print("schema=", sourceCat.schema)
 
@@ -191,6 +192,8 @@ class TestMatchOptimisticB(unittest.TestCase):
         for src in sourceCat:
             adjCentroid = src.get(centroidKey) - afwGeom.Extent2D(500, 500)
             src.set(centroidKey, adjCentroid)
+            src.set(fluxKey, 1000)
+            src.set(fluxSigmaKey, 1)
 
         # Set catalog coord
         for src in sourceCat:

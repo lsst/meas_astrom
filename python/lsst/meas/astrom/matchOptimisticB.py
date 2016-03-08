@@ -75,6 +75,12 @@ class MatchOptimisticBConfig(pexConfig.Config):
         dtype = float,
         default = 0.02,
     )
+    minSnr = pexConfig.Field(
+        dtype = float,
+        doc= "Minimum allowed signal-to-noise ratio for sources used for matching "
+            "(in the flux specified by sourceFluxType); <=0 for no limit",
+        default = 40,
+    )
 
 class SourceInfo(object):
     """Provide usability tests and catalog keys for sources in a source catalog
@@ -90,11 +96,13 @@ class SourceInfo(object):
 
     @throw RuntimeError if schema version unsupported or a needed field is not found
     """
-    def __init__(self, schema, fluxType="Ap"):
+    def __init__(self, schema, fluxType="Ap", minSnr=50):
         """Construct a SourceInfo
 
         @param[in] schema  source catalog schema
         @param[in] fluxType  flux type: typically one of "Ap" or "Psf"
+        @param[in] minSnr  minimum allowed signal-to-noise ratio for sources used for matching
+            (in the flux specified by fluxType); <=0 for no limit
 
         @throw RuntimeError if the flux field is not found
         """
@@ -102,9 +110,14 @@ class SourceInfo(object):
         self.centroidFlagKey = schema["slot_Centroid_flag"].asKey()
         self.edgeKey = schema["base_PixelFlags_flag_edge"].asKey()
         self.saturatedKey = schema["base_PixelFlags_flag_saturated"].asKey()
-        self.fluxField = "slot_%sFlux_flux" % (fluxType,)
+        fluxPrefix = "slot_%sFlux_" % (fluxType,)
+        self.fluxField = fluxPrefix + "flux"
+        self.fluxKey = schema[fluxPrefix + "flux"].asKey()
+        self.fluxFlagKey = schema[fluxPrefix + "flag"].asKey()
+        self.fluxSigmaKey = schema[fluxPrefix + "fluxSigma"].asKey()
         self.interpolatedCenterKey = schema["base_PixelFlags_flag_interpolatedCenter"].asKey()
         self.parentKey = schema["parent"].asKey()
+        self.minSnr = float(minSnr)
 
         if self.fluxField not in schema:
             raise RuntimeError("Could not find flux field %s in source schema" % (self.fluxField,))
@@ -129,8 +142,14 @@ class SourceInfo(object):
         For a source to be usable it must:
         - have a valid centroid
         - not be deblended
+        - have a valid flux (of the type specified in this object's constructor)
+        - have adequate signal-to-noise
         """
-        return self.hasCentroid(source) and source.get(self.parentKey) == 0
+        return self.hasCentroid(source) \
+            and source.get(self.parentKey) == 0 \
+            and not source.get(self.fluxFlagKey) \
+            and (self.minSnr <= 0
+                 or (source.get(self.fluxKey)/source.get(self.fluxSigmaKey) > self.minSnr))
 
     def isGood(self, source):
         """Return True if source is usable for matching (as per isUsable) and likely has a good centroid
@@ -266,6 +285,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         sourceInfo = self.SourceInfoClass(
             schema = sourceCat.schema,
             fluxType = self.config.sourceFluxType,
+            minSnr = self.config.minSnr,
         )
 
         # usableSourceCat: sources that are good but may be saturated
