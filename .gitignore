@@ -9,6 +9,7 @@ _build.*
 config.log
 doc/html
 doc/doxygen.conf
+doc/xml
 examples/refSources
 python/lsst/meas/astrom/net/netLib.py
 python/lsst/meas/astrom/net/netLib_wrap.cc

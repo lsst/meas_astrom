@@ -1,6 +1,26 @@
+#
+# LSST Data Management System
+# Copyright 2008-2016 AURA/LSST.
+#
+# This product includes software developed by the
+# LSST Project (http://www.lsst.org/).
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the LSST License Statement and
+# the GNU General Public License along with this program.  If not,
+# see <https://www.lsstcorp.org/LegalNotices/>.
+#
 from __future__ import absolute_import, division, print_function
 
-from lsst.daf.base import PropertyList
 from lsst.afw.image.utils import getDistortedWcs
 import lsst.afw.geom as afwGeom
 import lsst.afw.math as afwMath
@@ -11,6 +31,7 @@ from .matchOptimisticB import MatchOptimisticBTask
 from .fitTanSipWcs import FitTanSipWcsTask
 from .display import displayAstrometry
 from .astromLib import makeMatchStatistics
+from .createMatchMetadata import createMatchMetadata
 
 class AstrometryConfig(pexConfig.Config):
     refObjLoader = pexConfig.ConfigurableField(
@@ -161,14 +182,14 @@ class AstrometryTask(pipeBase.Task):
             - detector (if wcs is pure tangent; may be absent)
             The following are updated:
             - wcs (the initial value is used as an initial guess, and is required)
-        @param[in] sourceCat  catalog of sourceCat detected on the exposure (an lsst.afw.table.SourceCatalog)
+        @param[in] sourceCat  catalog of sources detected on the exposure (an lsst.afw.table.SourceCatalog)
         @return an lsst.pipe.base.Struct with these fields:
         - refCat  reference object catalog of objects that overlap the exposure (with some margin)
             (an lsst::afw::table::SimpleCatalog)
         - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
         - scatterOnSky  median on-sky separation between reference objects and sources in "matches"
             (an lsst.afw.geom.Angle), or None if config.forceKnownWcs True
-        - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
+        - matchMeta  metadata needed to unpersist matches (an lsst.daf.base.PropertyList)
         """
         if self.config.forceKnownWcs:
             res = self.loadAndMatch(exposure=exposure, sourceCat=sourceCat)
@@ -181,14 +202,14 @@ class AstrometryTask(pipeBase.Task):
     def loadAndMatch(self, exposure, sourceCat):
         """!Load reference objects overlapping an exposure and match to sources detected on that exposure
 
-        @param[in] exposure  exposure whose WCS is to be fit
-        @param[in] sourceCat  catalog of sourceCat detected on the exposure (an lsst.afw.table.SourceCatalog)
+        @param[in] exposure  exposure that the sources overlap
+        @param[in] sourceCat  catalog of sources detected on the exposure (an lsst.afw.table.SourceCatalog)
 
         @return an lsst.pipe.base.Struct with these fields:
         - refCat  reference object catalog of objects that overlap the exposure (with some margin)
             (an lsst::afw::table::SimpleCatalog)
         - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
-        - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
+        - matchMeta  metadata needed to unpersist matches (an lsst.daf.base.PropertyList)
 
         @note ignores config.forceKnownWcs, config.maxIter, config.matchDistanceSigma
             and config.minMatchDistanceArcSec
@@ -234,11 +255,7 @@ class AstrometryTask(pipeBase.Task):
         return pipeBase.Struct(
             refCat = loadRes.refCat,
             matches = matchRes.matches,
-            matchMeta = self._createMatchMetadata(
-                bbox = expMd.bbox,
-                wcs = expMd.wcs,
-                filterName = expMd.filterName,
-            ),
+            matchMeta = createMatchMetadata(exposure),
         )
 
     @pipeBase.timeMethod
@@ -251,7 +268,7 @@ class AstrometryTask(pipeBase.Task):
         - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
         - scatterOnSky  median on-sky separation between reference objects and sources in "matches"
             (an lsst.afw.geom.Angle)
-        - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
+        - matchMeta  metadata needed to unpersist matches (an lsst.daf.base.PropertyList)
 
         @note ignores config.forceKnownWcs
         """
@@ -336,7 +353,7 @@ class AstrometryTask(pipeBase.Task):
             refCat = loadRes.refCat,
             matches = res.matches,
             scatterOnSky = res.scatterOnSky,
-            matchMeta = self._createMatchMetadata(bbox=expMd.bbox, wcs=res.wcs, filterName=expMd.filterName)
+            matchMeta = createMatchMetadata(exposure)
         )
 
     def _computeMatchStatsOnSky(self, matchList):
@@ -384,7 +401,7 @@ class AstrometryTask(pipeBase.Task):
         """!Match sources to reference objects and fit a WCS
 
         @param[in] refCat  catalog of reference objects
-        @param[in] sourceCat  catalog of sourceCat detected on the exposure (an lsst.afw.table.SourceCatalog)
+        @param[in] sourceCat  catalog of sources detected on the exposure (an lsst.afw.table.SourceCatalog)
         @param[in] refFluxField  field of refCat to use for flux
         @param[in] bbox  bounding box of exposure (an lsst.afw.geom.Box2I)
         @param[in] wcs  initial guess for WCS of exposure (an lsst.afw.image.Wcs)
@@ -448,27 +465,3 @@ class AstrometryTask(pipeBase.Task):
             scatterOnSky = scatterOnSky,
         )
 
-    @staticmethod
-    def _createMatchMetadata(bbox, wcs, filterName):
-        """Create matchMeta metadata required for regenerating the catalog
-
-        This is copied from Astrom and I'm not sure why it is needed.
-
-        @param bbox  bounding box of exposure (an lsst.afw.geom.Box2I or Box2D)
-        @param wcs  WCS of exposure
-        @param filterName Name of filter, used for magnitudes
-        @return metadata about the field (a daf_base PropertyList)
-        """
-        matchMeta = PropertyList()
-        bboxd = afwGeom.Box2D(bbox)
-        ctrPos = bboxd.getCenter()
-        ctrCoord = wcs.pixelToSky(ctrPos).toIcrs()
-        llCoord = wcs.pixelToSky(bboxd.getMin())
-        approxRadius = ctrCoord.angularSeparation(llCoord)
-        matchMeta.add('RA', ctrCoord.getRa().asDegrees(), 'field center in degrees')
-        matchMeta.add('DEC', ctrCoord.getDec().asDegrees(), 'field center in degrees')
-        matchMeta.add('RADIUS', approxRadius.asDegrees(), 'field radius in degrees, approximate')
-        matchMeta.add('SMATCHV', 1, 'SourceMatchVector version number')
-        if filterName is not None:
-            matchMeta.add('FILTER', filterName, 'filter name for tagalong data')
-        return matchMeta
