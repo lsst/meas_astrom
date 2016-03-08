@@ -124,22 +124,25 @@ class SourceInfo(object):
         return np.all(np.isfinite(centroid)) and not source.getCentroidFlag()
 
     def isUsable(self, source):
-        """Return True if the source is usable for matching, even if possibly saturated
+        """Return True if the source is usable for matching, even if it may have a poor centroid
 
         For a source to be usable it must:
         - have a valid centroid
-        - be not too near the edge
         - not be deblended
         """
-        return self.hasCentroid(source) and source.get(self.parentKey) == 0 and not source.get(self.edgeKey)
+        return self.hasCentroid(source) and source.get(self.parentKey) == 0
 
     def isGood(self, source):
         """Return True if source is usable for matching (as per isUsable) and likely has a good centroid
 
-        For a source to have a good centroid it should not be interpolated in the center;
-        this includes saturated sources so we don't have to test separately for that.
+        The additional tests for a good centroid, beyond isUsable, are:
+        - not interpolated in the center (this includes saturated sources,
+            so we don't test separately for that)
+        - not near the edge
         """
-        return self.isUsable(source) and not source.get(self.interpolatedCenterKey)
+        return self.isUsable(source) \
+            and not source.get(self.interpolatedCenterKey) \
+            and not source.get(self.edgeKey)
 
 
 # The following block adds links to this task from the Task Documentation page.
