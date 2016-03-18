@@ -84,9 +84,9 @@ class CatalogStarSelectorTask(object):
         - starCat  catalog of selected stars (a subset of sourceCat)
         """
         import lsstDebug
-        display = lsstDebug.Info(__name__).display
-        displayExposure = lsstDebug.Info(__name__).displayExposure     # display the Exposure + spatialCells
-        pauseAtEnd = lsstDebug.Info(__name__).pauseAtEnd               # pause when done
+        debugInfo = lsstDebug.Info(__name__)
+        display = debugInfo.display
+        pauseAtEnd = debugInfo.pauseAtEnd  # pause when done
 
         if matches is None:
             raise RuntimeError("CatalogStarSelectorTask requires matches")
@@ -94,10 +94,8 @@ class CatalogStarSelectorTask(object):
         mi = exposure.getMaskedImage()
 
         if display:
-            frames = {}
-            if displayExposure:
-                frames["displayExposure"] = 1
-                ds9.mtv(mi, frame=frames["displayExposure"], title="PSF candidates")
+            frame = 1
+            ds9.mtv(mi, frame=frame, title="PSF candidates")
 
         isGoodSource = CheckSource(sourceCat, self.config.fluxLim, self.config.fluxMax, self.config.badFlags)
 
@@ -111,9 +109,9 @@ class CatalogStarSelectorTask(object):
                         starCat.append(source)
                         symb, ctype = "+", ds9.GREEN
 
-                        if display and displayExposure:
+                        if display:
                             ds9.dot(symb, source.getX() - mi.getX0(), source.getY() - mi.getY0(),
-                                    size=4, frame=frames["displayExposure"], ctype=ctype)
+                                    size=4, frame=frame, ctype=ctype)
 
         if display and pauseAtEnd:
             raw_input("Continue? y[es] p[db] ")
