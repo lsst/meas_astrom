@@ -50,8 +50,8 @@ class CatalogStarSelectorConfig(StarSelectorTask.ConfigClass):
 class CheckSource(object):
     """A functor to check whether a source has any flags set that should cause it to be labeled bad."""
 
-    def __init__(self, table, fluxLim, fluxMax, badStarPixelFlags):
-        self.keys = [table.getSchema().find(name).key for name in badStarPixelFlags]
+    def __init__(self, table, fluxLim, fluxMax, badFlags):
+        self.keys = [table.getSchema().find(name).key for name in badFlags]
         self.keys.append(table.getCentroidFlagKey())
         self.fluxLim = fluxLim
         self.fluxMax = fluxMax
