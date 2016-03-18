@@ -90,12 +90,6 @@ class CatalogStarSelector(object):
         if not config:
             config = CatalogStarSelector.ConfigClass()
 
-        self._kernelSize  = config.kernelSize
-        self._borderWidth = config.borderWidth
-        self._fluxLim  = config.fluxLim
-        self._fluxMax  = config.fluxMax
-        self._badStarPixelFlags = config.badStarPixelFlags
-
     def selectStars(self, exposure, sourceCat, matches=None):
         """!Return a list of PSF candidates that represent likely stars
 
@@ -126,7 +120,7 @@ class CatalogStarSelector(object):
         #
         # Read the reference catalogue
         #
-        isGoodSource = CheckSource(sourceCat, self._fluxLim, self._fluxMax, self._badStarPixelFlags)
+        isGoodSource = CheckSource(sourceCat, self.config.fluxLim, self.config.fluxMax, self.config.badStarPixelFlags)
 
         #
         # Go through and find all the PSFs in the catalogue
@@ -149,9 +143,9 @@ class CatalogStarSelector(object):
                             # an instance as we don't know Exposure's pixel type
                             # (and hence psfCandidate's exact type)
                             if psfCandidate.getWidth() == 0:
-                                psfCandidate.setBorderWidth(self._borderWidth)
-                                psfCandidate.setWidth(self._kernelSize + 2*self._borderWidth)
-                                psfCandidate.setHeight(self._kernelSize + 2*self._borderWidth)
+                                psfCandidate.setBorderWidth(self.config.borderWidth)
+                                psfCandidate.setWidth(self.config.kernelSize + 2*self.config.borderWidth)
+                                psfCandidate.setHeight(self.config.kernelSize + 2*self.config.borderWidth)
 
                             im = psfCandidate.getMaskedImage().getImage()
                             max = afwMath.makeStatistics(im, afwMath.MAX).getValue()
