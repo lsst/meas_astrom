@@ -20,7 +20,7 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 from lsst.afw.table import SourceCatalog
-from lsst.meas.algorithms import StarSelectorTask, starSelectorRegistry
+from lsst.meas.algorithms import StarSelectorTask
 from lsst.pipe.base import Struct
 import lsst.pex.config as pexConfig
 import lsst.afw.display.ds9 as ds9
@@ -36,7 +36,7 @@ class CatalogStarSelectorConfig(StarSelectorTask.ConfigClass):
         doc = "specify the maximum psfFlux for good Psf Candidates (ignored if == 0)",
         dtype = float,
         default = 0.0,
-        max = 0.0,
+        min = 0.0,
     )
 
     def setDefaults(self):
@@ -121,5 +121,3 @@ class CatalogStarSelectorTask(object):
         return Struct(
             starCat = starCat,
         )
-
-starSelectorRegistry.register("catalog", CatalogStarSelectorTask)

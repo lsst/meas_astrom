@@ -33,7 +33,6 @@ from .display import *
 from .approximateWcs import *
 from .createMatchMetadata import *
 from .astromLib import *
-
-from . import catalogStarSelector
+from .catalogStarSelector import *
 
 from .version import *
