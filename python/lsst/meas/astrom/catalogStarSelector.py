@@ -40,7 +40,7 @@ class CatalogStarSelectorConfig(pexConfig.Config):
 #        minValue = 0.0,
         check = lambda x: x >= 0.0,
     )
-    badStarPixelFlags = pexConfig.ListField(
+    badFlags = pexConfig.ListField(
         doc = "PSF candidate objects may not have any of these bits set",
         dtype = str,
         default = ["base_PixelFlags_flag_edge", "base_PixelFlags_flag_interpolatedCenter",
@@ -60,8 +60,8 @@ class CatalogStarSelectorConfig(pexConfig.Config):
 class CheckSource(object):
     """A functor to check whether a source has any flags set that should cause it to be labeled bad."""
 
-    def __init__(self, table, fluxLim, fluxMax, badStarPixelFlags):
-        self.keys = [table.getSchema().find(name).key for name in badStarPixelFlags]
+    def __init__(self, table, fluxLim, fluxMax, badFlags):
+        self.keys = [table.getSchema().find(name).key for name in badFlags]
         self.keys.append(table.getCentroidFlagKey())
         self.fluxLim = fluxLim
         self.fluxMax = fluxMax
@@ -120,7 +120,7 @@ class CatalogStarSelector(object):
         #
         # Read the reference catalogue
         #
-        isGoodSource = CheckSource(sourceCat, self.config.fluxLim, self.config.fluxMax, self.config.badStarPixelFlags)
+        isGoodSource = CheckSource(sourceCat, self.config.fluxLim, self.config.fluxMax, self.config.badFlags)
 
         #
         # Go through and find all the PSFs in the catalogue
