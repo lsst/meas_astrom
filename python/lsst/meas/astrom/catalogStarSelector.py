@@ -26,18 +26,17 @@ import lsst.pex.config as pexConfig
 import lsst.afw.display.ds9 as ds9
 
 class CatalogStarSelectorConfig(StarSelectorTask.ConfigClass):
-    fluxLim = pexConfig.Field(
+    fluxLim = pexConfig.RangeField(
         doc = "specify the minimum psfFlux for good Psf Candidates",
         dtype = float,
         default = 0.0,
-        check = lambda x: x >= 0.0,
+        min = 0.0,
     )
-    fluxMax = pexConfig.Field(
+    fluxMax = pexConfig.RangeField(
         doc = "specify the maximum psfFlux for good Psf Candidates (ignored if == 0)",
         dtype = float,
         default = 0.0,
-#        minValue = 0.0,
-        check = lambda x: x >= 0.0,
+        max = 0.0,
     )
 
     def setDefaults(self):
