@@ -19,49 +19,39 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
-import numpy
-
+from lsst.afw.table import SourceCatalog
+from lsst.meas.algorithms import StarSelectorTask
+from lsst.pipe.base import Struct
 import lsst.pex.config as pexConfig
 import lsst.afw.display.ds9 as ds9
-import lsst.afw.math as afwMath
-import lsst.meas.algorithms as measAlg
 
-class CatalogStarSelectorConfig(pexConfig.Config):
-    fluxLim = pexConfig.Field(
+class CatalogStarSelectorConfig(StarSelectorTask.ConfigClass):
+    fluxLim = pexConfig.RangeField(
         doc = "specify the minimum psfFlux for good Psf Candidates",
         dtype = float,
         default = 0.0,
-        check = lambda x: x >= 0.0,
+        min = 0.0,
     )
-    fluxMax = pexConfig.Field(
+    fluxMax = pexConfig.RangeField(
         doc = "specify the maximum psfFlux for good Psf Candidates (ignored if == 0)",
         dtype = float,
         default = 0.0,
-#        minValue = 0.0,
-        check = lambda x: x >= 0.0,
+        min = 0.0,
     )
-    badStarPixelFlags = pexConfig.ListField(
-        doc = "PSF candidate objects may not have any of these bits set",
-        dtype = str,
-        default = ["base_PixelFlags_flag_edge", "base_PixelFlags_flag_interpolatedCenter",
-            "base_PixelFlags_flag_saturatedCenter"],
-        )
-    kernelSize = pexConfig.Field(
-        doc = "size of the kernel to create",
-        dtype = int,
-        default = 21,
-    )
-    borderWidth = pexConfig.Field(
-        doc = "number of pixels to ignore around the edge of PSF candidate postage stamps",
-        dtype = int,
-        default = 0,
-    )
+
+    def setDefaults(self):
+        StarSelectorTask.ConfigClass.setDefaults(self)
+        self.badFlags = [
+            "base_PixelFlags_flag_edge",
+            "base_PixelFlags_flag_interpolatedCenter",
+            "base_PixelFlags_flag_saturatedCenter",
+        ]
 
 class CheckSource(object):
     """A functor to check whether a source has any flags set that should cause it to be labeled bad."""
 
-    def __init__(self, table, fluxLim, fluxMax, badStarPixelFlags):
-        self.keys = [table.getSchema().find(name).key for name in badStarPixelFlags]
+    def __init__(self, table, fluxLim, fluxMax, badFlags):
+        self.keys = [table.getSchema().find(name).key for name in badFlags]
         self.keys.append(table.getCentroidFlagKey())
         self.fluxLim = fluxLim
         self.fluxMax = fluxMax
@@ -76,25 +66,73 @@ class CheckSource(object):
             return False
         return True
 
-class CatalogStarSelector(object):
+## \addtogroup LSST_task_documentation
+## \{
+## \page CatalogStarSelectorTask
+## \ref CatalogStarSelectorTask_ "CatalogStarSelectorTask"
+## \copybrief CatalogStarSelectorTask
+## \}
+
+class CatalogStarSelectorTask(object):
+    """!Select stars based on a reference catalog
+
+    @anchor CatalogStarSelectorTask_
+    
+    @section meas_astrom_catalogStarSelector_Contents  Contents
+
+     - @ref meas_astrom_catalogStarSelector_Purpose
+     - @ref meas_astrom_catalogStarSelector_Initialize
+     - @ref meas_astrom_catalogStarSelector_IO
+     - @ref meas_astrom_catalogStarSelector_Config
+     - @ref meas_astrom_catalogStarSelector_Debug
+
+    @section meas_astrom_catalogStarSelector_Purpose  Description
+
+    Select stars using a match list: select sources where the matching reference object is unresolved,
+    plus the source passes the following tests:
+    - no flag from config.badFlags is set
+    - psf flux >= config.fluxLim
+    - psf flux <= config.fluxMax (not checked if fluxMax == 0)
+
+    @section meas_astrom_catalogStarSelector_Initialize  Task initialisation
+
+    @copydoc \_\_init\_\_
+
+    @section meas_astrom_catalogStarSelector_IO  Invoking the Task
+
+    Like all star selectors, the main method is `run`. Unlike most star selectors,
+    this one requires the `matches` argument (the `usesMatches` property is true).
+
+    @section meas_astrom_catalogStarSelector_Config  Configuration parameters
+
+    See @ref CatalogStarSelectorConfig
+
+    @section meas_astrom_catalogStarSelector_Debug  Debug variables
+
+    CatalogStarSelectorTask has a debug dictionary with the following keys:
+    <dl>
+    <dt>display
+    <dd>bool; if True display debug information
+    <dt>pauseAtEnd
+    <dd>bool; if True wait after displaying everything and wait for user input
+    </dl>
+
+    For example, put something like:
+    @code{.py}
+        import lsstDebug
+        def DebugInfo(name):
+            di = lsstDebug.getInfo(name)  # N.b. lsstDebug.Info(name) would call us recursively
+            if name.endswith("catalogStarSelector"):
+                di.display = True
+
+            return di
+
+        lsstDebug.Info = DebugInfo
+    @endcode
+    into your `debug.py` file and run your task with the `--debug` flag.
+    """
     ConfigClass = CatalogStarSelectorConfig
-    usesMatches = True # selectStars uses (requires) its matches argument
-
-    def __init__(self, config=None):
-        """Construct a star selector that uses second moments
-
-        This is a naive algorithm and should be used with caution.
-
-        @param[in] config: An instance of CatalogStarSelectorConfig
-        """
-        if not config:
-            config = CatalogStarSelector.ConfigClass()
-
-        self._kernelSize  = config.kernelSize
-        self._borderWidth = config.borderWidth
-        self._fluxLim  = config.fluxLim
-        self._fluxMax  = config.fluxMax
-        self._badStarPixelFlags = config.badStarPixelFlags
+    usesMatches = True # `run` and `selectStars` require the `matches` argument
 
     def selectStars(self, exposure, sourceCat, matches=None):
         """!Return a list of PSF candidates that represent likely stars
@@ -106,74 +144,42 @@ class CatalogStarSelector(object):
         @param[in] matches  a match vector as produced by meas_astrom; required
                             (defaults to None to match the StarSelector API and improve error handling)
 
-        @return psfCandidateList: a list of PSF candidates.
+        @return an lsst.pipe.base.Struct containing:
+        - starCat  catalog of selected stars (a subset of sourceCat)
         """
         import lsstDebug
-        display = lsstDebug.Info(__name__).display
-        displayExposure = lsstDebug.Info(__name__).displayExposure     # display the Exposure + spatialCells
-        pauseAtEnd = lsstDebug.Info(__name__).pauseAtEnd               # pause when done
+        debugInfo = lsstDebug.Info(__name__)
+        display = debugInfo.display
+        pauseAtEnd = debugInfo.pauseAtEnd  # pause when done
 
         if matches is None:
-            raise RuntimeError("CatalogStarSelector requires matches")
+            raise RuntimeError("CatalogStarSelectorTask requires matches")
 
         mi = exposure.getMaskedImage()
 
         if display:
-            frames = {}
-            if displayExposure:
-                frames["displayExposure"] = 1
-                ds9.mtv(mi, frame=frames["displayExposure"], title="PSF candidates")
-        #
-        # Read the reference catalogue
-        #
-        isGoodSource = CheckSource(sourceCat, self._fluxLim, self._fluxMax, self._badStarPixelFlags)
+            frame = 1
+            ds9.mtv(mi, frame=frame, title="PSF candidates")
 
-        #
-        # Go through and find all the PSFs in the catalogue
-        #
-        # We'll split the image into a number of cells, each of which contributes only
-        # one PSF candidate star
-        #
-        psfCandidateList = []
+        isGoodSource = CheckSource(sourceCat, self.config.fluxLim, self.config.fluxMax, self.config.badFlags)
 
+        starCat = SourceCatalog(sourceCat.schema)
         with ds9.Buffering():
             for ref, source, d in matches:
                 if not ref.get("resolved"):
                     if not isGoodSource(source):
                         symb, ctype = "+", ds9.RED
                     else:
-                        try:
-                            psfCandidate = measAlg.makePsfCandidate(source, exposure)
+                        starCat.append(source)
+                        symb, ctype = "+", ds9.GREEN
 
-                            # The setXXX methods are class static, but it's convenient to call them on
-                            # an instance as we don't know Exposure's pixel type
-                            # (and hence psfCandidate's exact type)
-                            if psfCandidate.getWidth() == 0:
-                                psfCandidate.setBorderWidth(self._borderWidth)
-                                psfCandidate.setWidth(self._kernelSize + 2*self._borderWidth)
-                                psfCandidate.setHeight(self._kernelSize + 2*self._borderWidth)
-
-                            im = psfCandidate.getMaskedImage().getImage()
-                            max = afwMath.makeStatistics(im, afwMath.MAX).getValue()
-                            if not numpy.isfinite(max):
-                                continue
-                            psfCandidateList.append(psfCandidate)
-
-                            symb, ctype = "+", ds9.GREEN
-                        except Exception as err:
-                            symb, ctype = "o", ds9.RED
-                            print "RHL", err
-                            pass # FIXME: should log this!
-                else:
-                    symb, ctype = "o", ds9.BLUE
-
-                if display and displayExposure:
-                    ds9.dot(symb, source.getX() - mi.getX0(), source.getY() - mi.getY0(),
-                            size=4, frame=frames["displayExposure"], ctype=ctype)
+                        if display:
+                            ds9.dot(symb, source.getX() - mi.getX0(), source.getY() - mi.getY0(),
+                                    size=4, frame=frame, ctype=ctype)
 
         if display and pauseAtEnd:
             raw_input("Continue? y[es] p[db] ")
 
-        return psfCandidateList
-
-measAlg.starSelectorRegistry.register("catalog", CatalogStarSelector)
+        return Struct(
+            starCat = starCat,
+        )
