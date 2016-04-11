@@ -255,7 +255,7 @@ class AstrometryTask(pipeBase.Task):
         return pipeBase.Struct(
             refCat = loadRes.refCat,
             matches = matchRes.matches,
-            matchMeta = createMatchMetadata(exposure),
+            matchMeta = createMatchMetadata(exposure, border=self.config.refObjLoader.pixelMargin),
         )
 
     @pipeBase.timeMethod
@@ -353,7 +353,7 @@ class AstrometryTask(pipeBase.Task):
             refCat = loadRes.refCat,
             matches = res.matches,
             scatterOnSky = res.scatterOnSky,
-            matchMeta = createMatchMetadata(exposure)
+            matchMeta = createMatchMetadata(exposure, border=self.config.refObjLoader.pixelMargin),
         )
 
     def _computeMatchStatsOnSky(self, matchList):

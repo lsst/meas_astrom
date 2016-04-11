@@ -6,15 +6,17 @@ from lsst.afw.image.utils import getDistortedWcs
 
 __all__ = ["createMatchMetadata"]
 
-def createMatchMetadata(exposure):
+def createMatchMetadata(exposure, border=0):
     """Create metadata required for unpersisting a match list
 
     @param[in] exposure  exposure for which to create metadata
+    @param[in] border    number of pixels by which to grow the bbox in all directions
 
     @return metadata about the field (a daf_base PropertyList)
     """
     matchMeta = PropertyList()
     bboxd = Box2D(exposure.getBBox())
+    bboxd.grow(border)
     ctrPos = bboxd.getCenter()
     wcs = getDistortedWcs(exposure.getInfo())
     ctrCoord = wcs.pixelToSky(ctrPos).toIcrs()
