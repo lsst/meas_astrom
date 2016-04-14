@@ -217,6 +217,7 @@ class AstrometryTask(pipeBase.Task):
         import lsstDebug
         debug = lsstDebug.Info(__name__)
 
+        matchMeta = createMatchMetadata(exposure, border=self.config.refObjLoader.pixelMargin)
         expMd = self._getExposureMetadata(exposure)
 
         loadRes = self.refObjLoader.loadPixelBox(
@@ -255,7 +256,7 @@ class AstrometryTask(pipeBase.Task):
         return pipeBase.Struct(
             refCat = loadRes.refCat,
             matches = matchRes.matches,
-            matchMeta = createMatchMetadata(exposure),
+            matchMeta = matchMeta,
         )
 
     @pipeBase.timeMethod
@@ -275,6 +276,7 @@ class AstrometryTask(pipeBase.Task):
         import lsstDebug
         debug = lsstDebug.Info(__name__)
 
+        matchMeta = createMatchMetadata(exposure, border=self.config.refObjLoader.pixelMargin)
         expMd = self._getExposureMetadata(exposure)
 
         loadRes = self.refObjLoader.loadPixelBox(
@@ -353,7 +355,7 @@ class AstrometryTask(pipeBase.Task):
             refCat = loadRes.refCat,
             matches = res.matches,
             scatterOnSky = res.scatterOnSky,
-            matchMeta = createMatchMetadata(exposure)
+            matchMeta = matchMeta,
         )
 
     def _computeMatchStatsOnSky(self, matchList):
