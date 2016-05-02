@@ -33,7 +33,7 @@ using namespace std;
 #include <vector>
 #include <cmath>
 #include <iostream>
-#include "boost/shared_ptr.hpp"
+#include <memory>
 #include "Eigen/Core"
 #include "Eigen/SVD"
 #include "lsst/afw/math/FunctionLibrary.h"

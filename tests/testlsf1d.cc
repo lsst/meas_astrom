@@ -32,7 +32,7 @@ using namespace std;
 #include <cmath>
 #include <cstdio>
 #include <cassert>
-#include "boost/shared_ptr.hpp"
+#include <memory>
 #include "Eigen/Core"
 #include "lsst/afw/math/FunctionLibrary.h"
 

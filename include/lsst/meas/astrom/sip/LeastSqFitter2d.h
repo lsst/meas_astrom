@@ -30,7 +30,7 @@
 #include <cstdio>
 #include <vector>
 
-#include "boost/shared_ptr.hpp"
+#include <memory>
 #include "Eigen/Core"
 #include "Eigen/SVD"
 
@@ -97,7 +97,7 @@ private:
     Eigen::JacobiSVD<Eigen::MatrixXd> _svd;
     Eigen::VectorXd _par;
 
-    std::vector<boost::shared_ptr<FittingFunc> > _funcArray;
+    std::vector<std::shared_ptr<FittingFunc> > _funcArray;
         
         
 };
@@ -266,7 +266,7 @@ template<class FittingFunc> void LeastSqFitter2d<FittingFunc>::initFunctions() {
     
     coeff.push_back(1);
     for (int i = 0; i < _order; ++i) {
-        boost::shared_ptr<FittingFunc> p(new FittingFunc(coeff));
+        std::shared_ptr<FittingFunc> p(new FittingFunc(coeff));
         _funcArray.push_back(p);
         
         coeff[i] = 0;
