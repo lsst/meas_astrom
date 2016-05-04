@@ -36,10 +36,10 @@ Python interface to Astrometry.net
 #undef debug
     }
 
-#include <vector>
-#include <set>
-#include "boost/cstdint.hpp"
 #include <memory>
+#include <set>
+#include <vector>
+#include "boost/cstdint.hpp"
 #include "boost/format.hpp"
 
 #include "lsst/meas/astrom/detail/utils.h"

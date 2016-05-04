@@ -28,9 +28,9 @@
 
 
 #include <cstdio>
+#include <memory>
 #include <vector>
 
-#include <memory>
 #include "Eigen/Core"
 #include "Eigen/SVD"
 

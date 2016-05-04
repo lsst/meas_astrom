@@ -26,9 +26,9 @@
 #ifndef CREATE_WCS_WITH_SIP
 #define CREATE_WCS_WITH_SIP
 
+#include <memory>
 #include <vector>
 
-#include <memory>
 #include "lsst/base.h"
 #include "Eigen/Core"
 
