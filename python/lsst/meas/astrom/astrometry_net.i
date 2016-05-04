@@ -36,10 +36,10 @@ Python interface to Astrometry.net
 #undef debug
     }
 
-#include <vector>
+#include <memory>
 #include <set>
+#include <vector>
 #include "boost/cstdint.hpp"
-#include "boost/shared_ptr.hpp"
 #include "boost/format.hpp"
 
 #include "lsst/meas/astrom/detail/utils.h"
@@ -149,7 +149,7 @@ void finalize() {
     start_an_logging();
     %}
 
-%include "boost_shared_ptr.i"
+%include "std_shared_ptr.i"
 %include "lsst/p_lsstSwig.i"
 %include "lsst/base.h"
 %import "lsst/daf/base/baseLib.i"
@@ -311,7 +311,7 @@ void set_an_log(PTR(pexLog::Log) newlog);
 
     PTR(lsst::daf::base::PropertyList) getSolveStats() {
         // Gather solve stats...
-        PTR(dafBase::PropertyList) qa = boost::make_shared<dafBase::PropertyList>();
+        PTR(dafBase::PropertyList) qa = std::make_shared<dafBase::PropertyList>();
         // FIXME -- Ticket #1875 prevents dotted-names from working with toString().
         qa->set("meas_astrom*an*n_tried", $self->numtries);
         qa->set("meas_astrom*an*n_matched", $self->nummatches);

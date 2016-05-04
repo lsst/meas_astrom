@@ -248,12 +248,12 @@ namespace {
             gsl_vector_view b = gsl_vector_view_array(b_data.get(), ncoeff);
             gsl_vector_view c = gsl_vector_view_array(c_data.get(), ncoeff);
 
-            boost::shared_ptr<gsl_vector> x(gsl_vector_alloc(ncoeff), gsl_vector_free);
-            boost::shared_ptr<gsl_vector> y(gsl_vector_alloc(ncoeff), gsl_vector_free);
+            std::shared_ptr<gsl_vector> x(gsl_vector_alloc(ncoeff), gsl_vector_free);
+            std::shared_ptr<gsl_vector> y(gsl_vector_alloc(ncoeff), gsl_vector_free);
 
             int s;
 
-            boost::shared_ptr<gsl_permutation> p(gsl_permutation_alloc(ncoeff), gsl_permutation_free);
+            std::shared_ptr<gsl_permutation> p(gsl_permutation_alloc(ncoeff), gsl_permutation_free);
 
             gsl_linalg_LU_decomp(&a.matrix, p.get(), &s);
             gsl_linalg_LU_solve(&a.matrix, p.get(), &b.vector, x.get());
@@ -442,7 +442,7 @@ namespace {
             proxyPairIter != proxyPairList.get<insertionOrderTag>().end(); ++proxyPairIter) {
             matPair.push_back(afwTable::ReferenceMatch(
                 proxyPairIter->first.record,
-                boost::static_pointer_cast<afwTable::SourceRecord>(proxyPairIter->second.record),
+                std::static_pointer_cast<afwTable::SourceRecord>(proxyPairIter->second.record),
                 proxyPairIter->distance
             ));
         }
@@ -557,7 +557,7 @@ namespace astrom {
             }
             refCenter /= posRefCat.size();
 
-            tanWcs = boost::make_shared<afw::image::Wcs>(
+            tanWcs = std::make_shared<afw::image::Wcs>(
                 afw::coord::IcrsCoord(afw::geom::Point3D(refCenter)).getPosition(),
                 afw::geom::Point2D(srcCenter),
                 wcs.getCDMatrix()

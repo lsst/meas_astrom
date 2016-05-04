@@ -26,9 +26,9 @@
 #ifndef CREATE_WCS_WITH_SIP
 #define CREATE_WCS_WITH_SIP
 
+#include <memory>
 #include <vector>
 
-#include "boost/shared_ptr.hpp"
 #include "lsst/base.h"
 #include "Eigen/Core"
 
@@ -87,8 +87,8 @@ template<class MatchT>
 class CreateWcsWithSip {
 public:
 
-    typedef boost::shared_ptr<CreateWcsWithSip> Ptr;
-    typedef boost::shared_ptr<CreateWcsWithSip const> ConstPtr;
+    typedef std::shared_ptr<CreateWcsWithSip> Ptr;
+    typedef std::shared_ptr<CreateWcsWithSip const> ConstPtr;
 
     /**
      Construct a CreateWcsWithSip

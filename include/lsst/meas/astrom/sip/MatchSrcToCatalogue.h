@@ -58,8 +58,8 @@ namespace sip {
 class MatchSrcToCatalogue{
 public:
 
-    typedef boost::shared_ptr<MatchSrcToCatalogue> Ptr;
-    typedef boost::shared_ptr<MatchSrcToCatalogue const> ConstPtr;
+    typedef std::shared_ptr<MatchSrcToCatalogue> Ptr;
+    typedef std::shared_ptr<MatchSrcToCatalogue const> ConstPtr;
     
     MatchSrcToCatalogue(afw::table::SimpleCatalog const& catSet,
                         afw::table::SourceCatalog const& imgSet,       
