@@ -48,6 +48,11 @@ class ANetAstrometryConfig(pexConfig.Config):
     rejectIter = pexConfig.RangeField(dtype=int, default=3, doc="Rejection iterations for Wcs fitting",
                                       min=0)
 
+    @property
+    def refObjLoader(self):
+        """An alias, for a uniform interface with the standard AstrometryTask"""
+        return self.solver
+
 
     ## \addtogroup LSST_task_documentation
     ## \{
