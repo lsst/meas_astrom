@@ -14,7 +14,6 @@
 
 #include "gsl/gsl_linalg.h"
 
-#include "lsst/utils/ieee.h"
 #include "lsst/pex/exceptions.h"
 #include "lsst/afw/image/Wcs.h"
 #include "lsst/afw/image/DistortedTanWcs.h"
@@ -75,10 +74,10 @@ namespace {
         bool operator()(RecordProxy const & a, RecordProxy const & b) const {
             double aFlux = a.record->get(key);
             double bFlux = b.record->get(key);
-            if (lsst::utils::isnan(aFlux)) {
+            if (std::isnan(aFlux)) {
                 aFlux = 0.0;
             }
-            if (lsst::utils::isnan(bFlux)) {
+            if (std::isnan(bFlux)) {
                 bFlux = 0.0;
             }
             return aFlux > bFlux;
