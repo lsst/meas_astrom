@@ -2,10 +2,10 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <utility>
 #include <vector>
 
-#include "boost/scoped_array.hpp"
 #include "boost/shared_array.hpp"
 #include "boost/multi_index_container.hpp"
 #include "boost/multi_index/sequenced_index.hpp"
@@ -193,8 +193,8 @@ namespace {
         ProxyVector const &posRefCat
     ) {
         int ncoeff = (order + 1) * (order + 2) / 2;
-        boost::scoped_array<int> xorder(new int[ncoeff]);
-        boost::scoped_array<int> yorder(new int[ncoeff]);
+        std::unique_ptr<int[]> xorder(new int[ncoeff]);
+        std::unique_ptr<int[]> yorder(new int[ncoeff]);
 
         int n = 0;
         for (int i = 0; i <= order; i++) {
@@ -206,14 +206,14 @@ namespace {
             }
         }
 
-        boost::scoped_array<int> flag(new int[img.size()]);
+        std::unique_ptr<int[]> flag(new int[img.size()]);
         for (size_t k = 0; k < img.size(); k++) {
             flag[k] = 1;
         }
 
-        boost::scoped_array<double> a_data(new double[ncoeff*ncoeff]);
-        boost::scoped_array<double> b_data(new double[ncoeff]);
-        boost::scoped_array<double> c_data(new double[ncoeff]);
+        std::unique_ptr<double[]> a_data(new double[ncoeff*ncoeff]);
+        std::unique_ptr<double[]> b_data(new double[ncoeff]);
+        std::unique_ptr<double[]> c_data(new double[ncoeff]);
 
         boost::shared_array<double> coeff(new double[ncoeff*2]);
 
