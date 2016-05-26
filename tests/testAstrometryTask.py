@@ -38,6 +38,10 @@ import lsst.meas.astrom as measAstrom
 import testFindAstrometryNetDataDir as helper
 
 
+def makeRefLoader():
+    config = measAstrom.LoadAstrometryNetObjectsTask.ConfigClass()
+    return measAstrom.LoadAstrometryNetObjectsTask(config=config)
+
 class TestAstrometricSolver(utilsTests.TestCase):
 
     def setUp(self):
@@ -65,11 +69,13 @@ class TestAstrometricSolver(utilsTests.TestCase):
         self.exposure = afwImage.ExposureF(self.bbox)
         self.exposure.setWcs(self.tanWcs)
         self.exposure.setFilter(afwImage.Filter("r", True))
+        self.refObjLoader = makeRefLoader()
 
     def tearDown(self):
         del self.ctrPix
         del self.tanWcs
         del self.exposure
+        del self.refObjLoader
 
     def testTrivial(self):
         """Test fit with no distortion
@@ -92,7 +98,7 @@ class TestAstrometricSolver(utilsTests.TestCase):
         config = measAstrom.AstrometryTask.ConfigClass()
         config.wcsFitter.order = order
         config.wcsFitter.numRejIter = 0
-        solver = measAstrom.AstrometryTask(config=config)
+        solver = measAstrom.AstrometryTask(config=config, refObjLoader=self.refObjLoader)
         results = solver.run(
             sourceCat = sourceCat,
             exposure = self.exposure,
@@ -125,7 +131,7 @@ class TestAstrometricSolver(utilsTests.TestCase):
 
         # try again, but without fitting the WCS
         config.forceKnownWcs = True
-        solverNoFit = measAstrom.AstrometryTask(config=config)
+        solverNoFit = measAstrom.AstrometryTask(config=config, refObjLoader=self.refObjLoader)
         self.exposure.setWcs(distortedWcs)
         resultsNoFit = solverNoFit.run(
             sourceCat = sourceCat,
