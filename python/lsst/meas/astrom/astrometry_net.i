@@ -39,7 +39,6 @@ Python interface to Astrometry.net
 #include <memory>
 #include <set>
 #include <vector>
-#include "boost/cstdint.hpp"
 #include "boost/format.hpp"
 
 #include "lsst/meas/astrom/detail/utils.h"

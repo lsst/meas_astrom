@@ -13,7 +13,7 @@ extern "C" {
 }
 
 #include <set>
-#include "boost/cstdint.hpp"
+#include <cstdint>
 #include "boost/format.hpp"
 
 #include "lsst/meas/astrom/detail/utils.h"
@@ -145,7 +145,7 @@ getCatalogImpl(std::vector<index_t*> inds,
     }
 
     // for uniqueIds: keep track of the IDs we have already added to the result set.
-    std::set<boost::int64_t> uids;
+    std::set<std::int64_t> uids;
 
     for (std::vector<index_t*>::iterator pind = inds.begin(); pind != inds.end(); ++pind) {
         index_t* ind = (*pind);
@@ -163,7 +163,7 @@ getCatalogImpl(std::vector<index_t*> inds,
         std::vector<float*> magErr;
         mag.reserve(nMag);
         magErr.reserve(nMag);
-        boost::int64_t* id = NULL;
+        std::int64_t* id = NULL;
         bool* stargal = NULL;
         bool* var = NULL;
         if (idCol || nMag || isStarCol || isVarCol) {
@@ -204,11 +204,11 @@ getCatalogImpl(std::vector<index_t*> inds,
                 // multi-index functionality in place.
 
                 if (uids.empty()) {
-                    uids = std::set<boost::int64_t>(id, id+nstars);
+                    uids = std::set<std::int64_t>(id, id+nstars);
                 } else {
                     int nkeep = 0;
                     for (int i=0; i<nstars; i++) {
-                        //std::pair<std::set<boost::int64_t>::iterator, bool> 
+                        //std::pair<std::set<std::int64_t>::iterator, bool> 
                         if (uids.insert(id[i]).second) {
                             // inserted; keep this one.
                             if (nkeep != i) {
