@@ -26,7 +26,6 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.math as afwMath
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
-from .loadAstrometryNetObjects import LoadAstrometryNetObjectsTask
 from .matchOptimisticB import MatchOptimisticBTask
 from .fitTanSipWcs import FitTanSipWcsTask
 from .display import displayAstrometry
@@ -34,10 +33,6 @@ from .astromLib import makeMatchStatistics
 from .createMatchMetadata import createMatchMetadata
 
 class AstrometryConfig(pexConfig.Config):
-    refObjLoader = pexConfig.ConfigurableField(
-        target = LoadAstrometryNetObjectsTask,
-        doc = "reference object loader",
-    )
     matcher = pexConfig.ConfigurableField(
         target = MatchOptimisticBTask,
         doc = "reference object/source matcher",
@@ -157,14 +152,15 @@ class AstrometryTask(pipeBase.Task):
     ConfigClass = AstrometryConfig
     _DefaultName = "astrometricSolver"
 
-    def __init__(self, schema=None, **kwargs):
+    def __init__(self, refObjLoader, schema=None, **kwargs):
         """!Construct an AstrometryTask
 
+        @param[in] refObjLoader A reference object loader object
         @param[in] schema  ignored; available for compatibility with an older astrometry task
         @param[in] kwargs  additional keyword arguments for pipe_base Task.\_\_init\_\_
         """
         pipeBase.Task.__init__(self, **kwargs)
-        self.makeSubtask("refObjLoader")
+        self.refObjLoader = refObjLoader
         self.makeSubtask("matcher")
         self.makeSubtask("wcsFitter")
 
@@ -217,7 +213,7 @@ class AstrometryTask(pipeBase.Task):
         import lsstDebug
         debug = lsstDebug.Info(__name__)
 
-        matchMeta = createMatchMetadata(exposure, border=self.config.refObjLoader.pixelMargin)
+        matchMeta = createMatchMetadata(exposure, border=self.refObjLoader.config.pixelMargin)
         expMd = self._getExposureMetadata(exposure)
 
         loadRes = self.refObjLoader.loadPixelBox(
@@ -276,7 +272,7 @@ class AstrometryTask(pipeBase.Task):
         import lsstDebug
         debug = lsstDebug.Info(__name__)
 
-        matchMeta = createMatchMetadata(exposure, border=self.config.refObjLoader.pixelMargin)
+        matchMeta = createMatchMetadata(exposure, border=self.refObjLoader.config.pixelMargin)
         expMd = self._getExposureMetadata(exposure)
 
         loadRes = self.refObjLoader.loadPixelBox(
