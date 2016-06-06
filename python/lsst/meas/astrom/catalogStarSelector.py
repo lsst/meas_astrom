@@ -20,7 +20,7 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 from lsst.afw.table import SourceCatalog
-from lsst.meas.algorithms import StarSelectorTask
+from lsst.meas.algorithms import StarSelectorTask, starSelectorRegistry
 from lsst.pipe.base import Struct
 import lsst.pex.config as pexConfig
 import lsst.afw.display.ds9 as ds9
@@ -183,3 +183,5 @@ class CatalogStarSelectorTask(object):
         return Struct(
             starCat = starCat,
         )
+
+starSelectorRegistry.register("catalog", CatalogStarSelectorTask)
