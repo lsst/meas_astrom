@@ -20,12 +20,12 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 from lsst.afw.table import SourceCatalog
-from lsst.meas.algorithms import StarSelectorTask, starSelectorRegistry
+from lsst.meas.algorithms import BaseStarSelectorTask, starSelectorRegistry
 from lsst.pipe.base import Struct
 import lsst.pex.config as pexConfig
 import lsst.afw.display.ds9 as ds9
 
-class CatalogStarSelectorConfig(StarSelectorTask.ConfigClass):
+class CatalogStarSelectorConfig(BaseStarSelectorTask.ConfigClass):
     fluxLim = pexConfig.RangeField(
         doc = "specify the minimum psfFlux for good Psf Candidates",
         dtype = float,
@@ -40,7 +40,7 @@ class CatalogStarSelectorConfig(StarSelectorTask.ConfigClass):
     )
 
     def setDefaults(self):
-        StarSelectorTask.ConfigClass.setDefaults(self)
+        BaseStarSelectorTask.ConfigClass.setDefaults(self)
         self.badFlags = [
             "base_PixelFlags_flag_edge",
             "base_PixelFlags_flag_interpolatedCenter",
