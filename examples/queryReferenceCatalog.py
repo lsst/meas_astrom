@@ -78,7 +78,7 @@ def main():
             print
 
     else:
-        import pyfits
+        import astropy.io.fits as astropy
         import numpy as np
 
         fitscols = []

@@ -10,7 +10,7 @@ import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.pex.logging as pexLog
 
-import pyfits
+import astropy.io.fits as astropy
 
 '''
 This file was produced by dstn trying to reproduce and diagnose the
