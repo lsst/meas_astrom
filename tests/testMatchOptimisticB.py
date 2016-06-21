@@ -42,11 +42,13 @@ import testFindAstrometryNetDataDir as helper
 # Set up local astrometry_net_data
 helper.setupAstrometryNetDataDir('cfhttemplate')
 
+
 class TestMatchOptimisticB(unittest.TestCase):
+
     def setUp(self):
 
         self.config = measAstrom.MatchOptimisticBTask.ConfigClass()
-        self.matchOptimisticB = measAstrom.MatchOptimisticBTask(config = self.config)
+        self.matchOptimisticB = measAstrom.MatchOptimisticBTask(config=self.config)
 
         metadata = dafBase.PropertySet()
         metadata.set("RADECSYS", "FK5")
@@ -66,7 +68,7 @@ class TestMatchOptimisticB(unittest.TestCase):
         self.wcs = afwImage.makeWcs(metadata)
         self.distortedWcs = self.wcs
 
-        self.filename=os.path.join(os.path.dirname(__file__), "cat.xy.fits")
+        self.filename = os.path.join(os.path.dirname(__file__), "cat.xy.fits")
         self.tolArcsec = .4
         self.tolPixel = .1
 
@@ -84,7 +86,6 @@ class TestMatchOptimisticB(unittest.TestCase):
 
     def testQuadraticDistort(self):
         self.singleTestInstance(self.filename, distort.quadraticDistort)
-
 
     def testLargeDistortion(self):
         # This transform is about as extreme as I can get:
@@ -117,9 +118,9 @@ class TestMatchOptimisticB(unittest.TestCase):
                 plt.plot([ss.getX() for ss in catalog], [ss.getY() for ss in catalog], symbol)
 
             #plot(sourceCat, 'k+') # Original positions: black +
-            plot(distortedCat, 'b+') # Distorted positions: blue +
-            plot(undistorted, 'g+') # Undistorted positions: green +
-            plot(refs, 'rx') # Reference catalog: red x
+            plot(distortedCat, 'b+')  # Distorted positions: blue +
+            plot(undistorted, 'g+')  # Undistorted positions: green +
+            plot(refs, 'rx')  # Reference catalog: red x
             # The green + should overlap with the red x, because that's how matchOptimisticB does it.
             # The black + happens to overlap with those also, but that's beside the point.
             plt.show()
@@ -127,10 +128,10 @@ class TestMatchOptimisticB(unittest.TestCase):
         sourceCat = distortedCat
 
         matchRes = self.matchOptimisticB.matchObjectsToSources(
-            refCat = refCat,
-            sourceCat = sourceCat,
-            wcs = self.distortedWcs,
-            refFluxField = "r_flux",
+            refCat=refCat,
+            sourceCat=sourceCat,
+            wcs=self.distortedWcs,
+            refFluxField="r_flux",
         )
         matches = matchRes.matches
         if doPlot:
@@ -153,7 +154,7 @@ class TestMatchOptimisticB(unittest.TestCase):
                 sourceCentroid = source.getCentroid()
                 radius = math.hypot(*(refCentroid - sourceCentroid))
                 self.fail("ID mismatch: %s at %s != %s at %s; error = %0.1f pix" %
-                    (refObj.getId(), refCentroid, source.getId(), sourceCentroid, radius))
+                          (refObj.getId(), refCentroid, source.getId(), sourceCentroid, radius))
 
         self.assertLess(maxDistErr.asArcseconds(), 1e-7)
 
@@ -161,8 +162,8 @@ class TestMatchOptimisticB(unittest.TestCase):
         """Generate a position reference catalog from a source catalog
         """
         minimalPosRefSchema = LoadReferenceObjectsTask.makeMinimalSchema(
-            filterNameList = ["r"],
-            addFluxSigma = True,
+            filterNameList=["r"],
+            addFluxSigma=True,
         )
         refCat = afwTable.SimpleCatalog(minimalPosRefSchema)
         for source in sourceCat:
@@ -248,7 +249,6 @@ class TestMatchOptimisticB(unittest.TestCase):
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 
-
 def suite():
     """Returns a suite containing all the test cases in this module."""
     utilsTests.init()
@@ -259,11 +259,10 @@ def suite():
 
     return unittest.TestSuite(suites)
 
+
 def run(exit=False):
     """Run the tests"""
     utilsTests.run(suite(), exit)
-
-
 
 
 if __name__ == "__main__":

@@ -27,6 +27,7 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.math as afwMath
 import lsst.meas.algorithms as measAlg
 
+
 def checkMatches(srcMatchSet, exposure, log=None):
     if not exposure:
         return {}
@@ -92,15 +93,14 @@ def checkMatches(srcMatchSet, exposure, log=None):
             j += 1
 
         if log:
-            log.log(log.DEBUG, "%s %-30s  %8s  dx,dy = %5.2f,%5.2f  rms_x,y = %5.2f,%5.2f" % \
+            log.log(log.DEBUG, "%s %-30s  %8s  dx,dy = %5.2f,%5.2f  rms_x,y = %5.2f,%5.2f" %
                     (cell.getLabel(), cell.getBBox(), ("nobj=%d" % cell.size()),
                      dx.mean(), dy.mean(), dx.std(), dy.std()))
-
 
     nobj.sort()
 
     values = {}
-    values["minObjectsPerCell"] = int(nobj[0]) # otherwise it's a numpy integral type
+    values["minObjectsPerCell"] = int(nobj[0])  # otherwise it's a numpy integral type
     values["maxObjectsPerCell"] = int(nobj[-1])
     values["meanObjectsPerCell"] = nobj.mean()
     values["stdObjectsPerCell"] = nobj.std()

@@ -37,6 +37,7 @@ import lsst.afw.table as afwTable
 import lsst.meas.base as measBase
 import lsst.meas.astrom as measAstrom
 
+
 class TestAstrometricSolver(utilsTests.TestCase):
 
     def setUp(self):
@@ -117,7 +118,7 @@ class TestAstrometricSolver(utilsTests.TestCase):
         offDirList = [val*afwGeom.radians for val in np.random.random_sample([self.numMatches])*math.pi*2]
         for offLen, offDir, match in itertools.izip(offLenList, offDirList, self.matchList):
             coord = match.first.get(self.refCoordKey)
-            coord.offset(offDir, offLen) # an in-place operation
+            coord.offset(offDir, offLen)  # an in-place operation
             match.first.set(self.refCoordKey, coord)
         itemList = (afwMath.MEDIAN, afwMath.MEANCLIP, afwMath.IQRANGE)
         itemMask = reduce(lambda a, b: a | b, itemList)
@@ -156,6 +157,7 @@ def suite():
     suites += unittest.makeSuite(utilsTests.MemoryTestCase)
 
     return unittest.TestSuite(suites)
+
 
 def run(exit=False):
     """Run the tests"""

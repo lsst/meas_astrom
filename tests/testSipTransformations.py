@@ -31,11 +31,10 @@ import lsst.utils.tests as utilsTests
 import lsst.afw.geom as afwGeom
 
 
-
 class SipTransformationTest(unittest.TestCase):
 
     def setUp(self):
-        testDir=os.path.dirname(__file__)
+        testDir = os.path.dirname(__file__)
         basefn = os.path.join(testDir, 'imgCharSources-v85501867-R01-S00')
 
         sipfn = basefn + '.sipheader'
@@ -90,14 +89,12 @@ class SipTransformationTest(unittest.TestCase):
 
         '''
 
-
-        self.sip_rdxy = [(r * afwGeom.degrees, d * afwGeom.degrees, x-1,y-1) for (r,d,x,y) in [
+        self.sip_rdxy = [(r * afwGeom.degrees, d * afwGeom.degrees, x-1, y-1) for (r, d, x, y) in [
             (1.42667846826, 3.37583321746, 2167.54521667, 2020.40323873),
-            (1.4266863759, 3.3757783481,  2168.5452166700, 2020.4032387300),
+            (1.4266863759, 3.3757783481, 2168.5452166700, 2020.4032387300),
             (1.5000000000, 3.3000000000, 3711.0128841126, 3134.4402504066),
             (1.2986490876, 3.4785952816, 0.0000000000, 0.0000000000),
-            ]]
-
+        ]]
 
         # If only TAN is used:
 
@@ -107,7 +104,6 @@ class SipTransformationTest(unittest.TestCase):
 
         # > wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.tanheader -x 3711.9022585704 -y 3134.0179793251
         # Pixel (3711.9022585704, 3134.0179793251) -> RA,Dec (1.5000000000, 3.3000000000)
-
 
         # These are 1-indexed pixels, hence the '-1's below.
 
@@ -132,20 +128,19 @@ class SipTransformationTest(unittest.TestCase):
         # > wcs-rd2xy -L -w tests/imgCharSources-v85501867-R01-S00.tanheader -r 1.4266863759 -d 3.3757783481
         # RA,Dec (1.4266863759, 3.3757783481) -> pixel (2168.5452162485, 2020.4032394061)
 
-
         # This is the SIP position of 1.5,3.3:
         # > wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.tanheader -x 3711.0128841126 -y 3134.4402504066
         # Pixel (3711.0128841126, 3134.4402504066) -> RA,Dec (1.5000161440, 3.3000521757)
 
         # --> good to about 5 decimal digits in pixels.
 
-        self.tan_rdxy = [(r * afwGeom.degrees, d * afwGeom.degrees, x-1, y-1) for (r,d,x,y) in [
+        self.tan_rdxy = [(r * afwGeom.degrees, d * afwGeom.degrees, x-1, y-1) for (r, d, x, y) in [
             (1.42667846826, 3.37583321746, 2167.54521667,   2020.40323873),
             (1.4266863759,  3.3757783481,  2168.5452166700, 2020.4032387300),
             (1.5000000000, 3.3000000000,  3711.9022585704, 3134.0179793251),
             (1.5000161440, 3.3000521757, 3711.0128841126, 3134.4402504066),
             (1.2986453989, 3.4785959230, 0.0000000000, 0.0000000000),
-            ]]
+        ]]
 
     def tearDown(self):
         del self.tan
@@ -159,9 +154,9 @@ class SipTransformationTest(unittest.TestCase):
         return (rr, dd)
 
     def roundTrip(self, wcs, rdxy):
-        for (ra,dec,x,y) in rdxy:
-            xx,yy = wcs.skyToPixel(ra, dec)
-            rr,dd = self.pixelToRaDec(wcs, xx, yy)
+        for (ra, dec, x, y) in rdxy:
+            xx, yy = wcs.skyToPixel(ra, dec)
+            rr, dd = self.pixelToRaDec(wcs, xx, yy)
             print
             print 'RA,Dec %-14.12g, %-14.12g --> pixel %g, %g -->' % (ra, dec, xx, yy)
             print 'RA,Dec %-14.12g, %-14.12g' % (rr, dd)
@@ -172,14 +167,13 @@ class SipTransformationTest(unittest.TestCase):
             self.assertAlmostEqual(rr, ra.asDegrees(), 5)
             self.assertAlmostEqual(dd, dec.asDegrees(), 5)
 
-            ra,dec = self.pixelToRaDec(wcs, x, y)
-            xx,yy = wcs.skyToPixel(ra * afwGeom.degrees, dec * afwGeom.degrees)
+            ra, dec = self.pixelToRaDec(wcs, x, y)
+            xx, yy = wcs.skyToPixel(ra * afwGeom.degrees, dec * afwGeom.degrees)
             print
-            print 'Pixel %-14.12g, %-14.12g --> RA,Dec %-14.12g, %-14.12g -->' %  (x, y, ra, dec)
+            print 'Pixel %-14.12g, %-14.12g --> RA,Dec %-14.12g, %-14.12g -->' % (x, y, ra, dec)
             print 'Pixel %-14.12g, %-14.12g' % (xx, yy)
             self.assertAlmostEqual(x, xx, 3)
             self.assertAlmostEqual(y, yy, 3)
-
 
     def testRoundTripTAN(self):
         print
@@ -193,16 +187,16 @@ class SipTransformationTest(unittest.TestCase):
 
     def againstReality(self, wcs, rdxy):
         for (ra, dec, x, y) in rdxy:
-            xx,yy = wcs.skyToPixel(ra, dec)
+            xx, yy = wcs.skyToPixel(ra, dec)
             print 'RA,Dec %-14.12g, %-14.12g --> x,y %-14.12g, %-14.12g' % (ra, dec, xx, yy)
-            print '  Expected:                                   %-14.12g, %-14.12g' % (x,y)
+            print '  Expected:                                   %-14.12g, %-14.12g' % (x, y)
             self.assertAlmostEqual(x, xx, 3)
             self.assertAlmostEqual(y, yy, 3)
-            rr,dd = self.pixelToRaDec(wcs, x, y)
+            rr, dd = self.pixelToRaDec(wcs, x, y)
             self.assertAlmostEqual(ra.asDegrees(), rr, 5)
             self.assertAlmostEqual(dec.asDegrees(), dd, 5)
             print 'x,y %-14.12g, %-14.12g --> ra,dec %-14.12g, %-14.12g' % (x, y, ra, dec)
-            print '  Expected:                                   %-14.12g, %-14.12g' % (rr,dd)
+            print '  Expected:                                   %-14.12g, %-14.12g' % (rr, dd)
 
     def testTan1(self):
         print
@@ -215,13 +209,13 @@ class SipTransformationTest(unittest.TestCase):
         self.againstReality(self.sip, self.sip_rdxy)
 
 
-
 # UGH boilerplate.
 def suite():
     """Returns a suite containing all the test cases in this module."""
     suites = []
     suites += unittest.makeSuite(SipTransformationTest)
     return unittest.TestSuite(suites)
+
 
 def run(exit=False):
     """Run the tests"""

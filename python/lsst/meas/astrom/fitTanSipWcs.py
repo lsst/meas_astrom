@@ -12,38 +12,39 @@ from .sip import makeCreateWcsWithSip
 
 __all__ = ["FitTanSipWcsTask", "FitTanSipWcsConfig"]
 
+
 class FitTanSipWcsConfig(pexConfig.Config):
     order = pexConfig.RangeField(
-        doc = "order of SIP polynomial",
-        dtype = int,
-        default = 4,
-        min = 0,
+        doc="order of SIP polynomial",
+        dtype=int,
+        default=4,
+        min=0,
     )
     numIter = pexConfig.RangeField(
-        doc = "number of iterations of fitter (which fits X and Y separately, and so benefits from " + \
-            "a few iterations",
-        dtype = int,
-        default = 3,
-        min = 1,
+        doc="number of iterations of fitter (which fits X and Y separately, and so benefits from " +
+        "a few iterations",
+        dtype=int,
+        default=3,
+        min=1,
     )
     numRejIter = pexConfig.RangeField(
-        doc = "number of rejection iterations",
-        dtype = int,
-        default = 1,
-        min = 0,
+        doc="number of rejection iterations",
+        dtype=int,
+        default=1,
+        min=0,
     )
     rejSigma = pexConfig.RangeField(
-        doc = "Number of standard deviations for clipping level",
-        dtype = float,
-        default = 3.0,
-        min = 0.0,
+        doc="Number of standard deviations for clipping level",
+        dtype=float,
+        default=3.0,
+        min=0.0,
     )
     maxScatterArcsec = pexConfig.RangeField(
-        doc = "maximum median scatter of a WCS fit beyond which the fit fails (arcsec); " +
-            "be generous, as this is only intended to catch catastrophic failures",
-        dtype = float,
-        default = 10,
-        min = 0,
+        doc="maximum median scatter of a WCS fit beyond which the fit fails (arcsec); " +
+        "be generous, as this is only intended to catch catastrophic failures",
+        dtype=float,
+        default=10,
+        min=0,
     )
 
 # The following block adds links to this task from the Task Documentation page.
@@ -53,6 +54,7 @@ class FitTanSipWcsConfig(pexConfig.Config):
 ## \ref FitTanSipWcsTask "FitTanSipWcsTask"
 ##      Fit a TAN-SIP WCS given a list of reference object/source matches
 ## \}
+
 
 class FitTanSipWcsTask(pipeBase.Task):
     """!Fit a TAN-SIP WCS given a list of reference object/source matches
@@ -177,8 +179,8 @@ class FitTanSipWcsTask(pipeBase.Task):
                 (scatterOnSky.asArcseconds(), self.config.maxScatterArcsec))
 
         return pipeBase.Struct(
-            wcs = wcs,
-            scatterOnSky = scatterOnSky,
+            wcs=wcs,
+            scatterOnSky=scatterOnSky,
         )
 
     def initialWcs(self, matches, wcs):

@@ -25,6 +25,7 @@ import lsst.afw.table as afwTable
 
 __all__ = ["setMatchDistance"]
 
+
 def setMatchDistance(matches):
     """Set the distance field of the matches in a match list to the distance in radians on the sky
 

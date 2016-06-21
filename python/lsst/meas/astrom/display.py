@@ -30,6 +30,7 @@ from lsst.afw.table import Point2DKey
 
 __all__ = ["displayAstrometry", "plotAstrometry"]
 
+
 def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bbox=None, exposure=None,
                       matches=None, frame=1, title="", pause=True):
     """Show an astrometry debug image
@@ -69,7 +70,7 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
             sourceCentroidKey = Point2DKey(sourceCat.schema["slot_Centroid"])
             for source in sourceCat:
                 sx, sy = source.get(sourceCentroidKey)
-                disp.dot("+", sx,  sy, size=10, ctype=afwDisplay.GREEN)
+                disp.dot("+", sx, sy, size=10, ctype=afwDisplay.GREEN)
                 if distortedCentroidKey is not None:
                     dx, dy = source.get(distortedCentroidKey)
                     disp.dot("o", dx, dy, size=10, ctype=afwDisplay.GREEN)
@@ -89,12 +90,13 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
                 disp.line([refCentroid, sourceCentroid], ctype=afwDisplay.YELLOW)
 
             print("<match radius> = %.4g +- %.4g [%d matches]" %
-                (radArr.mean(), radArr.std(), len(matches)))
+                  (radArr.mean(), radArr.std(), len(matches)))
 
     if pause:
         print("Dropping into debugger to allow inspection of display. Type 'continue' when done.")
         import pdb
         pdb.set_trace()
+
 
 def plotAstrometry(
     matches,
@@ -104,7 +106,8 @@ def plotAstrometry(
     refColor="r",
     sourceMarker="+",
     sourceColor="g",
-    matchColor="y"):
+    matchColor="y"
+):
     """Plot reference objects, sources and matches
 
     By default:
@@ -148,10 +151,10 @@ def plotAstrometry(
         """
         if len(refXYArr) != len(srcXYArr):
             raise RuntimeError("len(refXYArr) = %d != %d = len(srcXYArr)" %
-                (len(refXYArr), len(srcXYArr)))
+                               (len(refXYArr), len(srcXYArr)))
         if len(refXYArr) != len(colorArr):
             raise RuntimeError("len(refXYArr) = %d != %d = len(colorArr)" %
-                (len(refXYArr), len(colorArr)))
+                               (len(refXYArr), len(colorArr)))
 
         refXArr, refYArr = zip(*refXYArr)
         srcXArr, srcYArr = zip(*srcXYArr)

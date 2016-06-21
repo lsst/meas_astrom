@@ -20,7 +20,6 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
-
 import numpy
 import lsst.afw.image as afwImage
 import lsst.afw.table as afwTable
@@ -31,6 +30,7 @@ from lsst.afw.image.basicUtils import assertWcsNearlyEqualOverBBox
 
 __all__ = ["approximateWcs"]
 
+
 class _MockTestCase(object):
     """A fake unit test case class that will enable us to call
     assertWcsNearlyEqualOverBBox from the method approximateWcs"""
@@ -38,7 +38,8 @@ class _MockTestCase(object):
     def fail(self, msgStr):
         raise UserWarning("WCS fitting failed " + msgStr)
 
-def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3, \
+
+def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3,
                    skyTolerance=0.001*afwGeom.arcseconds, pixelTolerance=0.02, useTanWcs=False):
     """Approximate an existing WCS as a TAN-SIP WCS
 
@@ -62,7 +63,7 @@ def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3, \
         crCoord = wcs.getSkyOrigin()
         crPix = wcs.getPixelOrigin()
         cdMat = wcs.getCDMatrix()
-        tanWcs = afwImage.makeWcs(crCoord, crPix, cdMat[0,0], cdMat[0,1], cdMat[1,0], cdMat[1,1])
+        tanWcs = afwImage.makeWcs(crCoord, crPix, cdMat[0, 0], cdMat[0, 1], cdMat[1, 0], cdMat[1, 1])
     else:
         tanWcs = wcs
 
@@ -72,7 +73,7 @@ def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3, \
     refCat = afwTable.SimpleCatalog(refSchema)
 
     sourceSchema = afwTable.SourceTable.makeMinimalSchema()
-    SingleFrameMeasurementTask(schema=sourceSchema) # expand the schema
+    SingleFrameMeasurementTask(schema=sourceSchema)  # expand the schema
     sourceCentroidKey = afwTable.Point2DKey(sourceSchema["slot_Centroid"])
 
     sourceCat = afwTable.SourceCatalog(sourceSchema)
@@ -94,7 +95,7 @@ def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3, \
             matchList.append(afwTable.ReferenceMatch(refObj, source, 0.0))
 
     # The TAN-SIP fitter is fitting x and y separately, so we have to iterate to make it converge
-    for indx in range(iterations) :
+    for indx in range(iterations):
         sipObject = makeCreateWcsWithSip(matchList, tanWcs, order, bbox)
         tanWcs = sipObject.getNewWcs()
     fitWcs = sipObject.getNewWcs()

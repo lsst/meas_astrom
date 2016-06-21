@@ -33,10 +33,11 @@ from .anetBasicAstrometry import ANetBasicAstrometryTask
 from .sip import makeCreateWcsWithSip
 from .display import displayAstrometry
 
+
 class ANetAstrometryConfig(pexConfig.Config):
     solver = pexConfig.ConfigurableField(
-        target = ANetBasicAstrometryTask,
-        doc = "Basic astrometry solver",
+        target=ANetBasicAstrometryTask,
+        doc="Basic astrometry solver",
     )
     forceKnownWcs = pexConfig.Field(dtype=bool, doc=(
         "Assume that the input image's WCS is correct, without comparing it to any external reality." +
@@ -53,13 +54,13 @@ class ANetAstrometryConfig(pexConfig.Config):
         """An alias, for a uniform interface with the standard AstrometryTask"""
         return self.solver
 
-
     ## \addtogroup LSST_task_documentation
     ## \{
     ## \page measAstrom_anetAstrometryTask
     ## \ref ANetAstrometryTask_ "ANetAstrometryTask"
     ## Use astrometry.net to match input sources with a reference catalog and solve for the Wcs
     ## \}
+
 
 class ANetAstrometryTask(pipeBase.Task):
     """!Use astrometry.net to match input sources with a reference catalog and solve for the Wcs
@@ -78,15 +79,15 @@ class ANetAstrometryTask(pipeBase.Task):
      - \ref pipe_tasks_astrometry_Debug
      - \ref pipe_tasks_astrometry_Example
 
-    \section pipe_tasks_astrometry_Purpose	Description
+    \section pipe_tasks_astrometry_Purpose  Description
 
     \copybrief ANetAstrometryTask
 
-    \section pipe_tasks_astrometry_Initialize	Task initialisation
+    \section pipe_tasks_astrometry_Initialize   Task initialisation
 
     \copydoc \_\_init\_\_
 
-    \section pipe_tasks_astrometry_IO		Invoking the Task
+    \section pipe_tasks_astrometry_IO       Invoking the Task
 
     \copydoc run
 
@@ -94,7 +95,7 @@ class ANetAstrometryTask(pipeBase.Task):
 
     See \ref ANetAstrometryConfig
 
-    \section pipe_tasks_astrometry_Debug		Debug variables
+    \section pipe_tasks_astrometry_Debug        Debug variables
 
     The \link lsst.pipe.base.cmdLineTask.CmdLineTask command line task\endlink interface supports a
     flag \c -d to import \b debug.py from your \c PYTHONPATH;
@@ -111,7 +112,7 @@ class ANetAstrometryTask(pipeBase.Task):
       <DD> Pause after showAstrometry and displayAstrometry?
     </DL>
 
-    \section pipe_tasks_astrometry_Example	A complete example of using ANetAstrometryTask
+    \section pipe_tasks_astrometry_Example  A complete example of using ANetAstrometryTask
 
     See \ref meas_photocal_photocal_Example.
 
@@ -303,7 +304,7 @@ class ANetAstrometryTask(pipeBase.Task):
             oldCentroidName = sourceCat.table.getCentroidDefinition()
             sourceCat.table.defineCentroid(self.distortedName)
             try:
-                yield bbox # Execute 'with' block, providing bbox to 'as' variable
+                yield bbox  # Execute 'with' block, providing bbox to 'as' variable
             finally:
                 # Un-apply distortion
                 sourceCat.table.defineCentroid(oldCentroidName)
@@ -333,10 +334,10 @@ class ANetAstrometryTask(pipeBase.Task):
                 self.makeSubtask("solver")
 
             astrom = self.solver.useKnownWcs(
-                sourceCat = sourceCat,
-                exposure = exposure,
-                bbox = bbox,
-                calculateSip = False,
+                sourceCat=sourceCat,
+                exposure=exposure,
+                bbox=bbox,
+                calculateSip=False,
             )
 
             if astrom is None or astrom.getWcs() is None:
@@ -346,7 +347,7 @@ class ANetAstrometryTask(pipeBase.Task):
             matchMeta = astrom.getMatchMetadata()
             if matches is None or len(matches) == 0:
                 raise RuntimeError("No astrometric matches")
-            self.log.info("%d astrometric matches" %  (len(matches)))
+            self.log.info("%d astrometric matches" % (len(matches)))
 
             if self._display:
                 frame = lsstDebug.Info(__name__).frame
@@ -354,9 +355,9 @@ class ANetAstrometryTask(pipeBase.Task):
                                   frame=frame, pause=False)
 
             return pipeBase.Struct(
-                refCat = astrom.refCat,
-                matches = matches,
-                matchMeta = matchMeta,
+                refCat=astrom.refCat,
+                matches=matches,
+                matchMeta=matchMeta,
             )
 
     @pipeBase.timeMethod
@@ -388,7 +389,7 @@ class ANetAstrometryTask(pipeBase.Task):
         matchMeta = astrom.getMatchMetadata()
         if matches is None or len(matches) == 0:
             raise RuntimeError("No astrometric matches")
-        self.log.info("%d astrometric matches" %  (len(matches)))
+        self.log.info("%d astrometric matches" % (len(matches)))
 
         # Note that this is the Wcs for the provided positions, which may be distorted
         exposure.setWcs(astrom.getWcs())
@@ -399,9 +400,9 @@ class ANetAstrometryTask(pipeBase.Task):
                               frame=frame, pause=False)
 
         return pipeBase.Struct(
-            refCat = astrom.refCat,
-            matches = matches,
-            matchMeta = matchMeta,
+            refCat=astrom.refCat,
+            matches=matches,
+            matchMeta=matchMeta,
         )
 
     @pipeBase.timeMethod

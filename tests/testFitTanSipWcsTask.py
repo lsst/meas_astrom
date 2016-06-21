@@ -54,7 +54,9 @@ from lsst.meas.base import SingleFrameMeasurementTask
 from lsst.meas.astrom import FitTanSipWcsTask, setMatchDistance
 from lsst.meas.astrom.sip import makeCreateWcsWithSip
 
+
 class BaseTestCase(unittest.TestCase):
+
     """A test case for CreateWcsWithSip
 
     Use involves setting one class attribute:
@@ -86,7 +88,7 @@ class BaseTestCase(unittest.TestCase):
         """
         if self.MatchClass == afwTable.ReferenceMatch:
             refSchema = LoadReferenceObjectsTask.makeMinimalSchema(
-                filterNameList = ["r"], addFluxSigma=True, addIsPhotometric=True)
+                filterNameList=["r"], addFluxSigma=True, addIsPhotometric=True)
             self.refCat = afwTable.SimpleCatalog(refSchema)
         elif self.MatchClass == afwTable.SourceMatch:
             refSchema = afwTable.SourceTable.makeMinimalSchema()
@@ -116,8 +118,8 @@ class BaseTestCase(unittest.TestCase):
                 refObj.setCoord(c)
 
                 if False:
-                    print("x,y = (%.1f, %.1f) pixels -- RA,Dec = (%.3f, %.3f) deg" % \
-                        (i, j, c.toFk5().getRa().asDegrees(), c.toFk5().getDec().asDegrees()))
+                    print("x,y = (%.1f, %.1f) pixels -- RA,Dec = (%.3f, %.3f) deg" %
+                          (i, j, c.toFk5().getRa().asDegrees(), c.toFk5().getDec().asDegrees()))
 
                 self.matches.append(self.MatchClass(refObj, src, 0.0))
 
@@ -172,7 +174,7 @@ class BaseTestCase(unittest.TestCase):
         else:
             allowedDistErr = 0.001
         self.assertLess(maxDistErr.asArcseconds(), allowedDistErr,
-            "Computed distance in match list is off by %s arcsec" % (maxDistErr.asArcseconds(),))
+                        "Computed distance in match list is off by %s arcsec" % (maxDistErr.asArcseconds(),))
 
     def doTest(self, name, func, order=3, numIter=4, specifyBBox=False, doPlot=False):
         """Apply func(x, y) to each source in self.sourceCat, then fit and check the resulting WCS
@@ -194,8 +196,8 @@ class BaseTestCase(unittest.TestCase):
             tanSipWcs = sipObject.getNewWcs()
         setMatchDistance(self.matches)
         fitRes = lsst.pipe.base.Struct(
-            wcs = tanSipWcs,
-            scatterOnSky = sipObject.getScatterOnSky(),
+            wcs=tanSipWcs,
+            scatterOnSky=sipObject.getScatterOnSky(),
         )
 
         if doPlot:
@@ -205,8 +207,8 @@ class BaseTestCase(unittest.TestCase):
 
         if self.MatchClass == afwTable.ReferenceMatch:
             # reset source coord and reference centroid based on initial WCS
-            FitTanSipWcsTask.updateRefCentroids(wcs=self.tanWcs, refList = self.refCat)
-            FitTanSipWcsTask.updateSourceCoords(wcs=self.tanWcs, sourceList = self.sourceCat)
+            FitTanSipWcsTask.updateRefCentroids(wcs=self.tanWcs, refList=self.refCat)
+            FitTanSipWcsTask.updateSourceCoords(wcs=self.tanWcs, sourceList=self.sourceCat)
 
             fitterConfig = FitTanSipWcsTask.ConfigClass()
             fitterConfig.order = order
@@ -215,19 +217,19 @@ class BaseTestCase(unittest.TestCase):
             self.loadData()
             if specifyBBox:
                 fitRes = fitter.fitWcs(
-                    matches = self.matches,
-                    initWcs = self.tanWcs,
-                    bbox = bbox,
-                    refCat = self.refCat,
-                    sourceCat = self.sourceCat,
+                    matches=self.matches,
+                    initWcs=self.tanWcs,
+                    bbox=bbox,
+                    refCat=self.refCat,
+                    sourceCat=self.sourceCat,
                 )
             else:
                 fitRes = fitter.fitWcs(
-                    matches = self.matches,
-                    initWcs = self.tanWcs,
-                    bbox = bbox,
-                    refCat = self.refCat,
-                    sourceCat = self.sourceCat,
+                    matches=self.matches,
+                    initWcs=self.tanWcs,
+                    bbox=bbox,
+                    refCat=self.refCat,
+                    sourceCat=self.sourceCat,
                 )
 
             self.checkResults(fitRes, catsUpdated=True)
@@ -236,8 +238,8 @@ class BaseTestCase(unittest.TestCase):
         fileNamePrefix = "testCreateWcsWithSip_%s_%s" % (self.MatchClass.__name__, name)
         pnum = 1
 
-        xs,ys, xc,yc = [],[],[],[]
-        rs,ds, rc,dc = [],[],[],[]
+        xs, ys, xc, yc = [], [], [], []
+        rs, ds, rc, dc = [], [], [], []
         for ref, src, d in self.matches:
             xs.append(src.getX())
             ys.append(src.getY())
@@ -281,8 +283,8 @@ class BaseTestCase(unittest.TestCase):
 
         pylab.clf()
         for y in numpy.linspace(0, 4000, 5):
-            x0,y0 = [],[]
-            x1,y1 = [],[]
+            x0, y0 = [], []
+            x1, y1 = [], []
             for x in numpy.linspace(0., 4000., 401):
                 x0.append(x)
                 y0.append(y)
@@ -298,11 +300,12 @@ class BaseTestCase(unittest.TestCase):
         print("Wrote", fileName)
         pnum += 1
 
+
 class SideLoadTestCases():
+
     """Base class implementations of testing methods.
 
     Explicitly does not inherit from unittest.TestCase"""
-
 
     def testTrivial(self):
         """Add no distortion"""
@@ -336,6 +339,7 @@ class SideLoadTestCases():
     def testRadial(self):
         """Add radial distortion"""
         radialTransform = afwGeom.RadialXYTransform([0, 1.01, 1e-8])
+
         def radialDistortion(x, y):
             x, y = radialTransform.forwardTransform(afwGeom.Point2D(x, y))
             return (x, y)
@@ -345,13 +349,16 @@ class SideLoadTestCases():
 # The test classes inherit from two base classes and differ in the match
 # class being used.
 
+
 class CreateWcsWithSipTestCaseReferenceMatch(BaseTestCase, SideLoadTestCases):
     MatchClass = afwTable.ReferenceMatch
+
 
 class CreateWcsWithSipTestCaseSourceMatch(BaseTestCase, SideLoadTestCases):
     MatchClass = afwTable.SourceMatch
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
 
 def suite():
     """Returns a suite containing all the test cases in this module."""
@@ -362,6 +369,7 @@ def suite():
     suites += unittest.makeSuite(CreateWcsWithSipTestCaseSourceMatch)
     suites += unittest.makeSuite(tests.MemoryTestCase)
     return unittest.TestSuite(suites)
+
 
 def run(shouldExit=False):
     """Run the tests"""

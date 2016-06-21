@@ -45,7 +45,9 @@ from lsst.meas.algorithms import LoadReferenceObjectsTask
 from lsst.meas.base import SingleFrameMeasurementTask
 from lsst.meas.astrom import setMatchDistance
 
+
 class BaseTestCase(unittest.TestCase):
+
     """A test case for setMatchDistance
 
     Use involves setting one class attribute:
@@ -78,7 +80,7 @@ class BaseTestCase(unittest.TestCase):
 
         if self.MatchClass == afwTable.ReferenceMatch:
             refSchema = LoadReferenceObjectsTask.makeMinimalSchema(
-                filterNameList = ["r"], addFluxSigma=True, addIsPhotometric=True)
+                filterNameList=["r"], addFluxSigma=True, addIsPhotometric=True)
             self.refCat = afwTable.SimpleCatalog(refSchema)
         elif self.MatchClass == afwTable.SourceMatch:
             refSchema = afwTable.SourceTable.makeMinimalSchema()
@@ -91,7 +93,7 @@ class BaseTestCase(unittest.TestCase):
         self.srcCoordKey = afwTable.CoordKey(srcSchema["coord"])
         self.srcCentroidKey = afwTable.Point2DKey(srcSchema["slot_Centroid"])
         self.sourceCat = afwTable.SourceCatalog(srcSchema)
-        self.origSourceCat = afwTable.SourceCatalog(srcSchema) # undistorted copy
+        self.origSourceCat = afwTable.SourceCatalog(srcSchema)  # undistorted copy
         self.matches = []
 
         for i in numpy.linspace(0., S, N):
@@ -134,11 +136,12 @@ class BaseTestCase(unittest.TestCase):
 
         self.assertLess(maxDistErr.asArcseconds(), 1e-7)
 
+
 class SideLoadTestCases():
+
     """Base class implementations of testing methods.
 
     Explicitly does not inherit from unittest.TestCase"""
-
 
     def testTrivial(self):
         """Add no distortion"""
@@ -151,6 +154,7 @@ class SideLoadTestCases():
     def testRadial(self):
         """Add radial distortion"""
         radialTransform = afwGeom.RadialXYTransform([0, 1.02, 1e-6])
+
         def radialDistortion(x, y):
             x, y = radialTransform.forwardTransform(afwGeom.Point2D(x, y))
             return (x, y)
@@ -159,13 +163,16 @@ class SideLoadTestCases():
 # The test classes inherit from two base classes and differ in the match
 # class being used.
 
+
 class SetMatchDistanceTestCaseReferenceMatch(BaseTestCase, SideLoadTestCases):
     MatchClass = afwTable.ReferenceMatch
+
 
 class SetMatchDistanceTestCaseSourceMatch(BaseTestCase, SideLoadTestCases):
     MatchClass = afwTable.SourceMatch
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
 
 def suite():
     """Returns a suite containing all the test cases in this module."""
@@ -176,6 +183,7 @@ def suite():
     suites += unittest.makeSuite(SetMatchDistanceTestCaseSourceMatch)
     suites += unittest.makeSuite(tests.MemoryTestCase)
     return unittest.TestSuite(suites)
+
 
 def run(shouldExit=False):
     """Run the tests"""
