@@ -34,13 +34,7 @@ import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.meas.base as measBase
 import lsst.meas.astrom as measAstrom
-
 import testFindAstrometryNetDataDir as helper
-
-
-def makeRefLoader():
-    config = measAstrom.LoadAstrometryNetObjectsTask.ConfigClass()
-    return measAstrom.LoadAstrometryNetObjectsTask(config=config)
 
 
 class TestAstrometricSolver(utilsTests.TestCase):
@@ -70,7 +64,7 @@ class TestAstrometricSolver(utilsTests.TestCase):
         self.exposure = afwImage.ExposureF(self.bbox)
         self.exposure.setWcs(self.tanWcs)
         self.exposure.setFilter(afwImage.Filter("r", True))
-        self.refObjLoader = makeRefLoader()
+        self.refObjLoader = measAstrom.LoadAstrometryNetObjectsTask()
 
     def tearDown(self):
         del self.ctrPix
@@ -150,8 +144,7 @@ class TestAstrometricSolver(utilsTests.TestCase):
     def makeSourceCat(self, distortedWcs):
         """Make a source catalog by reading the position reference stars and distorting the positions
         """
-        loaderConfig = measAstrom.LoadAstrometryNetObjectsTask.ConfigClass()
-        loader = measAstrom.LoadAstrometryNetObjectsTask(config=loaderConfig)
+        loader = measAstrom.LoadAstrometryNetObjectsTask()
         loadRes = loader.loadPixelBox(bbox=self.bbox, wcs=distortedWcs, filterName="r")
         refCat = loadRes.refCat
         refCentroidKey = afwTable.Point2DKey(refCat.schema["centroid"])
