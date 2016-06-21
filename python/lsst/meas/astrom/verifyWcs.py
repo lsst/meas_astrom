@@ -20,12 +20,13 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
-import numpy
+import numpy as np
 
 import lsst.afw.detection as afwDetection
 import lsst.afw.geom as afwGeom
 import lsst.afw.math as afwMath
 import lsst.meas.algorithms as measAlg
+
 
 def checkMatches(srcMatchSet, exposure, log=None):
     if not exposure:
@@ -67,15 +68,15 @@ def checkMatches(srcMatchSet, exposure, log=None):
             log.log(log.WARN, str(e))
 
     ncell = len(cellSet.getCellList())
-    nobj = numpy.ndarray(ncell, dtype='i')
+    nobj = np.ndarray(ncell, dtype='i')
 
     for i in range(ncell):
         cell = cellSet.getCellList()[i]
 
         nobj[i] = cell.size()
 
-        dx = numpy.ndarray(cell.size())
-        dy = numpy.ndarray(cell.size())
+        dx = np.ndarray(cell.size())
+        dy = np.ndarray(cell.size())
 
         j = 0
         for cand in cell:
@@ -92,15 +93,14 @@ def checkMatches(srcMatchSet, exposure, log=None):
             j += 1
 
         if log:
-            log.log(log.DEBUG, "%s %-30s  %8s  dx,dy = %5.2f,%5.2f  rms_x,y = %5.2f,%5.2f" % \
+            log.log(log.DEBUG, "%s %-30s  %8s  dx,dy = %5.2f,%5.2f  rms_x,y = %5.2f,%5.2f" %
                     (cell.getLabel(), cell.getBBox(), ("nobj=%d" % cell.size()),
                      dx.mean(), dy.mean(), dx.std(), dy.std()))
-
 
     nobj.sort()
 
     values = {}
-    values["minObjectsPerCell"] = int(nobj[0]) # otherwise it's a numpy integral type
+    values["minObjectsPerCell"] = int(nobj[0])  # otherwise it's a numpy integral type
     values["maxObjectsPerCell"] = int(nobj[-1])
     values["meanObjectsPerCell"] = nobj.mean()
     values["stdObjectsPerCell"] = nobj.std()

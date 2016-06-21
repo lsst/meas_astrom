@@ -23,7 +23,6 @@
 #
 import os
 import unittest
-
 import resource
 
 import lsst.meas.astrom as measAstrom
@@ -48,10 +47,11 @@ def getOpenFiles():
     output = subprocess.check_output(["/usr/sbin/lsof", '-w', '-Ffn', "-p", str(pid)])
 
     procs = [out for out in output.split('\n') if out and out[0] in "fn"]
-    assert len(procs) % 2 == 0 # Expect an even number of lines: f and n pairs
+    assert len(procs) % 2 == 0  # Expect an even number of lines: f and n pairs
     procs = [(procs[2*i], procs[2*i+1]) for i in range(len(procs)//2)]
-    nameList = [name[1:] for desc,name in procs if desc[0] == 'f' and desc[1:].isdigit()]
+    nameList = [name[1:] for desc, name in procs if desc[0] == 'f' and desc[1:].isdigit()]
     return nameList
+
 
 def printOpenFiles():
     names = getOpenFiles()
@@ -76,7 +76,7 @@ class OpenFilesTest(unittest.TestCase):
         self.srcCat = afwTable.SourceCatalog.readFits(
             os.path.join(self.mypath, "v695833-e0-c000.xy.fits"))
         # The .xy.fits file has sources in the range ~ [0,2000],[0,4500]
-        self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(2048, 4612)) # approximate
+        self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(2048, 4612))  # approximate
 
     def getAstrom(self):
         andpath = helper.setupAstrometryNetDataDir('photocal', rootDir=self.mypath)
@@ -87,12 +87,11 @@ class OpenFilesTest(unittest.TestCase):
 
         conf = measAstrom.ANetBasicAstrometryConfig()
         return measAstrom.ANetBasicAstrometryTask(config=conf, andConfig=andconfig,)
-                                            #logLevel=pexLog.Log.DEBUG)
+        #logLevel=pexLog.Log.DEBUG)
 
     def tearDown(self):
         del self.bbox
         del self.srcCat
-
 
     def runDetermineWcs(self):
         astrom = self.getAstrom()
@@ -118,6 +117,7 @@ class OpenFilesTest(unittest.TestCase):
         self.runUseKnownWcs(wcs)
         self.runUseKnownWcs(wcs)
 
+
 def suite():
     """Returns a suite containing all the test cases in this module."""
     utilsTests.init()
@@ -127,6 +127,7 @@ def suite():
     suites += unittest.makeSuite(utilsTests.MemoryTestCase)
 
     return unittest.TestSuite(suites)
+
 
 def run(exit=False):
     """Run the tests"""

@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
-import numpy
+import numpy as np
+
 import lsst.afw.image as afwImage
 import lsst.afw.coord as afwCoord
 import lsst.afw.geom as afwGeom
@@ -12,38 +13,39 @@ from .sip import makeCreateWcsWithSip
 
 __all__ = ["FitTanSipWcsTask", "FitTanSipWcsConfig"]
 
+
 class FitTanSipWcsConfig(pexConfig.Config):
     order = pexConfig.RangeField(
-        doc = "order of SIP polynomial",
-        dtype = int,
-        default = 4,
-        min = 0,
+        doc="order of SIP polynomial",
+        dtype=int,
+        default=4,
+        min=0,
     )
     numIter = pexConfig.RangeField(
-        doc = "number of iterations of fitter (which fits X and Y separately, and so benefits from " + \
-            "a few iterations",
-        dtype = int,
-        default = 3,
-        min = 1,
+        doc="number of iterations of fitter (which fits X and Y separately, and so benefits from " +
+        "a few iterations",
+        dtype=int,
+        default=3,
+        min=1,
     )
     numRejIter = pexConfig.RangeField(
-        doc = "number of rejection iterations",
-        dtype = int,
-        default = 1,
-        min = 0,
+        doc="number of rejection iterations",
+        dtype=int,
+        default=1,
+        min=0,
     )
     rejSigma = pexConfig.RangeField(
-        doc = "Number of standard deviations for clipping level",
-        dtype = float,
-        default = 3.0,
-        min = 0.0,
+        doc="Number of standard deviations for clipping level",
+        dtype=float,
+        default=3.0,
+        min=0.0,
     )
     maxScatterArcsec = pexConfig.RangeField(
-        doc = "maximum median scatter of a WCS fit beyond which the fit fails (arcsec); " +
-            "be generous, as this is only intended to catch catastrophic failures",
-        dtype = float,
-        default = 10,
-        min = 0,
+        doc="maximum median scatter of a WCS fit beyond which the fit fails (arcsec); " +
+        "be generous, as this is only intended to catch catastrophic failures",
+        dtype=float,
+        default=10,
+        min=0,
     )
 
 # The following block adds links to this task from the Task Documentation page.
@@ -53,6 +55,7 @@ class FitTanSipWcsConfig(pexConfig.Config):
 ## \ref FitTanSipWcsTask "FitTanSipWcsTask"
 ##      Fit a TAN-SIP WCS given a list of reference object/source matches
 ## \}
+
 
 class FitTanSipWcsTask(pipeBase.Task):
     """!Fit a TAN-SIP WCS given a list of reference object/source matches
@@ -135,7 +138,7 @@ class FitTanSipWcsTask(pipeBase.Task):
         debug = lsstDebug.Info(__name__)
 
         wcs = self.initialWcs(matches, initWcs)
-        rejected = numpy.zeros(len(matches), dtype=bool)
+        rejected = np.zeros(len(matches), dtype=bool)
         for rej in range(self.config.numRejIter):
             sipObject = self._fitWcs([mm for i, mm in enumerate(matches) if not rejected[i]], wcs)
             wcs = sipObject.getNewWcs()
@@ -177,8 +180,8 @@ class FitTanSipWcsTask(pipeBase.Task):
                 (scatterOnSky.asArcseconds(), self.config.maxScatterArcsec))
 
         return pipeBase.Struct(
-            wcs = wcs,
-            scatterOnSky = scatterOnSky,
+            wcs=wcs,
+            scatterOnSky=scatterOnSky,
         )
 
     def initialWcs(self, matches, wcs):
@@ -216,9 +219,9 @@ class FitTanSipWcsTask(pipeBase.Task):
         so we can calculate uncontaminated statistics.
         """
         fit = [wcs.skyToPixel(m.first.getCoord()) for m in matches]
-        dx = numpy.array([ff.getX() - mm.second.getCentroid().getX() for ff, mm in zip(fit, matches)])
-        dy = numpy.array([ff.getY() - mm.second.getCentroid().getY() for ff, mm in zip(fit, matches)])
-        good = numpy.logical_not(rejected)
+        dx = np.array([ff.getX() - mm.second.getCentroid().getX() for ff, mm in zip(fit, matches)])
+        dy = np.array([ff.getY() - mm.second.getCentroid().getY() for ff, mm in zip(fit, matches)])
+        good = np.logical_not(rejected)
         return (dx > self.config.rejSigma*dx[good].std()) | (dy > self.config.rejSigma*dy[good].std())
 
     @staticmethod
@@ -253,15 +256,15 @@ class FitTanSipWcsTask(pipeBase.Task):
         import matplotlib.pyplot as plt
 
         fit = [wcs.skyToPixel(m.first.getCoord()) for m in matches]
-        x1 = numpy.array([ff.getX() for ff in fit])
-        y1 = numpy.array([ff.getY() for ff in fit])
-        x2 = numpy.array([m.second.getCentroid().getX() for m in matches])
-        y2 = numpy.array([m.second.getCentroid().getY() for m in matches])
+        x1 = np.array([ff.getX() for ff in fit])
+        y1 = np.array([ff.getY() for ff in fit])
+        x2 = np.array([m.second.getCentroid().getX() for m in matches])
+        y2 = np.array([m.second.getCentroid().getY() for m in matches])
 
         dx = x1 - x2
         dy = y1 - y2
 
-        good = numpy.logical_not(rejected)
+        good = np.logical_not(rejected)
 
         figure = plt.figure()
         axes = figure.add_subplot(2, 2, 1)

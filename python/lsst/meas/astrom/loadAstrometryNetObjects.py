@@ -17,6 +17,7 @@ LoadAstrometryNetObjectsConfig = LoadReferenceObjectsTask.ConfigClass
 ##      Load reference objects from astrometry.net index files
 ## \}
 
+
 class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
     """!Load reference objects from astrometry.net index files
 
@@ -60,10 +61,10 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
     """
     ConfigClass = LoadAstrometryNetObjectsConfig
 
-    def __init__(self, config, andConfig=None, **kwargs):
+    def __init__(self, config=None, andConfig=None, **kwargs):
         """!Create a LoadAstrometryNetObjectsTask
 
-        @param[in] config  configuration (an instance of self.ConfigClass)
+        @param[in] config  configuration (an instance of self.ConfigClass); if None use self.ConfigClass()
         @param[in] andConfig  astrometry.net data config (an instance of AstromNetDataConfig, or None);
             if None then use andConfig.py in the astrometry_net_data product (which must be setup)
         @param[in] kwargs  additional keyword arguments for pipe_base Task.\_\_init\_\_
@@ -74,8 +75,8 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
         """
         LoadReferenceObjectsTask.__init__(self, config=config, **kwargs)
         self.andConfig = andConfig
-        self.haveIndexFiles = False # defer reading index files until we know they are needed
-            # because astrometry may not be used, in which case it may not be properly configured
+        self.haveIndexFiles = False  # defer reading index files until we know they are needed
+        # because astrometry may not be used, in which case it may not be properly configured
 
     @pipeBase.timeMethod
     def loadSkyCircle(self, ctrCoord, radius, filterName=None):
@@ -124,7 +125,7 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
         ) + margs + (
             self.andConfig.starGalaxyColumn,
             self.andConfig.variableColumn,
-            True, # eliminate duplicate IDs
+            True,  # eliminate duplicate IDs
         )
 
         self.log.logdebug("search for objects at %s with radius %s deg" % (ctrCoord, radius.asDegrees()))
@@ -140,8 +141,8 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
 
         self.log.logdebug("found %d objects" % (len(refCat),))
         return pipeBase.Struct(
-            refCat = refCat,
-            fluxField = fluxField,
+            refCat=refCat,
+            fluxField=fluxField,
         )
 
     @pipeBase.timeMethod
@@ -152,7 +153,7 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
             return
 
         self.log.logdebug("read index files")
-        self.haveIndexFiles = True # just try once
+        self.haveIndexFiles = True  # just try once
 
         if self.andConfig is None:
             self.andConfig = getConfigFromEnvironment()
@@ -172,7 +173,7 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
     def _getSolver(self):
         solver = astromNet.solver_new()
         # HACK, set huge default pixel scale range.
-        lo,hi = 0.01, 3600.
+        lo, hi = 0.01, 3600.
         solver.setPixelScaleRange(lo, hi)
         return solver
 
@@ -182,10 +183,12 @@ class LoadMultiIndexes(object):
     """
     def __init__(self, multiInds):
         self.multiInds = multiInds
+
     def __enter__(self):
         for mi in self.multiInds:
             mi.reload()
         return self.multiInds
+
     def __exit__(self, typ, val, trace):
         for mi in self.multiInds:
             mi.unload()

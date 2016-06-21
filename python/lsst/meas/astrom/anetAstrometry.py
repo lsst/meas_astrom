@@ -19,8 +19,9 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
-import numpy
 from contextlib import contextmanager
+
+import numpy as np
 
 import lsstDebug
 import lsst.pex.exceptions
@@ -33,10 +34,11 @@ from .anetBasicAstrometry import ANetBasicAstrometryTask
 from .sip import makeCreateWcsWithSip
 from .display import displayAstrometry
 
+
 class ANetAstrometryConfig(pexConfig.Config):
     solver = pexConfig.ConfigurableField(
-        target = ANetBasicAstrometryTask,
-        doc = "Basic astrometry solver",
+        target=ANetBasicAstrometryTask,
+        doc="Basic astrometry solver",
     )
     forceKnownWcs = pexConfig.Field(dtype=bool, doc=(
         "Assume that the input image's WCS is correct, without comparing it to any external reality." +
@@ -53,13 +55,13 @@ class ANetAstrometryConfig(pexConfig.Config):
         """An alias, for a uniform interface with the standard AstrometryTask"""
         return self.solver
 
-
     ## \addtogroup LSST_task_documentation
     ## \{
     ## \page measAstrom_anetAstrometryTask
     ## \ref ANetAstrometryTask_ "ANetAstrometryTask"
     ## Use astrometry.net to match input sources with a reference catalog and solve for the Wcs
     ## \}
+
 
 class ANetAstrometryTask(pipeBase.Task):
     """!Use astrometry.net to match input sources with a reference catalog and solve for the Wcs
@@ -78,15 +80,15 @@ class ANetAstrometryTask(pipeBase.Task):
      - \ref pipe_tasks_astrometry_Debug
      - \ref pipe_tasks_astrometry_Example
 
-    \section pipe_tasks_astrometry_Purpose	Description
+    \section pipe_tasks_astrometry_Purpose  Description
 
     \copybrief ANetAstrometryTask
 
-    \section pipe_tasks_astrometry_Initialize	Task initialisation
+    \section pipe_tasks_astrometry_Initialize   Task initialisation
 
     \copydoc \_\_init\_\_
 
-    \section pipe_tasks_astrometry_IO		Invoking the Task
+    \section pipe_tasks_astrometry_IO       Invoking the Task
 
     \copydoc run
 
@@ -94,7 +96,7 @@ class ANetAstrometryTask(pipeBase.Task):
 
     See \ref ANetAstrometryConfig
 
-    \section pipe_tasks_astrometry_Debug		Debug variables
+    \section pipe_tasks_astrometry_Debug        Debug variables
 
     The \link lsst.pipe.base.cmdLineTask.CmdLineTask command line task\endlink interface supports a
     flag \c -d to import \b debug.py from your \c PYTHONPATH;
@@ -111,7 +113,7 @@ class ANetAstrometryTask(pipeBase.Task):
       <DD> Pause after showAstrometry and displayAstrometry?
     </DL>
 
-    \section pipe_tasks_astrometry_Example	A complete example of using ANetAstrometryTask
+    \section pipe_tasks_astrometry_Example  A complete example of using ANetAstrometryTask
 
     See \ref meas_photocal_photocal_Example.
 
@@ -303,7 +305,7 @@ class ANetAstrometryTask(pipeBase.Task):
             oldCentroidName = sourceCat.table.getCentroidDefinition()
             sourceCat.table.defineCentroid(self.distortedName)
             try:
-                yield bbox # Execute 'with' block, providing bbox to 'as' variable
+                yield bbox  # Execute 'with' block, providing bbox to 'as' variable
             finally:
                 # Un-apply distortion
                 sourceCat.table.defineCentroid(oldCentroidName)
@@ -333,10 +335,10 @@ class ANetAstrometryTask(pipeBase.Task):
                 self.makeSubtask("solver")
 
             astrom = self.solver.useKnownWcs(
-                sourceCat = sourceCat,
-                exposure = exposure,
-                bbox = bbox,
-                calculateSip = False,
+                sourceCat=sourceCat,
+                exposure=exposure,
+                bbox=bbox,
+                calculateSip=False,
             )
 
             if astrom is None or astrom.getWcs() is None:
@@ -346,7 +348,7 @@ class ANetAstrometryTask(pipeBase.Task):
             matchMeta = astrom.getMatchMetadata()
             if matches is None or len(matches) == 0:
                 raise RuntimeError("No astrometric matches")
-            self.log.info("%d astrometric matches" %  (len(matches)))
+            self.log.info("%d astrometric matches" % (len(matches)))
 
             if self._display:
                 frame = lsstDebug.Info(__name__).frame
@@ -354,9 +356,9 @@ class ANetAstrometryTask(pipeBase.Task):
                                   frame=frame, pause=False)
 
             return pipeBase.Struct(
-                refCat = astrom.refCat,
-                matches = matches,
-                matchMeta = matchMeta,
+                refCat=astrom.refCat,
+                matches=matches,
+                matchMeta=matchMeta,
             )
 
     @pipeBase.timeMethod
@@ -388,7 +390,7 @@ class ANetAstrometryTask(pipeBase.Task):
         matchMeta = astrom.getMatchMetadata()
         if matches is None or len(matches) == 0:
             raise RuntimeError("No astrometric matches")
-        self.log.info("%d astrometric matches" %  (len(matches)))
+        self.log.info("%d astrometric matches" % (len(matches)))
 
         # Note that this is the Wcs for the provided positions, which may be distorted
         exposure.setWcs(astrom.getWcs())
@@ -399,9 +401,9 @@ class ANetAstrometryTask(pipeBase.Task):
                               frame=frame, pause=False)
 
         return pipeBase.Struct(
-            refCat = astrom.refCat,
-            matches = matches,
-            matchMeta = matchMeta,
+            refCat=astrom.refCat,
+            matches=matches,
+            matchMeta=matchMeta,
         )
 
     @pipeBase.timeMethod
@@ -442,13 +444,13 @@ class ANetAstrometryTask(pipeBase.Task):
                 for i in range(self.config.rejectIter):
                     wcs, scatter = fitWcs(wcs, title="Iteration %d" % i)
 
-                    ref = numpy.array([wcs.skyToPixel(m.first.getCoord()) for m in matches])
-                    src = numpy.array([m.second.getCentroid() for m in matches])
+                    ref = np.array([wcs.skyToPixel(m.first.getCoord()) for m in matches])
+                    src = np.array([m.second.getCentroid() for m in matches])
                     diff = ref - src
                     rms = diff.std()
                     trimmed = []
                     for d, m in zip(diff, matches):
-                        if numpy.all(numpy.abs(d) < self.config.rejectThresh*rms):
+                        if np.all(np.abs(d) < self.config.rejectThresh*rms):
                             trimmed.append(m)
                         else:
                             numRejected += 1
@@ -510,14 +512,14 @@ def showAstrometry(exposure, wcs, allMatches, useMatches, frame=0, title=None, p
 
             isUsed = m.second.getId() in useIndices
             if isUsed:
-                radii.append(numpy.hypot(pix[0] - x, pix[1] - y))
+                radii.append(np.hypot(pix[0] - x, pix[1] - y))
 
             color = ds9.YELLOW if isUsed else ds9.RED
 
             ds9.dot("+", x, y, size=10, frame=frame, ctype=color)
             ds9.dot("x", pix[0], pix[1], size=10, frame=frame, ctype=color)
 
-    radii = numpy.array(radii)
+    radii = np.array(radii)
     print "<dr> = %.4g +- %.4g pixels [%d/%d matches]" % (radii.mean(), radii.std(),
                                                           len(useMatches), len(allMatches))
 

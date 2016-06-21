@@ -42,58 +42,56 @@ class Lsf2dTestCase(unittest.TestCase):
 
         x = [630, 1000, 1205, 1427]
         y = [535, 929, 623, 602]
-        s = [1,1,1,1]
+        s = [1, 1, 1, 1]
 
-        order=0
+        order = 0
 
         self.assertRaises(lsst.pex.exceptions.Exception,
-            sip.LeastSqFitter1dPoly, x, y, s, order)
-
+                          sip.LeastSqFitter1dPoly, x, y, s, order)
 
     def testBadArgs2(self):
         """Check that code fails when not len(x) != len(y)"""
 
         x = [630, 1000, 1205, 1427]
         y = [535, 929, 623]
-        s = [1,1,1,1]
+        s = [1, 1, 1, 1]
 
-        order=2
+        order = 2
 
         self.assertRaises(lsst.pex.exceptions.Exception,
-            sip.LeastSqFitter1dPoly, x, y, s, order)
+                          sip.LeastSqFitter1dPoly, x, y, s, order)
 
     def testBadArgs3(self):
         """Check that code fails when not len(x) != len(s)"""
 
         x = [630, 1000, 1205, 1427]
         y = [535, 929, 623, 602]
-        s = [1,1,1,1,1]
+        s = [1, 1, 1, 1, 1]
 
-        order=0
+        order = 0
 
         self.assertRaises(lsst.pex.exceptions.Exception,
-            sip.LeastSqFitter1dPoly, x, y, s, order)
-
+                          sip.LeastSqFitter1dPoly, x, y, s, order)
 
     def testBadArgs4(self):
         """Check that code fails when not order > number data points"""
 
         x = [630, 1000, 1205, 1427]
         y = [535, 929, 623, 602]
-        s = [1,1,1,1]
+        s = [1, 1, 1, 1]
 
-        order=5
+        order = 5
 
         self.assertRaises(lsst.pex.exceptions.Exception,
-            sip.LeastSqFitter1dPoly, x, y, s, order)
+                          sip.LeastSqFitter1dPoly, x, y, s, order)
 
     def testFitLinearXSurface2(self):
         """Python equivalent of C++ test case"""
 
-        x=[599.59899999999993, 1172.7726619709097, 512.51199999999994, 1083.6078436082901]
-        y=[512.0, 539.77214401699996, 541.0, 562.09371856300004]
-        z=[0.5989999999999327, 1.1716010609097793, 0.51199999999994361, 1.0825253182899814]
-        s=[.1,.1,.1,.1]
+        x = [599.59899999999993, 1172.7726619709097, 512.51199999999994, 1083.6078436082901]
+        y = [512.0, 539.77214401699996, 541.0, 562.09371856300004]
+        z = [0.5989999999999327, 1.1716010609097793, 0.51199999999994361, 1.0825253182899814]
+        s = [.1, .1, .1, .1]
 
         print " "
         lsf = sip.LeastSqFitter2dPoly(x, y, z, s, 2)
@@ -108,7 +106,6 @@ class Lsf2dTestCase(unittest.TestCase):
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 
-
 def suite():
     """Returns a suite containing all the test cases in this module."""
     utilsTests.init()
@@ -118,6 +115,7 @@ def suite():
     suites += unittest.makeSuite(utilsTests.MemoryTestCase)
 
     return unittest.TestSuite(suites)
+
 
 def run(exit=False):
     """Run the tests"""

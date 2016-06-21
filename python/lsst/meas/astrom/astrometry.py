@@ -32,42 +32,43 @@ from .display import displayAstrometry
 from .astromLib import makeMatchStatistics
 from .createMatchMetadata import createMatchMetadata
 
+
 class AstrometryConfig(pexConfig.Config):
     matcher = pexConfig.ConfigurableField(
-        target = MatchOptimisticBTask,
-        doc = "reference object/source matcher",
+        target=MatchOptimisticBTask,
+        doc="reference object/source matcher",
     )
     wcsFitter = pexConfig.ConfigurableField(
-        target = FitTanSipWcsTask,
-        doc = "WCS fitter",
+        target=FitTanSipWcsTask,
+        doc="WCS fitter",
     )
     forceKnownWcs = pexConfig.Field(
-        dtype = bool,
-        doc= "If True then load reference objects and match sources but do not fit a WCS; " +
-            " this simply controls whether 'run' calls 'solve' or 'loadAndMatch'",
-        default = False,
+        dtype=bool,
+        doc="If True then load reference objects and match sources but do not fit a WCS; " +
+        " this simply controls whether 'run' calls 'solve' or 'loadAndMatch'",
+        default=False,
     )
     maxIter = pexConfig.RangeField(
-        doc = "maximum number of iterations of match sources and fit WCS" +
-            "ignored if not fitting a WCS",
-        dtype = int,
-        default = 3,
-        min = 1,
+        doc="maximum number of iterations of match sources and fit WCS" +
+        "ignored if not fitting a WCS",
+        dtype=int,
+        default=3,
+        min=1,
     )
     matchDistanceSigma = pexConfig.RangeField(
-        doc = "the maximum match distance is set to "
-            " mean_match_distance + matchDistanceSigma*std_dev_match_distance; " +
-            "ignored if not fitting a WCS",
-        dtype = float,
-        default = 2,
-        min = 0,
+        doc="the maximum match distance is set to "
+        " mean_match_distance + matchDistanceSigma*std_dev_match_distance; " +
+        "ignored if not fitting a WCS",
+        dtype=float,
+        default=2,
+        min=0,
     )
     minMatchDistanceArcSec = pexConfig.RangeField(
-        doc = "the match distance below which further iteration is pointless (arcsec); "
-            "ignored if not fitting a WCS",
-        dtype = float,
-        default = 0.001,
-        min = 0,
+        doc="the match distance below which further iteration is pointless (arcsec); "
+        "ignored if not fitting a WCS",
+        dtype=float,
+        default=0.001,
+        min=0,
     )
 
 # The following block adds links to this task from the Task Documentation page.
@@ -77,6 +78,7 @@ class AstrometryConfig(pexConfig.Config):
 ## \ref AstrometryTask_ "AstrometryTask"
 ##      Match an input source catalog with objects from a reference catalog and solve for the WCS
 ## \}
+
 
 class AstrometryTask(pipeBase.Task):
     """!Match an input source catalog with objects from a reference catalog and solve for the WCS
@@ -217,18 +219,18 @@ class AstrometryTask(pipeBase.Task):
         expMd = self._getExposureMetadata(exposure)
 
         loadRes = self.refObjLoader.loadPixelBox(
-            bbox = expMd.bbox,
-            wcs = expMd.wcs,
-            filterName = expMd.filterName,
-            calib = expMd.calib,
+            bbox=expMd.bbox,
+            wcs=expMd.wcs,
+            filterName=expMd.filterName,
+            calib=expMd.calib,
         )
 
         matchRes = self.matcher.matchObjectsToSources(
-            refCat = loadRes.refCat,
-            sourceCat = sourceCat,
-            wcs = expMd.wcs,
-            refFluxField = loadRes.fluxField,
-            maxMatchDist = None,
+            refCat=loadRes.refCat,
+            sourceCat=sourceCat,
+            wcs=expMd.wcs,
+            refFluxField=loadRes.fluxField,
+            maxMatchDist=None,
         )
 
         distStats = self._computeMatchStatsOnSky(matchRes.matches)
@@ -240,19 +242,19 @@ class AstrometryTask(pipeBase.Task):
         if debug.display:
             frame = int(debug.frame)
             displayAstrometry(
-                refCat = loadRes.refCat,
-                sourceCat = sourceCat,
-                matches = matchRes.matches,
-                exposure = exposure,
-                bbox = expMd.bbox,
-                frame = frame,
+                refCat=loadRes.refCat,
+                sourceCat=sourceCat,
+                matches=matchRes.matches,
+                exposure=exposure,
+                bbox=expMd.bbox,
+                frame=frame,
                 title="Matches",
             )
 
         return pipeBase.Struct(
-            refCat = loadRes.refCat,
-            matches = matchRes.matches,
-            matchMeta = matchMeta,
+            refCat=loadRes.refCat,
+            matches=matchRes.matches,
+            matchMeta=matchMeta,
         )
 
     @pipeBase.timeMethod
@@ -276,19 +278,19 @@ class AstrometryTask(pipeBase.Task):
         expMd = self._getExposureMetadata(exposure)
 
         loadRes = self.refObjLoader.loadPixelBox(
-            bbox = expMd.bbox,
-            wcs = expMd.wcs,
-            filterName = expMd.filterName,
-            calib = expMd.calib,
+            bbox=expMd.bbox,
+            wcs=expMd.wcs,
+            filterName=expMd.filterName,
+            calib=expMd.calib,
         )
         if debug.display:
             frame = int(debug.frame)
             displayAstrometry(
-                refCat = loadRes.refCat,
-                sourceCat = sourceCat,
-                exposure = exposure,
-                bbox = expMd.bbox,
-                frame = frame,
+                refCat=loadRes.refCat,
+                sourceCat=sourceCat,
+                exposure=exposure,
+                bbox=expMd.bbox,
+                frame=frame,
                 title="Reference catalog",
             )
 
@@ -298,14 +300,14 @@ class AstrometryTask(pipeBase.Task):
         for i in range(self.config.maxIter):
             iterNum = i + 1
             try:
-                tryRes = self._matchAndFitWcs( # refCat, sourceCat, refFluxField, bbox, wcs, exposure=None
-                    refCat = loadRes.refCat,
-                    sourceCat = sourceCat,
-                    refFluxField = loadRes.fluxField,
-                    bbox = expMd.bbox,
-                    wcs = wcs,
-                    exposure = exposure,
-                    maxMatchDist = maxMatchDist,
+                tryRes = self._matchAndFitWcs(  # refCat, sourceCat, refFluxField, bbox, wcs, exposure=None
+                    refCat=loadRes.refCat,
+                    sourceCat=sourceCat,
+                    refFluxField=loadRes.fluxField,
+                    bbox=expMd.bbox,
+                    wcs=wcs,
+                    exposure=exposure,
+                    maxMatchDist=maxMatchDist,
                 )
             except Exception as e:
                 # if we have had a succeessful iteration then use that; otherwise fail
@@ -325,7 +327,7 @@ class AstrometryTask(pipeBase.Task):
             if maxMatchDist is not None:
                 if tryMatchDist.maxMatchDist >= maxMatchDist:
                     self.log.logdebug(
-                        "Iteration %d had no better maxMatchDist; using previous iteration" %  (iterNum,))
+                        "Iteration %d had no better maxMatchDist; using previous iteration" % (iterNum,))
                     iterNum -= 1
                     break
 
@@ -348,10 +350,10 @@ class AstrometryTask(pipeBase.Task):
         exposure.setWcs(res.wcs)
 
         return pipeBase.Struct(
-            refCat = loadRes.refCat,
-            matches = res.matches,
-            scatterOnSky = res.scatterOnSky,
-            matchMeta = matchMeta,
+            refCat=loadRes.refCat,
+            matches=res.matches,
+            scatterOnSky=res.scatterOnSky,
+            matchMeta=matchMeta,
         )
 
     def _computeMatchStatsOnSky(self, matchList):
@@ -369,10 +371,11 @@ class AstrometryTask(pipeBase.Task):
         distMean = distStatsInRadians.getValue(afwMath.MEANCLIP)*afwGeom.radians
         distStdDev = distStatsInRadians.getValue(afwMath.STDEVCLIP)*afwGeom.radians
         return pipeBase.Struct(
-            distMean = distMean,
-            distStdDev = distStdDev,
-            maxMatchDist = distMean + self.config.matchDistanceSigma*distStdDev,
+            distMean=distMean,
+            distStdDev=distStdDev,
+            maxMatchDist=distMean + self.config.matchDistanceSigma*distStdDev,
         )
+
     def _getExposureMetadata(self, exposure):
         """!Extract metadata from an exposure
 
@@ -387,15 +390,15 @@ class AstrometryTask(pipeBase.Task):
         if filterName == "_unknown_":
             filterName = None
         return pipeBase.Struct(
-            bbox = exposure.getBBox(),
-            wcs = getDistortedWcs(exposureInfo, log=self.log),
-            calib = exposureInfo.getCalib() if exposureInfo.hasCalib() else None,
-            filterName = filterName,
+            bbox=exposure.getBBox(),
+            wcs=getDistortedWcs(exposureInfo, log=self.log),
+            calib=exposureInfo.getCalib() if exposureInfo.hasCalib() else None,
+            filterName=filterName,
         )
 
     @pipeBase.timeMethod
     def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, maxMatchDist=None,
-        exposure=None):
+                        exposure=None):
         """!Match sources to reference objects and fit a WCS
 
         @param[in] refCat  catalog of reference objects
@@ -416,50 +419,49 @@ class AstrometryTask(pipeBase.Task):
         import lsstDebug
         debug = lsstDebug.Info(__name__)
         matchRes = self.matcher.matchObjectsToSources(
-            refCat = refCat,
-            sourceCat = sourceCat,
-            wcs = wcs,
-            refFluxField = refFluxField,
-            maxMatchDist = maxMatchDist,
+            refCat=refCat,
+            sourceCat=sourceCat,
+            wcs=wcs,
+            refFluxField=refFluxField,
+            maxMatchDist=maxMatchDist,
         )
         self.log.logdebug("Found %s matches" % (len(matchRes.matches),))
         if debug.display:
             frame = int(debug.frame)
             displayAstrometry(
-                refCat = refCat,
-                sourceCat = matchRes.usableSourceCat,
-                matches = matchRes.matches,
-                exposure = exposure,
-                bbox = bbox,
-                frame = frame + 1,
+                refCat=refCat,
+                sourceCat=matchRes.usableSourceCat,
+                matches=matchRes.matches,
+                exposure=exposure,
+                bbox=bbox,
+                frame=frame + 1,
                 title="Initial WCS",
             )
 
         self.log.logdebug("Fitting WCS")
         fitRes = self.wcsFitter.fitWcs(
-            matches = matchRes.matches,
-            initWcs = wcs,
-            bbox = bbox,
-            refCat = refCat,
-            sourceCat = sourceCat,
+            matches=matchRes.matches,
+            initWcs=wcs,
+            bbox=bbox,
+            refCat=refCat,
+            sourceCat=sourceCat,
         )
         fitWcs = fitRes.wcs
         scatterOnSky = fitRes.scatterOnSky
         if debug.display:
             frame = int(debug.frame)
             displayAstrometry(
-                refCat = refCat,
-                sourceCat = matchRes.usableSourceCat,
-                matches = matchRes.matches,
-                exposure = exposure,
-                bbox = bbox,
-                frame = frame + 2,
+                refCat=refCat,
+                sourceCat=matchRes.usableSourceCat,
+                matches=matchRes.matches,
+                exposure=exposure,
+                bbox=bbox,
+                frame=frame + 2,
                 title="Fit TAN-SIP WCS",
             )
 
         return pipeBase.Struct(
-            matches = matchRes.matches,
-            wcs = fitWcs,
-            scatterOnSky = scatterOnSky,
+            matches=matchRes.matches,
+            wcs=fitWcs,
+            scatterOnSky=scatterOnSky,
         )
-

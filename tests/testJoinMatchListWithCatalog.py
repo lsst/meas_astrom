@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-# 
+#
 # LSST Data Management System
 #
 # Copyright 2008-2015 AURA/LSST.
-# 
+#
 # This product includes software developed by the
 # LSST Project (http://www.lsst.org/).
 #
@@ -11,14 +11,14 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
-# You should have received a copy of the LSST License Statement and 
-# the GNU General Public License along with this program.  If not, 
+#
+# You should have received a copy of the LSST License Statement and
+# the GNU General Public License along with this program.  If not,
 # see <https://www.lsstcorp.org/LegalNotices/>.
 #
 import os
@@ -34,15 +34,17 @@ from lsst.pex.logging import Log
 
 import testFindAstrometryNetDataDir as helper
 
+
 class joinMatchListWithCatalogTestCase(unittest.TestCase):
+
     def setUp(self):
         # Load sample input from disk
-        testDir=os.path.dirname(__file__)
+        testDir = os.path.dirname(__file__)
         # Set up local astrometry_net_data
         helper.setupAstrometryNetDataDir('photocal', verbose=True)
 
         self.srcSet = afwTable.SourceCatalog.readFits(os.path.join(testDir, "v695833-e0-c000.xy.fits"))
-        self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(2048, 4612)) # approximate
+        self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(2048, 4612))  # approximate
         self.exposure = afwImg.ExposureF(os.path.join(testDir, "v695833-e0-c000-a00.sci.fits"))
 
         config = measAstrom.ANetBasicAstrometryConfig()
@@ -75,7 +77,7 @@ class joinMatchListWithCatalogTestCase(unittest.TestCase):
         for i in xrange(len(matches)):
             self.assertEqual(matches2[i].second.table, matches[i].second.table)
             self.assertEqual(matches2[i].second.getId(), matches[i].second.getId())
-            self.assertEqual(matches2[i].second, matches[i].second) # no deep copying, so we can compare ptrs
+            self.assertEqual(matches2[i].second, matches[i].second)  # no deep copying, so we can compare ptrs
             self.assertEqual(matches2[i].first.getId(), matches[i].first.getId())
             self.assertEqual(matches2[i].first.getRa().asDegrees(), matches[i].first.getRa().asDegrees())
             self.assertEqual(matches2[i].first.getDec().asDegrees(), matches[i].first.getDec().asDegrees())
@@ -102,6 +104,7 @@ class joinMatchListWithCatalogTestCase(unittest.TestCase):
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
+
 def suite():
     """Returns a suite containing all the test cases in this module."""
     utilsTests.init()
@@ -109,6 +112,7 @@ def suite():
     suites += unittest.makeSuite(joinMatchListWithCatalogTestCase)
     suites += unittest.makeSuite(utilsTests.MemoryTestCase)
     return unittest.TestSuite(suites)
+
 
 def run(shouldExit=False):
     """Run the utilsTests"""

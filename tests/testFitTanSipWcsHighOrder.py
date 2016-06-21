@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import unittest
 
-import numpy
+import numpy as np
 import matplotlib.pylab as pylab
 
 import lsst.utils.tests as tests
@@ -10,12 +10,15 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 from lsst.meas.astrom import approximateWcs
 
+
 class ApproximateWcsTestCase(tests.TestCase):
+
     """A test case for CreateWcsWithSip
 
     Use involves setting one class attribute:
     * MatchClass: match class, e.g. ReferenceMatch or SourceMatch
     """
+
     def setUp(self):
         metadata = dafBase.PropertySet()
 
@@ -49,7 +52,7 @@ class ApproximateWcsTestCase(tests.TestCase):
         """Add a radial transform"""
         for order in (4, 5, 6):
             self.doTest("testRadial", afwGeom.RadialXYTransform([0, 1.001, 0.000003]), order=order,
-            doPlot=False)
+                        doPlot=False)
 
     def testWarnings(self):
         """Test that approximateWcs raises a UserWarning when it cannot achieve desired tolerance"""
@@ -63,8 +66,8 @@ class ApproximateWcsTestCase(tests.TestCase):
         wcs = afwImage.DistortedTanWcs(self.tanWcs, xyTransform)
 
         fitWcs = approximateWcs(
-            wcs = wcs,
-            bbox = self.bbox,
+            wcs=wcs,
+            bbox=self.bbox,
             order=order,
         )
 
@@ -73,19 +76,18 @@ class ApproximateWcsTestCase(tests.TestCase):
 
         msg = "ERROR: %s failed with order %s" % (name, order)
         self.assertWcsNearlyEqualOverBBox(wcs, fitWcs, self.bbox,
-            maxDiffSky=0.001*afwGeom.arcseconds, maxDiffPix=0.02, msg=msg)
-
+                                          maxDiffSky=0.001*afwGeom.arcseconds, maxDiffPix=0.02, msg=msg)
 
     def plotWcs(self, wcs0, wcs1, bbox, xyTransform):
         bboxd = afwGeom.Box2D(bbox)
-        x0Arr=[]
-        y0Arr=[]
-        x1Arr=[]
-        y1Arr=[]
-        x2Arr=[]
-        y2Arr=[]
-        for x in numpy.linspace(bboxd.getMinX(), bboxd.getMaxX(), 10):
-            for y in numpy.linspace(bboxd.getMinY(), bboxd.getMaxY(), 10):
+        x0Arr = []
+        y0Arr = []
+        x1Arr = []
+        y1Arr = []
+        x2Arr = []
+        y2Arr = []
+        for x in np.linspace(bboxd.getMinX(), bboxd.getMaxX(), 10):
+            for y in np.linspace(bboxd.getMinY(), bboxd.getMaxY(), 10):
                 pixelPos0 = afwGeom.Point2D(x, y)
                 skyCoord = wcs0.pixelToSky(pixelPos0)
                 pixelPos1 = wcs1.skyToPixel(skyCoord)
@@ -102,6 +104,7 @@ class ApproximateWcsTestCase(tests.TestCase):
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
+
 def suite():
     """Returns a suite containing all the test cases in this module."""
     tests.init()
@@ -110,6 +113,7 @@ def suite():
     suites += unittest.makeSuite(ApproximateWcsTestCase)
     suites += unittest.makeSuite(tests.MemoryTestCase)
     return unittest.TestSuite(suites)
+
 
 def run(shouldExit=False):
     """Run the tests"""

@@ -25,18 +25,19 @@ from lsst.pipe.base import Struct
 import lsst.pex.config as pexConfig
 import lsst.afw.display.ds9 as ds9
 
+
 class CatalogStarSelectorConfig(BaseStarSelectorTask.ConfigClass):
     fluxLim = pexConfig.RangeField(
-        doc = "specify the minimum psfFlux for good Psf Candidates",
-        dtype = float,
-        default = 0.0,
-        min = 0.0,
+        doc="specify the minimum psfFlux for good Psf Candidates",
+        dtype=float,
+        default=0.0,
+        min=0.0,
     )
     fluxMax = pexConfig.RangeField(
-        doc = "specify the maximum psfFlux for good Psf Candidates (ignored if == 0)",
-        dtype = float,
-        default = 0.0,
-        min = 0.0,
+        doc="specify the maximum psfFlux for good Psf Candidates (ignored if == 0)",
+        dtype=float,
+        default=0.0,
+        min=0.0,
     )
 
     def setDefaults(self):
@@ -46,6 +47,7 @@ class CatalogStarSelectorConfig(BaseStarSelectorTask.ConfigClass):
             "base_PixelFlags_flag_interpolatedCenter",
             "base_PixelFlags_flag_saturatedCenter",
         ]
+
 
 class CheckSource(object):
     """A functor to check whether a source has any flags set that should cause it to be labeled bad."""
@@ -60,9 +62,9 @@ class CheckSource(object):
         for k in self.keys:
             if source.get(k):
                 return False
-        if self.fluxLim is not None and source.getPsfFlux() < self.fluxLim: # ignore faint objects
+        if self.fluxLim is not None and source.getPsfFlux() < self.fluxLim:  # ignore faint objects
             return False
-        if self.fluxMax != 0.0 and source.getPsfFlux() > self.fluxMax: # ignore bright objects
+        if self.fluxMax != 0.0 and source.getPsfFlux() > self.fluxMax:  # ignore bright objects
             return False
         return True
 
@@ -73,11 +75,12 @@ class CheckSource(object):
 ## \copybrief CatalogStarSelectorTask
 ## \}
 
+
 class CatalogStarSelectorTask(object):
     """!Select stars based on a reference catalog
 
     @anchor CatalogStarSelectorTask_
-    
+
     @section meas_astrom_catalogStarSelector_Contents  Contents
 
      - @ref meas_astrom_catalogStarSelector_Purpose
@@ -132,7 +135,7 @@ class CatalogStarSelectorTask(object):
     into your `debug.py` file and run your task with the `--debug` flag.
     """
     ConfigClass = CatalogStarSelectorConfig
-    usesMatches = True # `run` and `selectStars` require the `matches` argument
+    usesMatches = True  # `run` and `selectStars` require the `matches` argument
 
     def selectStars(self, exposure, sourceCat, matches=None):
         """!Return a list of PSF candidates that represent likely stars
@@ -181,7 +184,7 @@ class CatalogStarSelectorTask(object):
             raw_input("Continue? y[es] p[db] ")
 
         return Struct(
-            starCat = starCat,
+            starCat=starCat,
         )
 
 starSelectorRegistry.register("catalog", CatalogStarSelectorTask)

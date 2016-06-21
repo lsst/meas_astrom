@@ -104,7 +104,7 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         andConfig = measAstrom.AstrometryNetDataConfig()
         andConfig.load(os.path.join(self.datapath, 'andConfig2.py'))
         andConfig.magErrorColumnMap = {}
-        loadANetObj = measAstrom.LoadAstrometryNetObjectsTask(config = self.config, andConfig = andConfig)
+        loadANetObj = measAstrom.LoadAstrometryNetObjectsTask(config=self.config, andConfig=andConfig)
 
         loadRes = loadANetObj.loadPixelBox(bbox=self.bbox, wcs=self.wcs, filterName="r")
         refCat = loadRes.refCat
@@ -128,7 +128,7 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         andConfig = measAstrom.AstrometryNetDataConfig()
         andConfig.load(os.path.join(self.datapath, 'andConfig2.py'))
         self.config.filterMap = dict(('my_'+b, b) for b in filterNameList)
-        loadANetObj = measAstrom.LoadAstrometryNetObjectsTask(config = self.config, andConfig = andConfig)
+        loadANetObj = measAstrom.LoadAstrometryNetObjectsTask(config=self.config, andConfig=andConfig)
 
         loadRes = loadANetObj.loadPixelBox(bbox=self.bbox, wcs=self.wcs, filterName="my_r")
         refCat = loadRes.refCat
@@ -153,7 +153,7 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         filterNameList = ["my_" + b for b in baseNameList]
         andConfig.magColumnMap = dict(("my_" + b, b) for b in baseNameList)
         andConfig.magErrorColumnMap = dict([('my_' + b, b + "_err") for b in baseNameList])
-        loadANetObj = measAstrom.LoadAstrometryNetObjectsTask(config = self.config, andConfig = andConfig)
+        loadANetObj = measAstrom.LoadAstrometryNetObjectsTask(config=self.config, andConfig=andConfig)
 
         loadRes = loadANetObj.loadPixelBox(bbox=self.bbox, wcs=self.wcs, filterName="my_r")
         refCat = loadRes.refCat
@@ -182,8 +182,8 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
             point = refObj.get(centroidKey)
             if not bbox.contains(point):
                 coord = refObj.get(coordKey)
-                self.fail("refObj at RA, Dec %0.3f, %0.3f point %s is not in bbox %s" % \
-                    (coord[0].asDegrees(), coord[1].asDegrees(), point, bbox))
+                self.fail("refObj at RA, Dec %0.3f, %0.3f point %s is not in bbox %s" %
+                          (coord[0].asDegrees(), coord[1].asDegrees(), point, bbox))
 
     def plotStars(self, refCat, bbox=None):
         """Plot the centroids of reference objects, and the bounding box (if specified)
@@ -191,7 +191,7 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         import matplotlib.pyplot as pyplot
         if bbox is not None:
             cornerList = list(afwGeom.Box2D(bbox).getCorners())
-            cornerList.append(cornerList[0]) # show 4 sides of the box by going back to the beginning
+            cornerList.append(cornerList[0])  # show 4 sides of the box by going back to the beginning
             xc, yc = zip(*cornerList)
             pyplot.plot(xc, yc, '-')
 
@@ -200,7 +200,6 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         xp, yp = zip(*centroidList)
         pyplot.plot(xp, yp, '.')
         pyplot.show()
-
 
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -214,6 +213,7 @@ def suite():
     suites += unittest.makeSuite(utilsTests.MemoryTestCase)
 
     return unittest.TestSuite(suites)
+
 
 def run(exit=False):
     """Run the tests"""

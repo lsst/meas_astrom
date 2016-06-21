@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-# 
+#
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
-# 
+#
 # This product includes software developed by the
 # LSST Project (http://www.lsst.org/).
 #
@@ -11,31 +11,31 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
-# You should have received a copy of the LSST License Statement and 
-# the GNU General Public License along with this program.  If not, 
+#
+# You should have received a copy of the LSST License Statement and
+# the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
 import os
 import unittest
-import lsst.meas.astrom            as measAstrom
-import lsst.afw.geom               as afwGeom
-import lsst.afw.table              as afwTable
-import lsst.afw.image              as afwImg
-import lsst.utils.tests            as utilsTests
+
+import lsst.meas.astrom as measAstrom
+import lsst.afw.geom as afwGeom
+import lsst.afw.table as afwTable
+import lsst.afw.image as afwImg
+import lsst.utils.tests as utilsTests
 from lsst.pex.logging import Log
 from astrometry.util import ttime
-
 from lsst.meas.astrom import AstrometryNetDataConfig
 from lsst.meas.astrom.multiindex import generateCache
-
 import testFindAstrometryNetDataDir as helper
+
 
 class MultiIndexTest(unittest.TestCase):
 
@@ -43,16 +43,16 @@ class MultiIndexTest(unittest.TestCase):
         self.conf = measAstrom.ANetBasicAstrometryConfig()
 
         # Load sample input from disk
-        testDir=os.path.dirname(__file__)
+        testDir = os.path.dirname(__file__)
         self.srcCat = afwTable.SourceCatalog.readFits(os.path.join(testDir, "v695833-e0-c000.xy.fits"))
-        
+
         # The .xy.fits file has sources in the range ~ [0,2000],[0,4500]
-        self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(2048, 4612)) # approximate
+        self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(2048, 4612))  # approximate
         self.exposure = afwImg.ExposureF(os.path.join(testDir, "v695833-e0-c000-a00.sci.fits"))
-        
+
         # Set up local astrometry_net_data
         self.an_data_dir = helper.setupAstrometryNetDataDir('photocal')
-        
+
     def tearDown(self):
         del self.srcCat
         del self.conf
@@ -172,7 +172,7 @@ class MultiIndexTest(unittest.TestCase):
         print ttime.memusage()
         print 'FD3:', fd3
 
-        
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def suite():
@@ -184,6 +184,7 @@ def suite():
     suites += unittest.makeSuite(utilsTests.MemoryTestCase)
 
     return unittest.TestSuite(suites)
+
 
 def run(exit=False):
     """Run the tests"""

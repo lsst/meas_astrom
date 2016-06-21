@@ -11,76 +11,78 @@ from .astromLib import matchOptimisticB, MatchOptimisticBControl
 
 __all__ = ["MatchOptimisticBTask", "MatchOptimisticBConfig", "SourceInfo"]
 
+
 class MatchOptimisticBConfig(pexConfig.Config):
     """Configuration for MatchOptimisticBTask
     """
     sourceFluxType = pexConfig.Field(
-        doc = "Type of source flux; typically one of Ap or Psf",
-        dtype = str,
-        default = "Ap",
+        doc="Type of source flux; typically one of Ap or Psf",
+        dtype=str,
+        default="Ap",
     )
     maxMatchDistArcSec = pexConfig.RangeField(
-        doc = "Maximum separation between reference objects and sources "
-            "beyond which they will not be considered a match (arcsec)",
-        dtype = float,
-        default = 3,
-        min = 0,
+        doc="Maximum separation between reference objects and sources "
+        "beyond which they will not be considered a match (arcsec)",
+        dtype=float,
+        default=3,
+        min=0,
     )
     numBrightStars = pexConfig.RangeField(
-        doc = "Number of bright stars to use",
-        dtype = int,
-        default = 50,
-        min = 2,
+        doc="Number of bright stars to use",
+        dtype=int,
+        default=50,
+        min=2,
     )
     minMatchedPairs = pexConfig.RangeField(
-        doc = "Minimum number of matched pairs; see also minFracMatchedPairs",
-        dtype = int,
-        default = 30,
-        min = 2,
+        doc="Minimum number of matched pairs; see also minFracMatchedPairs",
+        dtype=int,
+        default=30,
+        min=2,
     )
     minFracMatchedPairs = pexConfig.RangeField(
-        doc = "Minimum number of matched pairs as a fraction of the smaller of "
-            "the number of reference stars or the number of good sources; "
-            "the actual minimum is the smaller of this value or minMatchedPairs",
-        dtype = float,
-        default = 0.3,
-        min = 0,
-        max = 1,
+        doc="Minimum number of matched pairs as a fraction of the smaller of "
+        "the number of reference stars or the number of good sources; "
+        "the actual minimum is the smaller of this value or minMatchedPairs",
+        dtype=float,
+        default=0.3,
+        min=0,
+        max=1,
     )
     maxOffsetPix = pexConfig.RangeField(
-        doc = "Maximum allowed shift of WCS, due to matching (pixel)",
-        dtype = int,
-        default = 300,
-        max = 4000,
+        doc="Maximum allowed shift of WCS, due to matching (pixel)",
+        dtype=int,
+        default=300,
+        max=4000,
     )
     maxRotationDeg = pexConfig.RangeField(
-        doc = "Rotation angle allowed between sources and position reference objects (degrees)",
-        dtype = float,
-        default = 1.0,
-        max = 6.0,
+        doc="Rotation angle allowed between sources and position reference objects (degrees)",
+        dtype=float,
+        default=1.0,
+        max=6.0,
     )
     allowedNonperpDeg = pexConfig.RangeField(
-        doc = "Allowed non-perpendicularity of x and y (degree)",
-        dtype = float,
-        default = 3.0,
-        max = 45.0,
+        doc="Allowed non-perpendicularity of x and y (degree)",
+        dtype=float,
+        default=3.0,
+        max=45.0,
     )
     numPointsForShape = pexConfig.Field(
-        doc = "number of points to define a shape for matching",
-        dtype = int,
-        default = 6,
+        doc="number of points to define a shape for matching",
+        dtype=int,
+        default=6,
     )
     maxDeterminant = pexConfig.Field(
-        doc = "maximum determinant of linear transformation matrix for a usable solution",
-        dtype = float,
-        default = 0.02,
+        doc="maximum determinant of linear transformation matrix for a usable solution",
+        dtype=float,
+        default=0.02,
     )
     minSnr = pexConfig.Field(
-        dtype = float,
-        doc= "Minimum allowed signal-to-noise ratio for sources used for matching "
-            "(in the flux specified by sourceFluxType); <=0 for no limit",
-        default = 40,
+        dtype=float,
+        doc="Minimum allowed signal-to-noise ratio for sources used for matching "
+        "(in the flux specified by sourceFluxType); <=0 for no limit",
+        default=40,
     )
+
 
 class SourceInfo(object):
     """Provide usability tests and catalog keys for sources in a source catalog
@@ -280,12 +282,12 @@ class MatchOptimisticBTask(pipeBase.Task):
 
         if self.log:
             self.log.info("filterStars purged %d reference stars, leaving %d stars" %
-                (preNumObj - numRefObj, numRefObj))
+                          (preNumObj - numRefObj, numRefObj))
 
         sourceInfo = self.SourceInfoClass(
-            schema = sourceCat.schema,
-            fluxType = self.config.sourceFluxType,
-            minSnr = self.config.minSnr,
+            schema=sourceCat.schema,
+            fluxType=self.config.sourceFluxType,
+            minSnr=self.config.minSnr,
         )
 
         # usableSourceCat: sources that are good but may be saturated
@@ -293,28 +295,28 @@ class MatchOptimisticBTask(pipeBase.Task):
         usableSourceCat = afwTable.SourceCatalog(sourceCat.table)
         usableSourceCat.extend(s for s in sourceCat if sourceInfo.isUsable(s))
         numUsableSources = len(usableSourceCat)
-        self.log.info("Purged %d unusable sources, leaving %d usable sources" % \
-            (numSources - numUsableSources, numUsableSources))
+        self.log.info("Purged %d unusable sources, leaving %d usable sources" %
+                      (numSources - numUsableSources, numUsableSources))
 
         if len(usableSourceCat) == 0:
             raise pipeBase.TaskError("No sources are usable")
 
-        del sourceCat # avoid accidentally using sourceCat; use usableSourceCat or goodSourceCat from now on
+        del sourceCat  # avoid accidentally using sourceCat; use usableSourceCat or goodSourceCat from now on
 
         minMatchedPairs = min(self.config.minMatchedPairs,
-                            int(self.config.minFracMatchedPairs * min([len(refCat), len(usableSourceCat)])))
+                              int(self.config.minFracMatchedPairs * min([len(refCat), len(usableSourceCat)])))
 
         # match usable (possibly saturated) sources and then purge saturated sources from the match list
         usableMatches = self._doMatch(
-            refCat = refCat,
-            sourceCat = usableSourceCat,
-            wcs = wcs,
-            refFluxField = refFluxField,
-            numUsableSources = numUsableSources,
-            minMatchedPairs = minMatchedPairs,
-            maxMatchDist = maxMatchDist,
-            sourceInfo = sourceInfo,
-            verbose = debug.verbose,
+            refCat=refCat,
+            sourceCat=usableSourceCat,
+            wcs=wcs,
+            refFluxField=refFluxField,
+            numUsableSources=numUsableSources,
+            minMatchedPairs=minMatchedPairs,
+            maxMatchDist=maxMatchDist,
+            sourceInfo=sourceInfo,
+            verbose=debug.verbose,
         )
 
         # cull non-good sources
@@ -324,7 +326,7 @@ class MatchOptimisticBTask(pipeBase.Task):
                 matches.append(match)
 
         self.log.logdebug("Found %d usable matches, of which %d had good sources" %
-            (len(usableMatches), len(matches)))
+                          (len(usableMatches), len(matches)))
 
         if len(matches) == 0:
             raise RuntimeError("Unable to match sources")
@@ -334,13 +336,13 @@ class MatchOptimisticBTask(pipeBase.Task):
             self.log.warn("Number of matches is smaller than request")
 
         return pipeBase.Struct(
-            matches = matches,
-            usableSourceCat = usableSourceCat,
+            matches=matches,
+            usableSourceCat=usableSourceCat,
         )
 
     @pipeBase.timeMethod
     def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numUsableSources, minMatchedPairs,
-        maxMatchDist, sourceInfo, verbose):
+                 maxMatchDist, sourceInfo, verbose):
         """!Implementation of matching sources to position reference stars
 
         Unlike matchObjectsToSources, this method does not check if the sources are suitable.
