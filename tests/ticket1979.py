@@ -26,8 +26,8 @@ import os
 import unittest
 
 from lsst.afw.coord import IcrsCoord
-import lsst.meas.astrom            as measAstrom
-import lsst.utils.tests            as utilsTests
+import lsst.meas.astrom as measAstrom
+import lsst.utils.tests as utilsTests
 import lsst.afw.geom as afwGeom
 from lsst.pex.logging import Log
 
@@ -58,9 +58,9 @@ class MultipleCatalogStarsTest(unittest.TestCase):
             53.0 * afwGeom.degrees,
         )
         cat = astrom.refObjLoader.loadSkyCircle(
-            ctrCoord = ctrCoord,
-            radius = 0.1 * afwGeom.degrees,
-            filterName = 'z',
+            ctrCoord=ctrCoord,
+            radius=0.1 * afwGeom.degrees,
+            filterName='z',
         ).refCat
         print 'Got', len(cat), 'reference sources'
 
@@ -68,7 +68,6 @@ class MultipleCatalogStarsTest(unittest.TestCase):
         print len(ids), 'unique IDs'
         ras = set(s.getRa() for s in cat)
         print len(ras), 'unique RAs'
-
 
         ids = set()
         for src in cat:
@@ -82,7 +81,6 @@ class MultipleCatalogStarsTest(unittest.TestCase):
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 
-
 def suite():
     """Returns a suite containing all the test cases in this module."""
     utilsTests.init()
@@ -92,6 +90,7 @@ def suite():
     suites += unittest.makeSuite(utilsTests.MemoryTestCase)
 
     return unittest.TestSuite(suites)
+
 
 def run(exit=False):
     """Run the tests"""

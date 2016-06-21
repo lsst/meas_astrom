@@ -19,8 +19,9 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
-import numpy
 from contextlib import contextmanager
+
+import numpy as np
 
 import lsstDebug
 import lsst.pex.exceptions
@@ -443,13 +444,13 @@ class ANetAstrometryTask(pipeBase.Task):
                 for i in range(self.config.rejectIter):
                     wcs, scatter = fitWcs(wcs, title="Iteration %d" % i)
 
-                    ref = numpy.array([wcs.skyToPixel(m.first.getCoord()) for m in matches])
-                    src = numpy.array([m.second.getCentroid() for m in matches])
+                    ref = np.array([wcs.skyToPixel(m.first.getCoord()) for m in matches])
+                    src = np.array([m.second.getCentroid() for m in matches])
                     diff = ref - src
                     rms = diff.std()
                     trimmed = []
                     for d, m in zip(diff, matches):
-                        if numpy.all(numpy.abs(d) < self.config.rejectThresh*rms):
+                        if np.all(np.abs(d) < self.config.rejectThresh*rms):
                             trimmed.append(m)
                         else:
                             numRejected += 1
@@ -511,14 +512,14 @@ def showAstrometry(exposure, wcs, allMatches, useMatches, frame=0, title=None, p
 
             isUsed = m.second.getId() in useIndices
             if isUsed:
-                radii.append(numpy.hypot(pix[0] - x, pix[1] - y))
+                radii.append(np.hypot(pix[0] - x, pix[1] - y))
 
             color = ds9.YELLOW if isUsed else ds9.RED
 
             ds9.dot("+", x, y, size=10, frame=frame, ctype=color)
             ds9.dot("x", pix[0], pix[1], size=10, frame=frame, ctype=color)
 
-    radii = numpy.array(radii)
+    radii = np.array(radii)
     print "<dr> = %.4g +- %.4g pixels [%d/%d matches]" % (radii.mean(), radii.std(),
                                                           len(useMatches), len(allMatches))
 

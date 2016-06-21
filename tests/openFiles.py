@@ -23,7 +23,6 @@
 #
 import os
 import unittest
-
 import resource
 
 import lsst.meas.astrom as measAstrom

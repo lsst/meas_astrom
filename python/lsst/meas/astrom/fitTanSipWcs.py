@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
-import numpy
+import numpy as np
+
 import lsst.afw.image as afwImage
 import lsst.afw.coord as afwCoord
 import lsst.afw.geom as afwGeom
@@ -137,7 +138,7 @@ class FitTanSipWcsTask(pipeBase.Task):
         debug = lsstDebug.Info(__name__)
 
         wcs = self.initialWcs(matches, initWcs)
-        rejected = numpy.zeros(len(matches), dtype=bool)
+        rejected = np.zeros(len(matches), dtype=bool)
         for rej in range(self.config.numRejIter):
             sipObject = self._fitWcs([mm for i, mm in enumerate(matches) if not rejected[i]], wcs)
             wcs = sipObject.getNewWcs()
@@ -218,9 +219,9 @@ class FitTanSipWcsTask(pipeBase.Task):
         so we can calculate uncontaminated statistics.
         """
         fit = [wcs.skyToPixel(m.first.getCoord()) for m in matches]
-        dx = numpy.array([ff.getX() - mm.second.getCentroid().getX() for ff, mm in zip(fit, matches)])
-        dy = numpy.array([ff.getY() - mm.second.getCentroid().getY() for ff, mm in zip(fit, matches)])
-        good = numpy.logical_not(rejected)
+        dx = np.array([ff.getX() - mm.second.getCentroid().getX() for ff, mm in zip(fit, matches)])
+        dy = np.array([ff.getY() - mm.second.getCentroid().getY() for ff, mm in zip(fit, matches)])
+        good = np.logical_not(rejected)
         return (dx > self.config.rejSigma*dx[good].std()) | (dy > self.config.rejSigma*dy[good].std())
 
     @staticmethod
@@ -255,15 +256,15 @@ class FitTanSipWcsTask(pipeBase.Task):
         import matplotlib.pyplot as plt
 
         fit = [wcs.skyToPixel(m.first.getCoord()) for m in matches]
-        x1 = numpy.array([ff.getX() for ff in fit])
-        y1 = numpy.array([ff.getY() for ff in fit])
-        x2 = numpy.array([m.second.getCentroid().getX() for m in matches])
-        y2 = numpy.array([m.second.getCentroid().getY() for m in matches])
+        x1 = np.array([ff.getX() for ff in fit])
+        y1 = np.array([ff.getY() for ff in fit])
+        x2 = np.array([m.second.getCentroid().getX() for m in matches])
+        y2 = np.array([m.second.getCentroid().getY() for m in matches])
 
         dx = x1 - x2
         dy = y1 - y2
 
-        good = numpy.logical_not(rejected)
+        good = np.logical_not(rejected)
 
         figure = plt.figure()
         axes = figure.add_subplot(2, 2, 1)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import unittest
 
-import numpy
+import numpy as np
 import matplotlib.pylab as pylab
 
 import lsst.utils.tests as tests
@@ -86,8 +86,8 @@ class ApproximateWcsTestCase(tests.TestCase):
         y1Arr = []
         x2Arr = []
         y2Arr = []
-        for x in numpy.linspace(bboxd.getMinX(), bboxd.getMaxX(), 10):
-            for y in numpy.linspace(bboxd.getMinY(), bboxd.getMaxY(), 10):
+        for x in np.linspace(bboxd.getMinX(), bboxd.getMaxX(), 10):
+            for y in np.linspace(bboxd.getMinY(), bboxd.getMaxY(), 10):
                 pixelPos0 = afwGeom.Point2D(x, y)
                 skyCoord = wcs0.pixelToSky(pixelPos0)
                 pixelPos1 = wcs1.skyToPixel(skyCoord)

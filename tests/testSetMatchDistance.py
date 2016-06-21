@@ -34,7 +34,7 @@
 
 import unittest
 
-import numpy
+import numpy as np
 
 import lsst.utils.tests as tests
 import lsst.afw.coord as afwCoord
@@ -96,8 +96,8 @@ class BaseTestCase(unittest.TestCase):
         self.origSourceCat = afwTable.SourceCatalog(srcSchema)  # undistorted copy
         self.matches = []
 
-        for i in numpy.linspace(0., S, N):
-            for j in numpy.linspace(0., S, N):
+        for i in np.linspace(0., S, N):
+            for j in np.linspace(0., S, N):
                 src = self.sourceCat.addNew()
                 refObj = self.refCat.addNew()
 

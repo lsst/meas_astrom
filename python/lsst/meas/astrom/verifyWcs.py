@@ -20,7 +20,7 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
-import numpy
+import numpy as np
 
 import lsst.afw.detection as afwDetection
 import lsst.afw.geom as afwGeom
@@ -68,15 +68,15 @@ def checkMatches(srcMatchSet, exposure, log=None):
             log.log(log.WARN, str(e))
 
     ncell = len(cellSet.getCellList())
-    nobj = numpy.ndarray(ncell, dtype='i')
+    nobj = np.ndarray(ncell, dtype='i')
 
     for i in range(ncell):
         cell = cellSet.getCellList()[i]
 
         nobj[i] = cell.size()
 
-        dx = numpy.ndarray(cell.size())
-        dy = numpy.ndarray(cell.size())
+        dx = np.ndarray(cell.size())
+        dy = np.ndarray(cell.size())
 
         j = 0
         for cand in cell:

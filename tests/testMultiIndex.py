@@ -24,6 +24,7 @@
 
 import os
 import unittest
+
 import lsst.meas.astrom as measAstrom
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
@@ -31,10 +32,8 @@ import lsst.afw.image as afwImg
 import lsst.utils.tests as utilsTests
 from lsst.pex.logging import Log
 from astrometry.util import ttime
-
 from lsst.meas.astrom import AstrometryNetDataConfig
 from lsst.meas.astrom.multiindex import generateCache
-
 import testFindAstrometryNetDataDir as helper
 
 

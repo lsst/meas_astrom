@@ -31,7 +31,6 @@ import lsst.pex.logging as pexLog
 from lsst.pex.config import Field, RangeField, ListField
 import lsst.pex.exceptions as pexExceptions
 import lsst.pipe.base as pipeBase
-import lsst.afw.coord as afwCoord
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.afw.math as afwMath

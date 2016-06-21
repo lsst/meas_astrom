@@ -35,7 +35,7 @@ from __future__ import print_function
 import math
 import unittest
 
-import numpy
+import numpy as np
 try:
     import matplotlib
     matplotlib.use("Agg")
@@ -105,8 +105,8 @@ class BaseTestCase(unittest.TestCase):
 
         self.matches = []
 
-        for i in numpy.linspace(0., rangePix, numPoints):
-            for j in numpy.linspace(0., rangePix, numPoints):
+        for i in np.linspace(0., rangePix, numPoints):
+            for j in np.linspace(0., rangePix, numPoints):
                 src = self.sourceCat.addNew()
                 refObj = self.refCat.addNew()
 
@@ -251,10 +251,10 @@ class BaseTestCase(unittest.TestCase):
             srd = tanSipWcs.pixelToSky(src.getX(), src.getY()).toFk5()
             rs.append(srd.getRa())
             ds.append(srd.getDec())
-        xs = numpy.array(xs)
-        ys = numpy.array(ys)
-        xc = numpy.array(xc)
-        yc = numpy.array(yc)
+        xs = np.array(xs)
+        ys = np.array(ys)
+        xc = np.array(xc)
+        yc = np.array(yc)
 
         pylab.clf()
         pylab.plot(xs, ys, "r.")
@@ -282,18 +282,18 @@ class BaseTestCase(unittest.TestCase):
         pnum += 1
 
         pylab.clf()
-        for y in numpy.linspace(0, 4000, 5):
+        for y in np.linspace(0, 4000, 5):
             x0, y0 = [], []
             x1, y1 = [], []
-            for x in numpy.linspace(0., 4000., 401):
+            for x in np.linspace(0., 4000., 401):
                 x0.append(x)
                 y0.append(y)
                 rd = tanSipWcs.pixelToSky(x, y)
                 xy = tanSipWcs.skyToPixel(rd)
                 x1.append(xy[0])
                 y1.append(xy[1])
-            x0 = numpy.array(x0)
-            x1 = numpy.array(x1)
+            x0 = np.array(x0)
+            x1 = np.array(x1)
             pylab.plot(x0, x1-x0, "b-")
         fileName = "%s_%i.png" % (fileNamePrefix, pnum)
         pylab.savefig(fileName)

@@ -20,7 +20,8 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
-import numpy
+import numpy as np
+
 import lsst.afw.image as afwImage
 import lsst.afw.table as afwTable
 import lsst.afw.geom as afwGeom
@@ -81,8 +82,8 @@ def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3,
     matchList = afwTable.ReferenceMatchVector()
 
     bboxd = afwGeom.Box2D(bbox)
-    for x in numpy.linspace(bboxd.getMinX(), bboxd.getMaxX(), nx):
-        for y in numpy.linspace(bboxd.getMinY(), bboxd.getMaxY(), ny):
+    for x in np.linspace(bboxd.getMinX(), bboxd.getMaxX(), nx):
+        for y in np.linspace(bboxd.getMinY(), bboxd.getMaxY(), ny):
             pixelPos = afwGeom.Point2D(x, y)
             skyCoord = wcs.pixelToSky(pixelPos)
 

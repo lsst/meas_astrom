@@ -1,6 +1,8 @@
 import os
+
 import numpy
 import pyfits
+
 import lsst.utils
 from lsst.pex.logging import getDefaultLog
 from .astrometry_net import multiindex_new, multiindex_add_index, INDEX_ONLY_LOAD_METADATA, healpixDistance
