@@ -60,10 +60,10 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
     """
     ConfigClass = LoadAstrometryNetObjectsConfig
 
-    def __init__(self, config, andConfig=None, **kwargs):
+    def __init__(self, config=None, andConfig=None, **kwargs):
         """!Create a LoadAstrometryNetObjectsTask
 
-        @param[in] config  configuration (an instance of self.ConfigClass)
+        @param[in] config  configuration (an instance of self.ConfigClass); if None use self.ConfigClass()
         @param[in] andConfig  astrometry.net data config (an instance of AstromNetDataConfig, or None);
             if None then use andConfig.py in the astrometry_net_data product (which must be setup)
         @param[in] kwargs  additional keyword arguments for pipe_base Task.\_\_init\_\_
