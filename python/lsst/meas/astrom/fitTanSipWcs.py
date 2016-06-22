@@ -157,17 +157,17 @@ class FitTanSipWcsTask(pipeBase.Task):
 
         if refCat is not None:
             self.log.logdebug("Updating centroids in refCat")
-            self.updateRefCentroids(wcs, refList=refCat)
+            afwTable.updateRefCentroids(wcs, refList=refCat)
         else:
             self.log.warn("Updating reference object centroids in match list; refCat is None")
-            self.updateRefCentroids(wcs, refList=[match.first for match in matches])
+            afwTable.updateRefCentroids(wcs, refList=[match.first for match in matches])
 
         if sourceCat is not None:
             self.log.logdebug("Updating coords in sourceCat")
-            self.updateSourceCoords(wcs, sourceList=sourceCat)
+            afwTable.updateSourceCoords(wcs, sourceList=sourceCat)
         else:
             self.log.warn("Updating source coords in match list; sourceCat is None")
-            self.updateSourceCoords(wcs, sourceList=[match.second for match in matches])
+            afwTable.updateSourceCoords(wcs, sourceList=[match.second for match in matches])
 
         self.log.logdebug("Updating distance in match list")
         setMatchDistance(matches)
@@ -223,29 +223,6 @@ class FitTanSipWcsTask(pipeBase.Task):
         dy = np.array([ff.getY() - mm.second.getCentroid().getY() for ff, mm in zip(fit, matches)])
         good = np.logical_not(rejected)
         return (dx > self.config.rejSigma*dx[good].std()) | (dy > self.config.rejSigma*dy[good].std())
-
-    @staticmethod
-    def updateRefCentroids(wcs, refList):
-        """Update centroids in a collection of reference objects, given a WCS
-        """
-        if len(refList) < 1:
-            return
-        schema = refList[0].schema
-        coordKey = afwTable.CoordKey(schema["coord"])
-        centroidKey = afwTable.Point2DKey(schema["centroid"])
-        for refObj in refList:
-            refObj.set(centroidKey, wcs.skyToPixel(refObj.get(coordKey)))
-
-    @staticmethod
-    def updateSourceCoords(wcs, sourceList):
-        """Update coords in a collection of sources, given a WCS
-        """
-        if len(sourceList) < 1:
-            return
-        schema = sourceList[1].schema
-        srcCoordKey = afwTable.CoordKey(schema["coord"])
-        for src in sourceList:
-            src.set(srcCoordKey, wcs.pixelToSky(src.getCentroid()))
 
     def plotFit(self, matches, wcs, rejected):
         """Plot the fit

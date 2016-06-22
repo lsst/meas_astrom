@@ -207,8 +207,8 @@ class BaseTestCase(unittest.TestCase):
 
         if self.MatchClass == afwTable.ReferenceMatch:
             # reset source coord and reference centroid based on initial WCS
-            FitTanSipWcsTask.updateRefCentroids(wcs=self.tanWcs, refList=self.refCat)
-            FitTanSipWcsTask.updateSourceCoords(wcs=self.tanWcs, sourceList=self.sourceCat)
+            afwTable.updateRefCentroids(wcs=self.tanWcs, refList=self.refCat)
+            afwTable.updateSourceCoords(wcs=self.tanWcs, sourceList=self.sourceCat)
 
             fitterConfig = FitTanSipWcsTask.ConfigClass()
             fitterConfig.order = order
