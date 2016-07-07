@@ -135,10 +135,13 @@ class ANetAstrometryTask(pipeBase.Task):
     """
     ConfigClass = ANetAstrometryConfig
 
-    def __init__(self, schema, **kwds):
+    def __init__(self, schema, refObjLoader=None, **kwds):
         """!Create the astrometric calibration task.  Most arguments are simply passed onto pipe.base.Task.
 
         \param schema An lsst::afw::table::Schema used to create the output lsst.afw.table.SourceCatalog
+        \param refObjLoader The AstrometryTask constructor requires a refObjLoader.  In order to make this
+        task retargettable for AstrometryTask it needs to take the same arguments.  This argument will be
+        ignored since it uses its own internal loader.
         \param **kwds keyword arguments to be passed to the lsst.pipe.base.task.Task constructor
 
         A centroid field "centroid.distorted" (used internally during the Task's operation)
