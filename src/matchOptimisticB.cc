@@ -19,9 +19,11 @@
 #include "lsst/afw/image/DistortedTanWcs.h"
 #include "lsst/afw/geom/Angle.h"
 #include "lsst/meas/astrom/matchOptimisticB.h"
+#include "lsst/afw/math/GaussianProcess.h"
 
 namespace pexExcept = lsst::pex::exceptions;
 namespace afwTable = lsst::afw::table;
+namespace afwMath = lsst::afw::math;
 
 namespace {
     using namespace lsst::meas::astrom;
@@ -390,6 +392,40 @@ namespace {
         }
     }
 
+    void generatePairList(MultiIndexedProxyPairList &proxyPairList,
+                          boost::shared_array<double> coeff,
+                          ProxyVector const & posRefCat,
+                          ProxyVector const & sourceCat,
+                          double matchingAllowancePix) {
+
+          afwMath::KdTree<double> *srcTree = new afwMath::KdTree<double>();
+
+          double x1, y1;
+          ndarray::Array<double, 2, 2> xyCoords = ndarray::allocate(sourceCat.size(), 2);
+
+          for(int i = 0; i < sourceCat.size(); i++) {
+            auto x0 = sourceCat[i].getX();
+            auto y0 = sourceCat[i].getY();
+            transform(1, coeff, x0, y0, &x1, &y1);
+            xyCoords[ndarray::makeVector(i,0)] = x1;
+            xyCoords[ndarray::makeVector(i,1)] = y1;
+          }
+          srcTree->Initialize(xyCoords);
+
+          ndarray::Array<int, 1, 1> neighbor_index = ndarray::allocate(1);
+          ndarray::Array<double, 1, 1> neighbor_dist = ndarray::allocate(1);
+          ndarray::Array<double, 1, 1> target = ndarray::allocate(2);
+          for(auto refProxy : posRefCat) {
+            target[0] = refProxy.getX();
+            target[1] = refProxy.getY();
+            srcTree->findNeighbors(neighbor_index, neighbor_dist, target, 1);
+            if(neighbor_dist[0] < matchingAllowancePix) {
+              auto proxyPair = ProxyPair(refProxy, sourceCat[neighbor_index[0]]);
+              proxyPairList.get<refIdTag>().insert(proxyPair);
+            }
+          }
+    }
+
     /**
     Perform a verification pass on a possible match
 
@@ -407,9 +443,12 @@ namespace {
     ) {
         MultiIndexedProxyPairList proxyPairList;
 
+        /*
         for (auto sourcePtr = sourceCat.begin(); sourcePtr != sourceCat.end(); ++sourcePtr) {
             addNearestMatch(proxyPairList, coeff, posRefCat, *sourcePtr, matchingAllowancePix);
-        }
+        } */
+        generatePairList(proxyPairList, coeff, posRefCat, sourceCat, matchingAllowancePix);
+
         int order = 1;
         if (proxyPairList.size() > 5) {
             for (auto j = 0; j < 100; j++) {
@@ -426,10 +465,12 @@ namespace {
                 coeff = polyfit(order, srcMat, catMat);
                 proxyPairList.clear();
 
+                generatePairList(proxyPairList, coeff, posRefCat, sourceCat, matchingAllowancePix);
+                /*
                 for (ProxyVector::const_iterator sourcePtr = sourceCat.begin();
                     sourcePtr != sourceCat.end(); ++sourcePtr) {
                     addNearestMatch(proxyPairList, coeff, posRefCat, *sourcePtr, matchingAllowancePix);
-                }
+                } */
                 if (proxyPairList.size() == prevNumMatches) {
                     break;
                 }
