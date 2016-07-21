@@ -36,12 +36,6 @@ from lsst.meas.algorithms import LoadReferenceObjectsTask
 import lsst.meas.astrom.sip.genDistortedImage as distort
 import lsst.meas.astrom as measAstrom
 
-import testFindAstrometryNetDataDir as helper
-
-############################
-# Set up local astrometry_net_data
-helper.setupAstrometryNetDataDir('cfhttemplate')
-
 
 class TestMatchOptimisticB(unittest.TestCase):
 
