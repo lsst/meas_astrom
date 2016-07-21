@@ -22,6 +22,7 @@ from __future__ import absolute_import, division, print_function
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
+import os.path
 import math
 import unittest
 
@@ -33,16 +34,17 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.meas.base as measBase
-import lsst.meas.astrom as measAstrom
-import testFindAstrometryNetDataDir as helper
+from lsst.utils import getPackageDir
+from lsst.daf.persistence import Butler
+from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
+from lsst.meas.astrom import AstrometryTask
+
+RefCatDir = os.path.join(getPackageDir("meas_astrom"), "tests", "data", "sdssrefcat")
 
 
 class TestAstrometricSolver(utilsTests.TestCase):
 
     def setUp(self):
-        # Set up local astrometry_net_data
-        self.datapath = helper.setupAstrometryNetDataDir('photocal')
-
         self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(3001, 3001))
         self.ctrPix = afwGeom.Point2I(1500, 1500)
         metadata = dafBase.PropertySet()
@@ -64,7 +66,8 @@ class TestAstrometricSolver(utilsTests.TestCase):
         self.exposure = afwImage.ExposureF(self.bbox)
         self.exposure.setWcs(self.tanWcs)
         self.exposure.setFilter(afwImage.Filter("r", True))
-        self.refObjLoader = measAstrom.LoadAstrometryNetObjectsTask()
+        butler = Butler(RefCatDir)
+        self.refObjLoader = LoadIndexedReferenceObjectsTask(butler=butler)
 
     def tearDown(self):
         del self.ctrPix
@@ -90,10 +93,10 @@ class TestAstrometricSolver(utilsTests.TestCase):
         distortedWcs = afwImage.DistortedTanWcs(self.tanWcs, pixelsToTanPixels)
         self.exposure.setWcs(distortedWcs)
         sourceCat = self.makeSourceCat(distortedWcs)
-        config = measAstrom.AstrometryTask.ConfigClass()
+        config = AstrometryTask.ConfigClass()
         config.wcsFitter.order = order
         config.wcsFitter.numRejIter = 0
-        solver = measAstrom.AstrometryTask(config=config, refObjLoader=self.refObjLoader)
+        solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
         results = solver.run(
             sourceCat=sourceCat,
             exposure=self.exposure,
@@ -116,17 +119,17 @@ class TestAstrometricSolver(utilsTests.TestCase):
 
             angSep = refCoord.angularSeparation(srcCoord)
             maxAngSep = max(maxAngSep, angSep)
-            self.assertLess(refCoord.angularSeparation(srcCoord).asArcseconds(), 0.0025)
 
             pixSep = math.hypot(*(srcPixPos-refPixPos))
             maxPixSep = max(maxPixSep, pixSep)
-            self.assertLess(pixSep, 0.015)
         print("max angular separation = %0.4f arcsec" % (maxAngSep.asArcseconds(),))
         print("max pixel separation = %0.3f" % (maxPixSep,))
+        self.assertLess(maxAngSep.asArcseconds(), 0.0026)
+        self.assertLess(maxPixSep, 0.015)
 
         # try again, but without fitting the WCS
         config.forceKnownWcs = True
-        solverNoFit = measAstrom.AstrometryTask(config=config, refObjLoader=self.refObjLoader)
+        solverNoFit = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
         self.exposure.setWcs(distortedWcs)
         resultsNoFit = solverNoFit.run(
             sourceCat=sourceCat,
@@ -144,8 +147,7 @@ class TestAstrometricSolver(utilsTests.TestCase):
     def makeSourceCat(self, distortedWcs):
         """Make a source catalog by reading the position reference stars and distorting the positions
         """
-        loader = measAstrom.LoadAstrometryNetObjectsTask()
-        loadRes = loader.loadPixelBox(bbox=self.bbox, wcs=distortedWcs, filterName="r")
+        loadRes = self.refObjLoader.loadPixelBox(bbox=self.bbox, wcs=distortedWcs, filterName="r")
         refCat = loadRes.refCat
         refCentroidKey = afwTable.Point2DKey(refCat.schema["centroid"])
         refFluxRKey = refCat.schema["r_flux"].asKey()
