@@ -27,12 +27,12 @@ import unittest
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImg
 import lsst.afw.table as afwTable
-import lsst.meas.astrom as measAstrom
 import lsst.utils.tests as utilsTests
+from lsst.daf.persistence import Butler
+from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
+from lsst.meas.astrom import AstrometryTask
 
 from lsst.pex.logging import Log
-
-import testFindAstrometryNetDataDir as helper
 
 
 class joinMatchListWithCatalogTestCase(unittest.TestCase):
@@ -40,17 +40,27 @@ class joinMatchListWithCatalogTestCase(unittest.TestCase):
     def setUp(self):
         # Load sample input from disk
         testDir = os.path.dirname(__file__)
-        # Set up local astrometry_net_data
-        helper.setupAstrometryNetDataDir('photocal', verbose=True)
 
         self.srcSet = afwTable.SourceCatalog.readFits(os.path.join(testDir, "v695833-e0-c000.xy.fits"))
         self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(2048, 4612))  # approximate
-        self.exposure = afwImg.ExposureF(os.path.join(testDir, "v695833-e0-c000-a00.sci.fits"))
+        # create an exposure with the right metadata; the closest thing we have is
+        # apparently v695833-e0-c000-a00.sci.fits, which is much too small
+        smallExposure = afwImg.ExposureF(os.path.join(testDir, "v695833-e0-c000-a00.sci.fits"))
+        self.exposure = afwImg.ExposureF(self.bbox)
+        self.exposure.setWcs(smallExposure.getWcs())
+        self.exposure.setFilter(smallExposure.getFilter())
+        # copy the pixels we can, in case the user wants a debug display
+        mi = self.exposure.getMaskedImage()
+        mi.assign(smallExposure.getMaskedImage(), smallExposure.getBBox())
 
-        config = measAstrom.ANetBasicAstrometryConfig()
         logLevel = Log.INFO
         #logLevel = Log.DEBUG
-        self.astrom = measAstrom.ANetBasicAstrometryTask(config)
+        refCatDir = os.path.join(testDir, "data", "sdssrefcat")
+        butler = Butler(refCatDir)
+        refObjLoader = LoadIndexedReferenceObjectsTask(butler=butler)
+        astrometryConfig = AstrometryTask.ConfigClass()
+        astrometryConfig.matcher.minSnr = 0
+        self.astrom = AstrometryTask(config=astrometryConfig, refObjLoader=refObjLoader)
         self.astrom.log.setThreshold(logLevel)
 
     def tearDown(self):
@@ -60,7 +70,7 @@ class joinMatchListWithCatalogTestCase(unittest.TestCase):
         del self.astrom
 
     def getAstrometrySolution(self):
-        return self.astrom.determineWcs(self.srcSet, self.exposure, bbox=self.bbox)
+        return self.astrom.solve(exposure=self.exposure, sourceCat=self.srcSet)
 
     def testJoin(self):
         res = self.getAstrometrySolution()
