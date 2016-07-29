@@ -9,7 +9,6 @@ Python interface to lsst::meas::astrom
 %module(package="lsst.meas.astrom", docstring=astromLib_DOCSTRING) astromLib
 
 %{
-#include "lsst/pex/logging.h"
 #include "lsst/afw/image.h"
 #include "lsst/afw/cameraGeom.h"
 #include "lsst/afw/table.h"
