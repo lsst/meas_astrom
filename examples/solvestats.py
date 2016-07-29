@@ -10,7 +10,6 @@ if __name__ == '__main__':
 import lsst.pex.policy as policy
 import lsst.meas.astrom as measAstrom
 import lsst.afw.image as afwImage
-from lsst.pex.logging import Log
 from lsst.afw.coord import DEGREES
 
 import imsimUtils
