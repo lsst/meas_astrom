@@ -34,5 +34,6 @@ from .approximateWcs import *
 from .createMatchMetadata import *
 from .astromLib import *
 from .catalogStarSelector import *
+from .match import *
 
 from .version import *
