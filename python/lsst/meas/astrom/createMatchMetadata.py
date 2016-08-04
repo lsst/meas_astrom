@@ -4,7 +4,25 @@ from lsst.daf.base import PropertyList
 from lsst.afw.geom import Box2D
 from lsst.afw.image.utils import getDistortedWcs
 
-__all__ = ["createMatchMetadata"]
+__all__ = ["MatchMetadata", "createMatchMetadata"]
+
+
+class MatchMetadata(PropertyList):
+    """Metadata required for unpersisting a match list"""
+    def __init__(self, ctrCoord, radius, filterName):
+        """!Ctor
+
+        @param[in] ctrCoord: Coordinates of center (lsst.afw.coord.IcrsCoord)
+        @param[in] radius: Minimum radius for selecting sources (lsst.afw.geom.Angle)
+        @param[in] filterName: Name of filter (str) or None
+        """
+        PropertyList.__init__(self)
+        ctrCoord = ctrCoord.toIcrs()
+        self.add('RA', ctrCoord.getRa().asDegrees(), 'field center in degrees')
+        self.add('DEC', ctrCoord.getDec().asDegrees(), 'field center in degrees')
+        self.add('RADIUS', radius.asDegrees(), 'field radius in degrees, minimum')
+        self.add('SMATCHV', 1, 'SourceMatchVector version number')
+        self.add('FILTER', filterName or "UNKNOWN", 'filter name for photometric data')
 
 
 def createMatchMetadata(exposure, border=0):
@@ -15,18 +33,9 @@ def createMatchMetadata(exposure, border=0):
 
     @return metadata about the field (a daf_base PropertyList)
     """
-    matchMeta = PropertyList()
     bboxd = Box2D(exposure.getBBox())
     bboxd.grow(border)
     wcs = getDistortedWcs(exposure.getInfo())
     ctrCoord = wcs.pixelToSky(bboxd.getCenter()).toIcrs()
     approxRadius = max(ctrCoord.angularSeparation(wcs.pixelToSky(pp).toIcrs()) for pp in bboxd.getCorners())
-
-    matchMeta.add('RA', ctrCoord.getRa().asDegrees(), 'field center in degrees')
-    matchMeta.add('DEC', ctrCoord.getDec().asDegrees(), 'field center in degrees')
-    matchMeta.add('RADIUS', approxRadius.asDegrees(), 'field radius in degrees, approximate')
-    matchMeta.add('SMATCHV', 1, 'SourceMatchVector version number')
-    filterName = exposure.getFilter().getName() or None
-    if filterName is not None and filterName not in ("_unknmown_", ""):
-        matchMeta.add('FILTER', filterName, 'filter name for tagalong data')
-    return matchMeta
+    return MatchMetadata(ctrCoord, approxRadius, exposure.getFilter().getName())
