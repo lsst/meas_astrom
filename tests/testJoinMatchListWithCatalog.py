@@ -108,8 +108,8 @@ class joinMatchListWithCatalogTestCase(unittest.TestCase):
 
         names = ref.getSchema().getNames()
         for b in ("u", "g", "r", "i", "z"):
-            self.assertTrue("%s_flux" % (b,) in names)
-            self.assertTrue("%s_fluxSigma" % (b,) in names)
+            self.assertIn("%s_flux" % (b,), names)
+            self.assertIn("%s_fluxSigma" % (b,), names)
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
