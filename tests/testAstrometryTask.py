@@ -34,17 +34,16 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.meas.base as measBase
-from lsst.utils import getPackageDir
 from lsst.daf.persistence import Butler
 from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
 from lsst.meas.astrom import AstrometryTask
-
-RefCatDir = os.path.join(getPackageDir("meas_astrom"), "tests", "data", "sdssrefcat")
 
 
 class TestAstrometricSolver(lsst.utils.tests.TestCase):
 
     def setUp(self):
+        refCatDir = os.path.join(os.path.dirname(__file__), "data", "sdssrefcat")
+
         self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(3001, 3001))
         self.ctrPix = afwGeom.Point2I(1500, 1500)
         metadata = dafBase.PropertySet()
@@ -66,7 +65,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         self.exposure = afwImage.ExposureF(self.bbox)
         self.exposure.setWcs(self.tanWcs)
         self.exposure.setFilter(afwImage.Filter("r", True))
-        butler = Butler(RefCatDir)
+        butler = Butler(refCatDir)
         self.refObjLoader = LoadIndexedReferenceObjectsTask(butler=butler)
 
     def tearDown(self):
