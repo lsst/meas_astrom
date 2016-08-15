@@ -28,7 +28,7 @@ import unittest
 
 import numpy as np
 
-import lsst.utils.tests as utilsTests
+import lsst.utils.tests
 import lsst.daf.base as dafBase
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
@@ -42,7 +42,7 @@ from lsst.meas.astrom import AstrometryTask
 RefCatDir = os.path.join(getPackageDir("meas_astrom"), "tests", "data", "sdssrefcat")
 
 
-class TestAstrometricSolver(utilsTests.TestCase):
+class TestAstrometricSolver(lsst.utils.tests.TestCase):
 
     def setUp(self):
         self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(3001, 3001))
@@ -171,18 +171,18 @@ class TestAstrometricSolver(utilsTests.TestCase):
 
 def suite():
     """Returns a suite containing all the test cases in this module."""
-    utilsTests.init()
+    lsst.utils.tests.init()
 
     suites = []
     suites += unittest.makeSuite(TestAstrometricSolver)
-    suites += unittest.makeSuite(utilsTests.MemoryTestCase)
+    suites += unittest.makeSuite(lsst.utils.tests.MemoryTestCase)
 
     return unittest.TestSuite(suites)
 
 
 def run(exit=False):
     """Run the tests"""
-    utilsTests.run(suite(), exit)
+    lsst.utils.tests.run(suite(), exit)
 
 if __name__ == "__main__":
     run(True)
