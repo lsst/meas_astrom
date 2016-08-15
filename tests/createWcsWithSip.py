@@ -35,12 +35,12 @@ import lsst.meas.astrom.sip.genDistortedImage as distort
 import lsst.meas.astrom.sip.cleanBadPoints as cleanBadPoints
 import testFindAstrometryNetDataDir as helper
 
-############################
-# Set up local astrometry_net_data
-helper.setupAstrometryNetDataDir('cfhttemplate')
-
 
 class CreateWcsWithSipCase(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # Set up local astrometry_net_data
+        helper.setupAstrometryNetDataDir('cfhttemplate')
 
     def setUp(self):
 
@@ -182,24 +182,15 @@ class CreateWcsWithSipCase(unittest.TestCase):
         mList = cleanBadPoints.clean(matchList, imgWcs, order=cleanParam)
         return mList
 
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+class MemoryTester(lsst.utils.tests.MemoryTestCase):
+    pass
 
 
-def suite():
-    """Returns a suite containing all the test cases in this module."""
+def setup_module(module):
     lsst.utils.tests.init()
-
-    suites = []
-    suites += unittest.makeSuite(CreateWcsWithSipCase)
-    suites += unittest.makeSuite(lsst.utils.tests.MemoryTestCase)
-
-    return unittest.TestSuite(suites)
-
-
-def run(exit=False):
-    """Run the tests"""
-    lsst.utils.tests.run(suite(), exit)
 
 
 if __name__ == "__main__":
-    run(True)
+    lsst.utils.tests.init()
+    unittest.main()
