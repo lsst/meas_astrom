@@ -74,7 +74,7 @@ class MultipleCatalogStarsTest(unittest.TestCase):
             sid = src.getId()
             if sid in ids:
                 print 'Source id', sid, 'is duplicated'
-            self.assertFalse(sid in ids)
+            self.assertNotIn(sid, ids)
             ids.add(sid)
 
 
