@@ -17,6 +17,7 @@ python/lsst/meas/astrom/sip/sipLib.py
 python/lsst/meas/astrom/sip/sipLib_wrap.*
 python/lsst/meas/astrom/*Lib.py
 python/lsst/meas/astrom/*Lib_wrap.*
+tests/.cache
 tests/.tests
 tests/testConvertCheby
 tests/testlsf1d
