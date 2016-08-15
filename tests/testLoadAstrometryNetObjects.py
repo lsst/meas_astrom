@@ -113,7 +113,8 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         schema = refCat.getSchema()
         for filterName in ['u', 'g', 'r', 'i', 'z']:
             schema.find(filterName + "_flux")
-            self.assertRaises(KeyError, schema.find, filterName + "_fluxSigma")
+            with self.assertRaises(KeyError):
+                schema.find(filterName + "_fluxSigma")
 
     def testRequestForeignFilter(self):
         """The user requests a filter not in the astrometry.net catalog.
