@@ -26,13 +26,12 @@ from __future__ import absolute_import, division, print_function
 import os
 import unittest
 
-import lsst.utils.tests as utilsTests
-import lsst.daf.base as dafBase
+import lsst.utils.tests
+from lsst.daf.base import PropertySet
 import lsst.afw.geom as afwGeom
-import lsst.afw.image as afwImage
-import lsst.afw.table as afwTable
-import lsst.meas.astrom as measAstrom
-
+from lsst.afw.image import makeWcs
+from lsst.afw.table import CoordKey, Point2DKey
+from lsst.meas.astrom import LoadAstrometryNetObjectsTask, AstrometryNetDataConfig
 import testFindAstrometryNetDataDir as helper
 
 
@@ -41,11 +40,11 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
     def setUp(self):
         # Set up local astrometry_net_data
         self.datapath = helper.setupAstrometryNetDataDir('photocal')
-        self.config = measAstrom.LoadAstrometryNetObjectsTask.ConfigClass()
+        self.config = LoadAstrometryNetObjectsTask.ConfigClass()
 
         self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(3001, 3001))
         self.ctrPix = afwGeom.Point2I(1500, 1500)
-        metadata = dafBase.PropertySet()
+        metadata = PropertySet()
         metadata.set("RADECSYS", "FK5")
         metadata.set("EQUINOX", 2000.0)
         metadata.set("CTYPE1", "RA---TAN")
@@ -60,7 +59,7 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         metadata.set("CD1_2", 0.0)
         metadata.set("CD2_2", -5.1e-05)
         metadata.set("CD2_1", 0.0)
-        self.wcs = afwImage.makeWcs(metadata)
+        self.wcs = makeWcs(metadata)
         self.desNumStarsInPixelBox = 270
         self.desNumStarsInSkyCircle = 410
 
@@ -72,7 +71,7 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
     def testLoadPixelBox(self):
         """Test loadPixelBox
         """
-        loadANetObj = measAstrom.LoadAstrometryNetObjectsTask(config=self.config)
+        loadANetObj = LoadAstrometryNetObjectsTask(config=self.config)
 
         loadRes = loadANetObj.loadPixelBox(bbox=self.bbox, wcs=self.wcs, filterName="r")
         refCat = loadRes.refCat
@@ -90,7 +89,7 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
             schema.find(fieldName)
 
     def testLoadSkyCircle(self):
-        loadANetObj = measAstrom.LoadAstrometryNetObjectsTask(config=self.config)
+        loadANetObj = LoadAstrometryNetObjectsTask(config=self.config)
 
         ctrCoord = self.wcs.pixelToSky(afwGeom.Point2D(self.ctrPix))
         radius = ctrCoord.angularSeparation(self.wcs.pixelToSky(afwGeom.Box2D(self.bbox).getMin()))
@@ -101,10 +100,10 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
     def testNoMagErrs(self):
         """Exclude magnitude errors from the found catalog
         """
-        andConfig = measAstrom.AstrometryNetDataConfig()
+        andConfig = AstrometryNetDataConfig()
         andConfig.load(os.path.join(self.datapath, 'andConfig2.py'))
         andConfig.magErrorColumnMap = {}
-        loadANetObj = measAstrom.LoadAstrometryNetObjectsTask(config=self.config, andConfig=andConfig)
+        loadANetObj = LoadAstrometryNetObjectsTask(config=self.config, andConfig=andConfig)
 
         loadRes = loadANetObj.loadPixelBox(bbox=self.bbox, wcs=self.wcs, filterName="r")
         refCat = loadRes.refCat
@@ -125,10 +124,10 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         to the filterNameList that are in the catalog.
         """
         filterNameList = ['u', 'g', 'r', 'i', 'z']
-        andConfig = measAstrom.AstrometryNetDataConfig()
+        andConfig = AstrometryNetDataConfig()
         andConfig.load(os.path.join(self.datapath, 'andConfig2.py'))
         self.config.filterMap = dict(('my_'+b, b) for b in filterNameList)
-        loadANetObj = measAstrom.LoadAstrometryNetObjectsTask(config=self.config, andConfig=andConfig)
+        loadANetObj = LoadAstrometryNetObjectsTask(config=self.config, andConfig=andConfig)
 
         loadRes = loadANetObj.loadPixelBox(bbox=self.bbox, wcs=self.wcs, filterName="my_r")
         refCat = loadRes.refCat
@@ -147,13 +146,13 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         We should expect that the returned catalog refers to the filter
         requested (not the implementation-dependent column names).
         """
-        andConfig = measAstrom.AstrometryNetDataConfig()
+        andConfig = AstrometryNetDataConfig()
         andConfig.load(os.path.join(self.datapath, 'andConfig2.py'))
         baseNameList = ('u', 'g', 'r', 'i', 'z')
         filterNameList = ["my_" + b for b in baseNameList]
         andConfig.magColumnMap = dict(("my_" + b, b) for b in baseNameList)
         andConfig.magErrorColumnMap = dict([('my_' + b, b + "_err") for b in baseNameList])
-        loadANetObj = measAstrom.LoadAstrometryNetObjectsTask(config=self.config, andConfig=andConfig)
+        loadANetObj = LoadAstrometryNetObjectsTask(config=self.config, andConfig=andConfig)
 
         loadRes = loadANetObj.loadPixelBox(bbox=self.bbox, wcs=self.wcs, filterName="my_r")
         refCat = loadRes.refCat
@@ -176,8 +175,8 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         """
         bbox = afwGeom.Box2D(bbox)
         bbox.grow(self.config.pixelMargin)
-        centroidKey = afwTable.Point2DKey(refCat.schema["centroid"])
-        coordKey = afwTable.CoordKey(refCat.schema["coord"])
+        centroidKey = Point2DKey(refCat.schema["centroid"])
+        coordKey = CoordKey(refCat.schema["coord"])
         for refObj in refCat:
             point = refObj.get(centroidKey)
             if not bbox.contains(point):
@@ -206,18 +205,18 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
 
 def suite():
     """Returns a suite containing all the test cases in this module."""
-    utilsTests.init()
+    lsst.utils.tests.init()
 
     suites = []
     suites += unittest.makeSuite(TestLoadAstrometryNetObjects)
-    suites += unittest.makeSuite(utilsTests.MemoryTestCase)
+    suites += unittest.makeSuite(lsst.utils.tests.MemoryTestCase)
 
     return unittest.TestSuite(suites)
 
 
 def run(exit=False):
     """Run the tests"""
-    utilsTests.run(suite(), exit)
+    lsst.utils.tests.run(suite(), exit)
 
 if __name__ == "__main__":
     run(True)
