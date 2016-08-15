@@ -33,17 +33,13 @@ from lsst.meas.astrom import ANetBasicAstrometryTask
 import lsst.meas.astrom.sip as sip
 import lsst.meas.astrom.sip.genDistortedImage as distort
 import lsst.meas.astrom.sip.cleanBadPoints as cleanBadPoints
-import testFindAstrometryNetDataDir as helper
+from testFindAstrometryNetDataDir import setupAstrometryNetDataDir
 
 
 class CreateWcsWithSipCase(unittest.TestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        # Set up local astrometry_net_data
-        helper.setupAstrometryNetDataDir('cfhttemplate')
-
     def setUp(self):
+        setupAstrometryNetDataDir('cfhttemplate')
 
         self.config = ANetBasicAstrometryTask.ConfigClass()
         self.config.defaultFilter = "r"

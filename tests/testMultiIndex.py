@@ -34,7 +34,7 @@ from lsst.pex.logging import Log
 from astrometry.util import ttime
 from lsst.meas.astrom import AstrometryNetDataConfig
 from lsst.meas.astrom.multiindex import generateCache
-import testFindAstrometryNetDataDir as helper
+from testFindAstrometryNetDataDir import setupAstrometryNetDataDir
 
 
 class MultiIndexTest(unittest.TestCase):
@@ -51,7 +51,7 @@ class MultiIndexTest(unittest.TestCase):
         self.exposure = afwImg.ExposureF(os.path.join(testDir, "v695833-e0-c000-a00.sci.fits"))
 
         # Set up local astrometry_net_data
-        self.an_data_dir = helper.setupAstrometryNetDataDir('photocal')
+        self.an_data_dir = setupAstrometryNetDataDir('photocal')
 
     def tearDown(self):
         del self.srcCat

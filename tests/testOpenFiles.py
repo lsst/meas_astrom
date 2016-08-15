@@ -30,7 +30,7 @@ import lsst.utils.tests
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 
-import testFindAstrometryNetDataDir as helper
+from testFindAstrometryNetDataDir import setupAstrometryNetDataDir
 
 
 # http://stackoverflow.com/a/7142094/834250
@@ -72,15 +72,15 @@ class OpenFilesTest(unittest.TestCase):
         resource.setrlimit(resource.RLIMIT_NOFILE, (10, limits[1]))
         print 'NOFILE rlimit:', resource.getrlimit(resource.RLIMIT_NOFILE)
 
-        self.mypath = os.path.dirname(__file__)
+        mypath = os.path.dirname(__file__)
+        self.andpath = setupAstrometryNetDataDir('photocal', rootDir=mypath)
         self.srcCat = afwTable.SourceCatalog.readFits(
-            os.path.join(self.mypath, "v695833-e0-c000.xy.fits"))
+            os.path.join(mypath, "v695833-e0-c000.xy.fits"))
         # The .xy.fits file has sources in the range ~ [0,2000],[0,4500]
         self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(2048, 4612))  # approximate
 
     def getAstrom(self):
-        andpath = helper.setupAstrometryNetDataDir('photocal', rootDir=self.mypath)
-        andcfn = os.path.join(andpath, 'andConfigOpenFiles.py')
+        andcfn = os.path.join(self.andpath, 'andConfigOpenFiles.py')
 
         andconfig = measAstrom.AstrometryNetDataConfig()
         andconfig.load(andcfn)

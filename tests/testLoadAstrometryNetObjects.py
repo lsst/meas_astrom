@@ -32,14 +32,14 @@ import lsst.afw.geom as afwGeom
 from lsst.afw.image import makeWcs
 from lsst.afw.table import CoordKey, Point2DKey
 from lsst.meas.astrom import LoadAstrometryNetObjectsTask, AstrometryNetDataConfig
-import testFindAstrometryNetDataDir as helper
+from testFindAstrometryNetDataDir import setupAstrometryNetDataDir
 
 
 class TestLoadAstrometryNetObjects(unittest.TestCase):
 
     def setUp(self):
         # Set up local astrometry_net_data
-        self.datapath = helper.setupAstrometryNetDataDir('photocal')
+        self.datapath = setupAstrometryNetDataDir('photocal')
         self.config = LoadAstrometryNetObjectsTask.ConfigClass()
 
         self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(3001, 3001))

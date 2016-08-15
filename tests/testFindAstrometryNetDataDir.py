@@ -29,9 +29,11 @@ def setupAstrometryNetDataDir(name, rootDir=None, verbose=False):
 
 class TestAstrometryNetDataDirDiscovery(unittest.TestCase):
 
+    def setUp(self):
+        self.datapath = setupAstrometryNetDataDir('photocal')
+
     def test_photocal(self):
-        datapath = setupAstrometryNetDataDir('photocal')
-        self.assertEqual(os.environ["ASTROMETRY_NET_DATA_DIR"], datapath)
+        self.assertEqual(os.environ["ASTROMETRY_NET_DATA_DIR"], self.datapath)
 
 
 class MemoryTester(lsst.utils.tests.MemoryTestCase):
