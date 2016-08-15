@@ -31,6 +31,7 @@ import lsst.meas.astrom.sip as sip
 
 
 class Lsf2dTestCase(unittest.TestCase):
+
     def setUp(self):
         pass
 

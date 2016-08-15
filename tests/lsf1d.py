@@ -92,17 +92,17 @@ class Lsf1dTestCase(unittest.TestCase):
 
         for i in range(1, len(x)):
             self.assertAlmostEqual(lsf.valueAt(x[0]), lsf.valueAt(x[i]), 4)
-            #print x[i], y[i], lsf.valueAt(x[i])
+            # print x[i], y[i], lsf.valueAt(x[i])
 
     def testCompareToCpp1(self):
         """Confirm that I get the same behaviour in Python as I
         do in the C++ test fitLinear3
         """
 
-        #This test arises because I was having trouble using Eigen's
-        #svd inversion. fitLinear3 in C++ worked fine, but this test
-        #behaved differently, and I tracked the result down to
-        #the svd routines.
+        # This test arises because I was having trouble using Eigen's
+        # svd inversion. fitLinear3 in C++ worked fine, but this test
+        # behaved differently, and I tracked the result down to
+        # the svd routines.
 
         x = [689.301136505, 1112.8573687, 1386.67168477]
         y = [0.66911456573, 1.1147439759, 1.39597284177]
@@ -120,10 +120,10 @@ class Lsf1dTestCase(unittest.TestCase):
         """Confirm that I get the same behaviour in Python as I do in the C++ test fitLinear3
         """
 
-        #This test arises because I was having trouble using Eigen's
-        #svd inversion. fitLinear3 in C++ worked fine, but this test
-        #behaved differently, and I tracked the result down to
-        #the svd routines.
+        # This test arises because I was having trouble using Eigen's
+        # svd inversion. fitLinear3 in C++ worked fine, but this test
+        # behaved differently, and I tracked the result down to
+        # the svd routines.
 
         x = [628.857680996, 995.008255088, 1203.39412154, 1425.1404727]
         y = [0.616728229875, 1.01887634344, 1.19679830465, 1.42873084062]

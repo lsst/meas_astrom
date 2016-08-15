@@ -53,13 +53,13 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         metadata.set("CUNIT1", "deg")
         metadata.set("CUNIT2", "deg")
         metadata.set("CRVAL1", 215.5)
-        metadata.set("CRVAL2",  53.0)
+        metadata.set("CRVAL2", 53.0)
         metadata.set("CRPIX1", self.ctrPix[0] + 1)
         metadata.set("CRPIX2", self.ctrPix[1] + 1)
-        metadata.set("CD1_1",  5.1e-05)
-        metadata.set("CD1_2",  0.0)
+        metadata.set("CD1_1", 5.1e-05)
+        metadata.set("CD1_2", 0.0)
         metadata.set("CD2_2", -5.1e-05)
-        metadata.set("CD2_1",  0.0)
+        metadata.set("CD2_1", 0.0)
         self.wcs = afwImage.makeWcs(metadata)
         self.desNumStarsInPixelBox = 270
         self.desNumStarsInSkyCircle = 410

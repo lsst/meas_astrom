@@ -55,12 +55,12 @@ class ANetAstrometryConfig(pexConfig.Config):
         """An alias, for a uniform interface with the standard AstrometryTask"""
         return self.solver
 
-    ## \addtogroup LSST_task_documentation
-    ## \{
-    ## \page measAstrom_anetAstrometryTask
-    ## \ref ANetAstrometryTask_ "ANetAstrometryTask"
-    ## Use astrometry.net to match input sources with a reference catalog and solve for the Wcs
-    ## \}
+    # \addtogroup LSST_task_documentation
+    # \{
+    # \page measAstrom_anetAstrometryTask
+    # \ref ANetAstrometryTask_ "ANetAstrometryTask"
+    # Use astrometry.net to match input sources with a reference catalog and solve for the Wcs
+    # \}
 
 
 class ANetAstrometryTask(pipeBase.Task):

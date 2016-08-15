@@ -51,14 +51,14 @@ class TestMatchOptimisticB(unittest.TestCase):
         metadata.set("CTYPE2", "DEC--TAN")
         metadata.set("CUNIT1", "deg")
         metadata.set("CUNIT2", "deg")
-        metadata.set("CRVAL1",  36.930640)
-        metadata.set("CRVAL2",  -4.939560)
+        metadata.set("CRVAL1", 36.930640)
+        metadata.set("CRVAL2", -4.939560)
         metadata.set("CRPIX1", 792.4)
         metadata.set("CRPIX2", 560.7)
         metadata.set("CD1_1", -5.17e-05)
-        metadata.set("CD1_2",  0.0)
-        metadata.set("CD2_2",  5.17e-05)
-        metadata.set("CD2_1",  0.0)
+        metadata.set("CD1_2", 0.0)
+        metadata.set("CD2_2", 5.17e-05)
+        metadata.set("CD2_1", 0.0)
         self.wcs = afwImage.makeWcs(metadata)
         self.distortedWcs = self.wcs
 
@@ -111,7 +111,7 @@ class TestMatchOptimisticB(unittest.TestCase):
             def plot(catalog, symbol):
                 plt.plot([ss.getX() for ss in catalog], [ss.getY() for ss in catalog], symbol)
 
-            #plot(sourceCat, 'k+') # Original positions: black +
+            # plot(sourceCat, 'k+') # Original positions: black +
             plot(distortedCat, 'b+')  # Distorted positions: blue +
             plot(undistorted, 'g+')  # Undistorted positions: green +
             plot(refs, 'rx')  # Reference catalog: red x

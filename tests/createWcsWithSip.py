@@ -37,6 +37,7 @@ import testFindAstrometryNetDataDir as helper
 
 
 class CreateWcsWithSipCase(unittest.TestCase):
+
     @classmethod
     def setUpClass(cls):
         # Set up local astrometry_net_data
@@ -86,10 +87,10 @@ class CreateWcsWithSipCase(unittest.TestCase):
         for src in cat:
             rd = wcs.pixelToSky(src.getCentroid())
             xy = wcs.skyToPixel(rd)
-            #print 'src', src.getX(), src.getY()
-            #print 'rd', rd
-            #print 'xy', xy
-            #print 'dx,dy', xy[0] - src.getX(), xy[1] - src.getY()
+            # print 'src', src.getX(), src.getY()
+            # print 'rd', rd
+            # print 'xy', xy
+            # print 'dx,dy', xy[0] - src.getX(), xy[1] - src.getY()
             self.assertLess(abs(xy[0] - src.getX()), 0.1)
             self.assertLess(abs(xy[1] - src.getY()), 0.1)
 
@@ -120,22 +121,22 @@ class CreateWcsWithSipCase(unittest.TestCase):
 
         printWcs(imgWcs)
 
-        #Create a wcs with sip
+        # Create a wcs with sip
         cat = cat.cast(SimpleCatalog, False)
         matchList = self.matchSrcAndCatalogue(cat, img, imgWcs)
         print "*** num matches =", len(matchList)
         return
         sipObject = sip.makeCreateWcsWithSip(matchList, imgWcs, 3)
 
-        #print 'Put in TAN Wcs:'
-        #print imgWcs.getFitsMetadata().toString()
+        # print 'Put in TAN Wcs:'
+        # print imgWcs.getFitsMetadata().toString()
         imgWcs = sipObject.getNewWcs()
-        #print 'Got SIP Wcs:'
-        #print imgWcs.getFitsMetadata().toString()
+        # print 'Got SIP Wcs:'
+        # print imgWcs.getFitsMetadata().toString()
 
         # Write out the SIP header
-        #afwImage.fits_write_imageF('createWcsWithSip.sip', afwImage.ImageF(0,0),
-        #imgWcs.getFitsMetadata())
+        # afwImage.fits_write_imageF('createWcsWithSip.sip', afwImage.ImageF(0,0),
+        # imgWcs.getFitsMetadata())
 
         print 'number of matches:', len(matchList), sipObject.getNPoints()
         scatter = sipObject.getScatterOnSky().asArcseconds()
@@ -164,7 +165,7 @@ class CreateWcsWithSipCase(unittest.TestCase):
         res = self.astrom.determineWcs2(cat, bbox=bbox)
         catWcs = res.getWcs()
 
-        #Set catalogue ra and decs
+        # Set catalogue ra and decs
         for src in cat:
             src.updateCoord(catWcs)
         return cat

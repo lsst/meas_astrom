@@ -87,7 +87,7 @@ class OpenFilesTest(unittest.TestCase):
 
         conf = measAstrom.ANetBasicAstrometryConfig()
         return measAstrom.ANetBasicAstrometryTask(config=conf, andConfig=andconfig,)
-        #logLevel=pexLog.Log.DEBUG)
+        # logLevel=pexLog.Log.DEBUG)
 
     def tearDown(self):
         del self.bbox
@@ -97,14 +97,14 @@ class OpenFilesTest(unittest.TestCase):
         astrom = self.getAstrom()
         result = astrom.determineWcs2(self.srcCat, bbox=self.bbox, filterName='i')
         print 'Got result from determineWcs:', result
-        #printOpenFiles()
+        # printOpenFiles()
         return result.wcs
 
     def runUseKnownWcs(self, wcs):
         astrom = self.getAstrom()
         result = astrom.useKnownWcs(self.srcCat, wcs=wcs, filterName='i', bbox=self.bbox)
         print "Got result from useKnownWcs:", result
-        #printOpenFiles()
+        # printOpenFiles()
 
     def testDetermineWcs(self):
         self.runDetermineWcs()
