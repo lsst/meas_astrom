@@ -44,7 +44,7 @@ except ImportError:
     pass
 
 import lsst.pipe.base
-import lsst.utils.tests as tests
+import lsst.utils.tests
 import lsst.afw.coord as afwCoord
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
@@ -362,18 +362,18 @@ class CreateWcsWithSipTestCaseSourceMatch(BaseTestCase, SideLoadTestCases):
 
 def suite():
     """Returns a suite containing all the test cases in this module."""
-    tests.init()
+    lsst.utils.tests.init()
 
     suites = []
     suites += unittest.makeSuite(CreateWcsWithSipTestCaseReferenceMatch)
     suites += unittest.makeSuite(CreateWcsWithSipTestCaseSourceMatch)
-    suites += unittest.makeSuite(tests.MemoryTestCase)
+    suites += unittest.makeSuite(lsst.utils.tests.MemoryTestCase)
     return unittest.TestSuite(suites)
 
 
 def run(shouldExit=False):
     """Run the tests"""
-    tests.run(suite(), shouldExit)
+    lsst.utils.tests.run(suite(), shouldExit)
 
 if __name__ == "__main__":
     run(True)
