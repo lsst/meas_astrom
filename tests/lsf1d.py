@@ -31,12 +31,6 @@ import lsst.meas.astrom.sip as sip
 
 class Lsf1dTestCase(unittest.TestCase):
 
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
     def testBadArgs1(self):
         """Check that code fails when order is too low"""
 
@@ -46,8 +40,8 @@ class Lsf1dTestCase(unittest.TestCase):
 
         order = 0
 
-        self.assertRaises(lsst.pex.exceptions.Exception,
-                          sip.LeastSqFitter1dPoly, x, y, s, order)
+        with self.assertRaises(lsst.pex.exceptions.Exception):
+            sip.LeastSqFitter1dPoly(x, y, s, order)
 
     def testBadArgs2(self):
         """Check that code fails when not len(x) != len(y)"""
@@ -58,8 +52,8 @@ class Lsf1dTestCase(unittest.TestCase):
 
         order = 0
 
-        self.assertRaises(lsst.pex.exceptions.Exception,
-                          sip.LeastSqFitter1dPoly, x, y, s, order)
+        with self.assertRaises(lsst.pex.exceptions.Exception):
+            sip.LeastSqFitter1dPoly(x, y, s, order)
 
     def testBadArgs3(self):
         """Check that code fails when not len(x) != len(s)"""
@@ -70,8 +64,8 @@ class Lsf1dTestCase(unittest.TestCase):
 
         order = 0
 
-        self.assertRaises(lsst.pex.exceptions.Exception,
-                          sip.LeastSqFitter1dPoly, x, y, s, order)
+        with self.assertRaises(lsst.pex.exceptions.Exception):
+            sip.LeastSqFitter1dPoly(x, y, s, order)
 
     def testBadArgs4(self):
         """Check that code fails when not order > number data points"""
@@ -82,8 +76,8 @@ class Lsf1dTestCase(unittest.TestCase):
 
         order = 5
 
-        self.assertRaises(lsst.pex.exceptions.Exception,
-                          sip.LeastSqFitter1dPoly, x, y, s, order)
+        with self.assertRaises(lsst.pex.exceptions.Exception):
+            sip.LeastSqFitter1dPoly(x, y, s, order)
 
     def testConst1(self):
         """Check that code fits a dc offset correctly (1)"""
@@ -147,23 +141,15 @@ class Lsf1dTestCase(unittest.TestCase):
         self.assertAlmostEqual(lsf.valueAt(x[1]), y[1], 1)
         self.assertAlmostEqual(lsf.valueAt(x[2]), y[2], 1)
 
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+class MemoryTester(lsst.utils.tests.MemoryTestCase):
+    pass
 
 
-def suite():
-    """Returns a suite containing all the test cases in this module."""
+def setup_module(module):
     lsst.utils.tests.init()
 
-    suites = []
-    suites += unittest.makeSuite(Lsf1dTestCase)
-    suites += unittest.makeSuite(lsst.utils.tests.MemoryTestCase)
-
-    return unittest.TestSuite(suites)
-
-
-def run(exit=False):
-    """Run the tests"""
-    lsst.utils.tests.run(suite(), exit)
 
 if __name__ == "__main__":
-    run(True)
+    lsst.utils.tests.init()
+    unittest.main()
