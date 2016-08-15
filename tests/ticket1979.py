@@ -27,10 +27,9 @@ import unittest
 
 from lsst.afw.coord import IcrsCoord
 import lsst.meas.astrom as measAstrom
-import lsst.utils.tests as utilsTests
+import lsst.utils.tests
 import lsst.afw.geom as afwGeom
 from lsst.pex.logging import Log
-
 import testFindAstrometryNetDataDir as helper
 
 
@@ -48,6 +47,7 @@ class MultipleCatalogStarsTest(unittest.TestCase):
 
     def tearDown(self):
         del self.conf
+        del self.andConfig
 
     def testGetCatalog(self, logLevel=Log.DEBUG):
         astrom = measAstrom.ANetBasicAstrometryTask(self.conf, andConfig=self.andConfig)
@@ -83,18 +83,18 @@ class MultipleCatalogStarsTest(unittest.TestCase):
 
 def suite():
     """Returns a suite containing all the test cases in this module."""
-    utilsTests.init()
+    lsst.utils.tests.init()
 
     suites = []
     suites += unittest.makeSuite(MultipleCatalogStarsTest)
-    suites += unittest.makeSuite(utilsTests.MemoryTestCase)
+    suites += unittest.makeSuite(lsst.utils.tests.MemoryTestCase)
 
     return unittest.TestSuite(suites)
 
 
 def run(exit=False):
     """Run the tests"""
-    utilsTests.run(suite(), exit)
+    lsst.utils.tests.run(suite(), exit)
 
 if __name__ == "__main__":
     run(True)
