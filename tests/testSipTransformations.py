@@ -211,17 +211,14 @@ class SipTransformationTest(unittest.TestCase):
         self.againstReality(self.sip, self.sip_rdxy)
 
 
-# UGH boilerplate.
-def suite():
-    """Returns a suite containing all the test cases in this module."""
-    suites = []
-    suites += unittest.makeSuite(SipTransformationTest)
-    return unittest.TestSuite(suites)
+class MemoryTester(lsst.utils.tests.MemoryTestCase):
+    pass
 
 
-def run(exit=False):
-    """Run the tests"""
-    lsst.utils.tests.run(suite(), exit)
+def setup_module(module):
+    lsst.utils.tests.init()
+
 
 if __name__ == "__main__":
-    run(True)
+    lsst.utils.tests.init()
+    unittest.main()
