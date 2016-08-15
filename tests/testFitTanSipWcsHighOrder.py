@@ -4,14 +4,14 @@ import unittest
 import numpy as np
 import matplotlib.pylab as pylab
 
-import lsst.utils.tests as tests
+import lsst.utils.tests
 import lsst.daf.base as dafBase
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 from lsst.meas.astrom import approximateWcs
 
 
-class ApproximateWcsTestCase(tests.TestCase):
+class ApproximateWcsTestCase(lsst.utils.tests.TestCase):
 
     """A test case for CreateWcsWithSip
 
@@ -108,17 +108,17 @@ class ApproximateWcsTestCase(tests.TestCase):
 
 def suite():
     """Returns a suite containing all the test cases in this module."""
-    tests.init()
+    lsst.utils.tests.init()
 
     suites = []
     suites += unittest.makeSuite(ApproximateWcsTestCase)
-    suites += unittest.makeSuite(tests.MemoryTestCase)
+    suites += unittest.makeSuite(lsst.utils.tests.MemoryTestCase)
     return unittest.TestSuite(suites)
 
 
 def run(shouldExit=False):
     """Run the tests"""
-    tests.run(suite(), shouldExit)
+    lsst.utils.tests.run(suite(), shouldExit)
 
 if __name__ == "__main__":
     run(True)
