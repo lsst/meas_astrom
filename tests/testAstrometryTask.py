@@ -135,7 +135,7 @@ class TestAstrometricSolver(utilsTests.TestCase):
             sourceCat=sourceCat,
             exposure=self.exposure,
         )
-        self.assertTrue(resultsNoFit.scatterOnSky is None)
+        self.assertIsNone(resultsNoFit.scatterOnSky)
 
         # fitting should result in matches that are at least as good
         # (strictly speaking fitting might result in a larger match list with
