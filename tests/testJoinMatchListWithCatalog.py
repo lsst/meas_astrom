@@ -25,13 +25,12 @@ import os
 import unittest
 
 import lsst.afw.geom as afwGeom
-import lsst.afw.image as afwImg
-import lsst.afw.table as afwTable
-import lsst.utils.tests as utilsTests
+from lsst.afw.image import ExposureF
+from lsst.afw.table import packMatches, SourceCatalog
+import lsst.utils.tests
 from lsst.daf.persistence import Butler
 from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
 from lsst.meas.astrom import AstrometryTask
-
 from lsst.pex.logging import Log
 
 
@@ -41,12 +40,12 @@ class joinMatchListWithCatalogTestCase(unittest.TestCase):
         # Load sample input from disk
         testDir = os.path.dirname(__file__)
 
-        self.srcSet = afwTable.SourceCatalog.readFits(os.path.join(testDir, "v695833-e0-c000.xy.fits"))
+        self.srcSet = SourceCatalog.readFits(os.path.join(testDir, "v695833-e0-c000.xy.fits"))
         self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(2048, 4612))  # approximate
         # create an exposure with the right metadata; the closest thing we have is
         # apparently v695833-e0-c000-a00.sci.fits, which is much too small
-        smallExposure = afwImg.ExposureF(os.path.join(testDir, "v695833-e0-c000-a00.sci.fits"))
-        self.exposure = afwImg.ExposureF(self.bbox)
+        smallExposure = ExposureF(os.path.join(testDir, "v695833-e0-c000-a00.sci.fits"))
+        self.exposure = ExposureF(self.bbox)
         self.exposure.setWcs(smallExposure.getWcs())
         self.exposure.setFilter(smallExposure.getFilter())
         # copy the pixels we can, in case the user wants a debug display
@@ -78,7 +77,7 @@ class joinMatchListWithCatalogTestCase(unittest.TestCase):
         matches = res.matches
         matchmeta = res.matchMeta
 
-        normalized = afwTable.packMatches(matches)
+        normalized = packMatches(matches)
         normalized.table.setMetadata(matchmeta)
 
         matches2 = self.astrom.refObjLoader.joinMatchListWithCatalog(normalized, self.srcSet)
@@ -100,7 +99,7 @@ class joinMatchListWithCatalogTestCase(unittest.TestCase):
         matches = res.matches
         matchmeta = res.matchMeta
 
-        normalized = afwTable.packMatches(matches)
+        normalized = packMatches(matches)
         normalized.table.setMetadata(matchmeta)
 
         matches2 = self.astrom.refObjLoader.joinMatchListWithCatalog(normalized, self.srcSet)
@@ -117,16 +116,16 @@ class joinMatchListWithCatalogTestCase(unittest.TestCase):
 
 def suite():
     """Returns a suite containing all the test cases in this module."""
-    utilsTests.init()
+    lsst.utils.tests.init()
     suites = []
     suites += unittest.makeSuite(joinMatchListWithCatalogTestCase)
-    suites += unittest.makeSuite(utilsTests.MemoryTestCase)
+    suites += unittest.makeSuite(lsst.utils.tests.MemoryTestCase)
     return unittest.TestSuite(suites)
 
 
 def run(shouldExit=False):
     """Run the utilsTests"""
-    utilsTests.run(suite(), shouldExit)
+    lsst.utils.tests.run(suite(), shouldExit)
 
 if __name__ == "__main__":
     run(True)
