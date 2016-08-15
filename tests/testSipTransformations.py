@@ -26,8 +26,8 @@
 import os
 import unittest
 
-import lsst.afw.image as afwImage
-import lsst.utils.tests as utilsTests
+from lsst.afw.image import readMetadata, makeWcs
+import lsst.utils.tests
 import lsst.afw.geom as afwGeom
 
 
@@ -42,10 +42,10 @@ class SipTransformationTest(unittest.TestCase):
         print 'TAN WCS filename:', tanfn
         print 'SIP WCS filename:', sipfn
 
-        metaData = afwImage.readMetadata(tanfn)
-        self.tan = afwImage.makeWcs(metaData)
-        metaData = afwImage.readMetadata(sipfn)
-        self.sip = afwImage.makeWcs(metaData)
+        metaData = readMetadata(tanfn)
+        self.tan = makeWcs(metaData)
+        metaData = readMetadata(sipfn)
+        self.sip = makeWcs(metaData)
 
         # print 'TAN is', self.tan
         # print 'SIP is', self.sip
@@ -102,7 +102,8 @@ class SipTransformationTest(unittest.TestCase):
         # RA,Dec (1.5000000000, 3.3000000000) -> pixel (3711.9022585704, 3134.0179793251)
         #  (wcslib gives same)
 
-        # > wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.tanheader -x 3711.9022585704 -y 3134.0179793251
+        # > wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.tanheader \
+        #   -x 3711.9022585704 -y 3134.0179793251
         # Pixel (3711.9022585704, 3134.0179793251) -> RA,Dec (1.5000000000, 3.3000000000)
 
         # These are 1-indexed pixels, hence the '-1's below.
@@ -129,7 +130,8 @@ class SipTransformationTest(unittest.TestCase):
         # RA,Dec (1.4266863759, 3.3757783481) -> pixel (2168.5452162485, 2020.4032394061)
 
         # This is the SIP position of 1.5,3.3:
-        # > wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.tanheader -x 3711.0128841126 -y 3134.4402504066
+        # > wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.tanheader \
+        #   -x 3711.0128841126 -y 3134.4402504066
         # Pixel (3711.0128841126, 3134.4402504066) -> RA,Dec (1.5000161440, 3.3000521757)
 
         # --> good to about 5 decimal digits in pixels.
@@ -219,7 +221,7 @@ def suite():
 
 def run(exit=False):
     """Run the tests"""
-    utilsTests.run(suite(), exit)
+    lsst.utils.tests.run(suite(), exit)
 
 if __name__ == "__main__":
     run(True)
