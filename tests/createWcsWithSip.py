@@ -42,6 +42,7 @@ helper.setupAstrometryNetDataDir('cfhttemplate')
 
 
 class CreateWcsWithSipCase(unittest.TestCase):
+
     def setUp(self):
 
         self.config = measAstrom.ANetBasicAstrometryConfig()
