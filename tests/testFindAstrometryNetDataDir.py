@@ -3,6 +3,8 @@ from __future__ import absolute_import, print_function
 import os
 import unittest
 
+import lsst.utils.tests
+
 
 def setupAstrometryNetDataDir(name, rootDir=None, verbose=False):
     """Locate the named Astrometry.net data directory from within
@@ -31,5 +33,15 @@ class TestAstrometryNetDataDirDiscovery(unittest.TestCase):
         datapath = setupAstrometryNetDataDir('photocal')
         self.assertEqual(os.environ["ASTROMETRY_NET_DATA_DIR"], datapath)
 
-if __name__ == '__main__':
+
+class MemoryTester(lsst.utils.tests.MemoryTestCase):
+    pass
+
+
+def setup_module(module):
+    lsst.utils.tests.init()
+
+
+if __name__ == "__main__":
+    lsst.utils.tests.init()
     unittest.main()
