@@ -24,9 +24,8 @@
 
 import unittest
 
-import lsst.utils.tests as utilsTests
+import lsst.utils.tests
 import lsst.pex.exceptions
-
 import lsst.meas.astrom.sip as sip
 
 
@@ -153,18 +152,18 @@ class Lsf1dTestCase(unittest.TestCase):
 
 def suite():
     """Returns a suite containing all the test cases in this module."""
-    utilsTests.init()
+    lsst.utils.tests.init()
 
     suites = []
     suites += unittest.makeSuite(Lsf1dTestCase)
-    suites += unittest.makeSuite(utilsTests.MemoryTestCase)
+    suites += unittest.makeSuite(lsst.utils.tests.MemoryTestCase)
 
     return unittest.TestSuite(suites)
 
 
 def run(exit=False):
     """Run the tests"""
-    utilsTests.run(suite(), exit)
+    lsst.utils.tests.run(suite(), exit)
 
 if __name__ == "__main__":
     run(True)
