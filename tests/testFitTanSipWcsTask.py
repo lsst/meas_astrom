@@ -55,7 +55,7 @@ from lsst.meas.astrom import FitTanSipWcsTask, setMatchDistance
 from lsst.meas.astrom.sip import makeCreateWcsWithSip
 
 
-class BaseTestCase(unittest.TestCase):
+class BaseTestCase(object):
 
     """A test case for CreateWcsWithSip
 
@@ -350,30 +350,22 @@ class SideLoadTestCases():
 # class being used.
 
 
-class CreateWcsWithSipTestCaseReferenceMatch(BaseTestCase, SideLoadTestCases):
+class CreateWcsWithSipTestCaseReferenceMatch(BaseTestCase, SideLoadTestCases, lsst.utils.tests.TestCase):
     MatchClass = afwTable.ReferenceMatch
 
 
-class CreateWcsWithSipTestCaseSourceMatch(BaseTestCase, SideLoadTestCases):
+class CreateWcsWithSipTestCaseSourceMatch(BaseTestCase, SideLoadTestCases, lsst.utils.tests.TestCase):
     MatchClass = afwTable.SourceMatch
 
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+class MemoryTester(lsst.utils.tests.MemoryTestCase):
+    pass
 
 
-def suite():
-    """Returns a suite containing all the test cases in this module."""
+def setup_module(module):
     lsst.utils.tests.init()
 
-    suites = []
-    suites += unittest.makeSuite(CreateWcsWithSipTestCaseReferenceMatch)
-    suites += unittest.makeSuite(CreateWcsWithSipTestCaseSourceMatch)
-    suites += unittest.makeSuite(lsst.utils.tests.MemoryTestCase)
-    return unittest.TestSuite(suites)
-
-
-def run(shouldExit=False):
-    """Run the tests"""
-    lsst.utils.tests.run(suite(), shouldExit)
 
 if __name__ == "__main__":
-    run(True)
+    lsst.utils.tests.init()
+    unittest.main()
