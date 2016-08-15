@@ -29,7 +29,7 @@ import lsst.meas.astrom as measAstrom
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImg
-import lsst.utils.tests as utilsTests
+import lsst.utils.tests
 from lsst.pex.logging import Log
 from astrometry.util import ttime
 from lsst.meas.astrom import AstrometryNetDataConfig
@@ -177,18 +177,18 @@ class MultiIndexTest(unittest.TestCase):
 
 def suite():
     """Returns a suite containing all the test cases in this module."""
-    utilsTests.init()
+    lsst.utils.tests.init()
 
     suites = []
     suites += unittest.makeSuite(MultiIndexTest)
-    suites += unittest.makeSuite(utilsTests.MemoryTestCase)
+    suites += unittest.makeSuite(lsst.utils.tests.MemoryTestCase)
 
     return unittest.TestSuite(suites)
 
 
 def run(exit=False):
     """Run the tests"""
-    utilsTests.run(suite(), exit)
+    lsst.utils.tests.run(suite(), exit)
 
 if __name__ == "__main__":
     run(True)
