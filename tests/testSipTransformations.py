@@ -148,7 +148,6 @@ class SipTransformationTest(unittest.TestCase):
         del self.tan
         del self.sip
 
-    # UGH, the coord interface is nasty.
     def pixelToRaDec(self, wcs, xx, yy):
         rd = wcs.pixelToSky(xx, yy)
         rr = rd.getLongitude().asDegrees()
