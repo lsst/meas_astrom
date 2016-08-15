@@ -31,12 +31,6 @@ import lsst.meas.astrom.sip as sip
 
 class Lsf2dTestCase(unittest.TestCase):
 
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
     def testBadArgs1(self):
         """Check that code fails when order is too low"""
 
@@ -46,8 +40,8 @@ class Lsf2dTestCase(unittest.TestCase):
 
         order = 0
 
-        self.assertRaises(lsst.pex.exceptions.Exception,
-                          sip.LeastSqFitter1dPoly, x, y, s, order)
+        with self.assertRaises(lsst.pex.exceptions.Exception):
+            sip.LeastSqFitter1dPoly(x, y, s, order)
 
     def testBadArgs2(self):
         """Check that code fails when not len(x) != len(y)"""
@@ -58,8 +52,8 @@ class Lsf2dTestCase(unittest.TestCase):
 
         order = 2
 
-        self.assertRaises(lsst.pex.exceptions.Exception,
-                          sip.LeastSqFitter1dPoly, x, y, s, order)
+        with self.assertRaises(lsst.pex.exceptions.Exception):
+            sip.LeastSqFitter1dPoly(x, y, s, order)
 
     def testBadArgs3(self):
         """Check that code fails when not len(x) != len(s)"""
@@ -70,8 +64,8 @@ class Lsf2dTestCase(unittest.TestCase):
 
         order = 0
 
-        self.assertRaises(lsst.pex.exceptions.Exception,
-                          sip.LeastSqFitter1dPoly, x, y, s, order)
+        with self.assertRaises(lsst.pex.exceptions.Exception):
+            sip.LeastSqFitter1dPoly(x, y, s, order)
 
     def testBadArgs4(self):
         """Check that code fails when not order > number data points"""
@@ -82,8 +76,8 @@ class Lsf2dTestCase(unittest.TestCase):
 
         order = 5
 
-        self.assertRaises(lsst.pex.exceptions.Exception,
-                          sip.LeastSqFitter1dPoly, x, y, s, order)
+        with self.assertRaises(lsst.pex.exceptions.Exception):
+            sip.LeastSqFitter1dPoly(x, y, s, order)
 
     def testFitLinearXSurface2(self):
         """Python equivalent of C++ test case"""
@@ -103,23 +97,14 @@ class Lsf2dTestCase(unittest.TestCase):
             self.assertAlmostEqual(z[i], lsf.valueAt(x[i], y[i]))
 
 
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+class MemoryTester(lsst.utils.tests.MemoryTestCase):
+    pass
 
 
-def suite():
-    """Returns a suite containing all the test cases in this module."""
+def setup_module(module):
     lsst.utils.tests.init()
 
-    suites = []
-    suites += unittest.makeSuite(Lsf2dTestCase)
-    suites += unittest.makeSuite(lsst.utils.tests.MemoryTestCase)
-
-    return unittest.TestSuite(suites)
-
-
-def run(exit=False):
-    """Run the tests"""
-    lsst.utils.tests.run(suite(), exit)
 
 if __name__ == "__main__":
-    run(True)
+    lsst.utils.tests.init()
+    unittest.main()
