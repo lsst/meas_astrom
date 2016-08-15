@@ -58,7 +58,8 @@ class ApproximateWcsTestCase(tests.TestCase):
         """Test that approximateWcs raises a UserWarning when it cannot achieve desired tolerance"""
         radialTransform = afwGeom.RadialXYTransform([0, 2.0, 3.0])
         wcs = afwImage.DistortedTanWcs(self.tanWcs, radialTransform)
-        self.assertRaises(UserWarning, approximateWcs, wcs=wcs, bbox=self.bbox, order=2)
+        with self.assertRaises(UserWarning):
+            approximateWcs(wcs=wcs, bbox=self.bbox, order=2)
 
     def doTest(self, name, xyTransform, order=3, doPlot=False):
         """Create a DistortedTanWcs from the specified transform and fit it
