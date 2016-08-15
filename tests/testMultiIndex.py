@@ -68,7 +68,7 @@ class MultiIndexTest(unittest.TestCase):
 
     def _testGetSolution(self, **kwargs):
         res = self.getAstrometrySolution(logLevel=Log.DEBUG, **kwargs)
-        self.assertTrue(res is not None)
+        self.assertIsNotNone(res)
         self.assertGreater(len(res.getMatches()), 50)
 
     # This is the "vanilla" no-multiIndex setup
