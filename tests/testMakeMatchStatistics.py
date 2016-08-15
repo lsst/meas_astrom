@@ -28,23 +28,23 @@ import math
 
 import numpy as np
 
-import lsst.utils.tests as utilsTests
-import lsst.daf.base as dafBase
+import lsst.utils.tests
+from lsst.daf.base import PropertySet
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.afw.math as afwMath
 import lsst.afw.table as afwTable
-import lsst.meas.base as measBase
+from lsst.meas.base import SingleFrameMeasurementTask
 import lsst.meas.astrom as measAstrom
 
 
-class TestAstrometricSolver(utilsTests.TestCase):
+class TestAstrometricSolver(lsst.utils.tests.TestCase):
 
     def setUp(self):
         # make a nominal match list where the distances are 0; test can then modify
         # source centroid, reference coord or distance field for each match, as desired
         ctrPix = afwGeom.Point2I(1500, 1500)
-        metadata = dafBase.PropertySet()
+        metadata = PropertySet()
         metadata.set("RADECSYS", "FK5")
         metadata.set("EQUINOX", 2000.0)
         metadata.set("CTYPE1", "RA---TAN")
@@ -65,7 +65,7 @@ class TestAstrometricSolver(utilsTests.TestCase):
 
         sourceSchema = afwTable.SourceTable.makeMinimalSchema()
         # add centroid (and many other unwanted fields) to sourceSchema
-        measBase.SingleFrameMeasurementTask(schema=sourceSchema)
+        SingleFrameMeasurementTask(schema=sourceSchema)
         self.sourceCentroidKey = afwTable.Point2DKey(sourceSchema["slot_Centroid"])
         self.sourceCat = afwTable.SourceCatalog(sourceSchema)
 
@@ -77,7 +77,8 @@ class TestAstrometricSolver(utilsTests.TestCase):
 
         np.random.seed(5)
         pixPointList = [afwGeom.Point2D(pos) for pos in
-                        np.random.random_sample([self.numMatches, 2])*self.bboxD.getDimensions() + self.bboxD.getMin()]
+                        np.random.random_sample([self.numMatches, 2])*self.bboxD.getDimensions()
+                        + self.bboxD.getMin()]
         for pixPoint in pixPointList:
             src = self.sourceCat.addNew()
             src.set(self.sourceCentroidKey, pixPoint)
@@ -150,18 +151,18 @@ class TestAstrometricSolver(utilsTests.TestCase):
 
 def suite():
     """Returns a suite containing all the test cases in this module."""
-    utilsTests.init()
+    lsst.utils.tests.init()
 
     suites = []
     suites += unittest.makeSuite(TestAstrometricSolver)
-    suites += unittest.makeSuite(utilsTests.MemoryTestCase)
+    suites += unittest.makeSuite(lsst.utils.tests.MemoryTestCase)
 
     return unittest.TestSuite(suites)
 
 
 def run(exit=False):
     """Run the tests"""
-    utilsTests.run(suite(), exit)
+    lsst.utils.tests.run(suite(), exit)
 
 if __name__ == "__main__":
     run(True)
