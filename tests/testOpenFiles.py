@@ -67,9 +67,9 @@ class OpenFilesTest(unittest.TestCase):
     """
 
     def setUp(self):
-        limits = resource.getrlimit(resource.RLIMIT_NOFILE)
-        print 'NOFILE rlimit:', limits
-        resource.setrlimit(resource.RLIMIT_NOFILE, (10, limits[1]))
+        self.originalLimits = resource.getrlimit(resource.RLIMIT_NOFILE)
+        print 'NOFILE rlimit:', self.originalLimits
+        resource.setrlimit(resource.RLIMIT_NOFILE, (10, self.originalLimits[1]))
         print 'NOFILE rlimit:', resource.getrlimit(resource.RLIMIT_NOFILE)
 
         mypath = os.path.dirname(__file__)
@@ -78,6 +78,11 @@ class OpenFilesTest(unittest.TestCase):
             os.path.join(mypath, "v695833-e0-c000.xy.fits"))
         # The .xy.fits file has sources in the range ~ [0,2000],[0,4500]
         self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(2048, 4612))  # approximate
+
+    def tearDown(self):
+        resource.setrlimit(resource.RLIMIT_NOFILE, (self.originalLimits[0], self.originalLimits[1]))
+        del self.bbox
+        del self.srcCat
 
     def getAstrom(self):
         andcfn = os.path.join(self.andpath, 'andConfigOpenFiles.py')
@@ -88,10 +93,6 @@ class OpenFilesTest(unittest.TestCase):
         conf = measAstrom.ANetBasicAstrometryConfig()
         return measAstrom.ANetBasicAstrometryTask(config=conf, andConfig=andconfig,)
         # logLevel=pexLog.Log.DEBUG)
-
-    def tearDown(self):
-        del self.bbox
-        del self.srcCat
 
     def runDetermineWcs(self):
         astrom = self.getAstrom()
