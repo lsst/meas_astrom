@@ -12,17 +12,20 @@ def addOptions(parser, input=True, output=False):
     parser.add_option('-r', '--raft', dest='raft', action='append', default=[])
     parser.add_option('-s', '--sensor', dest='sensor', action='append', default=[])
 
+
 def getInputButler(opt):
     inmapper = LsstSimMapper(root=opt.inRoot, registry=opt.registry)
     bf = dafPersist.ButlerFactory(mapper=inmapper)
     inButler = bf.create()
     return inButler
 
+
 def getOutputButler(opt):
     outmapper = LsstSimMapper(root=opt.outRoot, registry=opt.registry)
     bf = dafPersist.ButlerFactory(mapper=outmapper)
     outButler = bf.create()
     return outButler
+
 
 def getAllKeys(opt, inButler):
     allkeys = []

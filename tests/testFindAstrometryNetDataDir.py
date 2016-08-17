@@ -1,8 +1,9 @@
-
 from __future__ import absolute_import, print_function
 
 import os
 import unittest
+
+import lsst.utils.tests
 
 
 def setupAstrometryNetDataDir(name, rootDir=None, verbose=False):
@@ -28,9 +29,21 @@ def setupAstrometryNetDataDir(name, rootDir=None, verbose=False):
 
 class TestAstrometryNetDataDirDiscovery(unittest.TestCase):
 
-    def test_photocal(self):
-        datapath = setupAstrometryNetDataDir('photocal')
-        self.assertEqual(os.environ["ASTROMETRY_NET_DATA_DIR"], datapath)
+    def setUp(self):
+        self.datapath = setupAstrometryNetDataDir('photocal')
 
-if __name__ == '__main__':
+    def test_photocal(self):
+        self.assertEqual(os.environ["ASTROMETRY_NET_DATA_DIR"], self.datapath)
+
+
+class MemoryTester(lsst.utils.tests.MemoryTestCase):
+    pass
+
+
+def setup_module(module):
+    lsst.utils.tests.init()
+
+
+if __name__ == "__main__":
+    lsst.utils.tests.init()
     unittest.main()

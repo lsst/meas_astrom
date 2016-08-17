@@ -28,23 +28,23 @@ import math
 
 import numpy as np
 
-import lsst.utils.tests as utilsTests
-import lsst.daf.base as dafBase
+import lsst.utils.tests
+from lsst.daf.base import PropertySet
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.afw.math as afwMath
 import lsst.afw.table as afwTable
-import lsst.meas.base as measBase
+from lsst.meas.base import SingleFrameMeasurementTask
 import lsst.meas.astrom as measAstrom
 
 
-class TestAstrometricSolver(utilsTests.TestCase):
+class TestAstrometricSolver(lsst.utils.tests.TestCase):
 
     def setUp(self):
         # make a nominal match list where the distances are 0; test can then modify
         # source centroid, reference coord or distance field for each match, as desired
         ctrPix = afwGeom.Point2I(1500, 1500)
-        metadata = dafBase.PropertySet()
+        metadata = PropertySet()
         metadata.set("RADECSYS", "FK5")
         metadata.set("EQUINOX", 2000.0)
         metadata.set("CTYPE1", "RA---TAN")
@@ -52,20 +52,20 @@ class TestAstrometricSolver(utilsTests.TestCase):
         metadata.set("CUNIT1", "deg")
         metadata.set("CUNIT2", "deg")
         metadata.set("CRVAL1", 215.5)
-        metadata.set("CRVAL2",  53.0)
+        metadata.set("CRVAL2", 53.0)
         metadata.set("CRPIX1", ctrPix[0] + 1)
         metadata.set("CRPIX2", ctrPix[1] + 1)
-        metadata.set("CD1_1",  5.1e-05)
-        metadata.set("CD1_2",  0.0)
+        metadata.set("CD1_1", 5.1e-05)
+        metadata.set("CD1_2", 0.0)
         metadata.set("CD2_2", -5.1e-05)
-        metadata.set("CD2_1",  0.0)
+        metadata.set("CD2_1", 0.0)
         self.wcs = afwImage.cast_TanWcs(afwImage.makeWcs(metadata))
         self.bboxD = afwGeom.Box2D(afwGeom.Point2D(10, 100), afwGeom.Extent2D(1000, 1500))
         self.numMatches = 25
 
         sourceSchema = afwTable.SourceTable.makeMinimalSchema()
         # add centroid (and many other unwanted fields) to sourceSchema
-        measBase.SingleFrameMeasurementTask(schema=sourceSchema)
+        SingleFrameMeasurementTask(schema=sourceSchema)
         self.sourceCentroidKey = afwTable.Point2DKey(sourceSchema["slot_Centroid"])
         self.sourceCat = afwTable.SourceCatalog(sourceSchema)
 
@@ -77,7 +77,8 @@ class TestAstrometricSolver(utilsTests.TestCase):
 
         np.random.seed(5)
         pixPointList = [afwGeom.Point2D(pos) for pos in
-            np.random.random_sample([self.numMatches, 2])*self.bboxD.getDimensions() + self.bboxD.getMin()]
+                        np.random.random_sample([self.numMatches, 2])*self.bboxD.getDimensions()
+                        + self.bboxD.getMin()]
         for pixPoint in pixPointList:
             src = self.sourceCat.addNew()
             src.set(self.sourceCentroidKey, pixPoint)
@@ -146,22 +147,14 @@ class TestAstrometricSolver(utilsTests.TestCase):
             self.assertAlmostEqual(distStats.getValue(item), directStats.getValue(item))
 
 
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-def suite():
-    """Returns a suite containing all the test cases in this module."""
-    utilsTests.init()
-
-    suites = []
-    suites += unittest.makeSuite(TestAstrometricSolver)
-    suites += unittest.makeSuite(utilsTests.MemoryTestCase)
-
-    return unittest.TestSuite(suites)
+class MemoryTester(lsst.utils.tests.MemoryTestCase):
+    pass
 
 
-def run(exit=False):
-    """Run the tests"""
-    utilsTests.run(suite(), exit)
+def setup_module(module):
+    lsst.utils.tests.init()
+
 
 if __name__ == "__main__":
-    run(True)
+    lsst.utils.tests.init()
+    unittest.main()

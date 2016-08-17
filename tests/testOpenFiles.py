@@ -26,11 +26,11 @@ import unittest
 import resource
 
 import lsst.meas.astrom as measAstrom
-import lsst.utils.tests as utilsTests
+import lsst.utils.tests
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 
-import testFindAstrometryNetDataDir as helper
+from testFindAstrometryNetDataDir import setupAstrometryNetDataDir
 
 
 # http://stackoverflow.com/a/7142094/834250
@@ -67,44 +67,45 @@ class OpenFilesTest(unittest.TestCase):
     """
 
     def setUp(self):
-        limits = resource.getrlimit(resource.RLIMIT_NOFILE)
-        print 'NOFILE rlimit:', limits
-        resource.setrlimit(resource.RLIMIT_NOFILE, (10, limits[1]))
+        self.originalLimits = resource.getrlimit(resource.RLIMIT_NOFILE)
+        print 'NOFILE rlimit:', self.originalLimits
+        resource.setrlimit(resource.RLIMIT_NOFILE, (10, self.originalLimits[1]))
         print 'NOFILE rlimit:', resource.getrlimit(resource.RLIMIT_NOFILE)
 
-        self.mypath = os.path.dirname(__file__)
+        mypath = os.path.dirname(__file__)
+        self.andpath = setupAstrometryNetDataDir('photocal', rootDir=mypath)
         self.srcCat = afwTable.SourceCatalog.readFits(
-            os.path.join(self.mypath, "v695833-e0-c000.xy.fits"))
+            os.path.join(mypath, "v695833-e0-c000.xy.fits"))
         # The .xy.fits file has sources in the range ~ [0,2000],[0,4500]
         self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(2048, 4612))  # approximate
 
+    def tearDown(self):
+        resource.setrlimit(resource.RLIMIT_NOFILE, (self.originalLimits[0], self.originalLimits[1]))
+        del self.bbox
+        del self.srcCat
+
     def getAstrom(self):
-        andpath = helper.setupAstrometryNetDataDir('photocal', rootDir=self.mypath)
-        andcfn = os.path.join(andpath, 'andConfigOpenFiles.py')
+        andcfn = os.path.join(self.andpath, 'andConfigOpenFiles.py')
 
         andconfig = measAstrom.AstrometryNetDataConfig()
         andconfig.load(andcfn)
 
         conf = measAstrom.ANetBasicAstrometryConfig()
         return measAstrom.ANetBasicAstrometryTask(config=conf, andConfig=andconfig,)
-        #logLevel=pexLog.Log.DEBUG)
-
-    def tearDown(self):
-        del self.bbox
-        del self.srcCat
+        # logLevel=pexLog.Log.DEBUG)
 
     def runDetermineWcs(self):
         astrom = self.getAstrom()
         result = astrom.determineWcs2(self.srcCat, bbox=self.bbox, filterName='i')
         print 'Got result from determineWcs:', result
-        #printOpenFiles()
+        # printOpenFiles()
         return result.wcs
 
     def runUseKnownWcs(self, wcs):
         astrom = self.getAstrom()
         result = astrom.useKnownWcs(self.srcCat, wcs=wcs, filterName='i', bbox=self.bbox)
         print "Got result from useKnownWcs:", result
-        #printOpenFiles()
+        # printOpenFiles()
 
     def testDetermineWcs(self):
         self.runDetermineWcs()
@@ -118,20 +119,14 @@ class OpenFilesTest(unittest.TestCase):
         self.runUseKnownWcs(wcs)
 
 
-def suite():
-    """Returns a suite containing all the test cases in this module."""
-    utilsTests.init()
-
-    suites = []
-    suites += unittest.makeSuite(OpenFilesTest)
-    suites += unittest.makeSuite(utilsTests.MemoryTestCase)
-
-    return unittest.TestSuite(suites)
+class MemoryTester(lsst.utils.tests.MemoryTestCase):
+    pass
 
 
-def run(exit=False):
-    """Run the tests"""
-    utilsTests.run(suite(), exit)
+def setup_module(module):
+    lsst.utils.tests.init()
+
 
 if __name__ == "__main__":
-    run(True)
+    lsst.utils.tests.init()
+    unittest.main()

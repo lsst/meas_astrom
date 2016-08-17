@@ -29,15 +29,15 @@ One gotcha: you need an astrometry_net more recent than 0.30, because
 I'm using the "spherematch" module there to match up sources.
 '''
 
+
 def showSipSolutions(srcs, wcs0, andDir, x0, y0, W, H, filterName,
                      plotPrefix):
-                     
     '''
     srcs: afw Catalog of sources
     wcs0: original WCS
     andDir: astrometry_net_data directory
     '''
-    imargs = dict(imageSize=(W,H), filterName=filterName, x0=x0, y0=y0)
+    imargs = dict(imageSize=(W, H), filterName=filterName, x0=x0, y0=y0)
 
     # Set up astrometry_net_data
     os.environ['ASTROMETRY_NET_DATA_DIR'] = andDir
@@ -60,14 +60,14 @@ def showSipSolutions(srcs, wcs0, andDir, x0, y0, W, H, filterName,
     tanwcs = solve.tanWcs
 
     # How about if we fit a SIP WCS using the *original* WCS?
-    wcs2 = ast.getSipWcsFromWcs(wcs0, (W,H), x0=x0, y0=y0)
+    wcs2 = ast.getSipWcsFromWcs(wcs0, (W, H), x0=x0, y0=y0)
 
     # (We determineWcs() for a SIP solution below...)
-    
+
     # Make some plots in pixel space by pushing ref sources through WCSes
-    rx0,ry0 = [],[]
-    rx2,ry2 = [],[]
-    rx3,ry3 = [],[]
+    rx0, ry0 = [], []
+    rx2, ry2 = [], []
+    rx3, ry3 = [], []
     for src in refs:
         xy = wcs0.skyToPixel(src.getCoord())
         rx0.append(xy[0])
@@ -80,7 +80,7 @@ def showSipSolutions(srcs, wcs0, andDir, x0, y0, W, H, filterName,
         xy = wcs2.skyToPixel(src.getCoord())
         rx3.append(xy[0])
         ry3.append(xy[1])
-        
+
     rx0 = np.array(rx0)
     ry0 = np.array(ry0)
     rx2 = np.array(rx2)
@@ -90,21 +90,21 @@ def showSipSolutions(srcs, wcs0, andDir, x0, y0, W, H, filterName,
 
     x = np.array([src.getX() for src in srcs])
     y = np.array([src.getY() for src in srcs])
-    
+
     from astrometry.libkd.spherematch import match
-    from astrometry.util.plotutils import plothist,PlotSequence
+    from astrometry.util.plotutils import plothist, PlotSequence
 
     ps = PlotSequence(plotPrefix)
 
     # Match up various sources...
     R = 2.
-    
-    II,d = match(np.vstack((x,y)).T, np.vstack((rx0,ry0)).T, R)
-    I = II[:,0]
-    J = II[:,1]
 
-    pa = dict(range=((-R,R),(-R,R)))
-    
+    II, d = match(np.vstack((x, y)).T, np.vstack((rx0, ry0)).T, R)
+    I = II[:, 0]
+    J = II[:, 1]
+
+    pa = dict(range=((-R, R), (-R, R)))
+
     plt.clf()
     plothist(x[I]-rx0[J], y[I]-ry0[J], 200, **pa)
     plt.title('Source positions - Reference positions (initial WCS)')
@@ -112,10 +112,10 @@ def showSipSolutions(srcs, wcs0, andDir, x0, y0, W, H, filterName,
     plt.ylabel('delta-Y (pixels)')
     ps.savefig()
 
-    II,d = match(np.vstack((x,y)).T, np.vstack((rx2,ry2)).T, R)
-    I = II[:,0]
-    J = II[:,1]
-    
+    II, d = match(np.vstack((x, y)).T, np.vstack((rx2, ry2)).T, R)
+    I = II[:, 0]
+    J = II[:, 1]
+
     plt.clf()
     plothist(x[I]-rx2[J], y[I]-ry2[J], 200, **pa)
     plt.title('Source positions - Reference positions (TAN WCS)')
@@ -123,9 +123,9 @@ def showSipSolutions(srcs, wcs0, andDir, x0, y0, W, H, filterName,
     plt.ylabel('delta-Y (pixels)')
     ps.savefig()
 
-    II,d = match(np.vstack((x,y)).T, np.vstack((rx3,ry3)).T, R)
-    I = II[:,0]
-    J = II[:,1]
+    II, d = match(np.vstack((x, y)).T, np.vstack((rx3, ry3)).T, R)
+    I = II[:, 0]
+    J = II[:, 1]
     plt.clf()
     plothist(x[I]-rx3[J], y[I]-ry3[J], 200, **pa)
     plt.title('Source positions - Reference positions (SIP WCS #2)')
@@ -133,9 +133,9 @@ def showSipSolutions(srcs, wcs0, andDir, x0, y0, W, H, filterName,
     plt.ylabel('delta-Y (pixels)')
     ps.savefig()
 
-    II,d = match(np.vstack((rx0,ry0)).T, np.vstack((rx3,ry3)).T, R)
-    I = II[:,0]
-    J = II[:,1]
+    II, d = match(np.vstack((rx0, ry0)).T, np.vstack((rx3, ry3)).T, R)
+    I = II[:, 0]
+    J = II[:, 1]
     plt.clf()
     plothist(rx0[I]-rx3[J], ry0[I]-ry3[J], 200, **pa)
     plt.title('Reference positions (Original WCS) - Reference positions (SIP WCS #2)')
@@ -143,18 +143,17 @@ def showSipSolutions(srcs, wcs0, andDir, x0, y0, W, H, filterName,
     plt.ylabel('delta-Y (pixels)')
     ps.savefig()
 
-    
     matches = solve.tanMatches
-    msx,msy = [],[]
-    mrx,mry = [],[]
+    msx, msy = [], []
+    mrx, mry = [], []
     for m in matches:
-        ref,src = m.first, m.second
+        ref, src = m.first, m.second
         xy = tanwcs.skyToPixel(ref.getCoord())
         mrx.append(xy[0])
         mry.append(xy[1])
         msx.append(src.getX())
         msy.append(src.getY())
-    
+
     plt.clf()
     #plt.plot(x, y, 'o', mec='r', mfc='none', ms=4)
     plt.plot(x, y, 'r.')
@@ -166,22 +165,22 @@ def showSipSolutions(srcs, wcs0, andDir, x0, y0, W, H, filterName,
     ps.savefig()
 
     # Get SIP solution (4th order)
-    
+
     solve = ast.determineWcs2(srcs, **imargs)
     wcs1 = solve.sipWcs
-    #print 'wcs1:', wcs1.getFitsMetadata().toString()
+    # print 'wcs1:', wcs1.getFitsMetadata().toString()
 
     matches = solve.sipMatches
-    msx,msy = [],[]
-    mrx,mry = [],[]
+    msx, msy = [], []
+    mrx, mry = [], []
     for m in matches:
-        ref,src = m.first, m.second
+        ref, src = m.first, m.second
         xy = tanwcs.skyToPixel(ref.getCoord())
         mrx.append(xy[0])
         mry.append(xy[1])
         msx.append(src.getX())
         msy.append(src.getY())
-    
+
     plt.clf()
     plt.plot(x, y, 'r.')
     plt.plot(msx, msy, 'o', mec='r')
@@ -189,8 +188,8 @@ def showSipSolutions(srcs, wcs0, andDir, x0, y0, W, H, filterName,
     plt.plot(mrx, mry, 'gx')
     plt.title('SIP matches')
     ps.savefig()
-    
-    rx1,ry1 = [],[]
+
+    rx1, ry1 = [], []
     for src in refs:
         xy = wcs1.skyToPixel(src.getCoord())
         rx1.append(xy[0])
@@ -209,10 +208,10 @@ def showSipSolutions(srcs, wcs0, andDir, x0, y0, W, H, filterName,
     plt.axis([x0, x0+500, y0, y0+500])
     ps.savefig()
 
-    II,d = match(np.vstack((x,y)).T, np.vstack((rx1,ry1)).T, R)
-    I = II[:,0]
-    J = II[:,1]
-    
+    II, d = match(np.vstack((x, y)).T, np.vstack((rx1, ry1)).T, R)
+    I = II[:, 0]
+    J = II[:, 1]
+
     plt.clf()
     plothist(x[I]-rx1[J], y[I]-ry1[J], 200, **pa)
     plt.title('Source positions - Reference positions (SIP WCS)')
@@ -239,7 +238,7 @@ def readSourcesFromXyTable(xyfn):
     srcTable.defineCentroid("centroid")
     srcTable.definePsfFlux("flux")
     srcs = afwTable.SourceCatalog(srcTable)
-    for xi,yi,fi in zip(x,y,f):
+    for xi, yi, fi in zip(x, y, f):
         src = srcs.addNew()
         if not (np.isfinite(xi) and np.isfinite(yi)):
             continue
@@ -247,16 +246,16 @@ def readSourcesFromXyTable(xyfn):
         src.set(key.getY(), yi)
         src.set(fkey, fi)
     return srcs
-    
+
 if __name__ == '__main__':
     mydir = os.path.dirname(__file__)
     # fitscopy coaddSources.fits"[col x=centroid_sdss[1]; y=centroid_sdss[2]; flux=flux_psf]" xy.fits
     xyfn = os.path.join(mydir, 'xy2710.fits')
     sources = readSourcesFromXyTable(xyfn)
 
-    x0,y0 = 335750, 223750
-    W,H = 8500, 12500
-    filterName = 'i'    
+    x0, y0 = 335750, 223750
+    W, H = 8500, 12500
+    filterName = 'i'
 
     # Read original WCS
     fn = os.path.join(mydir, 't2710.wcs')

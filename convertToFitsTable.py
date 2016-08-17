@@ -11,26 +11,26 @@ measurement algorithms in meas/alg.
 import lsst.afw.table
 
 oldFlags = {
-    "EDGE"                            : 0x000001,
-    "SHAPE_SHIFT"                     : 0x000002,
-    "SHAPE_MAXITER"                   : 0x000004,
-    "SHAPE_UNWEIGHTED"                : 0x000008,
-    "SHAPE_UNWEIGHTED_PSF"            : 0x000010,
-    "SHAPE_UNWEIGHTED_BAD"            : 0x000020,
-    "PEAKCENTER"                      : 0x000040,
-    "BINNED1"                         : 0x000080,
-    "INTERP"                          : 0x000100,
-    "INTERP_CENTER"                   : 0x000200,
-    "SATUR"                           : 0x000400,
-    "SATUR_CENTER"                    : 0x000800,
-    "DETECT_NEGATIVE"                 : 0x001000,
-    "STAR"                            : 0x002000,
-    "PSFSTAR"                         : 0x004000,
-    "PHOTOM_NO_PSF"                   : 0x008000,
-    "PHOTOM_NO_PEAK"                  : 0x010000,
-    "PHOTOM_NO_SOURCE"                : 0x020000,
-    "PHOTOM_NO_FOOTPRINT"             : 0x040000,
-    }
+    "EDGE": 0x000001,
+    "SHAPE_SHIFT": 0x000002,
+    "SHAPE_MAXITER": 0x000004,
+    "SHAPE_UNWEIGHTED": 0x000008,
+    "SHAPE_UNWEIGHTED_PSF": 0x000010,
+    "SHAPE_UNWEIGHTED_BAD": 0x000020,
+    "PEAKCENTER": 0x000040,
+    "BINNED1": 0x000080,
+    "INTERP": 0x000100,
+    "INTERP_CENTER": 0x000200,
+    "SATUR": 0x000400,
+    "SATUR_CENTER": 0x000800,
+    "DETECT_NEGATIVE": 0x001000,
+    "STAR": 0x002000,
+    "PSFSTAR": 0x004000,
+    "PHOTOM_NO_PSF": 0x008000,
+    "PHOTOM_NO_PEAK": 0x010000,
+    "PHOTOM_NO_SOURCE": 0x020000,
+    "PHOTOM_NO_FOOTPRINT": 0x040000,
+}
 
 flagMapping = {
     "EDGE": "flags.pixel.edge",
@@ -44,6 +44,7 @@ flagMapping = {
     "SATUR": "flags.pixel.saturated.any",
     "SATUR_CENTER": "flags.pixel.saturated.center",
 }
+
 
 def main(inputName, outputName):
     schema = lsst.afw.table.SourceTable.makeMinimalSchema()
@@ -75,10 +76,11 @@ def main(inputName, outputName):
             record.setDec(float(dec) * lsst.afw.geom.degrees)
             record.set(centroidKey.getX(), float(x))
             record.set(centroidKey.getY(), float(y))
-            record.set(psfFluxKey, float(cts)) 
+            record.set(psfFluxKey, float(cts))
             flags = int(flags)
             for oldName, mask in oldFlags.iteritems():
-                if oldName == "BINNED1": continue
+                if oldName == "BINNED1":
+                    continue
                 if mask & flags:
                     newName = flagMapping.get(oldName, None)
                     if newName is None:

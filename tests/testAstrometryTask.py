@@ -28,23 +28,22 @@ import unittest
 
 import numpy as np
 
-import lsst.utils.tests as utilsTests
+import lsst.utils.tests
 import lsst.daf.base as dafBase
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.meas.base as measBase
-from lsst.utils import getPackageDir
 from lsst.daf.persistence import Butler
 from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
 from lsst.meas.astrom import AstrometryTask
 
-RefCatDir = os.path.join(getPackageDir("meas_astrom"), "tests", "data", "sdssrefcat")
 
-
-class TestAstrometricSolver(utilsTests.TestCase):
+class TestAstrometricSolver(lsst.utils.tests.TestCase):
 
     def setUp(self):
+        refCatDir = os.path.join(os.path.dirname(__file__), "data", "sdssrefcat")
+
         self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(3001, 3001))
         self.ctrPix = afwGeom.Point2I(1500, 1500)
         metadata = dafBase.PropertySet()
@@ -66,7 +65,7 @@ class TestAstrometricSolver(utilsTests.TestCase):
         self.exposure = afwImage.ExposureF(self.bbox)
         self.exposure.setWcs(self.tanWcs)
         self.exposure.setFilter(afwImage.Filter("r", True))
-        butler = Butler(RefCatDir)
+        butler = Butler(refCatDir)
         self.refObjLoader = LoadIndexedReferenceObjectsTask(butler=butler)
 
     def tearDown(self):
@@ -135,7 +134,7 @@ class TestAstrometricSolver(utilsTests.TestCase):
             sourceCat=sourceCat,
             exposure=self.exposure,
         )
-        self.assertTrue(resultsNoFit.scatterOnSky is None)
+        self.assertIsNone(resultsNoFit.scatterOnSky)
 
         # fitting should result in matches that are at least as good
         # (strictly speaking fitting might result in a larger match list with
@@ -166,23 +165,15 @@ class TestAstrometricSolver(utilsTests.TestCase):
             src.set(sourceFluxSigmaKey, refObj.get(refFluxRKey)/100)
         return sourceCat
 
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+class MemoryTester(lsst.utils.tests.MemoryTestCase):
+    pass
 
 
-def suite():
-    """Returns a suite containing all the test cases in this module."""
-    utilsTests.init()
+def setup_module(module):
+    lsst.utils.tests.init()
 
-    suites = []
-    suites += unittest.makeSuite(TestAstrometricSolver)
-    suites += unittest.makeSuite(utilsTests.MemoryTestCase)
-
-    return unittest.TestSuite(suites)
-
-
-def run(exit=False):
-    """Run the tests"""
-    utilsTests.run(suite(), exit)
 
 if __name__ == "__main__":
-    run(True)
+    lsst.utils.tests.init()
+    unittest.main()

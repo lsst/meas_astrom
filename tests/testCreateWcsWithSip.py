@@ -25,28 +25,25 @@
 import os
 import unittest
 
-import lsst.afw.table as afwTable
-import lsst.utils.tests as utilsTests
+from lsst.afw.table import SimpleCatalog, SourceCatalog
+import lsst.utils.tests
 import lsst.afw.geom as afwGeom
-
-import lsst.meas.astrom as measAstrom
+from lsst.pex.logging import Log
+from lsst.meas.astrom import ANetBasicAstrometryTask
 import lsst.meas.astrom.sip as sip
 import lsst.meas.astrom.sip.genDistortedImage as distort
 import lsst.meas.astrom.sip.cleanBadPoints as cleanBadPoints
-
-import testFindAstrometryNetDataDir as helper
-
-############################
-# Set up local astrometry_net_data
-helper.setupAstrometryNetDataDir('cfhttemplate')
+from testFindAstrometryNetDataDir import setupAstrometryNetDataDir
 
 
 class CreateWcsWithSipCase(unittest.TestCase):
-    def setUp(self):
 
-        self.config = measAstrom.ANetBasicAstrometryConfig()
+    def setUp(self):
+        setupAstrometryNetDataDir('cfhttemplate')
+
+        self.config = ANetBasicAstrometryTask.ConfigClass()
         self.config.defaultFilter = "r"
-        self.astrom = measAstrom.ANetBasicAstrometryTask(config=self.config)
+        self.astrom = ANetBasicAstrometryTask(config=self.config)
 
         testDir = os.path.dirname(__file__)
         self.filename = os.path.join(testDir, "cat.xy.fits")
@@ -59,14 +56,13 @@ class CreateWcsWithSipCase(unittest.TestCase):
 
     def testBigXy0(self):
         # test for ticket #2710
-        from lsst.pex.logging import Log
         log = Log.getDefaultLog()
         log.setThreshold(Log.DEBUG)
         self.astrom.log = log
         x0, y0 = 200000, 500000
         cx = 500
         a2 = 1e-5
-        cat = afwTable.SourceCatalog.readFits(self.filename)
+        cat = SourceCatalog.readFits(self.filename)
         print 'Catalog size', len(cat)
         # Source x,y positions are ~ (500,1500) x (500,1500)
         xKey = cat.table.getCentroidKey().getX()
@@ -87,10 +83,10 @@ class CreateWcsWithSipCase(unittest.TestCase):
         for src in cat:
             rd = wcs.pixelToSky(src.getCentroid())
             xy = wcs.skyToPixel(rd)
-            #print 'src', src.getX(), src.getY()
-            #print 'rd', rd
-            #print 'xy', xy
-            #print 'dx,dy', xy[0] - src.getX(), xy[1] - src.getY()
+            # print 'src', src.getX(), src.getY()
+            # print 'rd', rd
+            # print 'xy', xy
+            # print 'dx,dy', xy[0] - src.getX(), xy[1] - src.getY()
             self.assertLess(abs(xy[0] - src.getX()), 0.1)
             self.assertLess(abs(xy[1] - src.getY()), 0.1)
 
@@ -121,22 +117,22 @@ class CreateWcsWithSipCase(unittest.TestCase):
 
         printWcs(imgWcs)
 
-        #Create a wcs with sip
-        cat = cat.cast(afwTable.SimpleCatalog, False)
+        # Create a wcs with sip
+        cat = cat.cast(SimpleCatalog, False)
         matchList = self.matchSrcAndCatalogue(cat, img, imgWcs)
         print "*** num matches =", len(matchList)
         return
         sipObject = sip.makeCreateWcsWithSip(matchList, imgWcs, 3)
 
-        #print 'Put in TAN Wcs:'
-        #print imgWcs.getFitsMetadata().toString()
+        # print 'Put in TAN Wcs:'
+        # print imgWcs.getFitsMetadata().toString()
         imgWcs = sipObject.getNewWcs()
-        #print 'Got SIP Wcs:'
-        #print imgWcs.getFitsMetadata().toString()
+        # print 'Got SIP Wcs:'
+        # print imgWcs.getFitsMetadata().toString()
 
         # Write out the SIP header
-        #afwImage.fits_write_imageF('createWcsWithSip.sip', afwImage.ImageF(0,0),
-        #imgWcs.getFitsMetadata())
+        # afwImage.fits_write_imageF('createWcsWithSip.sip', afwImage.ImageF(0,0),
+        # imgWcs.getFitsMetadata())
 
         print 'number of matches:', len(matchList), sipObject.getNPoints()
         scatter = sipObject.getScatterOnSky().asArcseconds()
@@ -152,7 +148,7 @@ class CreateWcsWithSipCase(unittest.TestCase):
         """Load a list of xy points from a file, solve for position, and
         return a SourceSet of points"""
 
-        cat = afwTable.SourceCatalog.readFits(filename)
+        cat = SourceCatalog.readFits(filename)
 
         # Source x,y positions are ~ (500,1500) x (500,1500)
         xKey = cat.table.getCentroidKey().getX()
@@ -165,7 +161,7 @@ class CreateWcsWithSipCase(unittest.TestCase):
         res = self.astrom.determineWcs2(cat, bbox=bbox)
         catWcs = res.getWcs()
 
-        #Set catalogue ra and decs
+        # Set catalogue ra and decs
         for src in cat:
             src.updateCoord(catWcs)
         return cat
@@ -183,24 +179,15 @@ class CreateWcsWithSipCase(unittest.TestCase):
         mList = cleanBadPoints.clean(matchList, imgWcs, order=cleanParam)
         return mList
 
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+class MemoryTester(lsst.utils.tests.MemoryTestCase):
+    pass
 
 
-def suite():
-    """Returns a suite containing all the test cases in this module."""
-    utilsTests.init()
-
-    suites = []
-    suites += unittest.makeSuite(CreateWcsWithSipCase)
-    suites += unittest.makeSuite(utilsTests.MemoryTestCase)
-
-    return unittest.TestSuite(suites)
-
-
-def run(exit=False):
-    """Run the tests"""
-    utilsTests.run(suite(), exit)
+def setup_module(module):
+    lsst.utils.tests.init()
 
 
 if __name__ == "__main__":
-    run(True)
+    lsst.utils.tests.init()
+    unittest.main()

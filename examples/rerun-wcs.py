@@ -3,26 +3,30 @@ import types
 from optparse import OptionParser
 
 import lsst.meas.astrom as measAstrom
-import lsst.pex.policy  as pexPolicy
+import lsst.pex.policy as pexPolicy
 import lsst.pex.logging as pexLog
-import lsst.daf.persistence              as dafPersist
-import lsst.daf.base                     as dafBase
-import lsst.afw.image                    as afwImage
-import lsst.afw.detection                as afwDet
+import lsst.daf.persistence as dafPersist
+import lsst.daf.base as dafBase
+import lsst.afw.image as afwImage
+import lsst.afw.detection as afwDet
 
 from astrometry.util.pyfits_utils import *
 from numpy import array
 
 from sourceset_boost_to_fits import *
 
+
 class ducky(object):
+
     def __str__(self):
-        return 'ducky: ' + '; '.join([''+str(k)+'='+str(v) for k,v in self.__dict__.items()])
+        return 'ducky: ' + '; '.join([''+str(k)+'='+str(v) for k, v in self.__dict__.items()])
+
 
 class fakeExposure(ducky):
+
     def __init__(self):
         self.wcs = None
-        self.width, self.height = None,None
+        self.width, self.height = None, None
         self.xy0 = None
         self.filterName = None
 
@@ -41,21 +45,24 @@ class fakeExposure(ducky):
 
     def getWcs(self):
         return self.wcs
+
     def setWcs(self, wcs):
         self.wcs = wcs
+
     def hasWcs(self):
         return self.wcs is not None
 
     def getWidth(self):
         return self.width
+
     def setWidth(self, width):
         self.width = width
 
     def getHeight(self):
         return self.height
+
     def setHeight(self, height):
         self.height = height
-        
 
 
 def rerun(sourceset, policy=None, exposure=None, wcs=None,
@@ -105,18 +112,18 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
     print 'determineWcs() finished.  Got:'
     print
     print '%i matches' % len(matchList)
-    #print 'WCS: ', wcs
+    # print 'WCS: ', wcs
 
     ids = set([sm.second.getId() for sm in matchList])
     print 'Number of unique ids:', len(ids)
 
     for sm in matchList:
         print '  id %i (%.1f, %.1f) flux %.3g   ---   id %i (%.1f, %.1f) flux %.3g' % (
-            sm.first.getId(),  sm.first.getXAstrom(), sm.first.getYAstrom(), sm.first.getPsfFlux(),
+            sm.first.getId(), sm.first.getXAstrom(), sm.first.getYAstrom(), sm.first.getPsfFlux(),
             sm.second.getId(), sm.second.getXAstrom(), sm.second.getYAstrom(), sm.second.getPsfFlux())
-                    
+
     fitshdr = wcs.getFitsMetadata()
-    #print 'FITS:', fitshdr
+    # print 'FITS:', fitshdr
     print 'Found WCS:'
     print fitshdr.toString()
 
@@ -139,7 +146,6 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
     im.writeFits('out.wcs', fitshdr)
 
 
-
 if __name__ == '__main__':
     parser = OptionParser(usage='%prog [options] <*.boost or *.fits SourceSets>')
 
@@ -149,13 +155,13 @@ if __name__ == '__main__':
     parser.add_option('-v', '--verbose', dest='verb', help='+verbose', action='store_true')
     #parser.add_option('-x', '--x-column', dest='xcol', help='X column name (for FITS inputs)')
     parser.set_defaults(width=None, height=None, filter=None, verb=False)
-    opt,args = parser.parse_args()
+    opt, args = parser.parse_args()
     if len(args) == 0:
         parser.print_help()
         sys.exit(0)
 
     level = pexLog.Log.DEBUG if opt.verb else pexLog.Log.INFO
-    log = pexLog.Log(pexLog.Log.getDefaultLog(), "rerun-wcs", level);
+    log = pexLog.Log(pexLog.Log.getDefaultLog(), "rerun-wcs", level)
 
     for fn in args:
         if fn.endswith('.boost'):
@@ -167,32 +173,30 @@ if __name__ == '__main__':
             ss = afwDet.SourceSet()
             C = T.columns()
             # FITS -> Source.setXXX()
-            columnmap = { 'SourceId':'id',
-                          'XAstrom':'x',
-                          'YAstrom':'y',
-                          'XAstromErr': 'xerr',
-                          'YAstromErr': 'yerr',
-                          'Ra': 'ra',
-                          'Dec': 'dec',
-                          'Ixx': 'ixx',
-                          'Iyy': 'iyy',
-                          'PsfFlux': 'f_psf',
-                          'ApFlux': 'f_ap',
-                          }
-            for k,v in columnmap.items():
+            columnmap = {'SourceId': 'id',
+                         'XAstrom': 'x',
+                         'YAstrom': 'y',
+                         'XAstromErr': 'xerr',
+                         'YAstromErr': 'yerr',
+                         'Ra': 'ra',
+                         'Dec': 'dec',
+                         'Ixx': 'ixx',
+                         'Iyy': 'iyy',
+                         'PsfFlux': 'f_psf',
+                         'ApFlux': 'f_ap',
+                         }
+            for k, v in columnmap.items():
                 if not v in C:
                     print 'Warning, column', v, 'is not in the FITS table -- won\'t set Source\'s', k
             for i in range(len(T)):
                 src = afwDet.Source()
                 ss.append(src)
-            for k,v in columnmap.items():
+            for k, v in columnmap.items():
                 if not v in C:
                     continue
-                for src,val in zip(ss, T.getcolumn(v)):
+                for src, val in zip(ss, T.getcolumn(v)):
                     getattr(src, 'set'+k)(val)
 
         print 'Read %i sources' % (len(ss))
 
-
         rerun(ss, W=opt.width, H=opt.height, filtername=opt.filter, log=log)
-

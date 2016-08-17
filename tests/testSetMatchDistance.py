@@ -36,10 +36,10 @@ import unittest
 
 import numpy as np
 
-import lsst.utils.tests as tests
-import lsst.afw.coord as afwCoord
+import lsst.utils.tests
+from lsst.afw.coord import IcrsCoord
 import lsst.afw.geom as afwGeom
-import lsst.afw.image as afwImage
+from lsst.afw.image import makeWcs
 import lsst.afw.table as afwTable
 from lsst.meas.algorithms import LoadReferenceObjectsTask
 from lsst.meas.base import SingleFrameMeasurementTask
@@ -64,7 +64,7 @@ class BaseTestCase(unittest.TestCase):
     MatchClass = None
 
     def setUp(self):
-        crval = afwCoord.IcrsCoord(afwGeom.PointD(44., 45.))
+        crval = IcrsCoord(afwGeom.PointD(44., 45.))
         crpix = afwGeom.PointD(0, 0)
 
         arcsecPerPixel = 1/3600.0
@@ -73,7 +73,7 @@ class BaseTestCase(unittest.TestCase):
         CD21 = 0
         CD22 = arcsecPerPixel
 
-        self.tanWcs = afwImage.makeWcs(crval, crpix, CD11, CD12, CD21, CD22)
+        self.tanWcs = makeWcs(crval, crpix, CD11, CD12, CD21, CD22)
 
         S = 300
         N = 5
@@ -171,23 +171,15 @@ class SetMatchDistanceTestCaseReferenceMatch(BaseTestCase, SideLoadTestCases):
 class SetMatchDistanceTestCaseSourceMatch(BaseTestCase, SideLoadTestCases):
     MatchClass = afwTable.SourceMatch
 
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+class MemoryTester(lsst.utils.tests.MemoryTestCase):
+    pass
 
 
-def suite():
-    """Returns a suite containing all the test cases in this module."""
-    tests.init()
+def setup_module(module):
+    lsst.utils.tests.init()
 
-    suites = []
-    suites += unittest.makeSuite(SetMatchDistanceTestCaseReferenceMatch)
-    suites += unittest.makeSuite(SetMatchDistanceTestCaseSourceMatch)
-    suites += unittest.makeSuite(tests.MemoryTestCase)
-    return unittest.TestSuite(suites)
-
-
-def run(shouldExit=False):
-    """Run the tests"""
-    tests.run(suite(), shouldExit)
 
 if __name__ == "__main__":
-    run(True)
+    lsst.utils.tests.init()
+    unittest.main()

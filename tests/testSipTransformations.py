@@ -26,8 +26,8 @@
 import os
 import unittest
 
-import lsst.afw.image as afwImage
-import lsst.utils.tests as utilsTests
+from lsst.afw.image import readMetadata, makeWcs
+import lsst.utils.tests
 import lsst.afw.geom as afwGeom
 
 
@@ -42,13 +42,13 @@ class SipTransformationTest(unittest.TestCase):
         print 'TAN WCS filename:', tanfn
         print 'SIP WCS filename:', sipfn
 
-        metaData = afwImage.readMetadata(tanfn)
-        self.tan = afwImage.makeWcs(metaData)
-        metaData = afwImage.readMetadata(sipfn)
-        self.sip = afwImage.makeWcs(metaData)
+        metaData = readMetadata(tanfn)
+        self.tan = makeWcs(metaData)
+        metaData = readMetadata(sipfn)
+        self.sip = makeWcs(metaData)
 
-        #print 'TAN is', self.tan
-        #print 'SIP is', self.sip
+        # print 'TAN is', self.tan
+        # print 'SIP is', self.sip
 
         # Using Astrometry.net on SIP solution:
 
@@ -102,7 +102,8 @@ class SipTransformationTest(unittest.TestCase):
         # RA,Dec (1.5000000000, 3.3000000000) -> pixel (3711.9022585704, 3134.0179793251)
         #  (wcslib gives same)
 
-        # > wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.tanheader -x 3711.9022585704 -y 3134.0179793251
+        # > wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.tanheader \
+        #   -x 3711.9022585704 -y 3134.0179793251
         # Pixel (3711.9022585704, 3134.0179793251) -> RA,Dec (1.5000000000, 3.3000000000)
 
         # These are 1-indexed pixels, hence the '-1's below.
@@ -129,15 +130,16 @@ class SipTransformationTest(unittest.TestCase):
         # RA,Dec (1.4266863759, 3.3757783481) -> pixel (2168.5452162485, 2020.4032394061)
 
         # This is the SIP position of 1.5,3.3:
-        # > wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.tanheader -x 3711.0128841126 -y 3134.4402504066
+        # > wcs-xy2rd -w tests/imgCharSources-v85501867-R01-S00.tanheader \
+        #   -x 3711.0128841126 -y 3134.4402504066
         # Pixel (3711.0128841126, 3134.4402504066) -> RA,Dec (1.5000161440, 3.3000521757)
 
         # --> good to about 5 decimal digits in pixels.
 
         self.tan_rdxy = [(r * afwGeom.degrees, d * afwGeom.degrees, x-1, y-1) for (r, d, x, y) in [
-            (1.42667846826, 3.37583321746, 2167.54521667,   2020.40323873),
-            (1.4266863759,  3.3757783481,  2168.5452166700, 2020.4032387300),
-            (1.5000000000, 3.3000000000,  3711.9022585704, 3134.0179793251),
+            (1.42667846826, 3.37583321746, 2167.54521667, 2020.40323873),
+            (1.4266863759, 3.3757783481, 2168.5452166700, 2020.4032387300),
+            (1.5000000000, 3.3000000000, 3711.9022585704, 3134.0179793251),
             (1.5000161440, 3.3000521757, 3711.0128841126, 3134.4402504066),
             (1.2986453989, 3.4785959230, 0.0000000000, 0.0000000000),
         ]]
@@ -146,7 +148,6 @@ class SipTransformationTest(unittest.TestCase):
         del self.tan
         del self.sip
 
-    # UGH, the coord interface is nasty.
     def pixelToRaDec(self, wcs, xx, yy):
         rd = wcs.pixelToSky(xx, yy)
         rr = rd.getLongitude().asDegrees()
@@ -161,8 +162,8 @@ class SipTransformationTest(unittest.TestCase):
             print 'RA,Dec %-14.12g, %-14.12g --> pixel %g, %g -->' % (ra, dec, xx, yy)
             print 'RA,Dec %-14.12g, %-14.12g' % (rr, dd)
 
-            #print 'pixels are', type(xx), type(yy)
-            #print 'ra,dec are', type(rr), type(rr)
+            # print 'pixels are', type(xx), type(yy)
+            # print 'ra,dec are', type(rr), type(rr)
 
             self.assertAlmostEqual(rr, ra.asDegrees(), 5)
             self.assertAlmostEqual(dd, dec.asDegrees(), 5)
@@ -209,17 +210,14 @@ class SipTransformationTest(unittest.TestCase):
         self.againstReality(self.sip, self.sip_rdxy)
 
 
-# UGH boilerplate.
-def suite():
-    """Returns a suite containing all the test cases in this module."""
-    suites = []
-    suites += unittest.makeSuite(SipTransformationTest)
-    return unittest.TestSuite(suites)
+class MemoryTester(lsst.utils.tests.MemoryTestCase):
+    pass
 
 
-def run(exit=False):
-    """Run the tests"""
-    utilsTests.run(suite(), exit)
+def setup_module(module):
+    lsst.utils.tests.init()
+
 
 if __name__ == "__main__":
-    run(True)
+    lsst.utils.tests.init()
+    unittest.main()

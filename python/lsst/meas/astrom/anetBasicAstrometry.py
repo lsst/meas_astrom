@@ -61,6 +61,7 @@ class InitialAstrometry(object):
     refCat (lsst::afw::table::SimpleCatalog)
     matchMeta (PropertyList)
     """
+
     def __init__(self):
         self.tanWcs = None
         self.tanMatches = None
@@ -87,7 +88,7 @@ class InitialAstrometry(object):
     matches = property(getMatches)
     wcs = property(getWcs)
 
-    ### "Not very pythonic!" complains Paul.
+    # "Not very pythonic!" complains Paul.
     # Consider these methods deprecated; if you want these elements, just
     # .grab them.
     def getSipWcs(self):
@@ -822,10 +823,10 @@ class ANetBasicAstrometryTask(pipeBase.Task):
             R2 = [src.getRa().asDegrees() for src in refCat]
             D2 = [src.getDec().asDegrees() for src in refCat]
             # for src in sourceCat:
-            #self.log.logdebug("source: x,y (%.1f, %.1f), RA,Dec (%.3f, %.3f)" %
+            # self.log.logdebug("source: x,y (%.1f, %.1f), RA,Dec (%.3f, %.3f)" %
             #(src.getX(), src.getY(), src.getRa().asDegrees(), src.getDec().asDegrees()))
-            #for src in refCat:
-            #self.log.logdebug("ref: RA,Dec (%.3f, %.3f)" %
+            # for src in refCat:
+            # self.log.logdebug("ref: RA,Dec (%.3f, %.3f)" %
             #(src.getRa().asDegrees(), src.getDec().asDegrees()))
             self.loginfo('_getMatchList: %i sources, %i reference sources' % (len(sourceCat), len(refCat)))
             if len(sourceCat):

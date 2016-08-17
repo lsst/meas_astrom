@@ -98,6 +98,7 @@ class SourceInfo(object):
 
     @throw RuntimeError if schema version unsupported or a needed field is not found
     """
+
     def __init__(self, schema, fluxType="Ap", minSnr=50):
         """Construct a SourceInfo
 
@@ -167,12 +168,12 @@ class SourceInfo(object):
 
 
 # The following block adds links to this task from the Task Documentation page.
-## \addtogroup LSST_task_documentation
-## \{
-## \page measAstrom_matchOptimisticBTask
-## \ref MatchOptimisticBTask "MatchOptimisticBTask"
-##      Match sources to reference objects
-## \}
+# \addtogroup LSST_task_documentation
+# \{
+# \page measAstrom_matchOptimisticBTask
+# \ref MatchOptimisticBTask "MatchOptimisticBTask"
+# Match sources to reference objects
+# \}
 
 class MatchOptimisticBTask(pipeBase.Task):
     """!Match sources to reference objects

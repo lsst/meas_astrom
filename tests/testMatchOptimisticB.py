@@ -29,7 +29,7 @@ import unittest
 import lsst.daf.base as dafBase
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
-import lsst.utils.tests as utilsTests
+import lsst.utils.tests
 import lsst.afw.image as afwImage
 import lsst.pex.exceptions as pexExcept
 from lsst.meas.algorithms import LoadReferenceObjectsTask
@@ -51,14 +51,14 @@ class TestMatchOptimisticB(unittest.TestCase):
         metadata.set("CTYPE2", "DEC--TAN")
         metadata.set("CUNIT1", "deg")
         metadata.set("CUNIT2", "deg")
-        metadata.set("CRVAL1",  36.930640)
-        metadata.set("CRVAL2",  -4.939560)
+        metadata.set("CRVAL1", 36.930640)
+        metadata.set("CRVAL2", -4.939560)
         metadata.set("CRPIX1", 792.4)
         metadata.set("CRPIX2", 560.7)
         metadata.set("CD1_1", -5.17e-05)
-        metadata.set("CD1_2",  0.0)
-        metadata.set("CD2_2",  5.17e-05)
-        metadata.set("CD2_1",  0.0)
+        metadata.set("CD1_2", 0.0)
+        metadata.set("CD2_2", 5.17e-05)
+        metadata.set("CD2_1", 0.0)
         self.wcs = afwImage.makeWcs(metadata)
         self.distortedWcs = self.wcs
 
@@ -111,7 +111,7 @@ class TestMatchOptimisticB(unittest.TestCase):
             def plot(catalog, symbol):
                 plt.plot([ss.getX() for ss in catalog], [ss.getY() for ss in catalog], symbol)
 
-            #plot(sourceCat, 'k+') # Original positions: black +
+            # plot(sourceCat, 'k+') # Original positions: black +
             plot(distortedCat, 'b+')  # Distorted positions: blue +
             plot(undistorted, 'g+')  # Undistorted positions: green +
             plot(refs, 'rx')  # Reference catalog: red x
@@ -240,24 +240,14 @@ class TestMatchOptimisticB(unittest.TestCase):
             )
 
 
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+class MemoryTester(lsst.utils.tests.MemoryTestCase):
+    pass
 
 
-def suite():
-    """Returns a suite containing all the test cases in this module."""
-    utilsTests.init()
-
-    suites = []
-    suites += unittest.makeSuite(TestMatchOptimisticB)
-    suites += unittest.makeSuite(utilsTests.MemoryTestCase)
-
-    return unittest.TestSuite(suites)
-
-
-def run(exit=False):
-    """Run the tests"""
-    utilsTests.run(suite(), exit)
-
+def setup_module(module):
+    lsst.utils.tests.init()
 
 if __name__ == "__main__":
-    run(True)
+
+    lsst.utils.tests.init()
+    unittest.main()

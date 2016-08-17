@@ -1,7 +1,7 @@
-# 
+#
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
-# 
+#
 # This product includes software developed by the
 # LSST Project (http://www.lsst.org/).
 #
@@ -9,18 +9,20 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
-# You should have received a copy of the LSST License Statement and 
-# the GNU General Public License along with this program.  If not, 
+#
+# You should have received a copy of the LSST License Statement and
+# the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
-import math, os, sys
+import math
+import os
+import sys
 import lsst.utils
 import lsst.pex.policy as policy
 import lsst.afw.detection as afwDetection
@@ -35,6 +37,7 @@ try:
 except NameError:
     display = False
 
+
 def detectFootprints(exposure, positiveThreshold, psf=None, negativeThreshold=None, npixMin=1):
     """Detect sources above positiveThreshold in the provided exposure returning the
     detectionSet.  Only sources with at least npixMin are considered
@@ -42,7 +45,7 @@ def detectFootprints(exposure, positiveThreshold, psf=None, negativeThreshold=No
     If negativeThreshold, return a pair of detectionSets, dsPositive, dsNegative
     """
 
-    assert positiveThreshold or negativeThreshold # or both
+    assert positiveThreshold or negativeThreshold  # or both
 
     if positiveThreshold:
         positiveThreshold = afwDetection.Threshold(positiveThreshold)
@@ -58,14 +61,14 @@ def detectFootprints(exposure, positiveThreshold, psf=None, negativeThreshold=No
         goodBBox = maskedImage.getBBox()
     else:
         convolvedImage = maskedImage.Factory(maskedImage.getBBox())
-        
+
         if display:
             ds9.mtv(maskedImage)
-        # 
+        #
         # Smooth the Image
         #
-        psf.convolve(convolvedImage, 
-                     maskedImage, 
+        psf.convolve(convolvedImage,
+                     maskedImage,
                      convolvedImage.getMask().getMaskPlane("EDGE"))
         #
         # Only search psf-smooth part of frame
@@ -74,9 +77,9 @@ def detectFootprints(exposure, positiveThreshold, psf=None, negativeThreshold=No
 
     middle = convolvedImage.Factory(convolvedImage, goodBBox)
 
-    dsNegative = None 
+    dsNegative = None
     if negativeThreshold != None:
-        #detect negative sources
+        # detect negative sources
         dsNegative = afwDetection.makeDetectionSet(middle, negativeThreshold, "DETECTED_NEGATIVE", npixMin)
         if not ds9.getMaskPlaneColor("DETECTED_NEGATIVE"):
             ds9.setMaskPlaneColor("DETECTED_NEGATIVE", ds9.CYAN)
@@ -112,6 +115,7 @@ def detectFootprints(exposure, positiveThreshold, psf=None, negativeThreshold=No
     else:
         return dsPositive
 
+
 def detectSources(exposure, threshold, psf=None):
     """Detect sources above positiveThreshold in the provided exposure returning the sourceList
     """
@@ -124,12 +128,14 @@ def detectSources(exposure, threshold, psf=None):
     # Subtract background
     #
     mi = exposure.getMaskedImage()
-    bctrl = afwMath.BackgroundControl(afwMath.NATURAL_SPLINE);
-    bctrl.setNxSample(int(mi.getWidth()/256) + 1);
-    bctrl.setNySample(int(mi.getHeight()/256) + 1);
+    bctrl = afwMath.BackgroundControl(afwMath.NATURAL_SPLINE)
+    bctrl.setNxSample(int(mi.getWidth()/256) + 1)
+    bctrl.setNySample(int(mi.getHeight()/256) + 1)
     backobj = afwMath.makeBackground(mi.getImage(), bctrl)
 
-    img = mi.getImage(); img -= backobj.getImageF(); del img
+    img = mi.getImage()
+    img -= backobj.getImageF()
+    del img
 
     if display:
         ds9.mtv(exposure)
@@ -153,7 +159,7 @@ def detectSources(exposure, threshold, psf=None):
         sourceList.append(source)
 
         source.setId(i)
-        source.setFlagForDetection(source.getFlagForDetection() | algorithms.Flags.BINNED1);
+        source.setFlagForDetection(source.getFlagForDetection() | algorithms.Flags.BINNED1)
 
         try:
             measureSources.apply(source, objects[i])
@@ -172,6 +178,7 @@ def detectSources(exposure, threshold, psf=None):
 
     return sourceList
 
+
 def mergeSourceSets(sourceSetList):
     """Return the union of all the SourceSet in sourceSetList"""
     outlist = afwDetection.SourceSet()
@@ -182,6 +189,7 @@ def mergeSourceSets(sourceSetList):
     return outlist
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
 
 def makeSourceList(dir, basename, e, c, aList, threshold, verbose=0):
     """Return the sources detected above threshold in all the amplifiers, aList, of the given field
@@ -210,6 +218,7 @@ def makeSourceList(dir, basename, e, c, aList, threshold, verbose=0):
     return mergeSourceSets(sourceSets)
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
 
 def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF, verbose=0):
     """Return an image of all the specified amplifiers, aList, for the given CCD
@@ -252,7 +261,7 @@ def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF
                     data = imageFactory(filename + "_img.fits")
                 except:
                     data = imageFactory(filename)
-                    
+
                 ampImage = ccdImage.Factory(ccdImage, ampBBox[a])
                 ampImage[:] = data
                 del ampImage
@@ -267,6 +276,7 @@ def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF
     return ccdImage
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
 
 def readStandards(filename):
     fd = file(filename, "r")
@@ -291,6 +301,7 @@ def readStandards(filename):
 
     return sourceSet
 
+
 def showStandards(standardStarSet, exp, frame, countsMin=None, flagMask=None, rmsMax=None, ctype=ds9.RED):
     """Show all the standards that are visible on this exposure
 
@@ -301,9 +312,9 @@ def showStandards(standardStarSet, exp, frame, countsMin=None, flagMask=None, rm
 
     wcs = exp.getWcs()
     width, height = exp.getMaskedImage().getWidth(), exp.getMaskedImage().getHeight()
-    
+
     for s in standardStarSet:
-        x,y = wcs.skyToPixel(s.getRaDec())
+        x, y = wcs.skyToPixel(s.getRaDec())
 
         if x < 0 or x >= width or y < 0 or y >= height:
             continue
@@ -327,20 +338,24 @@ def showStandards(standardStarSet, exp, frame, countsMin=None, flagMask=None, rm
             pt = "+"
         ds9.dot(pt, x, y, frame=frame, ctype=ctype)
 
+
 def setRaDec(wcs, sourceSet):
     """Set the ra/dec fields in a sourceSet from [XY]Astrom"""
-    
+
     for s in sourceSet:
         s.setRaDec(wcs.pixelToSky(s.getXAstrom(), s.getYAstrom()))
+
 
 def writeSourceSet(sourceSet, outfile="-"):
     if outfile == "-":
         fd = sys.stdout
     else:
         fd = open(outfile, "w")
-    
+
     for s in sourceSet:
-        print >> fd, s.getId(), s.getXAstrom(), s.getYAstrom(), s.getRa(), s.getDec(), s.getPsfFlux(), s.getFlagForDetection()
+        print >> fd, s.getId(), s.getXAstrom(), s.getYAstrom(), s.getRa(
+        ), s.getDec(), s.getPsfFlux(), s.getFlagForDetection()
+
 
 def readSourceSet(fileName):
     fd = open(fileName, "r")
@@ -366,4 +381,3 @@ def readSourceSet(fileName):
         s.setPsfFlux(float(cts))
 
     return sourceSet
-

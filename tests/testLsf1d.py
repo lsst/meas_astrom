@@ -24,18 +24,12 @@
 
 import unittest
 
-import lsst.utils.tests as utilsTests
+import lsst.utils.tests
 import lsst.pex.exceptions
-
 import lsst.meas.astrom.sip as sip
 
 
 class Lsf1dTestCase(unittest.TestCase):
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
 
     def testBadArgs1(self):
         """Check that code fails when order is too low"""
@@ -46,8 +40,8 @@ class Lsf1dTestCase(unittest.TestCase):
 
         order = 0
 
-        self.assertRaises(lsst.pex.exceptions.Exception,
-                          sip.LeastSqFitter1dPoly, x, y, s, order)
+        with self.assertRaises(lsst.pex.exceptions.Exception):
+            sip.LeastSqFitter1dPoly(x, y, s, order)
 
     def testBadArgs2(self):
         """Check that code fails when not len(x) != len(y)"""
@@ -58,8 +52,8 @@ class Lsf1dTestCase(unittest.TestCase):
 
         order = 0
 
-        self.assertRaises(lsst.pex.exceptions.Exception,
-                          sip.LeastSqFitter1dPoly, x, y, s, order)
+        with self.assertRaises(lsst.pex.exceptions.Exception):
+            sip.LeastSqFitter1dPoly(x, y, s, order)
 
     def testBadArgs3(self):
         """Check that code fails when not len(x) != len(s)"""
@@ -70,8 +64,8 @@ class Lsf1dTestCase(unittest.TestCase):
 
         order = 0
 
-        self.assertRaises(lsst.pex.exceptions.Exception,
-                          sip.LeastSqFitter1dPoly, x, y, s, order)
+        with self.assertRaises(lsst.pex.exceptions.Exception):
+            sip.LeastSqFitter1dPoly(x, y, s, order)
 
     def testBadArgs4(self):
         """Check that code fails when not order > number data points"""
@@ -82,8 +76,8 @@ class Lsf1dTestCase(unittest.TestCase):
 
         order = 5
 
-        self.assertRaises(lsst.pex.exceptions.Exception,
-                          sip.LeastSqFitter1dPoly, x, y, s, order)
+        with self.assertRaises(lsst.pex.exceptions.Exception):
+            sip.LeastSqFitter1dPoly(x, y, s, order)
 
     def testConst1(self):
         """Check that code fits a dc offset correctly (1)"""
@@ -98,17 +92,17 @@ class Lsf1dTestCase(unittest.TestCase):
 
         for i in range(1, len(x)):
             self.assertAlmostEqual(lsf.valueAt(x[0]), lsf.valueAt(x[i]), 4)
-            #print x[i], y[i], lsf.valueAt(x[i])
+            # print x[i], y[i], lsf.valueAt(x[i])
 
     def testCompareToCpp1(self):
         """Confirm that I get the same behaviour in Python as I
         do in the C++ test fitLinear3
         """
 
-        #This test arises because I was having trouble using Eigen's
-        #svd inversion. fitLinear3 in C++ worked fine, but this test
-        #behaved differently, and I tracked the result down to
-        #the svd routines.
+        # This test arises because I was having trouble using Eigen's
+        # svd inversion. fitLinear3 in C++ worked fine, but this test
+        # behaved differently, and I tracked the result down to
+        # the svd routines.
 
         x = [689.301136505, 1112.8573687, 1386.67168477]
         y = [0.66911456573, 1.1147439759, 1.39597284177]
@@ -126,10 +120,10 @@ class Lsf1dTestCase(unittest.TestCase):
         """Confirm that I get the same behaviour in Python as I do in the C++ test fitLinear3
         """
 
-        #This test arises because I was having trouble using Eigen's
-        #svd inversion. fitLinear3 in C++ worked fine, but this test
-        #behaved differently, and I tracked the result down to
-        #the svd routines.
+        # This test arises because I was having trouble using Eigen's
+        # svd inversion. fitLinear3 in C++ worked fine, but this test
+        # behaved differently, and I tracked the result down to
+        # the svd routines.
 
         x = [628.857680996, 995.008255088, 1203.39412154, 1425.1404727]
         y = [0.616728229875, 1.01887634344, 1.19679830465, 1.42873084062]
@@ -147,23 +141,15 @@ class Lsf1dTestCase(unittest.TestCase):
         self.assertAlmostEqual(lsf.valueAt(x[1]), y[1], 1)
         self.assertAlmostEqual(lsf.valueAt(x[2]), y[2], 1)
 
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+class MemoryTester(lsst.utils.tests.MemoryTestCase):
+    pass
 
 
-def suite():
-    """Returns a suite containing all the test cases in this module."""
-    utilsTests.init()
+def setup_module(module):
+    lsst.utils.tests.init()
 
-    suites = []
-    suites += unittest.makeSuite(Lsf1dTestCase)
-    suites += unittest.makeSuite(utilsTests.MemoryTestCase)
-
-    return unittest.TestSuite(suites)
-
-
-def run(exit=False):
-    """Run the tests"""
-    utilsTests.run(suite(), exit)
 
 if __name__ == "__main__":
-    run(True)
+    lsst.utils.tests.init()
+    unittest.main()

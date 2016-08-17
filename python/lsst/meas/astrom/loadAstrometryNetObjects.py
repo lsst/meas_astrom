@@ -181,6 +181,7 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
 class LoadMultiIndexes(object):
     """Context manager for loading and unloading astrometry.net multi-index files
     """
+
     def __init__(self, multiInds):
         self.multiInds = multiInds
 

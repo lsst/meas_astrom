@@ -18,6 +18,7 @@ import imsimUtils
 import pylab as plt
 import numpy as np
 
+
 def main():
     parser = OptionParser()
     imsimUtils.addOptions(parser)
@@ -47,7 +48,7 @@ def main():
     plt.xlabel('Astrometry.net index ID')
     plt.ylabel('Number of CCDs solved')
     plt.savefig('solvedindex.png')
-    
+
 
 if __name__ == '__main__':
     main()

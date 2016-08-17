@@ -4,14 +4,14 @@ import unittest
 import numpy as np
 import matplotlib.pylab as pylab
 
-import lsst.utils.tests as tests
+import lsst.utils.tests
 import lsst.daf.base as dafBase
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 from lsst.meas.astrom import approximateWcs
 
 
-class ApproximateWcsTestCase(tests.TestCase):
+class ApproximateWcsTestCase(lsst.utils.tests.TestCase):
 
     """A test case for CreateWcsWithSip
 
@@ -27,11 +27,11 @@ class ApproximateWcsTestCase(tests.TestCase):
         bboxd = afwGeom.Box2D(self.crPix - dimd/2, dimd)
         self.bbox = afwGeom.Box2I(bboxd)
         metadata.set("RADECSYS", 'ICRS')
-        metadata.set("EQUINOX",       2000.0)
-        metadata.setDouble("CRVAL1",   215.60)
-        metadata.setDouble("CRVAL2",    53.16)
-        metadata.setDouble("CRPIX1",  self.crPix[0])
-        metadata.setDouble("CRPIX2",  self.crPix[1])
+        metadata.set("EQUINOX", 2000.0)
+        metadata.setDouble("CRVAL1", 215.60)
+        metadata.setDouble("CRVAL2", 53.16)
+        metadata.setDouble("CRPIX1", self.crPix[0])
+        metadata.setDouble("CRPIX2", self.crPix[1])
         metadata.set("CTYPE1", "RA---TAN")
         metadata.set("CTYPE2", "DEC--TAN")
         metadata.setDouble("CD1_1", 5.10808596133527E-05)
@@ -58,7 +58,8 @@ class ApproximateWcsTestCase(tests.TestCase):
         """Test that approximateWcs raises a UserWarning when it cannot achieve desired tolerance"""
         radialTransform = afwGeom.RadialXYTransform([0, 2.0, 3.0])
         wcs = afwImage.DistortedTanWcs(self.tanWcs, radialTransform)
-        self.assertRaises(UserWarning, approximateWcs, wcs=wcs, bbox=self.bbox, order=2)
+        with self.assertRaises(UserWarning):
+            approximateWcs(wcs=wcs, bbox=self.bbox, order=2)
 
     def doTest(self, name, xyTransform, order=3, doPlot=False):
         """Create a DistortedTanWcs from the specified transform and fit it
@@ -102,22 +103,15 @@ class ApproximateWcsTestCase(tests.TestCase):
 
         pylab.show()
 
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+class MemoryTester(lsst.utils.tests.MemoryTestCase):
+    pass
 
 
-def suite():
-    """Returns a suite containing all the test cases in this module."""
-    tests.init()
+def setup_module(module):
+    lsst.utils.tests.init()
 
-    suites = []
-    suites += unittest.makeSuite(ApproximateWcsTestCase)
-    suites += unittest.makeSuite(tests.MemoryTestCase)
-    return unittest.TestSuite(suites)
-
-
-def run(shouldExit=False):
-    """Run the tests"""
-    tests.run(suite(), shouldExit)
 
 if __name__ == "__main__":
-    run(True)
+    lsst.utils.tests.init()
+    unittest.main()

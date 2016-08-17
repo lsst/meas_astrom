@@ -12,6 +12,7 @@ import lsst.daf.persistence as dafPersist
 
 import imsimUtils
 
+
 def process(keys, inButler, outButler):
     print 'Processing', keys
     # HACK -- Grab calexp rather than visitim (since visitims are often not available in NCSA runs.)
@@ -19,11 +20,11 @@ def process(keys, inButler, outButler):
     visitim = inButler.get('calexp', **keys)
     sourceset_p = inButler.get('icSrc', **keys)
     sourceset = sourceset_p.getSources()
-    
+
     clip = {
         'visitExposure': visitim,
         'sourceSet': sourceset,
-        }
+    }
 
     clip = runStage(measPipe.WcsDeterminationStage,
                     """#<?cfg paf policy?>
@@ -34,7 +35,7 @@ def process(keys, inButler, outButler):
                     numBrightStars: 150
                     defaultFilterName: mag
                     """, clip)
-    #starGalaxyColumnName: starnotgal
+    # starGalaxyColumnName: starnotgal
 
     clip = runStage(measPipe.PhotoCalStage,
                     """#<?cfg paf policy?>
@@ -45,19 +46,21 @@ def process(keys, inButler, outButler):
     outButler.put(clip['matchList_persistable'], 'icMatch', **keys)
     outButler.put(clip['visitExposure'], 'calexp', **keys)
 
+
 def main():
     parser = OptionParser()
     imsimUtils.addOptions(parser, input=True, output=True)
-    parser.add_option('-T', '--threads', dest='threads', default=None, help='run N processes at once', type='int')
+    parser.add_option('-T', '--threads', dest='threads', default=None,
+                      help='run N processes at once', type='int')
     (opt, args) = parser.parse_args()
 
     if not os.path.isdir(opt.outRoot):
         os.makedirs(opt.outRoot)
 
     if not opt.registry and not os.path.exists(os.path.join(opt.outRoot, "registry.sqlite3")):
-        opt.registry =  os.path.join(opt.inRoot, "registry.sqlite3")
+        opt.registry = os.path.join(opt.inRoot, "registry.sqlite3")
 
-    inButler  = imsimUtils.getInputButler(opt)
+    inButler = imsimUtils.getInputButler(opt)
     outButler = imsimUtils.getOutputButler(opt)
 
     allkeys = imsimUtils.getAllKeys(opt, inButler)
@@ -72,4 +75,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

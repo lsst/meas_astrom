@@ -68,12 +68,12 @@ class CheckSource(object):
             return False
         return True
 
-## \addtogroup LSST_task_documentation
-## \{
-## \page CatalogStarSelectorTask
-## \ref CatalogStarSelectorTask_ "CatalogStarSelectorTask"
-## \copybrief CatalogStarSelectorTask
-## \}
+# \addtogroup LSST_task_documentation
+# \{
+# \page CatalogStarSelectorTask
+# \ref CatalogStarSelectorTask_ "CatalogStarSelectorTask"
+# \copybrief CatalogStarSelectorTask
+# \}
 
 
 class CatalogStarSelectorTask(object):

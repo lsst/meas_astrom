@@ -29,12 +29,12 @@ import lsst.meas.astrom as measAstrom
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImg
-import lsst.utils.tests as utilsTests
+import lsst.utils.tests
 from lsst.pex.logging import Log
 from astrometry.util import ttime
 from lsst.meas.astrom import AstrometryNetDataConfig
 from lsst.meas.astrom.multiindex import generateCache
-import testFindAstrometryNetDataDir as helper
+from testFindAstrometryNetDataDir import setupAstrometryNetDataDir
 
 
 class MultiIndexTest(unittest.TestCase):
@@ -51,7 +51,7 @@ class MultiIndexTest(unittest.TestCase):
         self.exposure = afwImg.ExposureF(os.path.join(testDir, "v695833-e0-c000-a00.sci.fits"))
 
         # Set up local astrometry_net_data
-        self.an_data_dir = helper.setupAstrometryNetDataDir('photocal')
+        self.an_data_dir = setupAstrometryNetDataDir('photocal')
 
     def tearDown(self):
         del self.srcCat
@@ -68,7 +68,7 @@ class MultiIndexTest(unittest.TestCase):
 
     def _testGetSolution(self, **kwargs):
         res = self.getAstrometrySolution(logLevel=Log.DEBUG, **kwargs)
-        self.assertTrue(res is not None)
+        self.assertIsNotNone(res)
         self.assertGreater(len(res.getMatches()), 50)
 
     # This is the "vanilla" no-multiIndex setup
@@ -173,22 +173,14 @@ class MultiIndexTest(unittest.TestCase):
         print 'FD3:', fd3
 
 
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-def suite():
-    """Returns a suite containing all the test cases in this module."""
-    utilsTests.init()
-
-    suites = []
-    suites += unittest.makeSuite(MultiIndexTest)
-    suites += unittest.makeSuite(utilsTests.MemoryTestCase)
-
-    return unittest.TestSuite(suites)
+class MemoryTester(lsst.utils.tests.MemoryTestCase):
+    pass
 
 
-def run(exit=False):
-    """Run the tests"""
-    utilsTests.run(suite(), exit)
+def setup_module(module):
+    lsst.utils.tests.init()
+
 
 if __name__ == "__main__":
-    run(True)
+    lsst.utils.tests.init()
+    unittest.main()

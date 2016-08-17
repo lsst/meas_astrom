@@ -60,6 +60,7 @@ class MultiIndexCache(object):
     The MultiIndexCache may be instantiated directly, or via the 'fromFilenameList'
     class method, which loads it from a list of filenames.
     """
+
     def __init__(self, filenameList, healpix, nside):
         """!Constructor
 
