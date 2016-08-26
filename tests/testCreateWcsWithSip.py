@@ -28,7 +28,7 @@ import unittest
 from lsst.afw.table import SimpleCatalog, SourceCatalog
 import lsst.utils.tests
 import lsst.afw.geom as afwGeom
-from lsst.pex.logging import Log
+from lsst.log import Log
 from lsst.meas.astrom import ANetBasicAstrometryTask
 import lsst.meas.astrom.sip as sip
 import lsst.meas.astrom.sip.genDistortedImage as distort
@@ -56,9 +56,7 @@ class CreateWcsWithSipCase(unittest.TestCase):
 
     def testBigXy0(self):
         # test for ticket #2710
-        log = Log.getDefaultLog()
-        log.setThreshold(Log.DEBUG)
-        self.astrom.log = log
+        self.astrom.log.setLevel(Log.TRACE)
         x0, y0 = 200000, 500000
         cx = 500
         a2 = 1e-5

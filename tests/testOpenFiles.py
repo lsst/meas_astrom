@@ -92,7 +92,6 @@ class OpenFilesTest(unittest.TestCase):
 
         conf = measAstrom.ANetBasicAstrometryConfig()
         return measAstrom.ANetBasicAstrometryTask(config=conf, andConfig=andconfig,)
-        # logLevel=pexLog.Log.DEBUG)
 
     def runDetermineWcs(self):
         astrom = self.getAstrom()

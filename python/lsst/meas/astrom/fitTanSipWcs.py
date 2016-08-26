@@ -156,20 +156,20 @@ class FitTanSipWcsTask(pipeBase.Task):
             self.plotFit(matches, wcs, rejected)
 
         if refCat is not None:
-            self.log.logdebug("Updating centroids in refCat")
+            self.log.debug("Updating centroids in refCat")
             afwTable.updateRefCentroids(wcs, refList=refCat)
         else:
             self.log.warn("Updating reference object centroids in match list; refCat is None")
             afwTable.updateRefCentroids(wcs, refList=[match.first for match in matches])
 
         if sourceCat is not None:
-            self.log.logdebug("Updating coords in sourceCat")
+            self.log.debug("Updating coords in sourceCat")
             afwTable.updateSourceCoords(wcs, sourceList=sourceCat)
         else:
             self.log.warn("Updating source coords in match list; sourceCat is None")
             afwTable.updateSourceCoords(wcs, sourceList=[match.second for match in matches])
 
-        self.log.logdebug("Updating distance in match list")
+        self.log.debug("Updating distance in match list")
         setMatchDistance(matches)
 
         scatterOnSky = sipObject.getScatterOnSky()

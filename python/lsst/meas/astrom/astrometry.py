@@ -319,15 +319,15 @@ class AstrometryTask(pipeBase.Task):
                     raise
 
             tryMatchDist = self._computeMatchStatsOnSky(tryRes.matches)
-            self.log.logdebug(
+            self.log.debug(
                 "Match and fit WCS iteration %d: found %d matches with scatter = %0.3f +- %0.3f arcsec; "
-                "max match distance = %0.3f arcsec" %
-                (iterNum, len(tryRes.matches), tryMatchDist.distMean.asArcseconds(),
-                 tryMatchDist.distStdDev.asArcseconds(), tryMatchDist.maxMatchDist.asArcseconds()))
+                "max match distance = %0.3f arcsec",
+                iterNum, len(tryRes.matches), tryMatchDist.distMean.asArcseconds(),
+                tryMatchDist.distStdDev.asArcseconds(), tryMatchDist.maxMatchDist.asArcseconds())
             if maxMatchDist is not None:
                 if tryMatchDist.maxMatchDist >= maxMatchDist:
-                    self.log.logdebug(
-                        "Iteration %d had no better maxMatchDist; using previous iteration" % (iterNum,))
+                    self.log.debug(
+                        "Iteration %d had no better maxMatchDist; using previous iteration", iterNum)
                     iterNum -= 1
                     break
 
@@ -335,10 +335,10 @@ class AstrometryTask(pipeBase.Task):
             res = tryRes
             wcs = res.wcs
             if tryMatchDist.maxMatchDist.asArcseconds() < self.config.minMatchDistanceArcSec:
-                self.log.logdebug(
+                self.log.debug(
                     "Max match distance = %0.3f arcsec < %0.3f = config.minMatchDistanceArcSec; "
-                    "that's good enough" %
-                    (tryMatchDist.maxMatchDist.asArcseconds(), self.config.minMatchDistanceArcSec))
+                    "that's good enough",
+                    tryMatchDist.maxMatchDist.asArcseconds(), self.config.minMatchDistanceArcSec)
                 break
 
         self.log.info(
@@ -425,7 +425,7 @@ class AstrometryTask(pipeBase.Task):
             refFluxField=refFluxField,
             maxMatchDist=maxMatchDist,
         )
-        self.log.logdebug("Found %s matches" % (len(matchRes.matches),))
+        self.log.debug("Found %s matches", len(matchRes.matches))
         if debug.display:
             frame = int(debug.frame)
             displayAstrometry(
@@ -438,7 +438,7 @@ class AstrometryTask(pipeBase.Task):
                 title="Initial WCS",
             )
 
-        self.log.logdebug("Fitting WCS")
+        self.log.debug("Fitting WCS")
         fitRes = self.wcsFitter.fitWcs(
             matches=matchRes.matches,
             initWcs=wcs,
