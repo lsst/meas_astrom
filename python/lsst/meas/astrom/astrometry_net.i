@@ -43,7 +43,7 @@ Python interface to Astrometry.net
 
 #include "lsst/meas/astrom/detail/utils.h"
 #include "lsst/base.h"
-#include "lsst/pex/logging.h"
+#include "lsst/log/Log.h"
 #include "lsst/daf/persistence.h"
 #include "lsst/daf/base/Persistable.h"
 #include "lsst/daf/base/PropertyList.h"
@@ -58,7 +58,10 @@ namespace afwTable = lsst::afw::table;
 namespace afwGeom  = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
 namespace dafBase  = lsst::daf::base;
-namespace pexLog   = lsst::pex::logging;
+
+namespace {
+LOG_LOGGER _log = LOG_GET("meas.astrom.astrometry_net");
+}
 
 struct timer_baton {
     solver_t* s;
@@ -75,27 +78,17 @@ static time_t timer_callback(void* baton) {
     return 1;
 }
 
-// Global logger to which Astrometry.net will go.
-static PTR(pexLog::Log) an_log;
-
-PTR(pexLog::Log) get_an_log() {
-    return an_log;
-}
-void set_an_log(PTR(pexLog::Log) newlog) {
-    an_log = newlog;
-}
-
 static void an_log_callback(void* baton, enum log_level level,
                             const char* file,
                             int line, const char* func, const char* format,
                             va_list va) {
     // translate between logging levels
     int levelmap[5];
-    levelmap[LOG_NONE ] = pexLog::Log::FATAL;
-    levelmap[LOG_ERROR] = pexLog::Log::FATAL;
-    levelmap[LOG_MSG  ] = pexLog::Log::INFO;
-    levelmap[LOG_VERB ] = pexLog::Log::DEBUG;
-    levelmap[LOG_ALL  ] = pexLog::Log::DEBUG;
+    levelmap[LOG_NONE ] = LOG_LVL_FATAL;
+    levelmap[LOG_ERROR] = LOG_LVL_FATAL;
+    levelmap[LOG_MSG  ] = LOG_LVL_INFO;
+    levelmap[LOG_VERB ] = LOG_LVL_DEBUG;
+    levelmap[LOG_ALL  ] = LOG_LVL_DEBUG;
     int lsstlevel = levelmap[level];
 
     va_list vb;
@@ -113,18 +106,11 @@ static void an_log_callback(void* baton, enum log_level level,
         msg[len-2] = '\0';
     }
 
-    dafBase::PropertySet ps;
-    ps.set("an_file", file);
-    ps.set("an_line", line);
-    ps.set("an_func", func);
-
-    an_log->log(lsstlevel, std::string(msg), ps);
+    lsst::log::Log::logMsg(_log, log4cxx::Level::toLevel(lsstlevel),
+                           log4cxx::spi::LocationInfo(file, func, line), msg);
 }
 
 static void start_an_logging() {
-    an_log = PTR(pexLog::Log)(new pexLog::Log(pexLog::Log::getDefaultLog(),
-                                              "meas.astrom.astrometry_net"));
-    an_log->markPersistent();
     // NOTE, this has to happen before the log_use_function!
     log_init(LOG_VERB);
     log_use_function(an_log_callback, NULL);
@@ -134,7 +120,6 @@ static void start_an_logging() {
 static void stop_an_logging() {
     log_use_function(NULL, NULL);
     log_to(stdout);
-    an_log.reset();
 }
 
 void finalize() {
@@ -154,8 +139,6 @@ void finalize() {
 %import "lsst/daf/base/baseLib.i"
 
 void finalize();
-PTR(pexLog::Log) get_an_log();
-void set_an_log(PTR(pexLog::Log) newlog);
 
 %lsst_exceptions();
 
