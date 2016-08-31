@@ -40,8 +40,8 @@ RefCatDir = os.path.join(getPackageDir("meas_astrom"), "tests", "data", "sdssref
 numpy.random.seed(12345)
 
 
-class MatchTestCase(lsst.utils.tests.TestCase):
-    """Tests for lsst.meas.astrom.MatchTask"""
+class DirectMatchTestCase(lsst.utils.tests.TestCase):
+    """Tests for lsst.meas.astrom.DirectMatchTask"""
 
     def setUp(self):
         self.butler = Butler(RefCatDir)
@@ -56,9 +56,9 @@ class MatchTestCase(lsst.utils.tests.TestCase):
         del self.references
 
     def checkMatching(self, catalog):
-        config = lsst.meas.astrom.MatchConfig()
+        config = lsst.meas.astrom.DirectMatchConfig()
         config.refObjLoader.retarget(LoadIndexedReferenceObjectsTask)
-        task = lsst.meas.astrom.MatchTask(config=config, butler=self.butler)
+        task = lsst.meas.astrom.DirectMatchTask(config=config, butler=self.butler)
         results = task.run(catalog, self.filter)
 
         self.assertEqual(len(results.matches), len(catalog))
@@ -88,7 +88,7 @@ class MatchTestCase(lsst.utils.tests.TestCase):
         self.checkMatching(references)
 
 
-class MatchMemoryTestCase(lsst.utils.tests.MemoryTestCase):
+class DirectMatchMemoryTestCase(lsst.utils.tests.MemoryTestCase):
     pass
 
 

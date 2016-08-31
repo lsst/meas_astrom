@@ -8,19 +8,19 @@ import lsst.afw.coord as afwCoord
 from lsst.afw.geom import arcseconds
 
 
-__all__ = ["MatchConfig", "MatchTask"]
+__all__ = ["DirectMatchConfig", "DirectMatchTask"]
 
 
-class MatchConfig(Config):
-    """Configuration for MatchTask"""
+class DirectMatchConfig(Config):
+    """Configuration for DirectMatchTask"""
     refObjLoader = ConfigurableField(target=LoadAstrometryNetObjectsTask, doc="Load reference objects")
     matchRadius = Field(dtype=float, default=0.25, doc="Matching radius, arcsec")
 
 
-class MatchTask(Task):
+class DirectMatchTask(Task):
     """!Simple matching of a source catalog to a reference catalog
 
-    @anchor MatchTask_
+    @anchor DirectMatchTask_
 
     @section meas_astrom_match_Contents Contents
 
@@ -37,6 +37,9 @@ class MatchTask(Task):
     for QA, as it allows validating the pipeline astrometry and photometry against
     the reference catalog.
 
+    Note that this DirectMatchTask is not currently suitable for use within the
+    AstrometryTask, as it has a different interface and serves a different purpose.
+
     @section meas_astrom_match_Initialize   Task initialisation
 
     @copydoc \_\_init\_\_
@@ -47,17 +50,17 @@ class MatchTask(Task):
 
     @section meas_astrom_match_Config       Configuration parameters
 
-    See @ref MatchConfig
+    See @ref DirectMatchConfig
 
-    @section meas_astrom_match_Example  A complete example of using MatchTask
+    @section meas_astrom_match_Example  A complete example of using DirectMatchTask
 
-    config = MatchConfig()
-    task = MatchTask(butler=butler, config=config)
+    config = DirectMatchConfig()
+    task = DirectMatchTask(butler=butler, config=config)
     matchResults = task.run(catalog)
 
     """
 
-    ConfigClass = MatchConfig
+    ConfigClass = DirectMatchConfig
     _DefaultName = "match"
 
     def __init__(self, butler=None, refObjLoader=None, **kwargs):
