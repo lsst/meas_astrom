@@ -24,6 +24,7 @@ from __future__ import absolute_import, division, print_function
 #
 
 import os
+import sys
 import unittest
 import numpy
 
@@ -31,19 +32,17 @@ import lsst.utils.tests
 import lsst.meas.astrom
 import lsst.afw.geom
 
-from lsst.utils import getPackageDir
 from lsst.daf.persistence import Butler
 from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
 
-RefCatDir = os.path.join(getPackageDir("meas_astrom"), "tests", "data", "sdssrefcat")
-
-numpy.random.seed(12345)
+RefCatDir = os.path.join(os.path.dirname(__file__), "data", "sdssrefcat")
 
 
 class DirectMatchTestCase(lsst.utils.tests.TestCase):
     """Tests for lsst.meas.astrom.DirectMatchTask"""
 
     def setUp(self):
+        numpy.random.seed(12345)
         self.butler = Butler(RefCatDir)
         refObjLoader = LoadIndexedReferenceObjectsTask(butler=self.butler)
         center = lsst.afw.coord.IcrsCoord(215.5*lsst.afw.geom.degrees, 53.0*lsst.afw.geom.degrees)
@@ -92,6 +91,10 @@ class DirectMatchMemoryTestCase(lsst.utils.tests.MemoryTestCase):
     pass
 
 
-if __name__ == "__main__":
+def setup_module(module):
     lsst.utils.tests.init()
+
+
+if __name__ == "__main__":
+    setup_module(sys.modules[__name__])
     unittest.main()
