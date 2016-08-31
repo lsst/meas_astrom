@@ -61,7 +61,7 @@ class DirectMatchTask(Task):
     """
 
     ConfigClass = DirectMatchConfig
-    _DefaultName = "match"
+    _DefaultName = "directMatch"
 
     def __init__(self, butler=None, refObjLoader=None, **kwargs):
         """!Ctor
