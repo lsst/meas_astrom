@@ -26,10 +26,10 @@ import os
 import unittest
 
 from lsst.afw.coord import IcrsCoord
+from lsst.log import Log
 import lsst.meas.astrom as measAstrom
 import lsst.utils.tests
 import lsst.afw.geom as afwGeom
-from lsst.pex.logging import Log
 from testFindAstrometryNetDataDir import setupAstrometryNetDataDir
 
 
@@ -47,9 +47,9 @@ class MultipleCatalogStarsTest(unittest.TestCase):
         del self.conf
         del self.andConfig
 
-    def testGetCatalog(self, logLevel=Log.DEBUG):
+    def testGetCatalog(self, logLevel=Log.TRACE):
         astrom = measAstrom.ANetBasicAstrometryTask(self.conf, andConfig=self.andConfig)
-        astrom.log.setThreshold(logLevel)
+        astrom.log.setLevel(logLevel)
 
         ctrCoord = IcrsCoord(
             215.6 * afwGeom.degrees,

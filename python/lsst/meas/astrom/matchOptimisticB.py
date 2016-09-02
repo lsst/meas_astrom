@@ -326,8 +326,8 @@ class MatchOptimisticBTask(pipeBase.Task):
             if sourceInfo.isGood(match.second):
                 matches.append(match)
 
-        self.log.logdebug("Found %d usable matches, of which %d had good sources" %
-                          (len(usableMatches), len(matches)))
+        self.log.debug("Found %d usable matches, of which %d had good sources",
+                       len(usableMatches), len(matches))
 
         if len(matches) == 0:
             raise RuntimeError("Unable to match sources")

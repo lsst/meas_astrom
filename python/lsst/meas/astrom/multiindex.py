@@ -4,7 +4,7 @@ import numpy
 import pyfits
 
 import lsst.utils
-from lsst.pex.logging import getDefaultLog
+from lsst.log import Log
 from .astrometry_net import multiindex_new, multiindex_add_index, INDEX_ONLY_LOAD_METADATA, healpixDistance
 from .astrometryNetDataConfig import AstrometryNetDataConfig
 
@@ -77,7 +77,7 @@ class MultiIndexCache(object):
         self._nside = int(nside)
         self._mi = None
         self._loaded = False
-        self.log = getDefaultLog()
+        self.log = Log.getDefaultLogger()
 
     @classmethod
     def fromFilenameList(cls, filenameList):
@@ -111,18 +111,18 @@ class MultiIndexCache(object):
             raise RuntimeError('Failed to read stars from astrometry multiindex filename "%s"' % fn)
         for i, fn in enumerate(self._filenameList[1:]):
             if fn is None:
-                self.log.logdebug('Unable to find index part of multiindex %s' % fn)
+                self.log.debug('Unable to find index part of multiindex %s', fn)
                 continue
             fn = getIndexPath(fn)
             if not os.path.exists(fn):
-                self.log.warn("Unable to get filename for astrometry index %s" % (fn,))
+                self.log.warn("Unable to get filename for astrometry index %s", fn)
                 continue
-            self.log.logdebug('Reading index from multiindex file "%s"' % fn)
+            self.log.debug('Reading index from multiindex file "%s"', fn)
             if multiindex_add_index(self._mi, fn, INDEX_ONLY_LOAD_METADATA):
                 raise RuntimeError('Failed to read index from multiindex filename "%s"' % fn)
             ind = self._mi[i]
-            self.log.logdebug('  index %i, hp %i (nside %i), nstars %i, nquads %i' %
-                              (ind.indexid, ind.healpix, ind.hpnside, ind.nstars, ind.nquads))
+            self.log.debug('  index %i, hp %i (nside %i), nstars %i, nquads %i',
+                           ind.indexid, ind.healpix, ind.hpnside, ind.nstars, ind.nquads)
 
     def reload(self):
         """Reload the indices."""

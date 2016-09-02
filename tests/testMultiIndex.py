@@ -30,8 +30,8 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImg
 import lsst.utils.tests
-from lsst.pex.logging import Log
 from astrometry.util import ttime
+from lsst.log import Log
 from lsst.meas.astrom import AstrometryNetDataConfig
 from lsst.meas.astrom.multiindex import generateCache
 from testFindAstrometryNetDataDir import setupAstrometryNetDataDir
@@ -61,13 +61,13 @@ class MultiIndexTest(unittest.TestCase):
 
     def getAstrometrySolution(self, andConfig=None, logLevel=Log.INFO):
         astrom = measAstrom.ANetBasicAstrometryTask(self.conf, andConfig=andConfig)
-        astrom.log.setThreshold(logLevel)
+        astrom.log.setLevel(logLevel)
         res = astrom.determineWcs(self.srcCat, self.exposure, bbox=self.bbox)
         del astrom
         return res
 
     def _testGetSolution(self, **kwargs):
-        res = self.getAstrometrySolution(logLevel=Log.DEBUG, **kwargs)
+        res = self.getAstrometrySolution(logLevel=Log.TRACE, **kwargs)
         self.assertIsNotNone(res)
         self.assertGreater(len(res.getMatches()), 50)
 

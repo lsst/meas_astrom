@@ -31,7 +31,7 @@ import lsst.utils.tests
 from lsst.daf.persistence import Butler
 from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
 from lsst.meas.astrom import AstrometryTask
-from lsst.pex.logging import Log
+from lsst.log import Log
 
 
 class joinMatchListWithCatalogTestCase(unittest.TestCase):
@@ -60,7 +60,7 @@ class joinMatchListWithCatalogTestCase(unittest.TestCase):
         astrometryConfig = AstrometryTask.ConfigClass()
         astrometryConfig.matcher.minSnr = 0
         self.astrom = AstrometryTask(config=astrometryConfig, refObjLoader=refObjLoader)
-        self.astrom.log.setThreshold(logLevel)
+        self.astrom.log.setLevel(logLevel)
 
     def tearDown(self):
         del self.srcSet

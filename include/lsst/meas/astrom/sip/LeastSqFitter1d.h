@@ -34,11 +34,9 @@
 #include "Eigen/SVD"
 
 #include "lsst/pex/exceptions/Runtime.h"
-#include "lsst/pex/logging/Trace.h"
 #include "lsst/afw/math/FunctionLibrary.h"
 
 namespace except = lsst::pex::exceptions;
-namespace pexLogging = lsst::pex::logging;
 
 
 namespace lsst { 
