@@ -62,7 +62,7 @@ def main():
         for c in cols:
             if c.arraysize > 1:
                 for a in len(c.arraysize):
-                    print ('%s_%i' % (c.name, a)),
+                    print('%s_%i' % (c.name, a)),
             else:
                 print c.name,
         print

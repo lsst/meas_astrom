@@ -9,6 +9,7 @@ __all__ = ["MatchMetadata", "createMatchMetadata"]
 
 class MatchMetadata(PropertyList):
     """Metadata required for unpersisting a match list"""
+
     def __init__(self, ctrCoord, radius, filterName):
         """!Ctor
 
