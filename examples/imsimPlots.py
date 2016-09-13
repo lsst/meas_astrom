@@ -1,3 +1,4 @@
+from __future__ import print_function
 from optparse import OptionParser
 from math import hypot
 
@@ -59,17 +60,17 @@ def plotsForField(inButler, keys, fixup, plots=None, prefix=''):
         plots = ['photom', 'matches', 'corr', 'distortion']
 
     filters = inButler.queryMetadata('raw', 'filter', **keys)
-    print 'Filters:', filters
+    print('Filters:', filters)
     filterName = filters[0]
 
     psources = inButler.get('icSrc', **keys)
     # since the butler does lazy evaluation, we don't know if it fails until...
     try:
-        print 'Got sources', psources
+        print('Got sources', psources)
     except:
-        print '"icSrc" not found.  Trying "src" instead.'
+        print('"icSrc" not found.  Trying "src" instead.')
         psources = inButler.get('src', **keys)
-        print 'Got sources', psources
+        print('Got sources', psources)
 
     pmatches = inButler.get('icMatch', **keys)
     # print 'Got matches', pmatches
@@ -88,7 +89,7 @@ def plotsForField(inButler, keys, fixup, plots=None, prefix=''):
 
     photocal = calexp.getCalib()
     zp = photocal.getMagnitude(1.)
-    print 'Zeropoint is', zp
+    print('Zeropoint is', zp)
 
     # ref sources
     W, H = calexp.getWidth(), calexp.getHeight()
@@ -106,7 +107,7 @@ def plotsForField(inButler, keys, fixup, plots=None, prefix=''):
 
     (matches, ref) = measAstrom.generateMatchesFromMatchList(
         pmatches, sources, wcs, W, H, returnRefs=True, log=log, **kwargs)
-    print 'Got', len(ref), 'reference catalog sources'
+    print('Got', len(ref), 'reference catalog sources')
 
     # pull 'stargal' and 'referrs' arrays out of the reference sources
     fdict = maUtils.getDetectionFlags()
@@ -116,7 +117,7 @@ def plotsForField(inButler, keys, fixup, plots=None, prefix=''):
     referrs = [float(r.getPsfFluxErr() / r.getPsfFlux() * 2.5 / -np.log(10))
                for r in ref]
     nstars = sum([1 for s in stargal if s])
-    print 'Number of sources with STAR set:', nstars
+    print('Number of sources with STAR set:', nstars)
 
     visit = keys['visit']
     raft = keys['raft']
@@ -124,7 +125,7 @@ def plotsForField(inButler, keys, fixup, plots=None, prefix=''):
     prefix += 'imsim-v%i-r%s-s%s' % (visit, raft.replace(',', ''), sensor.replace(',', ''))
 
     if 'photom' in plots:
-        print 'photometry plots...'
+        print('photometry plots...')
         tt = 'LSST ImSim v%i r%s s%s' % (visit, raft.replace(',', ''), sensor.replace(',', ''))
 
         wcsPlots.plotPhotometry(sources, ref, matches, prefix, band=filterName,
@@ -148,7 +149,7 @@ def plotsForField(inButler, keys, fixup, plots=None, prefix=''):
                                     zp=zp, delta=True, refstargal=stargal, title=tt)
 
     if 'matches' in plots:
-        print 'matches...'
+        print('matches...')
         wcsPlots.plotMatches(sources, ref, matches, wcs, W, H, prefix)
 
     if 'corr' in plots:
@@ -160,10 +161,10 @@ def plotsForField(inButler, keys, fixup, plots=None, prefix=''):
         pass
 
     if 'distortion' in plots:
-        print 'distortion...'
+        print('distortion...')
         wcsPlots.plotDistortion(wcs, W, H, 400, prefix,
                                 'SIP Distortion (exaggerated x 10)', exaggerate=10.)
-        print 'distortion...'
+        print('distortion...')
         wcsPlots.plotDistortion(wcs, W, H, 400, prefix,
                                 'SIP Distortion (exaggerated x 100)', exaggerate=100.,
                                 suffix='-distort2.')

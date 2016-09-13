@@ -22,6 +22,7 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
+from __future__ import print_function
 import os
 import unittest
 
@@ -60,18 +61,18 @@ class MultipleCatalogStarsTest(unittest.TestCase):
             radius=0.1 * afwGeom.degrees,
             filterName='z',
         ).refCat
-        print 'Got', len(cat), 'reference sources'
+        print('Got', len(cat), 'reference sources')
 
         ids = set(s.getId() for s in cat)
-        print len(ids), 'unique IDs'
+        print(len(ids), 'unique IDs')
         ras = set(s.getRa() for s in cat)
-        print len(ras), 'unique RAs'
+        print(len(ras), 'unique RAs')
 
         ids = set()
         for src in cat:
             sid = src.getId()
             if sid in ids:
-                print 'Source id', sid, 'is duplicated'
+                print('Source id', sid, 'is duplicated')
             self.assertNotIn(sid, ids)
             ids.add(sid)
 

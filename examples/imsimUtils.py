@@ -1,3 +1,4 @@
+from __future__ import print_function
 from lsst.obs.lsstSim import LsstSimMapper
 import lsst.daf.persistence as dafPersist
 
@@ -31,25 +32,25 @@ def getAllKeys(opt, inButler):
     allkeys = []
     if not len(opt.visit):
         # Grab all available visits.
-        print 'Grabbing all available visits...'
+        print('Grabbing all available visits...')
         #visits = inButler.queryMetadata('visitim', 'visit')
         visits = inButler.queryMetadata('raw', 'visit')
-        print 'Got visits', visits
+        print('Got visits', visits)
         opt.visit = visits
 
     for visit in opt.visit:
         if not len(opt.raft):
-            print 'Grabbing all available rafts for visit', visit
+            print('Grabbing all available rafts for visit', visit)
             rafts = inButler.queryMetadata('raw', 'raft', visit=visit)
-            print 'Got rafts', rafts
+            print('Got rafts', rafts)
         else:
             rafts = opt.raft
 
         for raft in rafts:
             if not len(opt.sensor):
-                print 'Grabbing all available sensors for visit', visit, 'raft', raft
+                print('Grabbing all available sensors for visit', visit, 'raft', raft)
                 sensors = inButler.queryMetadata('raw', 'sensor', visit=visit, raft=raft)
-                print 'Got sensors', sensors
+                print('Got sensors', sensors)
             else:
                 sensors = opt.sensor
             for sensor in sensors:

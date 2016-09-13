@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 import types
 from optparse import OptionParser
@@ -93,39 +94,39 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
             sipOrder: 2'''))
 
     if exposure.getWidth() is None or exposure.getHeight() is None:
-        print 'Warning: exposure image width or height is None'
+        print('Warning: exposure image width or height is None')
 
     doTrim = False
 
-    print 'Exposure:', exposure
-    print 'Filter:', exposure.getFilter()
-    print 'Filter name:', exposure.getFilter().getName()
-    print
-    print 'determineWcs()...'
-    print
+    print('Exposure:', exposure)
+    print('Filter:', exposure.getFilter())
+    print('Filter name:', exposure.getFilter().getName())
+    print()
+    print('determineWcs()...')
+    print()
 
     astrom = measAstrom.determineWcs(policy, exposure, sourceset, log=log,
                                      doTrim=doTrim)
     matchList = astrom.getMatches()
     wcs = astrom.getWcs()
-    print
-    print 'determineWcs() finished.  Got:'
-    print
-    print '%i matches' % len(matchList)
+    print()
+    print('determineWcs() finished.  Got:')
+    print()
+    print('%i matches' % len(matchList))
     # print 'WCS: ', wcs
 
     ids = set([sm.second.getId() for sm in matchList])
-    print 'Number of unique ids:', len(ids)
+    print('Number of unique ids:', len(ids))
 
     for sm in matchList:
-        print '  id %i (%.1f, %.1f) flux %.3g   ---   id %i (%.1f, %.1f) flux %.3g' % (
+        print('  id %i (%.1f, %.1f) flux %.3g   ---   id %i (%.1f, %.1f) flux %.3g' % (
             sm.first.getId(), sm.first.getXAstrom(), sm.first.getYAstrom(), sm.first.getPsfFlux(),
-            sm.second.getId(), sm.second.getXAstrom(), sm.second.getYAstrom(), sm.second.getPsfFlux())
+            sm.second.getId(), sm.second.getXAstrom(), sm.second.getYAstrom(), sm.second.getPsfFlux()))
 
     fitshdr = wcs.getFitsMetadata()
     # print 'FITS:', fitshdr
-    print 'Found WCS:'
-    print fitshdr.toString()
+    print('Found WCS:')
+    print(fitshdr.toString())
 
     # No dice: daf_persistence can't write PropertySets to FITS.
     if False:
@@ -165,10 +166,10 @@ if __name__ == '__main__':
 
     for fn in args:
         if fn.endswith('.boost'):
-            print 'Reading boost-format', fn
+            print('Reading boost-format', fn)
             ss = sourceset_read_boost(fn)
         else:
-            print 'Reading FITS-format', fn
+            print('Reading FITS-format', fn)
             T = fits_table(fn)
             ss = afwDet.SourceSet()
             C = T.columns()
@@ -187,7 +188,7 @@ if __name__ == '__main__':
                          }
             for k, v in columnmap.items():
                 if not v in C:
-                    print 'Warning, column', v, 'is not in the FITS table -- won\'t set Source\'s', k
+                    print('Warning, column', v, 'is not in the FITS table -- won\'t set Source\'s', k)
             for i in range(len(T)):
                 src = afwDet.Source()
                 ss.append(src)
@@ -197,6 +198,6 @@ if __name__ == '__main__':
                 for src, val in zip(ss, T.getcolumn(v)):
                     getattr(src, 'set'+k)(val)
 
-        print 'Read %i sources' % (len(ss))
+        print('Read %i sources' % (len(ss)))
 
         rerun(ss, W=opt.width, H=opt.height, filtername=opt.filter, log=log)

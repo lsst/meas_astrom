@@ -23,6 +23,7 @@
 #
 
 
+from __future__ import print_function
 import os
 import unittest
 
@@ -39,8 +40,8 @@ class SipTransformationTest(unittest.TestCase):
 
         sipfn = basefn + '.sipheader'
         tanfn = basefn + '.tanheader'
-        print 'TAN WCS filename:', tanfn
-        print 'SIP WCS filename:', sipfn
+        print('TAN WCS filename:', tanfn)
+        print('SIP WCS filename:', sipfn)
 
         metaData = readMetadata(tanfn)
         self.tan = makeWcs(metaData)
@@ -158,9 +159,9 @@ class SipTransformationTest(unittest.TestCase):
         for (ra, dec, x, y) in rdxy:
             xx, yy = wcs.skyToPixel(ra, dec)
             rr, dd = self.pixelToRaDec(wcs, xx, yy)
-            print
-            print 'RA,Dec %-14.12g, %-14.12g --> pixel %g, %g -->' % (ra, dec, xx, yy)
-            print 'RA,Dec %-14.12g, %-14.12g' % (rr, dd)
+            print()
+            print('RA,Dec %-14.12g, %-14.12g --> pixel %g, %g -->' % (ra, dec, xx, yy))
+            print('RA,Dec %-14.12g, %-14.12g' % (rr, dd))
 
             # print 'pixels are', type(xx), type(yy)
             # print 'ra,dec are', type(rr), type(rr)
@@ -170,43 +171,43 @@ class SipTransformationTest(unittest.TestCase):
 
             ra, dec = self.pixelToRaDec(wcs, x, y)
             xx, yy = wcs.skyToPixel(ra * afwGeom.degrees, dec * afwGeom.degrees)
-            print
-            print 'Pixel %-14.12g, %-14.12g --> RA,Dec %-14.12g, %-14.12g -->' % (x, y, ra, dec)
-            print 'Pixel %-14.12g, %-14.12g' % (xx, yy)
+            print()
+            print('Pixel %-14.12g, %-14.12g --> RA,Dec %-14.12g, %-14.12g -->' % (x, y, ra, dec))
+            print('Pixel %-14.12g, %-14.12g' % (xx, yy))
             self.assertAlmostEqual(x, xx, 3)
             self.assertAlmostEqual(y, yy, 3)
 
     def testRoundTripTAN(self):
-        print
-        print 'Round trip TAN'
+        print()
+        print('Round trip TAN')
         self.roundTrip(self.tan, self.tan_rdxy)
 
     def testRoundTripSIP(self):
-        print
-        print 'Round trip SIP'
+        print()
+        print('Round trip SIP')
         self.roundTrip(self.sip, self.sip_rdxy)
 
     def againstReality(self, wcs, rdxy):
         for (ra, dec, x, y) in rdxy:
             xx, yy = wcs.skyToPixel(ra, dec)
-            print 'RA,Dec %-14.12g, %-14.12g --> x,y %-14.12g, %-14.12g' % (ra, dec, xx, yy)
-            print '  Expected:                                   %-14.12g, %-14.12g' % (x, y)
+            print('RA,Dec %-14.12g, %-14.12g --> x,y %-14.12g, %-14.12g' % (ra, dec, xx, yy))
+            print('  Expected:                                   %-14.12g, %-14.12g' % (x, y))
             self.assertAlmostEqual(x, xx, 3)
             self.assertAlmostEqual(y, yy, 3)
             rr, dd = self.pixelToRaDec(wcs, x, y)
             self.assertAlmostEqual(ra.asDegrees(), rr, 5)
             self.assertAlmostEqual(dec.asDegrees(), dd, 5)
-            print 'x,y %-14.12g, %-14.12g --> ra,dec %-14.12g, %-14.12g' % (x, y, ra, dec)
-            print '  Expected:                                   %-14.12g, %-14.12g' % (rr, dd)
+            print('x,y %-14.12g, %-14.12g --> ra,dec %-14.12g, %-14.12g' % (x, y, ra, dec))
+            print('  Expected:                                   %-14.12g, %-14.12g' % (rr, dd))
 
     def testTan1(self):
-        print
-        print 'TAN against reality:'
+        print()
+        print('TAN against reality:')
         self.againstReality(self.tan, self.tan_rdxy)
 
     def testSip1(self):
-        print
-        print 'SIP against reality:'
+        print()
+        print('SIP against reality:')
         self.againstReality(self.sip, self.sip_rdxy)
 
 

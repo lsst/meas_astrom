@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
@@ -209,7 +210,7 @@ def makeSourceList(dir, basename, e, c, aList, threshold, verbose=0):
             filename = os.path.join(dir, "IPSD", "output", "sci", "%s-e%d" % (basename, e), filename)
 
         if verbose:
-            print filename
+            print(filename)
 
         exp = afwImage.ExposureF(filename)
 
@@ -245,7 +246,7 @@ def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF
             filename = os.path.join(dir, "IPSD", "output", "sci", "%s-e%d" % (basename, e),
                                     "%s-e%d-c%03d-a%02d.sci" % (basename, e, c, a))
             if verbose and what == "header":
-                print filename
+                print(filename)
 
             if what == "header":
                 md = afwImage.readMetadata(filename + "_img.fits")
@@ -268,7 +269,7 @@ def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF
 
     try:
         ccdImage.getMask()
-        if wcs.has_key(0):
+        if 0 in wcs:
             ccdImage = afwImage.ExposureF(ccdImage, wcs[0])
     except AttributeError:
         pass
@@ -287,8 +288,8 @@ def readStandards(filename):
         lineno += 1
         try:
             id, flags, ra, dec, cts = line.split()
-        except Exception, e:
-            print "Line %d: %s: %s" % (lineno, e, line),
+        except Exception as e:
+            print("Line %d: %s: %s" % (lineno, e, line), end=' ')
 
         s = afwDetection.Source()
         sourceSet.append(s)
@@ -353,8 +354,8 @@ def writeSourceSet(sourceSet, outfile="-"):
         fd = open(outfile, "w")
 
     for s in sourceSet:
-        print >> fd, s.getId(), s.getXAstrom(), s.getYAstrom(), s.getRa(
-        ), s.getDec(), s.getPsfFlux(), s.getFlagForDetection()
+        print(s.getId(), s.getXAstrom(), s.getYAstrom(), s.getRa(
+        ), s.getDec(), s.getPsfFlux(), s.getFlagForDetection(), file=fd)
 
 
 def readSourceSet(fileName):
@@ -366,8 +367,8 @@ def readSourceSet(fileName):
         lineno += 1
         try:
             id, x, y, ra, dec, cts, flags = line.split()
-        except Exception, e:
-            print "Line %d: %s: %s" % (lineno, e, line),
+        except Exception as e:
+            print("Line %d: %s: %s" % (lineno, e, line), end=' ')
 
         s = afwDetection.Source()
         sourceSet.append(s)

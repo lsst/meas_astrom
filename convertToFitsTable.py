@@ -7,6 +7,7 @@ The new files are FITS binary tables that can be loaded into afw.table.SourceCat
 objects, and contain roughly equivalent fields that mimic those produced by common
 measurement algorithms in meas/alg.
 """
+from __future__ import print_function
 
 import lsst.afw.table
 
@@ -68,8 +69,8 @@ def main(inputName, outputName):
             lineno += 1
             try:
                 id, x, y, ra, dec, cts, flags = line.split()
-            except Exception, e:
-                print "Line %d: %s: %s" % (lineno, e, line),
+            except Exception as e:
+                print("Line %d: %s: %s" % (lineno, e, line), end=' ')
             record = outputCat.addNew()
             record.setId(int(id))
             record.setRa(float(ra) * lsst.afw.geom.degrees)
@@ -84,7 +85,7 @@ def main(inputName, outputName):
                 if mask & flags:
                     newName = flagMapping.get(oldName, None)
                     if newName is None:
-                        print "Ignoring flag bit '%s'" % oldName
+                        print("Ignoring flag bit '%s'" % oldName)
                     else:
                         record.set(newName, True)
     outputCat.writeFits(outputName)

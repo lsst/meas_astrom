@@ -64,7 +64,7 @@ def checkMatches(srcMatchSet, exposure, log=None):
 
         try:
             cellSet.insertCandidate(measAlg.PsfCandidateF(csrc, exposure.getMaskedImage()))
-        except Exception, e:
+        except Exception as e:
             log.log(log.WARN, str(e))
 
     ncell = len(cellSet.getCellList())

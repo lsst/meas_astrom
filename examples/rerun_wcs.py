@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import sys
 import types
@@ -100,16 +101,16 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
             sipOrder: 2'''))
 
     if exposure.getWidth() is None or exposure.getHeight() is None:
-        print 'Warning: exposure image width or height is None'
+        print('Warning: exposure image width or height is None')
 
     doTrim = False
 
-    print 'Exposure:', exposure
-    print 'Filter:', exposure.getFilter()
-    print 'Filter name:', exposure.getFilter().getName()
-    print
-    print 'determineWcs()...'
-    print
+    print('Exposure:', exposure)
+    print('Filter:', exposure.getFilter())
+    print('Filter name:', exposure.getFilter().getName())
+    print()
+    print('determineWcs()...')
+    print()
 
     # *sigh*.
     anDir = lsst.utils.getPackageDir('astrometry_net_data')
@@ -123,22 +124,22 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
                                                                 returnRefStars=True,
                                                                 returnPlotData=True, plotFormat='png')
 
-    print
-    print 'determineWcs() finished.  Got:'
-    print
+    print()
+    print('determineWcs() finished.  Got:')
+    print()
     if wcs is None:
-        print 'WCS determination failed.'
+        print('WCS determination failed.')
     else:
-        print '%i matches' % len(matchList)
+        print('%i matches' % len(matchList))
 
         for sm in matchList:
-            print '  (%.1f, %.1f) flux %.3g   ---   (%.1f, %.1f) flux %.3g' % (
+            print('  (%.1f, %.1f) flux %.3g   ---   (%.1f, %.1f) flux %.3g' % (
                 sm.first.getXAstrom(), sm.first.getYAstrom(), sm.first.getPsfFlux(),
-                sm.second.getXAstrom(), sm.second.getYAstrom(), sm.second.getPsfFlux())
+                sm.second.getXAstrom(), sm.second.getYAstrom(), sm.second.getPsfFlux()))
 
         fitshdr = wcs.getFitsMetadata()
-        print 'Found WCS:'
-        print fitshdr.toString()
+        print('Found WCS:')
+        print(fitshdr.toString())
 
         # No dice: daf_persistence can't write PropertySets to FITS.
         if False:
@@ -158,9 +159,9 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
         im.writeFits(outwcsfn, fitshdr)
 
     # Do photocal too.
-    print 'Doing photocal...'
+    print('Doing photocal...')
     magObj = photocal.calcPhotoCal(matchList, log=log, goodFlagValue=0)
-    print 'got:', magObj
+    print('got:', magObj)
 
     import lsst.meas.astrom.wcsPlots as wcsPlots
     wcsPlots.plotPhotometry(sourceset, refstars, matchList, prefix='photocal',
@@ -168,16 +169,16 @@ def rerun(sourceset, policy=None, exposure=None, wcs=None,
     from pylab import axis, plot, savefig, title
     ax = axis()
     zp = magObj.getMag(1.)
-    print 'Zero-point:', zp
+    print('Zero-point:', zp)
     plot([ax[0], ax[1]], [ax[0]+zp, ax[1]+zp], 'b-')
     axis(ax)
     if fieldname is not None:
         title(fieldname)
     savefig(plotprefix + 'photocal-zp.png')
 
-    print 'plots:'
+    print('plots:')
     for k, v in plots.items():
-        print '  ', k, 'len', len(v)
+        print('  ', k, 'len', len(v))
         f = open(plotprefix + k, 'wb')
         f.write(v)
         f.close()
@@ -202,10 +203,10 @@ def rerun_main(sysargs):
 
     for fn in args:
         if fn.endswith('.boost'):
-            print 'Reading boost-format', fn
+            print('Reading boost-format', fn)
             ss = sourceset_read_boost(fn)
         else:
-            print 'Reading FITS-format', fn
+            print('Reading FITS-format', fn)
             T = fits_table(fn)
             ss = afwDet.SourceSet()
             C = T.columns()
@@ -224,7 +225,7 @@ def rerun_main(sysargs):
             }
             for k, v in columnmap.items():
                 if not v in C:
-                    print 'Warning, column', v, 'is not in the FITS table -- won\'t set Source\'s', k
+                    print('Warning, column', v, 'is not in the FITS table -- won\'t set Source\'s', k)
             for i in range(len(T)):
                 src = afwDet.Source()
                 ss.append(src)
@@ -234,7 +235,7 @@ def rerun_main(sysargs):
                 for src, val in zip(ss, T.getcolumn(v)):
                     getattr(src, 'set'+k)(val)
 
-        print 'Read %i sources' % (len(ss))
+        print('Read %i sources' % (len(ss)))
         # if opt.verb:
         #    for i in range(100):
         # print '  (%.1f, %.1f) psf flux %.1f' % (ss[i].getXAstrom(),

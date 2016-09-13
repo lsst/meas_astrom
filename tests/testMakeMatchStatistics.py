@@ -36,6 +36,7 @@ import lsst.afw.math as afwMath
 import lsst.afw.table as afwTable
 from lsst.meas.base import SingleFrameMeasurementTask
 import lsst.meas.astrom as measAstrom
+from functools import reduce
 
 
 class TestAstrometricSolver(lsst.utils.tests.TestCase):

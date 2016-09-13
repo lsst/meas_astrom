@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # LSST Data Management System
 # Copyright 2008-2016 AURA/LSST.
@@ -523,8 +524,8 @@ def showAstrometry(exposure, wcs, allMatches, useMatches, frame=0, title=None, p
             ds9.dot("x", pix[0], pix[1], size=10, frame=frame, ctype=color)
 
     radii = np.array(radii)
-    print "<dr> = %.4g +- %.4g pixels [%d/%d matches]" % (radii.mean(), radii.std(),
-                                                          len(useMatches), len(allMatches))
+    print("<dr> = %.4g +- %.4g pixels [%d/%d matches]" % (radii.mean(), radii.std(),
+                                                          len(useMatches), len(allMatches)))
 
     if pause:
         import sys

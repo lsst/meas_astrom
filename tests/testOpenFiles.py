@@ -21,6 +21,7 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
+from __future__ import print_function
 import os
 import unittest
 import resource
@@ -55,7 +56,7 @@ def getOpenFiles():
 
 def printOpenFiles():
     names = getOpenFiles()
-    print "Open files (%d): %s" % (len(names), names)
+    print("Open files (%d): %s" % (len(names), names))
 
 
 class OpenFilesTest(unittest.TestCase):
@@ -68,9 +69,9 @@ class OpenFilesTest(unittest.TestCase):
 
     def setUp(self):
         self.originalLimits = resource.getrlimit(resource.RLIMIT_NOFILE)
-        print 'NOFILE rlimit:', self.originalLimits
+        print('NOFILE rlimit:', self.originalLimits)
         resource.setrlimit(resource.RLIMIT_NOFILE, (10, self.originalLimits[1]))
-        print 'NOFILE rlimit:', resource.getrlimit(resource.RLIMIT_NOFILE)
+        print('NOFILE rlimit:', resource.getrlimit(resource.RLIMIT_NOFILE))
 
         mypath = os.path.dirname(__file__)
         self.andpath = setupAstrometryNetDataDir('photocal', rootDir=mypath)
@@ -96,14 +97,14 @@ class OpenFilesTest(unittest.TestCase):
     def runDetermineWcs(self):
         astrom = self.getAstrom()
         result = astrom.determineWcs2(self.srcCat, bbox=self.bbox, filterName='i')
-        print 'Got result from determineWcs:', result
+        print('Got result from determineWcs:', result)
         # printOpenFiles()
         return result.wcs
 
     def runUseKnownWcs(self, wcs):
         astrom = self.getAstrom()
         result = astrom.useKnownWcs(self.srcCat, wcs=wcs, filterName='i', bbox=self.bbox)
-        print "Got result from useKnownWcs:", result
+        print("Got result from useKnownWcs:", result)
         # printOpenFiles()
 
     def testDetermineWcs(self):

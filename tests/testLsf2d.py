@@ -22,6 +22,7 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
+from __future__ import print_function
 import unittest
 
 import lsst.utils.tests
@@ -87,13 +88,13 @@ class Lsf2dTestCase(unittest.TestCase):
         z = [0.5989999999999327, 1.1716010609097793, 0.51199999999994361, 1.0825253182899814]
         s = [.1, .1, .1, .1]
 
-        print " "
+        print(" ")
         lsf = sip.LeastSqFitter2dPoly(x, y, z, s, 2)
-        print lsf.getParams()
+        print(lsf.getParams())
 
-        print "Output:"
+        print("Output:")
         for i in range(len(x)):
-            print x[i], y[i], z[i], lsf.valueAt(x[i], y[i])
+            print(x[i], y[i], z[i], lsf.valueAt(x[i], y[i]))
             self.assertAlmostEqual(z[i], lsf.valueAt(x[i], y[i]))
 
 
