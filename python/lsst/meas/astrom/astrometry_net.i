@@ -106,8 +106,11 @@ static void an_log_callback(void* baton, enum log_level level,
         msg[len-2] = '\0';
     }
 
-    lsst::log::Log::logMsg(_log, log4cxx::Level::toLevel(lsstlevel),
-                           log4cxx::spi::LocationInfo(file, func, line), msg);
+    // not using the LOGS macro because the original location info is wanted
+    if (_log.isEnabledFor(lsstlevel)) {
+        _log.logMsg(log4cxx::Level::toLevel(lsstlevel),
+                    log4cxx::spi::LocationInfo(file, func, line), msg);
+    }
 }
 
 static void start_an_logging() {
