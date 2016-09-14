@@ -1,4 +1,5 @@
 from __future__ import print_function
+from builtins import range
 #
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
@@ -354,8 +355,8 @@ def writeSourceSet(sourceSet, outfile="-"):
         fd = open(outfile, "w")
 
     for s in sourceSet:
-        print(s.getId(), s.getXAstrom(), s.getYAstrom(), s.getRa(
-        ), s.getDec(), s.getPsfFlux(), s.getFlagForDetection(), file=fd)
+        print(s.getId(), s.getXAstrom(), s.getYAstrom(), s.getRa(), s.getDec(),
+              s.getPsfFlux(), s.getFlagForDetection(), file=fd)
 
 
 def readSourceSet(fileName):

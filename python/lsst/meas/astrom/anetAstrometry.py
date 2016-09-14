@@ -1,4 +1,7 @@
 from __future__ import print_function
+from builtins import input
+from builtins import zip
+from builtins import range
 #
 # LSST Data Management System
 # Copyright 2008-2016 AURA/LSST.
@@ -531,7 +534,7 @@ def showAstrometry(exposure, wcs, allMatches, useMatches, frame=0, title=None, p
         import sys
         while True:
             try:
-                reply = raw_input("Debugging? [p]db [q]uit; any other key to continue... ").strip()
+                reply = input("Debugging? [p]db [q]uit; any other key to continue... ").strip()
             except EOFError:
                 reply = ""
 

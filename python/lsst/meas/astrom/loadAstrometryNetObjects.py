@@ -1,4 +1,5 @@
 from __future__ import absolute_import, division, print_function
+from builtins import object
 
 import lsst.pipe.base as pipeBase
 from lsst.meas.algorithms import LoadReferenceObjectsTask, getRefFluxField

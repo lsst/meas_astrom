@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+from builtins import range
 #
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
@@ -26,7 +28,7 @@ import numpy as np
 
 import lsst.afw.detection as det
 
-import sipLib as sip
+from . import sipLib as sip
 
 
 def clean(srcMatch, wcs, order=3, nsigma=3):
@@ -73,14 +75,14 @@ def indicesOfGoodPoints(x, y, s, order=1, nsigma=3, maxiter=100):
     # Indices of elements of x sorted in order of increasing value
     idx = x.argsort()
     newidx = []
-    for niter in xrange(maxiter):
+    for niter in range(maxiter):
         rx = chooseRx(x, idx, order)
         ry = chooseRy(y, idx, order)
         rs = np.ones((len(rx)))
 
         lsf = sip.LeastSqFitter1dPoly(list(rx), list(ry), list(rs), order)
-        fit = map(lambda x: lsf.valueAt(x), rx)
-        f = map(lambda x: lsf.valueAt(x), x)
+        fit = [lsf.valueAt(value) for value in rx]
+        f = [lsf.valueAt(value) for value in x]
 
         sigma = (y-f).std()
         deviance = np.fabs((y - f) / sigma)
@@ -112,7 +114,7 @@ def chooseRx(x, idx, order):
     rx = np.zeros((order+1))
 
     for i in range(order+1):
-        rng = range(int(rSize*i), int(rSize*(i+1)))
+        rng = list(range(int(rSize*i), int(rSize*(i+1))))
         rx[i] = np.mean(x[idx[rng]])
     return rx
 
@@ -123,6 +125,6 @@ def chooseRy(y, idx, order):
     ry = np.zeros((order+1))
 
     for i in range(order+1):
-        rng = range(int(rSize*i), int(rSize*(i+1)))
+        rng = list(range(int(rSize*i), int(rSize*(i+1))))
         ry[i] = np.median(y[idx[rng]])
     return ry

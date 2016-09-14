@@ -79,7 +79,7 @@ def main(inputName, outputName):
             record.set(centroidKey.getY(), float(y))
             record.set(psfFluxKey, float(cts))
             flags = int(flags)
-            for oldName, mask in oldFlags.iteritems():
+            for oldName, mask in oldFlags.items():
                 if oldName == "BINNED1":
                     continue
                 if mask & flags:

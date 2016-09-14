@@ -1,4 +1,7 @@
 from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import range
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib.font_manager import FontProperties
@@ -17,8 +20,8 @@ import lsst.afw.coord.coordLib as afwCoord
 
 
 def _getplotdata(format='png'):
-    import cStringIO
-    io = cStringIO.StringIO()
+    import io
+    io = io.StringIO()
     plt.savefig(io, format=format)
     val = io.getvalue()
     io.close()

@@ -65,8 +65,6 @@ class MultipleCatalogStarsTest(unittest.TestCase):
 
         ids = set(s.getId() for s in cat)
         print(len(ids), 'unique IDs')
-        ras = set(s.getRa() for s in cat)
-        print(len(ras), 'unique RAs')
 
         ids = set()
         for src in cat:

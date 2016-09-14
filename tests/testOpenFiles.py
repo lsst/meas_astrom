@@ -22,6 +22,7 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 from __future__ import print_function
+from builtins import range
 import os
 import unittest
 import resource
@@ -45,7 +46,7 @@ def getOpenFiles():
     import os
 
     pid = os.getpid()
-    output = subprocess.check_output(["/usr/sbin/lsof", '-w', '-Ffn', "-p", str(pid)])
+    output = subprocess.check_output(["/usr/sbin/lsof", '-w', '-Ffn', "-p", str(pid)]).decode()
 
     procs = [out for out in output.split('\n') if out and out[0] in "fn"]
     assert len(procs) % 2 == 0  # Expect an even number of lines: f and n pairs
@@ -69,8 +70,10 @@ class OpenFilesTest(unittest.TestCase):
 
     def setUp(self):
         self.originalLimits = resource.getrlimit(resource.RLIMIT_NOFILE)
+        # don't want this to depend on how many files e.g. py.test has open at the start.
+        currentOpenFiles = len(getOpenFiles())
         print('NOFILE rlimit:', self.originalLimits)
-        resource.setrlimit(resource.RLIMIT_NOFILE, (10, self.originalLimits[1]))
+        resource.setrlimit(resource.RLIMIT_NOFILE, (currentOpenFiles + 5, self.originalLimits[1]))
         print('NOFILE rlimit:', resource.getrlimit(resource.RLIMIT_NOFILE))
 
         mypath = os.path.dirname(__file__)

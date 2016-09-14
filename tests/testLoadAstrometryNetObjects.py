@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from __future__ import absolute_import, division, print_function
+from builtins import zip
 
 #
 # LSST Data Management System
@@ -192,12 +193,12 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
         if bbox is not None:
             cornerList = list(afwGeom.Box2D(bbox).getCorners())
             cornerList.append(cornerList[0])  # show 4 sides of the box by going back to the beginning
-            xc, yc = zip(*cornerList)
+            xc, yc = list(zip(*cornerList))
             pyplot.plot(xc, yc, '-')
 
         centroidKey = refCat.schema["centroid"].asKey()
         centroidList = [rec.get(centroidKey) for rec in refCat]
-        xp, yp = zip(*centroidList)
+        xp, yp = list(zip(*centroidList))
         pyplot.plot(xp, yp, '.')
         pyplot.show()
 

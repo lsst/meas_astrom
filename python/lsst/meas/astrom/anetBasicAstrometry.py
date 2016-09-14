@@ -1,5 +1,10 @@
 from __future__ import absolute_import, division
 from __future__ import print_function
+from builtins import zip
+from builtins import next
+from builtins import input
+from builtins import range
+from builtins import object
 #
 # LSST Data Management System
 #
@@ -765,7 +770,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
 
         while True:
             try:
-                reply = raw_input("Pausing for inspection, enter to continue... [hpQ] ").strip()
+                reply = input("Pausing for inspection, enter to continue... [hpQ] ").strip()
             except EOFError:
                 reply = "n"
 

@@ -24,7 +24,7 @@
 in an astronomical image"""
 from __future__ import absolute_import
 
-from sipLib import *
+from .sipLib import *
 
 from . import genDistortedImage
 from . import cleanBadPoints

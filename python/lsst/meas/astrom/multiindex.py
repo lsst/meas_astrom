@@ -1,3 +1,6 @@
+from builtins import zip
+from builtins import range
+from builtins import object
 import os
 
 import numpy
@@ -186,7 +189,7 @@ class AstrometryNetCatalog(object):
 
     def _initFromIndexFiles(self, andConfig):
         """Initialise from the index files in an AstrometryNetDataConfig"""
-        indexFiles = zip(andConfig.indexFiles, andConfig.indexFiles) + andConfig.multiIndexFiles
+        indexFiles = list(zip(andConfig.indexFiles, andConfig.indexFiles)) + andConfig.multiIndexFiles
         self._multiInds = [MultiIndexCache.fromFilenameList(fnList) for fnList in indexFiles]
 
     def writeCache(self):

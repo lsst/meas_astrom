@@ -3,6 +3,8 @@ We used to have AstrometryNetDataConfig() use the pex_config
 mechanism, but we need nested lists, so we do this home-brew version
 instead.
 '''
+from past.builtins import execfile
+from builtins import object
 
 
 def _checkMagMap(magmap):
