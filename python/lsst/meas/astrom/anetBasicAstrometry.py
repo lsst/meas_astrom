@@ -1,4 +1,10 @@
 from __future__ import absolute_import, division
+from __future__ import print_function
+from builtins import zip
+from builtins import next
+from builtins import input
+from builtins import range
+from builtins import object
 #
 # LSST Data Management System
 #
@@ -722,7 +728,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
             import matplotlib.pyplot as plt
             import numpy
         except ImportError:
-            print >> sys.stderr, "Unable to import matplotlib"
+            print("Unable to import matplotlib", file=sys.stderr)
             return
 
         fig = plt.figure(1)
@@ -747,7 +753,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         subplots = maUtils.makeSubplots(fig, 2, 2, xgutter=0.1, ygutter=0.1, pygutter=0.04)
 
         def plotNext(x, y, xLabel, yLabel, xMax):
-            ax = subplots.next()
+            ax = next(subplots)
             ax.set_autoscalex_on(False)
             ax.set_xbound(lower=0, upper=xMax)
             ax.scatter(x, y)
@@ -764,7 +770,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
 
         while True:
             try:
-                reply = raw_input("Pausing for inspection, enter to continue... [hpQ] ").strip()
+                reply = input("Pausing for inspection, enter to continue... [hpQ] ").strip()
             except EOFError:
                 reply = "n"
 
@@ -776,7 +782,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
 
             if reply in ("", "h", "p", "Q"):
                 if reply == "h":
-                    print "h[elp] p[db] Q[uit]"
+                    print("h[elp] p[db] Q[uit]")
                     continue
                 elif reply == "p":
                     import pdb

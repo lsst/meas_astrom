@@ -1,3 +1,4 @@
+from builtins import range
 #!/usr/bin/env python
 #
 # LSST Data Management System
@@ -83,7 +84,7 @@ class joinMatchListWithCatalogTestCase(unittest.TestCase):
         matches2 = self.astrom.refObjLoader.joinMatchListWithCatalog(normalized, self.srcSet)
 
         self.assertEqual(len(matches2), len(matches))
-        for i in xrange(len(matches)):
+        for i in range(len(matches)):
             self.assertEqual(matches2[i].second.table, matches[i].second.table)
             self.assertEqual(matches2[i].second.getId(), matches[i].second.getId())
             self.assertEqual(matches2[i].second, matches[i].second)  # no deep copying, so we can compare ptrs

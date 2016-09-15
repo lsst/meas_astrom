@@ -1,5 +1,7 @@
 #! /usr/bin/env python
 
+from __future__ import print_function
+from builtins import range
 import sys
 from optparse import OptionParser
 
@@ -17,32 +19,32 @@ from astrometry.libkd import spherematch
 
 def plotshift(ixy, rxy, dcell=50, ncells=18, outfn=None, W=None, H=None, hist=False,
               nhistbins=21):
-    print 'plotshift...'
+    print('plotshift...')
     # correspondences we could have hit...
     radius = dcell * sqrt(2.)
-    print 'ixy', ixy.shape
-    print 'rxy', rxy.shape
-    print 'asserts'
+    print('ixy', ixy.shape)
+    print('rxy', rxy.shape)
+    print('asserts')
     assert((len(rxy) == 0) or (rxy.shape[1] == 2))
     assert((len(ixy) == 0) or (ixy.shape[1] == 2))
 
-    print 'slice'
+    print('slice')
     ix = ixy[:, 0]
     iy = ixy[:, 1]
 
-    print 'w,h'
+    print('w,h')
     if W is None:
         W = max(ix)
     if H is None:
         H = max(iy)
 
-    print 'rxy'
+    print('rxy')
     if len(rxy):
         keep = (rxy[:, 0] > -dcell) * (rxy[:, 0] < W+dcell) * (rxy[:, 1] > -dcell) * (rxy[:, 1] < H+dcell)
         rxy = rxy[keep]
-    print 'Cut to %i ref sources in range' % len(rxy)
+    print('Cut to %i ref sources in range' % len(rxy))
 
-    print 'bin...'
+    print('bin...')
     cellsize = sqrt(W * H / ncells)
     nw = int(round(W / cellsize))
     nh = int(round(H / cellsize))
@@ -63,19 +65,19 @@ def plotshift(ixy, rxy, dcell=50, ncells=18, outfn=None, W=None, H=None, hist=Fa
     biny = clip(biny - 1, 0, nh-1)
     bin = biny * nw + binx
 
-    print 'plot...'
+    print('plot...')
     plt.clf()
 
     for i in range(nh):
         for j in range(nw):
-            print 'cell %i, %i' % (j, i)
+            print('cell %i, %i' % (j, i))
             thisbin = i * nw + j
             R = (bin == thisbin)
-            print '%i ref sources' % sum(R)
+            print('%i ref sources' % sum(R))
             matchdx = []
 
             if sum(R) > 0:
-                print 'match...'
+                print('match...')
                 (inds, dists) = spherematch.match(rxy[R, :], ixy, radius)
                 # print 'Found %i matches within %g pixels' % (len(dists), radius)
                 ri = inds[:, 0]

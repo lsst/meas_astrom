@@ -1,3 +1,5 @@
+from __future__ import print_function
+from builtins import zip
 import sys
 
 import lsst.pex.policy as policy
@@ -30,7 +32,7 @@ def main():
     solver.setLogLevel(3)
 
     ids = solver.getIndexIdList()
-    print 'Index IDs:', ids
+    print('Index IDs:', ids)
     indexid = ids[0]
 
     idName = 'id'
@@ -38,14 +40,14 @@ def main():
                             radius * afwGeom.degrees, '', idName, indexid)
     ref = X.refsources
     inds = X.inds
-    print 'Got', len(ref), 'reference catalog sources'
-    print '  got indices:', len(inds)
+    print('Got', len(ref), 'reference catalog sources')
+    print('  got indices:', len(inds))
 
-    print 'Tag-along columns:'
+    print('Tag-along columns:')
     cols = solver.getTagAlongColumns(indexid)
     # print cols
     for c in cols:
-        print '  column:', c.name, c.fitstype, c.ctype, c.units, c.arraysize
+        print('  column:', c.name, c.fitstype, c.ctype, c.units, c.arraysize)
     colnames = [c.name for c in cols]
 
     tagdata = []
@@ -58,24 +60,24 @@ def main():
 
     if opt.outfn is None:
         # SSV
-        print 'ra dec',
+        print('ra dec', end=' ')
         for c in cols:
             if c.arraysize > 1:
                 for a in len(c.arraysize):
-                    print ('%s_%i' % (c.name, a)),
+                    print(('%s_%i' % (c.name, a)), end=' ')
             else:
-                print c.name,
-        print
+                print(c.name, end=' ')
+        print()
 
         for i, r in enumerate(ref):
-            print r.getRa().asDegrees(), r.getDec().asDegrees(),
+            print(r.getRa().asDegrees(), r.getDec().asDegrees(), end=' ')
             for c, d in zip(cols, tagdata):
                 if c.arraysize > 1:
                     for a in len(c.arraysize):
-                        print d[c.arraysize * i + a],
+                        print(d[c.arraysize * i + a], end=' ')
                 else:
-                    print d[i],
-            print
+                    print(d[i], end=' ')
+            print()
 
     else:
         import pyfits
@@ -101,7 +103,7 @@ def main():
                                               format=fmap.get(c.ctype, 'D')))
 
         pyfits.new_table(fitscols).writeto(opt.outfn, clobber=True)
-        print 'Wrote FITS table', opt.outfn
+        print('Wrote FITS table', opt.outfn)
 
     return 0
 

@@ -22,6 +22,7 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
+from __future__ import print_function
 import os
 import unittest
 
@@ -61,7 +62,7 @@ class CreateWcsWithSipCase(unittest.TestCase):
         cx = 500
         a2 = 1e-5
         cat = SourceCatalog.readFits(self.filename)
-        print 'Catalog size', len(cat)
+        print('Catalog size', len(cat))
         # Source x,y positions are ~ (500,1500) x (500,1500)
         xKey = cat.table.getCentroidKey().getX()
         yKey = cat.table.getCentroidKey().getY()
@@ -74,8 +75,8 @@ class CreateWcsWithSipCase(unittest.TestCase):
         bbox = afwGeom.Box2I(afwGeom.Point2I(x0, y0), afwGeom.Extent2I(1000, 1000))
         res = self.astrom.determineWcs2(cat, bbox=bbox)
         self.assertIsNotNone(res.sipWcs, "Failed to fit SIP terms")
-        print 'Got result', res
-        print 'SIP:', res.sipWcs.getFitsMetadata().toString()
+        print('Got result', res)
+        print('SIP:', res.sipWcs.getFitsMetadata().toString())
 
         wcs = res.wcs
         for src in cat:
@@ -89,15 +90,15 @@ class CreateWcsWithSipCase(unittest.TestCase):
             self.assertLess(abs(xy[1] - src.getY()), 0.1)
 
     def testLinearXDistort(self):
-        print "linearXDistort"
+        print("linearXDistort")
         self.singleTestInstance(self.filename, distort.linearXDistort)
 
     def testLinearYDistort(self):
-        print "linearYDistort"
+        print("linearYDistort")
         self.singleTestInstance(self.filename, distort.linearYDistort)
 
     def testQuadraticDistort(self):
-        print "linearQuadraticDistort"
+        print("linearQuadraticDistort")
         self.singleTestInstance(self.filename, distort.linearYDistort)
 
     def singleTestInstance(self, filename, distortFunc):
@@ -108,17 +109,17 @@ class CreateWcsWithSipCase(unittest.TestCase):
         imgWcs = res.getWcs()
 
         def printWcs(wcs):
-            print "WCS metadata:"
+            print("WCS metadata:")
             md = wcs.getFitsMetadata()
             for name in md.names():
-                print "%s: %r" % (name, md.get(name))
+                print("%s: %r" % (name, md.get(name)))
 
         printWcs(imgWcs)
 
         # Create a wcs with sip
         cat = cat.cast(SimpleCatalog, False)
         matchList = self.matchSrcAndCatalogue(cat, img, imgWcs)
-        print "*** num matches =", len(matchList)
+        print("*** num matches =", len(matchList))
         return
         sipObject = sip.makeCreateWcsWithSip(matchList, imgWcs, 3)
 
@@ -132,9 +133,9 @@ class CreateWcsWithSipCase(unittest.TestCase):
         # afwImage.fits_write_imageF('createWcsWithSip.sip', afwImage.ImageF(0,0),
         # imgWcs.getFitsMetadata())
 
-        print 'number of matches:', len(matchList), sipObject.getNPoints()
+        print('number of matches:', len(matchList), sipObject.getNPoints())
         scatter = sipObject.getScatterOnSky().asArcseconds()
-        print "Scatter in arcsec is %g" % (scatter)
+        print("Scatter in arcsec is %g" % (scatter))
 
         self.assertLess(scatter, self.tolArcsec, "Scatter exceeds tolerance in arcsec")
 

@@ -1,3 +1,5 @@
+from builtins import input
+from builtins import object
 #
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
@@ -181,7 +183,7 @@ class CatalogStarSelectorTask(object):
                                     size=4, frame=frame, ctype=ctype)
 
         if display and pauseAtEnd:
-            raw_input("Continue? y[es] p[db] ")
+            input("Continue? y[es] p[db] ")
 
         return Struct(
             starCat=starCat,

@@ -1,3 +1,4 @@
+from builtins import object
 #!/usr/bin/env python
 
 # LSST Data Management System
@@ -137,7 +138,7 @@ class BaseTestCase(unittest.TestCase):
         self.assertLess(maxDistErr.asArcseconds(), 1e-7)
 
 
-class SideLoadTestCases():
+class SideLoadTestCases(object):
 
     """Base class implementations of testing methods.
 

@@ -9,6 +9,7 @@ setupRequired(utils)
 setupRequired(wcslib >= 4.4.4)
 setupRequired(astrometry_net)
 setupRequired(numpy)
+setupRequired(python_future)
 
 setupOptional(matplotlib)
 

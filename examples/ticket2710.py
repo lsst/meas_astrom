@@ -1,3 +1,5 @@
+from __future__ import print_function
+from builtins import zip
 import matplotlib
 matplotlib.use('Agg')
 import pylab as plt
@@ -51,7 +53,7 @@ def showSipSolutions(srcs, wcs0, andDir, x0, y0, W, H, filterName,
 
     # What reference sources are in the original WCS
     refs = ast.getReferenceSourcesForWcs(wcs0, **imargs)
-    print 'Got', len(refs), 'reference objects for initial WCS'
+    print('Got', len(refs), 'reference objects for initial WCS')
 
     # How does a straight TAN solution look?
     conf2 = measAstrom.ANetBasicAstrometryConfig(sipOrder=4, calculateSip=False)

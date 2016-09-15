@@ -32,6 +32,8 @@
 # discovery to only run tests found in the subclasses.
 
 from __future__ import print_function
+from builtins import range
+from builtins import object
 import math
 import unittest
 
@@ -301,7 +303,7 @@ class BaseTestCase(object):
         pnum += 1
 
 
-class SideLoadTestCases():
+class SideLoadTestCases(object):
 
     """Base class implementations of testing methods.
 

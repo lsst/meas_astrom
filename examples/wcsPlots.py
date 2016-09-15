@@ -1,3 +1,7 @@
+from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import range
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib.font_manager import FontProperties
@@ -16,8 +20,8 @@ import lsst.afw.coord.coordLib as afwCoord
 
 
 def _getplotdata(format='png'):
-    import cStringIO
-    io = cStringIO.StringIO()
+    import io
+    io = io.StringIO()
     plt.savefig(io, format=format)
     val = io.getvalue()
     io.close()
@@ -93,9 +97,9 @@ def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
                    zp=None, delta=False, referrs=None, refstargal=None,
                    title=None,
                    saveplot=True, format='png'):
-    print '%i ref sources' % len(refsources)
-    print '%i image sources' % len(imgsources)
-    print '%i matches' % len(matches)
+    print('%i ref sources' % len(refsources))
+    print('%i image sources' % len(imgsources))
+    print('%i matches' % len(matches))
 
     # In the "matches" list:
     #    m.first  is catalog
@@ -116,12 +120,12 @@ def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
         try:
             i = refsources.index(m.first)
         except ValueError:
-            print 'Match list reference source ID', m.first.getSourceId(), 'was not in the list of reference stars'
+            print('Match list reference source ID', m.first.getSourceId(), 'was not in the list of reference stars')
             continue
         try:
             j = imgsources.index(m.second)
         except ValueError:
-            print 'Match list source ID', m.second.getSourceId(), 'was not in the list of image sources'
+            print('Match list source ID', m.second.getSourceId(), 'was not in the list of image sources')
             continue
         MR.append(i)
         MI.append(j)
@@ -161,17 +165,17 @@ def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
         unmatched = [imgsources[i] for i in np.flatnonzero(uimg)]
         uflux = np.array([s.getPsfFlux() for s in unmatched])
         I = np.argsort(-uflux)
-        print 'Unmatched image sources, by psf flux:'
-        print '# FLUX, X, Y, RA, DEC'
+        print('Unmatched image sources, by psf flux:')
+        print('# FLUX, X, Y, RA, DEC')
         for i in I:
             u = unmatched[i]
-            print u.getPsfFlux(), u.getXAstrom(), u.getYAstrom(), u.getRa(), u.getDec()
+            print(u.getPsfFlux(), u.getXAstrom(), u.getYAstrom(), u.getRa(), u.getDec())
 
-        print 'Matched image sources, by psf flux:'
-        print '# FLUX, X, Y, RA, DEC'
+        print('Matched image sources, by psf flux:')
+        print('# FLUX, X, Y, RA, DEC')
         for i in mimgi:
             m = imgsources[i]
-            print m.getPsfFlux(), m.getXAstrom(), m.getYAstrom(), m.getRa(), m.getDec()
+            print(m.getPsfFlux(), m.getXAstrom(), m.getYAstrom(), m.getRa(), m.getDec())
 
     # Legend entries:
     pp = []
@@ -348,11 +352,11 @@ def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
 
 def plotCorrespondences2(imgsources, refsources, matches, wcs, W, H, prefix,
                          saveplot=True, format='png'):
-    print 'ix,iy'
+    print('ix,iy')
     ix = np.array([s.getXAstrom() for s in imgsources])
     iy = np.array([s.getYAstrom() for s in imgsources])
 
-    print 'rx,ry'
+    print('rx,ry')
     rx, ry = [], []
     for r in refsources:
         xy = wcs.skyToPixel(r.getRaDec())
@@ -364,26 +368,26 @@ def plotCorrespondences2(imgsources, refsources, matches, wcs, W, H, prefix,
     ixy = np.vstack((ix, iy)).T
     rxy = np.vstack((rx, ry)).T
 
-    print 'plotshift...'
+    print('plotshift...')
     cell = 10
     plotshift(ixy, rxy, dcell=cell, ncells=9, W=W, H=H)
     fn = prefix + '-shift1.' + format
     P1 = _output(fn, format, saveplot)
 
-    print 'plotshift 2...'
+    print('plotshift 2...')
     plt.clf()
     plt.hot()
     plotshift(ixy, rxy, dcell=cell, ncells=9, W=W, H=H, hist=True, nhistbins=2*cell+1)
     fn = prefix + '-shift2.' + format
     P2 = _output(fn, format, saveplot)
 
-    print 'plotshift 3...'
+    print('plotshift 3...')
     cell = 2
     plotshift(ixy, rxy, dcell=cell, ncells=9, W=W, H=H)
     fn = prefix + '-shift3.' + format
     P3 = _output(fn, format, saveplot)
 
-    print 'plotshift 4...'
+    print('plotshift 4...')
     plt.clf()
     plt.hot()
     plotshift(ixy, rxy, dcell=cell, ncells=9, W=W, H=H, hist=True, nhistbins=10*cell+1)
@@ -432,7 +436,7 @@ def plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix):
         matchdy = matchdy[ok]
         mi = mi[ok]
         ii = ii[ok]
-        print 'Found %i matches within %g pixels' % (len(dists), radius)
+        print('Found %i matches within %g pixels' % (len(dists), radius))
 
     ncells = 18.
     cellsize = np.sqrt(W * H / ncells)
@@ -491,7 +495,7 @@ def plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix):
             plt.axis([-dcell, dcell, -dcell, dcell])
 
     fn = prefix + '-missed.png'
-    print 'Saving', fn
+    print('Saving', fn)
     plt.savefig(fn)
 
 
@@ -526,7 +530,7 @@ Source.getRa(), getDec()
  by meas_astrom:sip:MatchSrcToCatalogue.cc : findMatches()
 
 '''
-    print 'WCS plots'
+    print('WCS plots')
     D = plotMatches(imgsources, refsources, matches, wcs, W, H, prefix,
                     saveplot=(plotdata is None), format=plotformat)
     if plotdata is not None:

@@ -22,6 +22,7 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
+from __future__ import print_function
 import os
 import unittest
 
@@ -129,23 +130,23 @@ class MultiIndexTest(unittest.TestCase):
     # what to enforce.
     def testResources(self):
         fd0 = ttime.count_file_descriptors()
-        print 'Mem0:',
-        print ttime.memusage()
-        print 'FD0:', fd0
+        print('Mem0:', end=' ')
+        print(ttime.memusage())
+        print('FD0:', fd0)
 
         andConfig = AstrometryNetDataConfig()
         fn = os.path.join(self.an_data_dir, 'andConfig6.py')
         andConfig.load(fn)
         andConfig.multiIndexFiles = andConfig.multiIndexFiles * 100
-        print len(andConfig.multiIndexFiles), 'multi-index files'
+        print(len(andConfig.multiIndexFiles), 'multi-index files')
 
         astrom = measAstrom.ANetBasicAstrometryTask(self.conf, andConfig=andConfig)
 
         fd1 = ttime.count_file_descriptors()
-        print
-        print 'Mem1:'
-        print ttime.memusage()
-        print 'FD1:', fd1
+        print()
+        print('Mem1:')
+        print(ttime.memusage())
+        print('FD1:', fd1)
 
         # Number of used file descriptors should not grow.  Magic 10
         # is just margin from other things going on in the python process
@@ -154,10 +155,10 @@ class MultiIndexTest(unittest.TestCase):
         res = astrom.determineWcs(self.srcCat, self.exposure, bbox=self.bbox)
 
         fd2 = ttime.count_file_descriptors()
-        print
-        print 'Mem2:'
-        print ttime.memusage()
-        print 'FD2:', fd2
+        print()
+        print('Mem2:')
+        print(ttime.memusage())
+        print('FD2:', fd2)
 
         # Number of used file descriptors should not grow.  Magic 10
         # is just margin from other things going on in the python process
@@ -167,10 +168,10 @@ class MultiIndexTest(unittest.TestCase):
         del astrom
 
         fd3 = ttime.count_file_descriptors()
-        print
-        print 'Mem3:'
-        print ttime.memusage()
-        print 'FD3:', fd3
+        print()
+        print('Mem3:')
+        print(ttime.memusage())
+        print('FD3:', fd3)
 
 
 class MemoryTester(lsst.utils.tests.MemoryTestCase):

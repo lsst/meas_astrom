@@ -1,3 +1,7 @@
+from __future__ import print_function
+from builtins import input
+from builtins import zip
+from builtins import range
 #
 # LSST Data Management System
 # Copyright 2008-2016 AURA/LSST.
@@ -523,14 +527,14 @@ def showAstrometry(exposure, wcs, allMatches, useMatches, frame=0, title=None, p
             ds9.dot("x", pix[0], pix[1], size=10, frame=frame, ctype=color)
 
     radii = np.array(radii)
-    print "<dr> = %.4g +- %.4g pixels [%d/%d matches]" % (radii.mean(), radii.std(),
-                                                          len(useMatches), len(allMatches))
+    print("<dr> = %.4g +- %.4g pixels [%d/%d matches]" % (radii.mean(), radii.std(),
+                                                          len(useMatches), len(allMatches)))
 
     if pause:
         import sys
         while True:
             try:
-                reply = raw_input("Debugging? [p]db [q]uit; any other key to continue... ").strip()
+                reply = input("Debugging? [p]db [q]uit; any other key to continue... ").strip()
             except EOFError:
                 reply = ""
 

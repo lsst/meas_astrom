@@ -22,9 +22,10 @@
 
 """Package to calculate the best fit SIP polynomials to describe the distortion
 in an astronomical image"""
+from __future__ import absolute_import
 
-from sipLib import *
+from .sipLib import *
 
-import genDistortedImage
-import cleanBadPoints
-from sourceMatchStatistics import *
+from . import genDistortedImage
+from . import cleanBadPoints
+from .sourceMatchStatistics import *

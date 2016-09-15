@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 from optparse import OptionParser
 
@@ -24,7 +25,7 @@ def sourceset_read_boost(fn):
     persistence = dafPersist.Persistence.getPersistence(pexPolicy.Policy())
     storageList.append(persistence.getRetrieveStorage("BoostStorage", loc))
     psvptr = persistence.unsafeRetrieve("PersistableSourceVector", storageList, additionalData)
-    print psvptr
+    print(psvptr)
     psv = afwDet.PersistableSourceVector.swigConvert(psvptr)
     return psv.getSources()
 
@@ -39,21 +40,21 @@ if __name__ == '__main__':
     outfn = args[1]
 
     ss = sourceset_read_boost(infn)
-    print 'Read %i sources from %s' % (len(ss), infn)
+    print('Read %i sources from %s' % (len(ss), infn))
     # Find all methods in Source called "getXXX".  Create columns in the FITS
     # table called "XXX".
     sfuncs = dir(ss[0])
     sfuncs.sort()
     fields = [(g, g[3:]) for g in sfuncs if g.startswith('get')]
-    print 'Grabbing fields', [f[1] for f in fields]
+    print('Grabbing fields', [f[1] for f in fields])
     out = tabledata()
     cols = []
     for getterName, name in fields:
         val = np.array([getattr(s, getterName)() for s in ss])
-        print 'setting', name, 'to', val
-        print '  dtype', val.dtype
+        print('setting', name, 'to', val)
+        print('  dtype', val.dtype)
         if val.dtype == object:
-            print 'skipping object column', name
+            print('skipping object column', name)
             continue
         cols.append(name)
         out.set(name, val)

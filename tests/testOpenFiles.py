@@ -21,6 +21,8 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
+from __future__ import print_function
+from builtins import range
 import os
 import unittest
 import resource
@@ -44,7 +46,7 @@ def getOpenFiles():
     import os
 
     pid = os.getpid()
-    output = subprocess.check_output(["/usr/sbin/lsof", '-w', '-Ffn', "-p", str(pid)])
+    output = subprocess.check_output(["/usr/sbin/lsof", '-w', '-Ffn', "-p", str(pid)]).decode()
 
     procs = [out for out in output.split('\n') if out and out[0] in "fn"]
     assert len(procs) % 2 == 0  # Expect an even number of lines: f and n pairs
@@ -55,7 +57,7 @@ def getOpenFiles():
 
 def printOpenFiles():
     names = getOpenFiles()
-    print "Open files (%d): %s" % (len(names), names)
+    print("Open files (%d): %s" % (len(names), names))
 
 
 class OpenFilesTest(unittest.TestCase):
@@ -68,9 +70,11 @@ class OpenFilesTest(unittest.TestCase):
 
     def setUp(self):
         self.originalLimits = resource.getrlimit(resource.RLIMIT_NOFILE)
-        print 'NOFILE rlimit:', self.originalLimits
-        resource.setrlimit(resource.RLIMIT_NOFILE, (10, self.originalLimits[1]))
-        print 'NOFILE rlimit:', resource.getrlimit(resource.RLIMIT_NOFILE)
+        # don't want this to depend on how many files e.g. py.test has open at the start.
+        currentOpenFiles = len(getOpenFiles())
+        print('NOFILE rlimit:', self.originalLimits)
+        resource.setrlimit(resource.RLIMIT_NOFILE, (currentOpenFiles + 5, self.originalLimits[1]))
+        print('NOFILE rlimit:', resource.getrlimit(resource.RLIMIT_NOFILE))
 
         mypath = os.path.dirname(__file__)
         self.andpath = setupAstrometryNetDataDir('photocal', rootDir=mypath)
@@ -96,14 +100,14 @@ class OpenFilesTest(unittest.TestCase):
     def runDetermineWcs(self):
         astrom = self.getAstrom()
         result = astrom.determineWcs2(self.srcCat, bbox=self.bbox, filterName='i')
-        print 'Got result from determineWcs:', result
+        print('Got result from determineWcs:', result)
         # printOpenFiles()
         return result.wcs
 
     def runUseKnownWcs(self, wcs):
         astrom = self.getAstrom()
         result = astrom.useKnownWcs(self.srcCat, wcs=wcs, filterName='i', bbox=self.bbox)
-        print "Got result from useKnownWcs:", result
+        print("Got result from useKnownWcs:", result)
         # printOpenFiles()
 
     def testDetermineWcs(self):

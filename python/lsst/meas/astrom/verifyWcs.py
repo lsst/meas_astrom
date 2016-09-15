@@ -1,3 +1,4 @@
+from builtins import range
 #
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
@@ -64,7 +65,7 @@ def checkMatches(srcMatchSet, exposure, log=None):
 
         try:
             cellSet.insertCandidate(measAlg.PsfCandidateF(csrc, exposure.getMaskedImage()))
-        except Exception, e:
+        except Exception as e:
             log.log(log.WARN, str(e))
 
     ncell = len(cellSet.getCellList())

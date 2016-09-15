@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import sys
 from optparse import OptionParser
@@ -14,7 +15,7 @@ import imsimUtils
 
 
 def process(keys, inButler, outButler):
-    print 'Processing', keys
+    print('Processing', keys)
     # HACK -- Grab calexp rather than visitim (since visitims are often not available in NCSA runs.)
     # visitim = inButler.get('visitim', **keys)
     visitim = inButler.get('calexp', **keys)

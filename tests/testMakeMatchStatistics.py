@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from __future__ import absolute_import, division, print_function
-
+from builtins import zip
 #
 # LSST Data Management System
 # Copyright 2015 LSST Corporation.
@@ -36,6 +36,7 @@ import lsst.afw.math as afwMath
 import lsst.afw.table as afwTable
 from lsst.meas.base import SingleFrameMeasurementTask
 import lsst.meas.astrom as measAstrom
+from functools import reduce
 
 
 class TestAstrometricSolver(lsst.utils.tests.TestCase):
@@ -102,7 +103,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         """
         np.random.seed(47)
         distList = list((np.random.random_sample([self.numMatches]) - 0.5) * 10)
-        for dist, match in itertools.izip(distList, self.matchList):
+        for dist, match in zip(distList, self.matchList):
             match.distance = dist
         itemList = (afwMath.MEDIAN, afwMath.MEANCLIP, afwMath.STDEV)
         itemMask = reduce(lambda a, b: a | b, itemList)
@@ -117,7 +118,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         np.random.seed(164)
         offLenList = [val*afwGeom.radians for val in np.random.random_sample([self.numMatches])]
         offDirList = [val*afwGeom.radians for val in np.random.random_sample([self.numMatches])*math.pi*2]
-        for offLen, offDir, match in itertools.izip(offLenList, offDirList, self.matchList):
+        for offLen, offDir, match in zip(offLenList, offDirList, self.matchList):
             coord = match.first.get(self.refCoordKey)
             coord.offset(offDir, offLen)  # an in-place operation
             match.first.set(self.refCoordKey, coord)
@@ -134,7 +135,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         """
         np.random.seed(164)
         offList = [afwGeom.Extent2D(val) for val in (np.random.random_sample([self.numMatches, 2])-0.5)*10]
-        for off, match in itertools.izip(offList, self.matchList):
+        for off, match in zip(offList, self.matchList):
             centroid = match.second.get(self.sourceCentroidKey)
             offCentroid = centroid + off
             match.second.set(self.sourceCentroidKey, offCentroid)

@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+from __future__ import print_function
 import sys
 from optparse import OptionParser
 
@@ -31,7 +32,7 @@ def main():
         pmatches = inButler.get('icMatch', **keys)
         matchmeta = pmatches.getSourceMatchMetadata()
         indexid = matchmeta.getInt('ANINDID')
-        print 'Solved with', indexid
+        print('Solved with', indexid)
         solvedindex.append(indexid)
 
     solvedindex = np.array(solvedindex)
@@ -40,7 +41,7 @@ def main():
     Ntotal = len(solvedindex)
     for ind in U:
         N = sum(solvedindex == ind)
-        print 'Index', ind, 'solved', N, 'or %.1f %%' % (100. * N / float(Ntotal))
+        print('Index', ind, 'solved', N, 'or %.1f %%' % (100. * N / float(Ntotal)))
 
     plt.clf()
     plt.hist(solvedindex)

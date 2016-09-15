@@ -20,6 +20,7 @@
 # see <https://www.lsstcorp.org/LegalNotices/>.
 #
 from __future__ import absolute_import, division, print_function
+from builtins import range
 
 from lsst.afw.image.utils import getDistortedWcs
 import lsst.afw.geom as afwGeom

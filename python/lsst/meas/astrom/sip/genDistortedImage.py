@@ -1,3 +1,5 @@
+from __future__ import print_function
+from builtins import range
 #
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
@@ -235,6 +237,6 @@ def distortList(srcList, function):
         diff = math.hypot(x1-x2, y1-y2)
         maxDiff = max(diff, maxDiff)
 
-    print "Max deviation is %e pixels" % (maxDiff)
+    print("Max deviation is %e pixels" % (maxDiff))
 
     return out

@@ -20,6 +20,7 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 from __future__ import absolute_import, division, print_function
+from builtins import zip
 import math
 
 import numpy as np
@@ -134,11 +135,11 @@ def plotAstrometry(
     srcCentroidKey = Point2DKey(srcSchema["slot_Centroid"])
 
     if refCat is not None:
-        refXArr, refYArr = zip(*[ref.get(refCentroidKey) for ref in refCat])
+        refXArr, refYArr = list(zip(*[ref.get(refCentroidKey) for ref in refCat]))
         plt.plot(refXArr, refYArr, marker=refMarker, color=refColor, linestyle="")
 
     if sourceCat is not None:
-        srcXArr, srcYArr = zip(*[src.get(srcCentroidKey) for src in sourceCat])
+        srcXArr, srcYArr = list(zip(*[src.get(srcCentroidKey) for src in sourceCat]))
         plt.plot(srcXArr, srcYArr, marker=sourceMarker, color=sourceColor, linestyle="")
 
     def makeLineSegmentData(refXYArr, srcXYArr, colorArr):
@@ -156,10 +157,10 @@ def plotAstrometry(
             raise RuntimeError("len(refXYArr) = %d != %d = len(colorArr)" %
                                (len(refXYArr), len(colorArr)))
 
-        refXArr, refYArr = zip(*refXYArr)
-        srcXArr, srcYArr = zip(*srcXYArr)
-        refSrcXArr = zip(refXArr, srcXArr)
-        refSrcYArr = zip(refYArr, srcYArr)
+        refXArr, refYArr = list(zip(*refXYArr))
+        srcXArr, srcYArr = list(zip(*srcXYArr))
+        refSrcXArr = list(zip(refXArr, srcXArr))
+        refSrcYArr = list(zip(refYArr, srcYArr))
         dataList = []
         for xycolor in zip(refSrcXArr, refSrcYArr, colorArr):
             for val in xycolor:
@@ -167,11 +168,11 @@ def plotAstrometry(
         return dataList
 
     refXYArr, srcXYArr = \
-        zip(*[(match[0].get(refCentroidKey), match[1].get(srcCentroidKey)) for match in matches])
+        list(zip(*[(match[0].get(refCentroidKey), match[1].get(srcCentroidKey)) for match in matches]))
 
     def plotSourceCircles(matches, color):
         srcXYArr = [match[1].get(srcCentroidKey) for match in matches]
-        srcXArr, srcYArr = zip(*srcXYArr)
+        srcXArr, srcYArr = list(zip(*srcXYArr))
         plt.plot(srcXArr, srcYArr, "o", mec=color, mfc="none", ms=10,)
 
     if callable(matchColor):

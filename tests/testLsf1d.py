@@ -22,6 +22,8 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
+from __future__ import print_function
+from builtins import range
 import unittest
 
 import lsst.utils.tests
@@ -109,7 +111,7 @@ class Lsf1dTestCase(unittest.TestCase):
         s = [1, 1, 1]
 
         order = 2
-        print
+        print()
         lsf = sip.LeastSqFitter1dPoly(x, y, s, order)
 
         self.assertAlmostEqual(lsf.valueAt(x[0]), 0.670187891961, 4)
@@ -130,12 +132,12 @@ class Lsf1dTestCase(unittest.TestCase):
         s = [1, 1, 1, 1]
 
         order = 3
-        print
+        print()
         lsf = sip.LeastSqFitter1dPoly(x, y, s, order)
 
         for i in range(len(x)):
             f = lsf.valueAt(x[i])
-            print "%.1f %.3f %.3f" % (x[i], y[i], f)
+            print("%.1f %.3f %.3f" % (x[i], y[i], f))
 
         self.assertAlmostEqual(lsf.valueAt(x[0]), y[0], 1)
         self.assertAlmostEqual(lsf.valueAt(x[1]), y[1], 1)
