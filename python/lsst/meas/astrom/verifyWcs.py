@@ -27,11 +27,14 @@ import lsst.afw.detection as afwDetection
 import lsst.afw.geom as afwGeom
 import lsst.afw.math as afwMath
 import lsst.meas.algorithms as measAlg
-
+from lsst.log import Log
 
 def checkMatches(srcMatchSet, exposure, log=None):
     if not exposure:
         return {}
+
+    if log is None:
+        log = Log.getLogger("meas.astrom.verifyWcs.checkMatches")
 
     im = exposure.getMaskedImage().getImage()
     width, height = im.getWidth(), im.getHeight()
@@ -66,7 +69,7 @@ def checkMatches(srcMatchSet, exposure, log=None):
         try:
             cellSet.insertCandidate(measAlg.PsfCandidateF(csrc, exposure.getMaskedImage()))
         except Exception as e:
-            log.log(log.WARN, str(e))
+            log.warn(str(e))
 
     ncell = len(cellSet.getCellList())
     nobj = np.ndarray(ncell, dtype='i')
@@ -93,10 +96,9 @@ def checkMatches(srcMatchSet, exposure, log=None):
 
             j += 1
 
-        if log:
-            log.log(log.DEBUG, "%s %-30s  %8s  dx,dy = %5.2f,%5.2f  rms_x,y = %5.2f,%5.2f" %
-                    (cell.getLabel(), cell.getBBox(), ("nobj=%d" % cell.size()),
-                     dx.mean(), dy.mean(), dx.std(), dy.std()))
+        log.debug("%s %-30s  %8s  dx,dy = %5.2f,%5.2f  rms_x,y = %5.2f,%5.2f",
+                  cell.getLabel(), cell.getBBox(), ("nobj=%d" % cell.size()),
+                  dx.mean(), dy.mean(), dx.std(), dy.std())
 
     nobj.sort()
 
