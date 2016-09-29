@@ -32,8 +32,12 @@
 #include "lsst/afw/geom/Angle.h"
 #include "lsst/afw/math/Statistics.h"
 #include "lsst/afw/image/TanWcs.h"
-#include "lsst/pex/logging/Log.h"
+#include "lsst/log/Log.h"
 #include "lsst/meas/astrom/makeMatchStatistics.h"
+
+namespace {
+LOG_LOGGER _log = LOG_GET("meas.astrom.sip");
+}
 
 namespace lsst { 
 namespace meas { 
@@ -47,7 +51,6 @@ namespace afwImg   = lsst::afw::image;
 namespace afwDet   = lsst::afw::detection;
 namespace afwMath  = lsst::afw::math;
 namespace afwTable = lsst::afw::table;
-namespace pexLog   = lsst::pex::logging;
 
 namespace {
 /*
@@ -111,7 +114,6 @@ CreateWcsWithSip<MatchT>::CreateWcsWithSip(
     afwGeom::Box2I const& bbox,
     int const ngrid
 ):
-    _log(pexLog::Log(pexLog::Log::getDefaultLog(), "meas.astrom.sip")),
     _matches(matches),
     _bbox(bbox),
     _ngrid(ngrid),
@@ -293,8 +295,8 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
     // wcs->getPixelOrigin() returns LSST-style (0-indexed) pixel coords.
     afwGeom::Point2D crpix = _newWcs->getPixelOrigin();
 
-    _log.debugf("_calcReverseMatrices: x0,y0 %i,%i, W,H %i,%i, ngrid %i, dx,dy %g,%g, CRPIX %g,%g",
-                x0, y0, _bbox.getWidth(), _bbox.getHeight(), _ngrid, dx, dy, crpix[0], crpix[1]);
+    LOGL_DEBUG(_log, "_calcReverseMatrices: x0,y0 %i,%i, W,H %i,%i, ngrid %i, dx,dy %g,%g, CRPIX %g,%g",
+               x0, y0, _bbox.getWidth(), _bbox.getHeight(), _ngrid, dx, dy, crpix[0], crpix[1]);
 
     int k = 0;
     for (int i = 0; i < _ngrid; ++i) {
@@ -317,7 +319,7 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
 
             if ((i == 0 || i == (_ngrid-1) || i == (_ngrid/2)) &&
                 (j == 0 || j == (_ngrid-1) || j == (_ngrid/2))) {
-                _log.debugf("  x,y (%.1f, %.1f), u,v (%.1f, %.1f), U,V (%.1f, %.1f)", x, y, u, v, U[k], V[k]);
+                LOGL_DEBUG(_log, "  x,y (%.1f, %.1f), u,v (%.1f, %.1f), U,V (%.1f, %.1f)", x, y, u, v, U[k], V[k]);
             }
 
             delta1[k] = u - U[k];
