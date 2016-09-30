@@ -446,6 +446,7 @@ class AstrometryTask(pipeBase.Task):
             bbox=bbox,
             refCat=refCat,
             sourceCat=sourceCat,
+            exposure=exposure,
         )
         fitWcs = fitRes.wcs
         scatterOnSky = fitRes.scatterOnSky

@@ -104,7 +104,7 @@ class FitTanSipWcsTask(pipeBase.Task):
     _DefaultName = "fitWcs"
 
     @pipeBase.timeMethod
-    def fitWcs(self, matches, initWcs, bbox=None, refCat=None, sourceCat=None):
+    def fitWcs(self, matches, initWcs, bbox=None, refCat=None, sourceCat=None, exposure=None):
         """!Fit a TAN-SIP WCS from a list of reference object/source matches
 
         @param[in,out] matches  a list of reference object/source matches
@@ -127,6 +127,7 @@ class FitTanSipWcsTask(pipeBase.Task):
             If provided then coords are updated with the new WCS;
             otherwise only the coords for sources in matches are updated.
             Required fields are "slot_Centroid_x", "slot_Centroid_y", and "coord_ra", and "coord_dec".
+        @param[in] exposure  Ignored; present for consistency with FitSipDistortionTask.
 
         @return an lsst.pipe.base.Struct with the following fields:
         - wcs  the fit WCS as an lsst.afw.image.Wcs
