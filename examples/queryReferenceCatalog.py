@@ -4,8 +4,8 @@ import sys
 
 import lsst.pex.policy as policy
 import lsst.meas.astrom as measAstrom
-from lsst.pex.logging import Log
 import lsst.afw.geom as afwGeom
+from lsst.log import Log
 
 
 def main():
@@ -23,8 +23,8 @@ def main():
     dec = float(args[1])
     radius = float(args[2])
 
-    log = Log.getDefaultLog()
-    log.setThreshold(Log.DEBUG)
+    log = Log.getDefaultLogger()
+    log.setLevel(Log.DEBUG)
     pol = policy.Policy()
     pol.set('matchThreshold', 30)
     solver = measAstrom.createSolver(pol, log)

@@ -5,8 +5,8 @@ from math import hypot
 import lsst.pex.policy as policy
 import lsst.meas.astrom as measAstrom
 import lsst.afw.image as afwImage
-from lsst.pex.logging import Log
 from lsst.afw.coord import DEGREES
+from lsst.log import Log
 import lsst.meas.algorithms.utils as maUtils
 
 import wcsPlots
@@ -94,8 +94,8 @@ def plotsForField(inButler, keys, fixup, plots=None, prefix=''):
     # ref sources
     W, H = calexp.getWidth(), calexp.getHeight()
 
-    log = Log.getDefaultLog()
-    log.setThreshold(Log.DEBUG)
+    log = Log.getDefaultLogger()
+    log.setLevel(Log.DEBUG)
 
     kwargs = {}
     if fixup:

@@ -32,7 +32,6 @@ Python interface to lsst::afw::meas::astrom::sip classes
 %module(package="lsst.meas.astrom.sip",docstring=sipLib_DOCSTRING) sipLib
 
 %{
-#include "lsst/pex/logging/FileDestination.h"
 #include "lsst/afw/math/FunctionLibrary.h"
 #include "lsst/meas/astrom/sip/LeastSqFitter1d.h"
 #include "lsst/meas/astrom/sip/LeastSqFitter2d.h"

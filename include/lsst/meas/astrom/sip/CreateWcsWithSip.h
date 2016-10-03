@@ -36,7 +36,6 @@
 #include "lsst/afw/geom/Box.h"
 #include "lsst/afw/geom/Point.h"
 #include "lsst/afw/geom/Angle.h"
-#include "lsst/pex/logging/Log.h"
 
 namespace lsst { 
     namespace afw {
@@ -155,8 +154,6 @@ public:
 
 private:
 
-    lsst::pex::logging::Log _log;
-    
     std::vector<MatchT> const _matches;
     afw::geom::Box2I mutable _bbox;
     int _ngrid;                         // grid size to calculate inverse SIP coefficients (1-D)
