@@ -535,7 +535,7 @@ namespace astrom {
         if (posRefBegInd < 0) {
             throw LSST_EXCEPT(pexExcept::InvalidParameterError, "posRefBegInd < 0");
         }
-        if (posRefBegInd >= posRefCat.size()) {
+        if (static_cast<size_t>(posRefBegInd) >= posRefCat.size()) {
             throw LSST_EXCEPT(pexExcept::InvalidParameterError, "posRefBegInd too big");
         }
         double const maxRotationRad = afw::geom::degToRad(control.maxRotationDeg);
@@ -768,7 +768,7 @@ namespace astrom {
                                 std::cout << "Number of matches: " << matPair.size() << " vs " <<
                                     control.minMatchedPairs << std::endl;
                             }
-                            if (matPair.size() <= control.minMatchedPairs) {
+                            if (matPair.size() <= static_cast<std::size_t>(control.minMatchedPairs)) {
                                 if (verbose) {
                                     std::cout << "Insufficient final matches; continuing" << std::endl;
                                 }
