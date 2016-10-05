@@ -25,8 +25,8 @@ Python interface to lsst::meas::astrom
 %include "lsst/p_lsstSwig.i"
 %initializeNumPy(meas_astrom)
 %{
-#include "ndarray/swig.h"
-#include "ndarray/swig/eigen.h"
+#include "ndarray/converter.h"
+#include "ndarray/converter/eigen.h"
 %}
 %include "ndarray.i"
 %include "lsst/pex/config.h"
