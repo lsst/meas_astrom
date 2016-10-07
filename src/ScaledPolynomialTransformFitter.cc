@@ -58,7 +58,7 @@ public:
     afw::table::CovarianceMatrixKey<float,2> outputErr;
     // We use uint16 instead of Flag since it's the only bool we have here, we
     // may want NumPy views, and afw::table doesn't support [u]int8 fields.
-    afw::table::Key<std::uint16_t> valid;
+    afw::table::Key<std::uint16_t> rejected;
 
     Keys(Keys const &) = delete;
     Keys(Keys &&) = delete;
@@ -106,7 +106,12 @@ private:
                 schema, "src", {"x", "y"}, "pix"
             )
         ),
-        valid(schema.addField<std::uint16_t>("valid", "Nonzero if the match should be used in the fit."))
+        rejected(
+            schema.addField<std::uint16_t>(
+                "rejected",
+                "True if the match should be rejected from the fit."
+            )
+        )
     {
         schema.getCitizen().markPersistent();
     }
@@ -170,7 +175,7 @@ ScaledPolynomialTransformFitter ScaledPolynomialTransformFitter::fromMatches(
         record->set(keys.initial, initialWcs.skyToPixel(match.first->getCoord()));
         record->set(keys.output, match.second->getCentroid());
         record->set(keys.outputErr, match.second->getCentroidErr() + var2*Eigen::Matrix2f::Identity());
-        record->set(keys.valid, true);
+        record->set(keys.rejected, false);
     }
     return ScaledPolynomialTransformFitter(
         catalog,
@@ -264,9 +269,9 @@ void ScaledPolynomialTransformFitter::fit(int order) {
 
     int const packedSize = detail::computePackedSize(order);
     std::size_t nGood = 0;
-    if (_keys.valid.isValid()) {
+    if (_keys.rejected.isValid()) {
         for (auto const & record : _data) {
-            if (record.get(_keys.valid)) {
+            if (!record.get(_keys.rejected)) {
                 ++nGood;
             }
         }
@@ -287,7 +292,9 @@ void ScaledPolynomialTransformFitter::fit(int order) {
     Eigen::ArrayXd sxy(nGood);
     Eigen::Matrix2d outS = _outputScaling.getLinear().getMatrix();
     for (std::size_t i1 = 0, i2 = 0; i1 < _data.size(); ++i1) {
-        if (!_keys.valid.isValid() || _data[i1].get(_keys.valid)) {
+        // check that the 'rejected' field (== 'not outlier-rejected') is both
+        // present in the schema and not rejected.
+        if (!_keys.rejected.isValid() || !_data[i1].get(_keys.rejected)) {
             afw::geom::Point2D output = _outputScaling(_data[i1].get(_keys.output));
             vx[i2] = output.getX();
             vy[i2] = output.getY();
@@ -348,7 +355,7 @@ void ScaledPolynomialTransformFitter::updateModel() {
 }
 
 double ScaledPolynomialTransformFitter::updateIntrinsicScatter() {
-    if (!_keys.valid.isValid()) {
+    if (!_keys.rejected.isValid()) {
         throw LSST_EXCEPT(
             pex::exceptions::LogicError,
             "Cannot compute intrinsic scatter on fitter initialized with fromGrid."
@@ -374,7 +381,7 @@ double ScaledPolynomialTransformFitter::computeIntrinsicScatter() const {
     double oldIntrinsicVariance = _intrinsicScatter*_intrinsicScatter;
     std::size_t nGood = 0;
     for (auto const & record : _data) {
-        if (!_keys.valid.isValid() || record.get(_keys.valid)) {
+        if (!_keys.rejected.isValid() || !record.get(_keys.rejected)) {
             auto delta = record.get(_keys.output) - record.get(_keys.model);
             directVariance += 0.5*delta.computeSquaredNorm();
             double cxx = _keys.outputErr.getElement(record, 0, 0) - oldIntrinsicVariance;
@@ -428,7 +435,9 @@ double ScaledPolynomialTransformFitter::computeIntrinsicScatter() const {
 std::pair<double,std::size_t> ScaledPolynomialTransformFitter::rejectOutliers(
     OutlierRejectionControl const & ctrl
 ) {
-    if (!_keys.valid.isValid()) {
+    // If the 'rejected' field isn't present in the schema (because the fitter
+    // was constructed with fromGrid), we can't do outlier rejection.
+    if (!_keys.rejected.isValid()) {
         throw LSST_EXCEPT(
             pex::exceptions::LogicError,
             "Cannot reject outliers on fitter initialized with fromGrid."
@@ -451,21 +460,21 @@ std::pair<double,std::size_t> ScaledPolynomialTransformFitter::rejectOutliers(
     auto cutoff = rankings.upper_bound(ctrl.nSigma * ctrl.nSigma);
     int nClip = 0, nGood = 0;
     for (auto iter = rankings.begin(); iter != cutoff; ++iter) {
-        iter->second->set(_keys.valid, true);
+        iter->second->set(_keys.rejected, false);
         ++nGood;
     }
     for (auto iter = cutoff; iter != rankings.end(); ++iter) {
-        iter->second->set(_keys.valid, false);
+        iter->second->set(_keys.rejected, true);
         ++nClip;
     }
     assert(static_cast<std::size_t>(nGood + nClip) == _data.size());
     while (nClip < ctrl.nClipMin) {
         --cutoff;
-        cutoff->second->set(_keys.valid, false);
+        cutoff->second->set(_keys.rejected, true);
         ++nClip;
     }
     while (nClip > ctrl.nClipMax && cutoff != rankings.end()) {
-        cutoff->second->set(_keys.valid, true);
+        cutoff->second->set(_keys.rejected, false);
         ++cutoff;
         --nClip;
     }

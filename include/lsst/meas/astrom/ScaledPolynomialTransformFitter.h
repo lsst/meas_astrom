@@ -135,7 +135,7 @@ public:
      *   - initial_{x,y}:      reference positions transformed by initialWcs.
      *   - model_{x,y}:        reference positions transformed by current
      *                         best-fit distortion.
-     *   - valid:              Flag that is set for objects that have not been
+     *   - rejected            Flag that is set for objects that have been
      *                         rejected as outliers.
      */
     static ScaledPolynomialTransformFitter fromMatches(
