@@ -348,8 +348,8 @@ class MatchShiftOnlyTask(pipeBase.Task):
             if sourceInfo.isGood(match.second):
                 matches.append(match)
 
-        self.log.logdebug("Found %d usable matches, of which %d had good sources" %
-                          (len(usableMatches), len(matches)))
+        self.log.debug("Found %d usable matches, of which %d had good sources" %
+                       (len(usableMatches), len(matches)))
 
         if len(matches) == 0:
             raise RuntimeError("Unable to match sources")
@@ -388,6 +388,12 @@ class MatchShiftOnlyTask(pipeBase.Task):
             for ref_n in neighbors:
                 shift_x = source.getX() - ref_x[ref_n]
                 shift_y = source.getY() - ref_y[ref_n]
+                shift_x_id = round(shift_x/max_shift*half_width + half_width)
+                shift_y_id = round(shift_y/max_shift*half_width + half_width)
+                if shift_x_id < 0 or shift_x_id >= 200:
+                    continue
+                if shift_y_id < 0 or shift_y_id >= 200:
+                    continue
                 shift_grid[round(shift_x/max_shift*half_width + half_width),
                            round(shift_y/max_shift*half_width + half_width)] += 1
 
