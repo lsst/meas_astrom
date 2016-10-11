@@ -28,14 +28,14 @@ from .anetBasicAstrometry import *
 from .astrometry import *
 from .anetAstrometry import *
 from .loadAstrometryNetObjects import *
-from .matchOptimisticB import *
+# from .matchOptimisticB import *
 from .setMatchDistance import *
 from .display import *
 from .approximateWcs import *
 from .createMatchMetadata import *
 from .astromLib import *
 from .catalogStarSelector import *
-# from .directMatch import *
+from .directMatch import *
 from .matchShiftOnly import *
 
 from .version import *
