@@ -141,11 +141,19 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
     outliers rejected and the current estimate of intrinsic scatter at each
     iteration.
 
-    FitSipDistortionTask also supports a single lsstDebug display variable,
-    FitSipDistortionTask.display.  If this evaluates to True, an image display
-    overlaid with the positions of sources and reference objects will be shown
-    for every iteration in the reverse transform fit.  The legend for the
-    overlay is:
+    FitSipDistortionTask also supports the following lsstDebug variables to
+    control diagnostic displays:
+      - FitSipDistortionTask.display: if True, enable display diagnostics.
+      - FitSipDistortionTask.frame: frame to which the display will be sent
+      - FitSipDistortionTask.pause: whether to pause (by dropping into pdb)
+                                    between iterations (default is True).  If
+                                    False, multiple frames will be used,
+                                    starting at the given number.
+
+    The diagnostic display displays the image (or an empty image if
+    exposure=None) overlaid with the positions of sources and reference
+    objects will be shown for every iteration in the reverse transform fit.
+    The legend for the overlay is:
 
     Red X
         Reference sources transformed without SIP distortion terms; this
@@ -242,6 +250,8 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
         """
         import lsstDebug
         display = lsstDebug.Info(__name__).display
+        displayFrame = lsstDebug.Info(__name__).frame
+        displayPause = lsstDebug.Info(__name__).pause
 
         if bbox is None:
             bbox = lsst.afw.geom.Box2D()
@@ -272,7 +282,8 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
                 )
             )
             if display:
-                self.display(revFitter, exposure=exposure, bbox=bbox)
+                displayFrame = self.display(revFitter, exposure=exposure, bbox=bbox,
+                                            frame=displayFrame, displayPause=displayPause)
             revFitter.fit()
         revScaledPoly = revFitter.getTransform()
         # Convert the generic ScaledPolynomialTransform result to SIP form
@@ -337,7 +348,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
             scatterOnSky=scatterOnSky,
         )
 
-    def display(self, revFitter, exposure=None, bbox=None):
+    def display(self, revFitter, exposure=None, bbox=None, frame=0, pause=True):
         """Display positions and outlier status overlaid on an image.
 
         This method is called by fitWcs when display debugging is enabled.  It
@@ -357,9 +368,8 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
         bbox : :cpp:class:`lsst::afw::geom::Box2I`
             Bounding box of the region on which matches should be plotted.
         """
-
         data = revFitter.getData()
-        disp = lsst.afw.display.getDisplay()
+        disp = lsst.afw.display.getDisplay(frame=frame)
         if exposure is not None:
             disp.mtv(exposure)
         elif bbox is not None:
@@ -386,9 +396,13 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
                 sErr = record.get(srcErrKey)
                 sEllipse = lsst.afw.geom.ellipses.Quadrupole(sErr[0, 0], sErr[1, 1], sErr[0, 1])
                 disp.dot(sEllipse, sx, sy, ctype=colors[1])
-        print("Dropping into debugger to allow inspection of display. Type 'continue' when done.")
-        import pdb
-        pdb.set_trace()
+        if pause or pause is None:  # default is to pause
+            print("Dropping into debugger to allow inspection of display. Type 'continue' when done.")
+            import pdb
+            pdb.set_trace()
+            return frame
+        else:
+            return frame + 1    # increment and return the frame for the next iteration.
 
     def makeInitialWcs(self, matches, wcs):
         """Generate a guess Wcs from the astrometric matches
