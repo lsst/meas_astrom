@@ -11,16 +11,24 @@ Python interface to lsst::meas::astrom
 %{
 #include "lsst/afw/image.h"
 #include "lsst/afw/cameraGeom.h"
+#include "lsst/afw/geom.h"
 #include "lsst/afw/table.h"
 #include "lsst/afw/image/Wcs.h"
 #include "lsst/afw/image/TanWcs.h"
 #include "lsst/meas/astrom/matchOptimisticB.h"
 #include "lsst/meas/astrom/makeMatchStatistics.h"
+#include "lsst/meas/astrom/PolynomialTransform.h"
+#include "lsst/meas/astrom/SipTransform.h"
+#include "lsst/meas/astrom/ScaledPolynomialTransformFitter.h"
 %}
 
 %include "lsst/p_lsstSwig.i"
 %initializeNumPy(meas_astrom)
-
+%{
+#include "ndarray/converter.h"
+#include "ndarray/converter/eigen.h"
+%}
+%include "ndarray.i"
 %include "lsst/pex/config.h"
 
 %shared_ptr(lsst::meas::astrom::MatchOptimisticBControl);
@@ -28,6 +36,9 @@ Python interface to lsst::meas::astrom
 %import "lsst/afw/table/tableLib.i"
 %import "lsst/afw/image/wcs.i"
 %import "lsst/afw/math/statistics.i"
+%import "lsst/afw/geom/geomLib.i"
+
+%include "lsst/meas/astrom/transforms.i"
 
 %include "lsst/meas/astrom/matchOptimisticB.h"
 

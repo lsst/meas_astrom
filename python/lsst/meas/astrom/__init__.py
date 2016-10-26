@@ -36,5 +36,6 @@ from .createMatchMetadata import *
 from .astromLib import *
 from .catalogStarSelector import *
 from .directMatch import *
+from .fitSipDistortion import *
 
 from .version import *

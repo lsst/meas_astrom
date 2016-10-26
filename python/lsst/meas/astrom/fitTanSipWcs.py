@@ -104,7 +104,7 @@ class FitTanSipWcsTask(pipeBase.Task):
     _DefaultName = "fitWcs"
 
     @pipeBase.timeMethod
-    def fitWcs(self, matches, initWcs, bbox=None, refCat=None, sourceCat=None):
+    def fitWcs(self, matches, initWcs, bbox=None, refCat=None, sourceCat=None, exposure=None):
         """!Fit a TAN-SIP WCS from a list of reference object/source matches
 
         @param[in,out] matches  a list of reference object/source matches
@@ -127,6 +127,7 @@ class FitTanSipWcsTask(pipeBase.Task):
             If provided then coords are updated with the new WCS;
             otherwise only the coords for sources in matches are updated.
             Required fields are "slot_Centroid_x", "slot_Centroid_y", and "coord_ra", and "coord_dec".
+        @param[in] exposure  Ignored; present for consistency with FitSipDistortionTask.
 
         @return an lsst.pipe.base.Struct with the following fields:
         - wcs  the fit WCS as an lsst.afw.image.Wcs
@@ -147,6 +148,12 @@ class FitTanSipWcsTask(pipeBase.Task):
             rejected = self.rejectMatches(matches, wcs, rejected)
             if rejected.sum() == len(rejected):
                 raise RuntimeError("All matches rejected in iteration %d" % (rej + 1,))
+            self.log.debug(
+                "Iteration {0} of astrometry fitting: rejected {1} outliers, "
+                "out of {2} total matches.".format(
+                    rej, rejected.sum(), len(rejected)
+                )
+            )
             if debug.plot:
                 print("Plotting fit after rejection iteration %d/%d" % (rej + 1, self.config.numRejIter))
                 self.plotFit(matches, wcs, rejected)
