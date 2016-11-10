@@ -23,6 +23,7 @@ from __future__ import absolute_import
 # import lsst.utils
 
 from . import sip
+from .ref_match import *
 from .astrometryNetDataConfig import *
 from .anetBasicAstrometry import *
 from .astrometry import *
