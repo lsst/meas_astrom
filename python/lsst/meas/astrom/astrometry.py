@@ -219,6 +219,7 @@ class AstrometryTask(RefMatchTask):
         res = None
         wcs = expMd.wcs
         maxMatchDist = None
+        maxShift = None
         for i in range(self.config.maxIter):
             iterNum = i + 1
             try:
@@ -229,6 +230,7 @@ class AstrometryTask(RefMatchTask):
                     bbox=expMd.bbox,
                     wcs=wcs,
                     exposure=exposure,
+                    maxShift=maxShift,
                     maxMatchDist=maxMatchDist,
                 )
             except Exception as e:
@@ -253,6 +255,7 @@ class AstrometryTask(RefMatchTask):
                     iterNum -= 1
                     break
 
+            maxShift = tryRes.resShift
             maxMatchDist = tryMatchDist.maxMatchDist
             res = tryRes
             wcs = res.wcs
@@ -279,8 +282,8 @@ class AstrometryTask(RefMatchTask):
         )
 
     @pipeBase.timeMethod
-    def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, maxMatchDist=None,
-                        exposure=None):
+    def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, maxShift=None,
+                        maxMatchDist=None, exposure=None):
         """!Match sources to reference objects and fit a WCS
 
         @param[in] refCat  catalog of reference objects
@@ -305,6 +308,7 @@ class AstrometryTask(RefMatchTask):
             sourceCat=sourceCat,
             wcs=wcs,
             refFluxField=refFluxField,
+            maxShift=maxShift,
             maxMatchDist=maxMatchDist,
         )
         self.log.debug("Found %s matches", len(matchRes.matches))
@@ -347,4 +351,5 @@ class AstrometryTask(RefMatchTask):
             matches=matchRes.matches,
             wcs=fitWcs,
             scatterOnSky=scatterOnSky,
+            resShift=matchRes.resShift,
         )
