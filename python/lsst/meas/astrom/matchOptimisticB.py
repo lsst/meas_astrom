@@ -8,9 +8,10 @@ import lsst.pipe.base as pipeBase
 from lsst.meas.algorithms.sourceSelector import sourceSelectorRegistry
 
 from .setMatchDistance import setMatchDistance
-from .astromLib import matchOptimisticB, MatchOptimisticBControl
+from .optimistic_pattern_matcher_b_3D import OptimisticPatternMatcherB
 
 __all__ = ["MatchOptimisticBTask", "MatchOptimisticBConfig"]
+__deg_to_rad__ = np.pi/180.
 
 
 class MatchOptimisticBConfig(pexConfig.Config):
@@ -20,11 +21,17 @@ class MatchOptimisticBConfig(pexConfig.Config):
         doc="Maximum separation between reference objects and sources "
         "beyond which they will not be considered a match (arcsec)",
         dtype=float,
-        default=3,
+        default=12,
         min=0,
     )
-    numBrightStars = pexConfig.RangeField(
-        doc="Number of bright stars to use",
+    maxAngTol = pexConfig.RangeField(
+        doc="Maximum angle allowed for pattern in degress",
+        dtype=float,
+        default=2.0,
+        min=0,
+    )
+    numPatterns = pexConfig.RangeField(
+        doc="Number of patterns to attempt before exiting",
         dtype=int,
         default=50,
         min=2,
@@ -44,10 +51,10 @@ class MatchOptimisticBConfig(pexConfig.Config):
         min=0,
         max=1,
     )
-    maxOffsetPix = pexConfig.RangeField(
-        doc="Maximum allowed shift of WCS, due to matching (pixel)",
+    maxShift = pexConfig.RangeField(
+        doc="Maximum allowed shift of WCS, due to matching (arcsec)",
         dtype=int,
-        default=300,
+        default=200,
         max=4000,
     )
     maxRotationDeg = pexConfig.RangeField(
@@ -67,10 +74,10 @@ class MatchOptimisticBConfig(pexConfig.Config):
         dtype=int,
         default=6,
     )
-    maxDeterminant = pexConfig.Field(
-        doc="maximum determinant of linear transformation matrix for a usable solution",
-        dtype=float,
-        default=0.02,
+    numPointsForShapeAttempt = pexConfig.Field(
+        doc="number of points to try to match for a shape",
+        dtype=int,
+        default=9,
     )
     sourceSelector = sourceSelectorRegistry.makeField(
         doc="How to select sources for cross-matching",
@@ -168,7 +175,8 @@ class MatchOptimisticBTask(pipeBase.Task):
         return refCat
 
     @pipeBase.timeMethod
-    def matchObjectsToSources(self, refCat, sourceCat, wcs, refFluxField, maxMatchDist=None):
+    def matchObjectsToSources(self, refCat, sourceCat, wcs, refFluxField, maxShift=None,
+                              maxMatchDist=None):
         """!Match sources to position reference stars
 
         @param[in] refCat  catalog of reference objects that overlap the exposure; reads fields for:
@@ -220,13 +228,14 @@ class MatchOptimisticBTask(pipeBase.Task):
                               int(self.config.minFracMatchedPairs * min([len(refCat), len(usableSourceCat)])))
 
         # match usable (possibly saturated) sources and then purge saturated sources from the match list
-        usableMatches = self._doMatch(
+        usableMatches, resShift = self._doMatch(
             refCat=refCat,
             sourceCat=usableSourceCat,
             wcs=wcs,
             refFluxField=refFluxField,
             numUsableSources=numUsableSources,
             minMatchedPairs=minMatchedPairs,
+            maxShift=maxShift,
             maxMatchDist=maxMatchDist,
             sourceFluxField=self.sourceSelector.fluxField,
             verbose=debug.verbose,
@@ -253,6 +262,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         return pipeBase.Struct(
             matches=matches,
             usableSourceCat=usableSourceCat,
+            resShift=resShift,
         )
 
     def _getIsGoodKeys(self, schema):
@@ -272,7 +282,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         
     @pipeBase.timeMethod
     def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numUsableSources, minMatchedPairs,
-                 maxMatchDist, sourceFluxField, verbose):
+                 maxMatchDist, maxShift, sourceInfo, verbose):
         """!Implementation of matching sources to position reference stars
 
         Unlike matchObjectsToSources, this method does not check if the sources are suitable.
@@ -292,39 +302,72 @@ class MatchOptimisticBTask(pipeBase.Task):
 
         @return a list of matches, an instance of lsst.afw.table.ReferenceMatch
         """
-        numSources = len(sourceCat)
-        posRefBegInd = numUsableSources - numSources
+        if maxShift is None:
+            maxShift = self.config.maxShift
+        else:
+            maxShift = min(maxShift, self.config.maxShift)
         if maxMatchDist is None:
             maxMatchDistArcSec = self.config.maxMatchDistArcSec
         else:
             maxMatchDistArcSec = min(maxMatchDist.asArcseconds(), self.config.maxMatchDistArcSec)
-        configMatchDistPix = maxMatchDistArcSec/wcs.pixelScale().asArcseconds()
+        max_ang_tol = np.min((self.config.maxAngTol,
+                              np.arctan(maxMatchDistArcSec/(0.2*2048*np.sqrt(2)))/__deg_to_rad__))
 
-        matchControl = MatchOptimisticBControl()
-        matchControl.refFluxField = refFluxField
-        matchControl.sourceFluxField = sourceFluxField
-        matchControl.numBrightStars = self.config.numBrightStars
-        matchControl.minMatchedPairs = self.config.minMatchedPairs
-        matchControl.maxOffsetPix = self.config.maxOffsetPix
-        matchControl.numPointsForShape = self.config.numPointsForShape
-        matchControl.maxDeterminant = self.config.maxDeterminant
+        ref_array = np.empty((len(refCat), 3))
+        for ref_idx, refObj in enumerate(refCat):
+            theta = np.pi/2 - refObj.getDec().asRadians()
+            phi = refObj.getRa().asRadians()
+            ref_array[ref_idx, 0] = np.sin(theta)*np.cos(phi)
+            ref_array[ref_idx, 1] = np.sin(theta)*np.sin(phi)
+            ref_array[ref_idx, 2] = np.cos(theta)
 
-        for maxRotInd in range(4):
-            matchControl.maxRotationDeg = self.config.maxRotationDeg * math.pow(2.0, 0.5*maxRotInd)
-            for matchRadInd in range(3):
-                matchControl.matchingAllowancePix = configMatchDistPix * math.pow(1.25, matchRadInd)
 
-                for angleDiffInd in range(3):
-                    matchControl.allowedNonperpDeg = self.config.allowedNonperpDeg*(angleDiffInd+1)
-                    matches = matchOptimisticB(
-                        refCat,
-                        sourceCat,
-                        matchControl,
-                        wcs,
-                        posRefBegInd,
-                        verbose,
-                    )
-                    if matches is not None and len(matches) > 0:
-                        setMatchDistance(matches)
-                        return matches
-        return matches
+        pyOPMb = OptimisticPatternMatcherB(
+            reference_catalog=ref_array, max_rotation_theta=maxShift/3600.,
+            max_rotation_phi=self.config.maxRotationDeg, dist_tol=maxMatchDistArcSec/3600.,
+            max_dist_cand=1000, ang_tol=max_ang_tol,
+            max_match_dist=np.min((self.config.maxMatchDistArcSec/3600.,
+                                   2*maxMatchDistArcSec/3600.)),
+            min_matches=minMatchedPairs, max_n_patterns=self.config.numPatterns)
+
+        src_array = np.empty((len(sourceCat), 4))
+        for src_idx, srcObj in enumerate(sourceCat):
+            coord = wcs.pixelToSky(srcObj.getCentroid())
+            # import pdb; pdb.set_trace()
+            tmp_ra = coord.getLongitude().asRadians()
+            tmp_dec = coord.getLatitude().asRadians()
+            theta = np.pi/2 - tmp_dec
+            phi = tmp_ra
+            src_array[src_idx, 0] = np.sin(theta)*np.cos(phi)
+            src_array[src_idx, 1] = np.sin(theta)*np.sin(phi)
+            src_array[src_idx, 2] = np.cos(theta)
+            src_array[src_idx, 3] = -2.5*np.log10(np.where(srcObj.getPsfFlux() > 0, srcObj.getPsfFlux(), 10**-32))
+
+        current_shift = None
+        match_id_list = []
+        dist_array = []
+        for try_idx in xrange(3):
+            match_id_list, dist_array = pyOPMb.match(src_array, self.config.numPointsForShapeAttempt,
+                                                     self.config.numPointsForShape)
+            if len(match_id_list) > 0:
+                current_shift = np.arccos(pyOPMb._cos_theta)*3600/__deg_to_rad__
+                break
+            else:
+                maxShift *= 2
+                maxMatchDistArcSec *= 2
+                max_ang_tol *= 2
+                pyOPMb._max_cos_theta = np.cos(maxShift*__deg_to_rad__)
+                pyOPMb._dist_tol = maxMatchDistArcSec*__deg_to_rad__
+                pyOPMb._max_match_dist = maxMatchDistArcSec*__deg_to_rad__
+                pyOPMb._ang_tol = max_ang_tol*__deg_to_rad__
+
+        matches = afwTable.ReferenceMatchVector()
+        for match_ids, dist in zip(match_id_list, dist_array):
+            match = afwTable.ReferenceMatch()
+            match.first = refCat.get(match_ids[1])
+            match.second = sourceCat.get(match_ids[0])
+            angular_sep = match.first.getCoord().angularSeparation(match.second.getCoord())
+            match.distance = angular_sep.asRadians()
+            matches.append(match)
+
+        return matches, current_shift
