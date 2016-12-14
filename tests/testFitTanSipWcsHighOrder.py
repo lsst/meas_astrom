@@ -2,7 +2,6 @@
 import unittest
 
 import numpy as np
-import matplotlib.pylab as pylab
 
 import lsst.utils.tests
 import lsst.daf.base as dafBase
@@ -80,6 +79,7 @@ class ApproximateWcsTestCase(lsst.utils.tests.TestCase):
                                           maxDiffSky=0.001*afwGeom.arcseconds, maxDiffPix=0.02, msg=msg)
 
     def plotWcs(self, wcs0, wcs1, bbox, xyTransform):
+        import matplotlib.pyplot as plt
         bboxd = afwGeom.Box2D(bbox)
         x0Arr = []
         y0Arr = []
@@ -99,9 +99,9 @@ class ApproximateWcsTestCase(lsst.utils.tests.TestCase):
                 y1Arr.append(pixelPos1[1])
                 x2Arr.append(distortedPos[0])
                 y2Arr.append(distortedPos[1])
-        pylab.plot(x0Arr, y0Arr, 'b+', x1Arr, y1Arr, 'rx', x2Arr, y2Arr, 'g.')
+        plt.plot(x0Arr, y0Arr, 'b+', x1Arr, y1Arr, 'rx', x2Arr, y2Arr, 'g.')
 
-        pylab.show()
+        plt.show()
 
 
 class MemoryTester(lsst.utils.tests.MemoryTestCase):

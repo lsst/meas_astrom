@@ -38,12 +38,6 @@ import math
 import unittest
 
 import numpy as np
-try:
-    import matplotlib
-    matplotlib.use("Agg")
-    import pylab
-except ImportError:
-    pass
 
 import lsst.pipe.base
 import lsst.utils.tests
@@ -237,6 +231,9 @@ class BaseTestCase(object):
             self.checkResults(fitRes, catsUpdated=True)
 
     def plotWcs(self, tanSipWcs, name=""):
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
         fileNamePrefix = "testCreateWcsWithSip_%s_%s" % (self.MatchClass.__name__, name)
         pnum = 1
 
@@ -258,32 +255,32 @@ class BaseTestCase(object):
         xc = np.array(xc)
         yc = np.array(yc)
 
-        pylab.clf()
-        pylab.plot(xs, ys, "r.")
-        pylab.plot(xc, yc, "bx")
+        plt.clf()
+        plt.plot(xs, ys, "r.")
+        plt.plot(xc, yc, "bx")
         fileName = "%s_%i.png" % (fileNamePrefix, pnum)
-        pylab.savefig(fileName)
+        plt.savefig(fileName)
         print("Wrote", fileName)
         pnum += 1
 
-        pylab.clf()
-        pylab.plot(xs, xc-xs, "b.")
+        plt.clf()
+        plt.plot(xs, xc-xs, "b.")
         fileName = "%s_%i.png" % (fileNamePrefix, pnum)
-        pylab.xlabel("x(source)")
-        pylab.ylabel("x(ref - src)")
-        pylab.savefig(fileName)
+        plt.xlabel("x(source)")
+        plt.ylabel("x(ref - src)")
+        plt.savefig(fileName)
         print("Wrote", fileName)
         pnum += 1
 
-        pylab.clf()
-        pylab.plot(rs, ds, "r.")
-        pylab.plot(rc, dc, "bx")
+        plt.clf()
+        plt.plot(rs, ds, "r.")
+        plt.plot(rc, dc, "bx")
         fileName = "%s_%i.png" % (fileNamePrefix, pnum)
-        pylab.savefig(fileName)
+        plt.savefig(fileName)
         print("Wrote", fileName)
         pnum += 1
 
-        pylab.clf()
+        plt.clf()
         for y in np.linspace(0, 4000, 5):
             x0, y0 = [], []
             x1, y1 = [], []
@@ -296,9 +293,9 @@ class BaseTestCase(object):
                 y1.append(xy[1])
             x0 = np.array(x0)
             x1 = np.array(x1)
-            pylab.plot(x0, x1-x0, "b-")
+            plt.plot(x0, x1-x0, "b-")
         fileName = "%s_%i.png" % (fileNamePrefix, pnum)
-        pylab.savefig(fileName)
+        plt.savefig(fileName)
         print("Wrote", fileName)
         pnum += 1
 

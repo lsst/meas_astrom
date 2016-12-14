@@ -726,9 +726,8 @@ class ANetBasicAstrometryTask(pipeBase.Task):
 
         try:
             import matplotlib.pyplot as plt
-            import numpy
-        except ImportError:
-            print("Unable to import matplotlib", file=sys.stderr)
+        except ImportError as e:
+            self.log.warning("Unable to import matplotlib: %s", e)
             return
 
         fig = plt.figure(1)
@@ -739,10 +738,10 @@ class ANetBasicAstrometryTask(pipeBase.Task):
             pass
 
         num = len(matches)
-        x = numpy.zeros(num)
-        y = numpy.zeros(num)
-        dx = numpy.zeros(num)
-        dy = numpy.zeros(num)
+        x = np.zeros(num)
+        y = np.zeros(num)
+        dx = np.zeros(num)
+        dy = np.zeros(num)
         for i, m in enumerate(matches):
             x[i] = m.second.getX()
             y[i] = m.second.getY()

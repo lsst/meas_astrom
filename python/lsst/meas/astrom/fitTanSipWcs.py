@@ -239,7 +239,11 @@ class FitTanSipWcsTask(pipeBase.Task):
         We create four plots, for all combinations of (dx, dy) against
         (x, y).  Good points are black, while rejected points are red.
         """
-        import matplotlib.pyplot as plt
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError as e:
+            self.log.warn("Unable to import matplotlib: %s", e)
+            return
 
         fit = [wcs.skyToPixel(m.first.getCoord()) for m in matches]
         x1 = np.array([ff.getX() for ff in fit])

@@ -89,14 +89,14 @@ def indicesOfGoodPoints(x, y, s, order=1, nsigma=3, maxiter=100):
         newidx = np.flatnonzero(deviance < nsigma)
 
         if False:
-            import matplotlib.pyplot as mpl
-            mpl.plot(x, y, 'ks')
-            mpl.plot(rx, ry, 'b-')
-            mpl.plot(rx, ry, 'bs')
-            mpl.plot(rx, fit, 'ms')
-            mpl.plot(rx, fit, 'm-')
-            #mpl.plot(x[newidx], y[newidx], 'rs')
-            mpl.show()
+            import matplotlib.pyplot as plt
+            plt.plot(x, y, 'ks')
+            plt.plot(rx, ry, 'b-')
+            plt.plot(rx, ry, 'bs')
+            plt.plot(rx, fit, 'ms')
+            plt.plot(rx, fit, 'm-')
+            #plt.plot(x[newidx], y[newidx], 'rs')
+            plt.show()
 
         # If we haven't culled any points we're finished cleaning
         if len(newidx) == len(idx):
