@@ -35,6 +35,8 @@ from lsst.afw.table import CoordKey, Point2DKey
 from lsst.meas.astrom import LoadAstrometryNetObjectsTask, AstrometryNetDataConfig
 from testFindAstrometryNetDataDir import setupAstrometryNetDataDir
 
+DoPlot = False
+
 
 class TestLoadAstrometryNetObjects(unittest.TestCase):
 
@@ -76,7 +78,8 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
 
         loadRes = loadANetObj.loadPixelBox(bbox=self.bbox, wcs=self.wcs, filterName="r")
         refCat = loadRes.refCat
-#        self.plotStars(refCat, bbox=self.bbox)
+        if DoPlot:
+            self.plotStars(refCat, bbox=self.bbox)
         self.assertEqual(loadRes.fluxField, "r_flux")
         self.assertEqual(len(refCat), self.desNumStarsInPixelBox)
         self.assertObjInBBox(refCat=refCat, bbox=self.bbox, wcs=self.wcs)
@@ -189,18 +192,18 @@ class TestLoadAstrometryNetObjects(unittest.TestCase):
     def plotStars(self, refCat, bbox=None):
         """Plot the centroids of reference objects, and the bounding box (if specified)
         """
-        import matplotlib.pyplot as pyplot
+        import matplotlib.pyplot as plt
         if bbox is not None:
             cornerList = list(afwGeom.Box2D(bbox).getCorners())
             cornerList.append(cornerList[0])  # show 4 sides of the box by going back to the beginning
             xc, yc = list(zip(*cornerList))
-            pyplot.plot(xc, yc, '-')
+            plt.plot(xc, yc, '-')
 
-        centroidKey = refCat.schema["centroid"].asKey()
+        centroidKey = Point2DKey(refCat.schema["centroid"])
         centroidList = [rec.get(centroidKey) for rec in refCat]
         xp, yp = list(zip(*centroidList))
-        pyplot.plot(xp, yp, '.')
-        pyplot.show()
+        plt.plot(xp, yp, '.')
+        plt.show()
 
 
 class MemoryTester(lsst.utils.tests.MemoryTestCase):
