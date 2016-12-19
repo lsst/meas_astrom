@@ -727,7 +727,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
         try:
             import matplotlib.pyplot as plt
         except ImportError as e:
-            self.log.warning("Unable to import matplotlib: %s", e)
+            self.log.warn("Unable to import matplotlib: %s", e)
             return
 
         fig = plt.figure(1)
