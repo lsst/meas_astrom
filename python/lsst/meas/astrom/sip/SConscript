@@ -1,3 +1,8 @@
-# -*- python -*-
+## -*- python -*-
 from lsst.sconsUtils import scripts
-scripts.BasicSConscript.python(['sipLib'])
+scripts.BasicSConscript.pybind11([
+    "leastSqFitter1d",
+    "leastSqFitter2d",
+    "createWcsWithSip",
+    "matchSrcToCatalogue",
+])

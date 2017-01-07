@@ -76,7 +76,7 @@ def makeRandomScaledPolynomialTransform(order):
 def makeRandomSipForwardTransform(order):
     return SipForwardTransform(
         lsst.afw.geom.Point2D(*np.random.randn(2)),
-        lsst.afw.geom.LinearTransform(np.random.randn(2,2)),
+        lsst.afw.geom.LinearTransform(np.random.randn(2, 2)),
         makeRandomPolynomialTransform(order, sip=True)
     )
 
@@ -378,7 +378,7 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
         ref.reserve(nPoints)
         refCoordKey = ref.getCoordKey()
         errScaling = 1E-14
-        matches = lsst.afw.table.ReferenceMatchVector()
+        matches = []
         for i in range(nPoints):
             refRec = ref.addNew()
             skyPos = lsst.afw.geom.Point2D(

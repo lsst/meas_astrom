@@ -86,8 +86,7 @@ class TestMatchOptimisticB(unittest.TestCase):
         # using 0.0005 in the last value appears to produce numerical issues.
         # It produces a maximum deviation of 459 pixels, which should be sufficient.
         pixelsToTanPixels = afwGeom.RadialXYTransform([0.0, 1.1, 0.0004])
-        tanWcs = afwImage.TanWcs.cast(self.wcs)
-        self.distortedWcs = afwImage.DistortedTanWcs(tanWcs, pixelsToTanPixels)
+        self.distortedWcs = afwImage.DistortedTanWcs(self.wcs, pixelsToTanPixels)
 
         def applyDistortion(src):
             out = src.table.copyRecord(src)

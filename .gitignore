@@ -11,12 +11,6 @@ doc/html
 doc/doxygen.conf
 doc/xml
 examples/refSources
-python/lsst/meas/astrom/net/netLib.py
-python/lsst/meas/astrom/net/netLib_wrap.cc
-python/lsst/meas/astrom/sip/sipLib.py
-python/lsst/meas/astrom/sip/sipLib_wrap.*
-python/lsst/meas/astrom/*Lib.py
-python/lsst/meas/astrom/*Lib_wrap.*
 tests/.cache
 tests/.tests
 tests/testConvertCheby
@@ -26,6 +20,4 @@ tests/testlsf2d
 doc/html/
 doc/*.tag
 version.py
-python/lsst/meas/astrom/astrometry_net.py
-python/lsst/meas/astrom/astrometry_net_wrap.cc
 bin/generateANetCache.py
