@@ -3,7 +3,7 @@ from builtins import object
 
 import lsst.pipe.base as pipeBase
 from lsst.meas.algorithms import LoadReferenceObjectsTask, getRefFluxField
-from . import astrometry_net as astromNet
+from . import astrometry_net
 from .multiindex import AstrometryNetCatalog, getConfigFromEnvironment
 
 __all__ = ["LoadAstrometryNetObjectsTask", "LoadAstrometryNetObjectsConfig"]
@@ -172,7 +172,7 @@ class LoadAstrometryNetObjectsTask(LoadReferenceObjectsTask):
         return [mi for mi in self.multiInds if mi.isWithinRange(ctrCoord, radius)]
 
     def _getSolver(self):
-        solver = astromNet.solver_new()
+        solver = astrometry_net.Solver()
         # HACK, set huge default pixel scale range.
         lo, hi = 0.01, 3600.
         solver.setPixelScaleRange(lo, hi)

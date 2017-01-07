@@ -28,7 +28,7 @@ import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from .matchOptimisticB import MatchOptimisticBTask
 from .display import displayAstrometry
-from .astromLib import makeMatchStatistics
+from . import makeMatchStatistics
 from .createMatchMetadata import createMatchMetadata
 
 __all__ = ['RefMatchConfig', 'RefMatchTask']
@@ -84,7 +84,7 @@ class RefMatchTask(pipeBase.Task):
         @return an lsst.pipe.base.Struct with these fields:
         - refCat  reference object catalog of objects that overlap the exposure (with some margin)
             (an lsst::afw::table::SimpleCatalog)
-        - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
+        - matches  a list of lsst.afw.table.ReferenceMatch
         - matchMeta  metadata needed to unpersist matches (an lsst.daf.base.PropertyList)
 
         @note ignores config.matchDistanceSigma

@@ -1,0 +1,17 @@
+#testAstrometryTask.py
+#testCreateWcsWithSip.py
+#testDirectMatch.py
+#testFindAstrometryNetDataDir.py
+#testFitTanSipWcsHighOrder.py
+#testFitTanSipWcsTask.py
+#testJoinMatchListWithCatalog.py
+#testLoadAstrometryNetObjects.py
+#testLsf1d.py
+#testLsf2d.py
+#testMakeMatchStatistics.py
+#testMatchOptimisticB.py
+#testMultiIndex.py
+#testSetMatchDistance.py
+#testSipTransformations.py
+#testTicket1979.py
+#testTransforms.py

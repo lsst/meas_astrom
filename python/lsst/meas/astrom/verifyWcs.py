@@ -88,8 +88,6 @@ def checkMatches(srcMatchSet, exposure, log=None):
             # Swig doesn't know that we're a SpatialCellImageCandidate;  all it knows is that we have
             # a SpatialCellCandidate so we need an explicit (dynamic) cast
             #
-            cand = measAlg.cast_PsfCandidateF(cand)
-
             mid = cand.getSource().getId()
             dx[j] = srcMatchSet[mid].first.getXAstrom() - srcMatchSet[mid].second.getXAstrom()
             dy[j] = srcMatchSet[mid].first.getYAstrom() - srcMatchSet[mid].second.getYAstrom()

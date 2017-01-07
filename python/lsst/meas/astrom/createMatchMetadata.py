@@ -23,7 +23,8 @@ class MatchMetadata(PropertyList):
         self.add('DEC', ctrCoord.getDec().asDegrees(), 'field center in degrees')
         self.add('RADIUS', radius.asDegrees(), 'field radius in degrees, minimum')
         self.add('SMATCHV', 1, 'SourceMatchVector version number')
-        self.add('FILTER', filterName or "UNKNOWN", 'filter name for photometric data')
+        filterName = "UNKNOWN" if filterName is None else str(filterName)
+        self.add('FILTER', filterName, 'filter name for photometric data')
 
 
 def createMatchMetadata(exposure, border=0):

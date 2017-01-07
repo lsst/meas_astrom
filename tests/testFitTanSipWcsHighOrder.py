@@ -37,7 +37,7 @@ class ApproximateWcsTestCase(lsst.utils.tests.TestCase):
         metadata.setDouble("CD1_2", 1.85579539217196E-07)
         metadata.setDouble("CD2_2", -5.10281493481982E-05)
         metadata.setDouble("CD2_1", -8.27440751733828E-07)
-        self.tanWcs = afwImage.cast_TanWcs(afwImage.makeWcs(metadata))
+        self.tanWcs = afwImage.makeWcs(metadata)
 
     def tearDown(self):
         del self.tanWcs
