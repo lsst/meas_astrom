@@ -167,7 +167,7 @@ class AstrometryTask(RefMatchTask):
         @return an lsst.pipe.base.Struct with these fields:
         - refCat  reference object catalog of objects that overlap the exposure (with some margin)
             (an lsst::afw::table::SimpleCatalog)
-        - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
+        - matches  astrometric matches, a list of lsst.afw.table.ReferenceMatch
         - scatterOnSky  median on-sky separation between reference objects and sources in "matches"
             (an lsst.afw.geom.Angle), or None if config.forceKnownWcs True
         - matchMeta  metadata needed to unpersist matches (an lsst.daf.base.PropertyList)
@@ -186,7 +186,7 @@ class AstrometryTask(RefMatchTask):
         @return an lsst.pipe.base.Struct with these fields:
         - refCat  reference object catalog of objects that overlap the exposure (with some margin)
             (an lsst::afw::table::SimpleCatalog)
-        - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
+        - matches  astrometric matches, a list of lsst.afw.table.ReferenceMatch
         - scatterOnSky  median on-sky separation between reference objects and sources in "matches"
             (an lsst.afw.geom.Angle)
         - matchMeta  metadata needed to unpersist matches (an lsst.daf.base.PropertyList)
@@ -293,7 +293,7 @@ class AstrometryTask(RefMatchTask):
         @param[in] exposure  exposure whose WCS is to be fit, or None; used only for the debug display
 
         @return an lsst.pipe.base.Struct with these fields:
-        - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
+        - matches  astrometric matches, a list of lsst.afw.table.ReferenceMatch
         - wcs  the fit WCS (an lsst.afw.image.Wcs)
         - scatterOnSky  median on-sky separation between reference objects and sources in "matches"
             (an lsst.afw.geom.Angle)

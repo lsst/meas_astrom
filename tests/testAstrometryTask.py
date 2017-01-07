@@ -61,7 +61,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         metadata.set("CD1_2", 0.0)
         metadata.set("CD2_2", -5.1e-05)
         metadata.set("CD2_1", 0.0)
-        self.tanWcs = afwImage.cast_TanWcs(afwImage.makeWcs(metadata))
+        self.tanWcs = afwImage.makeWcs(metadata)
         self.exposure = afwImage.ExposureF(self.bbox)
         self.exposure.setWcs(self.tanWcs)
         self.exposure.setFilter(afwImage.Filter("r", True))

@@ -81,7 +81,7 @@ def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3,
 
     sourceCat = afwTable.SourceCatalog(sourceSchema)
 
-    matchList = afwTable.ReferenceMatchVector()
+    matchList = []
 
     bboxd = afwGeom.Box2D(bbox)
     for x in np.linspace(bboxd.getMinX(), bboxd.getMaxX(), nx):

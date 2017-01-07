@@ -8,7 +8,7 @@ import pyfits
 
 import lsst.utils
 from lsst.log import Log
-from .astrometry_net import multiindex_new, multiindex_add_index, INDEX_ONLY_LOAD_METADATA, healpixDistance
+from .astrometry_net import MultiIndex, healpixDistance
 from .astrometryNetDataConfig import AstrometryNetDataConfig
 
 __all__ = ["getIndexPath", "getConfigFromEnvironment", "AstrometryNetCatalog", "generateCache"]
@@ -108,7 +108,7 @@ class MultiIndexCache(object):
         if not os.path.exists(fn):
             raise RuntimeError(
                 "Unable to get filename for astrometry star file %s" % (self._filenameList[0],))
-        self._mi = multiindex_new(fn)
+        self._mi = MultiIndex(fn)
         if self._mi is None:
             # Can't proceed at all without stars
             raise RuntimeError('Failed to read stars from astrometry multiindex filename "%s"' % fn)
@@ -121,8 +121,7 @@ class MultiIndexCache(object):
                 self.log.warn("Unable to get filename for astrometry index %s", fn)
                 continue
             self.log.debug('Reading index from multiindex file "%s"', fn)
-            if multiindex_add_index(self._mi, fn, INDEX_ONLY_LOAD_METADATA):
-                raise RuntimeError('Failed to read index from multiindex filename "%s"' % fn)
+            self._mi.addIndex(fn, False)
             ind = self._mi[i]
             self.log.debug('  index %i, hp %i (nside %i), nstars %i, nquads %i',
                            ind.indexid, ind.healpix, ind.hpnside, ind.nstars, ind.nquads)

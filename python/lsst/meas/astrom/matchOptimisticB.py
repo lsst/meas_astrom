@@ -11,7 +11,7 @@ import lsst.pipe.base as pipeBase
 from .setMatchDistance import setMatchDistance
 from .astromLib import matchOptimisticB, MatchOptimisticBControl
 
-__all__ = ["MatchOptimisticBTask", "MatchOptimisticBConfig", "SourceInfo"]
+__all__ = ["matchOptimisticB", "MatchOptimisticBTask", "MatchOptimisticBConfig", "SourceInfo"]
 
 
 class MatchOptimisticBConfig(pexConfig.Config):
@@ -153,8 +153,7 @@ class SourceInfo(object):
         return self.hasCentroid(source) \
             and source.get(self.parentKey) == 0 \
             and not source.get(self.fluxFlagKey) \
-            and (self.minSnr <= 0
-                 or (source.get(self.fluxKey)/source.get(self.fluxSigmaKey) > self.minSnr))
+            and (self.minSnr <= 0 or (source.get(self.fluxKey)/source.get(self.fluxSigmaKey) > self.minSnr))
 
     def isGood(self, source):
         """Return True if source is usable for matching (as per isUsable) and likely has a good centroid
