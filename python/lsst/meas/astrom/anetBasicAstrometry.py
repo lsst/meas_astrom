@@ -827,11 +827,11 @@ class ANetBasicAstrometryTask(pipeBase.Task):
             R2 = [src.getRa().asDegrees() for src in refCat]
             D2 = [src.getDec().asDegrees() for src in refCat]
             # for src in sourceCat:
-            # self.log.debug("source: x,y (%.1f, %.1f), RA,Dec (%.3f, %.3f)" %
-            #(src.getX(), src.getY(), src.getRa().asDegrees(), src.getDec().asDegrees()))
+            #     self.log.debug("source: x,y (%.1f, %.1f), RA,Dec (%.3f, %.3f)" %
+            #                    (src.getX(), src.getY(), src.getRa().asDegrees(), src.getDec().asDegrees()))
             # for src in refCat:
-            # self.log.debug("ref: RA,Dec (%.3f, %.3f)" %
-            #(src.getRa().asDegrees(), src.getDec().asDegrees()))
+            #     self.log.debug("ref: RA,Dec (%.3f, %.3f)" %
+            #                    (src.getRa().asDegrees(), src.getDec().asDegrees()))
             self.loginfo('_getMatchList: %i sources, %i reference sources' % (len(sourceCat), len(refCat)))
             if len(sourceCat):
                 self.loginfo(
@@ -862,6 +862,9 @@ class ANetBasicAstrometryTask(pipeBase.Task):
             return default
 
     def _solve(self, sourceCat, wcs, bbox, pixelScale, radecCenter, searchRadius, parity, filterName=None):
+        """
+        @param[in] parity  True for flipped parity, False for normal parity, None to leave parity unchanged
+        """
         solver = self.refObjLoader._getSolver()
 
         imageSize = bbox.getDimensions()
@@ -916,7 +919,7 @@ class ANetBasicAstrometryTask(pipeBase.Task):
             multiInds = self.refObjLoader._getMIndexesWithinRange(radecCenter, searchRadius)
         else:
             multiInds = self.refObjLoader.multiInds
-        qlo, qhi = solver.getQuadSizeLow(), solver.getQuadSizeHigh()
+        qlo, qhi = solver.getQuadSizeRangeArcsec()
 
         toload_multiInds = set()
         toload_inds = []
@@ -1017,5 +1020,5 @@ def _createMetadata(bbox, wcs, filterName):
              'field radius in degrees, approximate')
     meta.add('SMATCHV', 1, 'SourceMatchVector version number')
     if filterName is not None:
-        meta.add('FILTER', filterName, 'LSST filter name for tagalong data')
+        meta.add('FILTER', str(filterName), 'LSST filter name for tagalong data')
     return meta

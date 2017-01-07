@@ -48,7 +48,7 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
     @param[in] distortedCentroidKey  key for sourceCat with field to use for distorted positions, or None
     @param[in] exposure  exposure to display, or None for a blank exposure
     @param[in] bbox  bounding box of exposure; used if exposure is None for a blank image
-    @param[in] matches  list of matches (an lsst.afw.table.ReferenceMatchVector), or None
+    @param[in] matches  a list of lsst.afw.table.ReferenceMatch, or None
     @param[in] frame  frame number for ds9 display
     @param[in] title  title for ds9 display
     @param[in] pause  pause for inspection of display? This is done by dropping into pdb.

@@ -1,4 +1,10 @@
 # -*- python -*-
 from lsst.sconsUtils import scripts
-scripts.BasicSConscript.python(["astromLib", "astrometry_net"],
-    swigSrc={"astrometry_net": ["utils.cc"]})
+scripts.BasicSConscript.pybind11([
+    "astrometry_net",
+    "makeMatchStatistics",
+    "matchOptimisticB",
+    "polynomialTransform",
+    "scaledPolynomialTransformFitter",
+    "sipTransform",
+])

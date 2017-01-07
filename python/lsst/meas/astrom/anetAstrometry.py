@@ -186,7 +186,7 @@ class ANetAstrometryTask(pipeBase.Task):
         @return an lsst.pipe.base.Struct with these fields:
         - refCat  reference object catalog of objects that overlap the exposure (with some margin)
             (an lsst::afw::table::SimpleCatalog)
-        - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
+        - matches  astrometric matches, a list of lsst.afw.table.ReferenceMatch
         - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
         """
         if self.config.forceKnownWcs:
@@ -203,7 +203,7 @@ class ANetAstrometryTask(pipeBase.Task):
         \return a pipeBase.Struct with fields:
         - refCat  reference object catalog of objects that overlap the exposure (with some margin)
             (an lsst::afw::table::SimpleCatalog)
-        - matches: Astrometric matches, as an lsst.afw.table.ReferenceMatchVector
+        - matches  astrometric matches, a list of lsst.afw.table.ReferenceMatch
         - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
 
         The reference catalog actually used is up to the implementation
@@ -332,7 +332,7 @@ class ANetAstrometryTask(pipeBase.Task):
         @return an lsst.pipe.base.Struct with these fields:
         - refCat  reference object catalog of objects that overlap the exposure (with some margin)
             (an lsst::afw::table::SimpleCatalog)
-        - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
+        - matches  astrometric matches, a list of lsst.afw.table.ReferenceMatch
         - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
 
         @note ignores config.forceKnownWcs
@@ -378,7 +378,7 @@ class ANetAstrometryTask(pipeBase.Task):
         \return a pipe.base.Struct with fields:
         - refCat  reference object catalog of objects that overlap the exposure (with some margin)
             (an lsst::afw::table::SimpleCatalog)
-        - matches  list of reference object/source matches (an lsst.afw.table.ReferenceMatchVector)
+        - matches  astrometric matches, a list of lsst.afw.table.ReferenceMatch
         - matchMeta  metadata about the field (an lsst.daf.base.PropertyList)
         """
         self.log.info("Solving astrometry")
@@ -420,11 +420,11 @@ class ANetAstrometryTask(pipeBase.Task):
         Specifically, fitting the non-linear part, since the linear
         part has been provided by the matching engine.
 
-        \param sourceCat Sources on exposure, an lsst.afw.table.SourceCatalog
-        \param exposure Exposure of interest, an lsst.afw.image.ExposureF or D
-        \param matches Astrometric matches, as an lsst.afw.table.ReferenceMatchVector
+        @param sourceCat Sources on exposure, an lsst.afw.table.SourceCatalog
+        @param exposure Exposure of interest, an lsst.afw.image.ExposureF or D
+        @param matches Astrometric matches, as a list of lsst.afw.table.ReferenceMatch
 
-        \return the resolved-Wcs object, or None if config.solver.calculateSip is False.
+        @return the resolved-Wcs object, or None if config.solver.calculateSip is False.
         """
         sip = None
         if self.config.solver.calculateSip:

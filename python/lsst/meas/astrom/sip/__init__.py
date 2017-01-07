@@ -1,9 +1,9 @@
 #
 # LSST Data Management System
-# Copyright 2008, 2009, 2010 LSST Corporation.
 #
 # This product includes software developed by the
 # LSST Project (http://www.lsst.org/).
+# See the COPYRIGHT file
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,15 +17,11 @@
 #
 # You should have received a copy of the LSST License Statement and
 # the GNU General Public License along with this program.  If not,
-# see <http://www.lsstcorp.org/LegalNotices/>.
+# see <https://www.lsstcorp.org/LegalNotices/>.
 #
-
-"""Package to calculate the best fit SIP polynomials to describe the distortion
-in an astronomical image"""
 from __future__ import absolute_import
 
 from .sipLib import *
-
-from . import genDistortedImage
-from . import cleanBadPoints
+from .cleanBadPoints import *
+from .genDistortedImage import *
 from .sourceMatchStatistics import *
