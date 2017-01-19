@@ -205,7 +205,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
         Parameters
         ----------
 
-        matches : :cpp:class:`lsst::afw::table::ReferenceMatchVector`
+        matches : list of :cpp:class:`lsst::afw::table::ReferenceMatch`
             A sequence of reference object/source matches.
             The following fields are read:
             - match.first (reference object) coord
@@ -415,7 +415,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
 
         Parameters
         ----------
-        matches : :cpp:class:`lsst::afw::table::ReferenceMatchVector`
+        matches : list of :cpp:class:`lsst::afw::table::ReferenceMatch`
             A sequence of reference object/source matches.
             The following fields are read:
             - match.first (reference object) coord

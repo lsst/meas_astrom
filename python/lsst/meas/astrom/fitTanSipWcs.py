@@ -107,8 +107,7 @@ class FitTanSipWcsTask(pipeBase.Task):
     def fitWcs(self, matches, initWcs, bbox=None, refCat=None, sourceCat=None, exposure=None):
         """!Fit a TAN-SIP WCS from a list of reference object/source matches
 
-        @param[in,out] matches  a list of reference object/source matches
-            (an lsst::afw::table::ReferenceMatchVector)
+        @param[in,out] matches  a list of lsst::afw::table::ReferenceMatch
             The following fields are read:
             - match.first (reference object) coord
             - match.second (source) centroid
