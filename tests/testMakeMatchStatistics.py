@@ -76,7 +76,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         self.matchList = []
 
         np.random.seed(5)
-        pixPointList = [afwGeom.Point2D(*pos) for pos in
+        pixPointList = [afwGeom.Point2D(pos) for pos in
                         np.random.random_sample([self.numMatches, 2])*self.bboxD.getDimensions()
                         + self.bboxD.getMin()]
         for pixPoint in pixPointList:
@@ -133,7 +133,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         """Test testMakeMatchStatisticsInPixels
         """
         np.random.seed(164)
-        offList = [afwGeom.Extent2D(*val) for val in (np.random.random_sample([self.numMatches, 2])-0.5)*10]
+        offList = [afwGeom.Extent2D(val) for val in (np.random.random_sample([self.numMatches, 2])-0.5)*10]
         for off, match in zip(offList, self.matchList):
             centroid = match.second.get(self.sourceCentroidKey)
             offCentroid = centroid + off
