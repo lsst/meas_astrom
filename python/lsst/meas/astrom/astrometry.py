@@ -198,9 +198,11 @@ class AstrometryTask(RefMatchTask):
 
         matchMeta = createMatchMetadata(exposure, border=self.refObjLoader.config.pixelMargin)
         expMd = self._getExposureMetadata(exposure)
+        exposure_bbox = exposure.getBBox()
+        exposure_bbox.grow(afwGeom.Extent2I(1000, 1000))
 
         loadRes = self.refObjLoader.loadPixelBox(
-            bbox=expMd.bbox,
+            bbox=exposure_bbox,
             wcs=expMd.wcs,
             filterName=expMd.filterName,
             calib=expMd.calib,
@@ -210,7 +212,7 @@ class AstrometryTask(RefMatchTask):
             displayAstrometry(
                 refCat=loadRes.refCat,
                 sourceCat=sourceCat,
-                exposure=exposure,
+                exposure=exposure_bbox,
                 bbox=expMd.bbox,
                 frame=frame,
                 title="Reference catalog",
@@ -271,6 +273,8 @@ class AstrometryTask(RefMatchTask):
             "found %d matches with scatter = %0.3f +- %0.3f arcsec" %
             (iterNum, len(tryRes.matches), tryMatchDist.distMean.asArcseconds(),
                 tryMatchDist.distStdDev.asArcseconds()))
+        if tryMatchDist.distMean.asArcseconds() < 0.2:
+            import pdb; pdb.set_trace()
 
         exposure.setWcs(res.wcs)
 

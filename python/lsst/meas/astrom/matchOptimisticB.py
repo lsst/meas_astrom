@@ -21,19 +21,25 @@ class MatchOptimisticBConfig(pexConfig.Config):
         doc="Maximum separation between reference objects and sources "
         "beyond which they will not be considered a match (arcsec)",
         dtype=float,
-        default=12,
+        default=15,
+        min=0,
+    )
+    maxOffsetPix = pexConfig.RangeField(
+        doc="Max offset in pixels to work with HSC.",
+        dtype=float,
+        default=750,
         min=0,
     )
     maxAngTol = pexConfig.RangeField(
         doc="Maximum angle allowed for pattern in degress",
         dtype=float,
-        default=2.0,
+        default=0.5,
         min=0,
     )
     numPatterns = pexConfig.RangeField(
         doc="Number of patterns to attempt before exiting",
         dtype=int,
-        default=50,
+        default=100,
         min=2,
     )
     minMatchedPairs = pexConfig.RangeField(
@@ -47,15 +53,15 @@ class MatchOptimisticBConfig(pexConfig.Config):
         "the number of reference stars or the number of good sources; "
         "the actual minimum is the smaller of this value or minMatchedPairs",
         dtype=float,
-        default=0.3,
+        default=0.15,
         min=0,
         max=1,
     )
     maxShift = pexConfig.RangeField(
         doc="Maximum allowed shift of WCS, due to matching (arcsec)",
         dtype=int,
-        default=200,
-        max=4000,
+        default=50,
+        max=400,
     )
     maxRotationDeg = pexConfig.RangeField(
         doc="Rotation angle allowed between sources and position reference objects (degrees)",
@@ -305,13 +311,14 @@ class MatchOptimisticBTask(pipeBase.Task):
         if maxShift is None:
             maxShift = self.config.maxShift
         else:
-            maxShift = min(maxShift, self.config.maxShift)
+            maxShift = max(0.2, min(maxShift, self.config.maxShift))
         if maxMatchDist is None:
             maxMatchDistArcSec = self.config.maxMatchDistArcSec
         else:
             maxMatchDistArcSec = min(maxMatchDist.asArcseconds(), self.config.maxMatchDistArcSec)
         max_ang_tol = np.min((self.config.maxAngTol,
                               np.arctan(maxMatchDistArcSec/(0.2*2048*np.sqrt(2)))/__deg_to_rad__))
+        max_rotation = self.config.maxRotationDeg
 
         ref_array = np.empty((len(refCat), 3))
         for ref_idx, refObj in enumerate(refCat):
@@ -324,10 +331,11 @@ class MatchOptimisticBTask(pipeBase.Task):
 
         pyOPMb = OptimisticPatternMatcherB(
             reference_catalog=ref_array, max_rotation_theta=maxShift/3600.,
-            max_rotation_phi=self.config.maxRotationDeg, dist_tol=maxMatchDistArcSec/3600.,
-            max_dist_cand=1000, ang_tol=max_ang_tol,
+            max_rotation_phi=max_rotation, dist_tol=maxMatchDistArcSec/3600.,
+            max_dist_cand=100000, ang_tol=max_ang_tol,
             max_match_dist=np.min((self.config.maxMatchDistArcSec/3600.,
                                    2*maxMatchDistArcSec/3600.)),
+
             min_matches=minMatchedPairs, max_n_patterns=self.config.numPatterns)
 
         src_array = np.empty((len(sourceCat), 4))
@@ -346,19 +354,22 @@ class MatchOptimisticBTask(pipeBase.Task):
         current_shift = None
         match_id_list = []
         dist_array = []
-        for try_idx in xrange(3):
-            match_id_list, dist_array = pyOPMb.match(src_array, self.config.numPointsForShapeAttempt,
+        for try_idx in xrange(4):
+            match_id_list, dist_array = pyOPMb.match(src_array, self.config.numPointsForShapeAttempt + try_idx,
                                                      self.config.numPointsForShape)
             if len(match_id_list) > 0:
                 current_shift = np.arccos(pyOPMb._cos_theta)*3600/__deg_to_rad__
                 break
             else:
                 maxShift *= 2
+                maxShift = min((400., maxShift))
                 maxMatchDistArcSec *= 2
                 max_ang_tol *= 2
-                pyOPMb._max_cos_theta = np.cos(maxShift*__deg_to_rad__)
-                pyOPMb._dist_tol = maxMatchDistArcSec*__deg_to_rad__
-                pyOPMb._max_match_dist = maxMatchDistArcSec*__deg_to_rad__
+                max_rotation *=2 
+                pyOPMb._max_cos_theta = np.cos(maxShift/3600.*__deg_to_rad__)
+                pyOPMb._max_cos_phi_sq = np.cos(max_rotation*__deg_to_rad__)**2
+                pyOPMb._dist_tol = maxMatchDistArcSec/3600.*__deg_to_rad__
+                pyOPMb._max_match_dist = maxMatchDistArcSec/3600.*__deg_to_rad__
                 pyOPMb._ang_tol = max_ang_tol*__deg_to_rad__
 
         matches = afwTable.ReferenceMatchVector()

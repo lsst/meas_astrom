@@ -77,8 +77,12 @@ class OptimisticPatternMatcherB(object):
         self._delta_array = np.empty(
             (int(self._n_reference*(self._n_reference - 1)/2), 3),
             dtype=np.float64)
+        pair_idx_array = np.empty(
+            (self._n_reference, self._n_reference - 1),
+            dtype=np.int)
         # Start the loop over the n choose 2 pairs.
         start_idx = 0
+        start_idx_list = []
         for ref_idx, ref_obj in enumerate(self._reference_catalog):
             end_idx = self._n_reference - 1 - ref_idx
             self._id_array[start_idx: start_idx + end_idx, 0] = ref_idx
@@ -94,13 +98,28 @@ class OptimisticPatternMatcherB(object):
                 self._delta_array[start_idx: start_idx + end_idx, 0]**2 +
                 self._delta_array[start_idx: start_idx + end_idx, 1]**2 +
                 self._delta_array[start_idx: start_idx + end_idx, 2]**2)
+            tmp_pair_idx_second = []
+            for shift_idx, tmp_start_idx in enumerate(start_idx_list):
+                tmp_pair_idx_second.append(ref_idx - 1 - shift_idx +
+                                           tmp_start_idx)
+            tmp_pair_idx_first = np.arange(start_idx, start_idx + end_idx,
+                                           dtype=np.int)
+            pair_idx_array[ref_idx, :] = np.concatenate(
+                (np.array(tmp_pair_idx_second), tmp_pair_idx_first))
+            start_idx_list.append(start_idx)
             start_idx += end_idx
         # Sort our arrays by the distance of the pair.
         self._dist_array = np.sqrt(self._dist_array)
-        sorted_args = self._dist_array.argsort()
-        self._dist_array = self._dist_array[sorted_args]
-        self._id_array = self._id_array[sorted_args]
-        self._delta_array = self._delta_array[sorted_args]
+        tmp_dist_map_array = self._dist_array[pair_idx_array]
+        self._sorted_args = self._dist_array.argsort()
+        self._dist_array = self._dist_array[self._sorted_args]
+        self._pair_idx_array = np.empty_like(pair_idx_array)
+        for ref_idx, tmp_dist_array in enumerate(tmp_dist_map_array):
+            tmp_sort_dist_array = np.sort(tmp_dist_array)
+            self._pair_idx_array[ref_idx, :] = np.searchsorted(
+                self._dist_array, tmp_sort_dist_array)
+        self._id_array = self._id_array[self._sorted_args]
+        self._delta_array = self._delta_array[self._sorted_args]
 
         return None
 
@@ -190,16 +209,22 @@ class OptimisticPatternMatcherB(object):
                 # we can narrow our search to only those pairs that contain our
                 # pinwheel reference and exclude the reference we have already
                 # used to match the first spoke.
-                id_mask = np.logical_or(
-                    np.logical_and(
-                        self._id_array[:, 0] == matched_references[0],
-                        self._id_array[:, 1] != matched_references[1]),
-                    np.logical_and(
-                        self._id_array[:, 1] == matched_references[0],
-                        self._id_array[:, 0] != matched_references[1]))
-                tmp_ref_dist_arary = self._dist_array[id_mask]
-                tmp_ref_delta_array = self._delta_array[id_mask]
-                tmp_ref_id_array = self._id_array[id_mask]
+                # id_mask = np.logical_or(
+                #     np.logical_and(
+                #         self._id_array[:, 0] == matched_references[0],
+                #         self._id_array[:, 1] != matched_references[1]),
+                #     np.logical_and(
+                #         self._id_array[:, 1] == matched_references[0],
+                #         self._id_array[:, 0] != matched_references[1]))
+                # tmp_ref_dist_arary = self._dist_array[id_mask]
+                # tmp_ref_delta_array = self._delta_array[id_mask]
+                # tmp_ref_id_array = self._id_array[id_mask]
+                tmp_ref_dist_arary = self._dist_array[
+                    self._pair_idx_array[matched_references[0]]]
+                tmp_ref_delta_array = self._delta_array[
+                    self._pair_idx_array[matched_references[0]]]
+                tmp_ref_id_array = self._id_array[
+                    self._pair_idx_array[matched_references[0]]]
                 # Now we can start our loop to look for the remaining candidate
                 # spokes of our pinwheel.
                 n_failed = 0
