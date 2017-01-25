@@ -1,6 +1,6 @@
-from ._astrometry_net import MultiIndex, Solver, healpixDistance
+from ._astrometry_net import MultiIndex, Solver, healpixDistance, finalize
 
-__all__ = ["MultiIndex", "Solver", "healpixDistance"]
+__all__ = ["MultiIndex", "Solver", "healpixDistance", "finalize"]
 
 
 def __iter__(self):
