@@ -273,8 +273,8 @@ class AstrometryTask(RefMatchTask):
             "found %d matches with scatter = %0.3f +- %0.3f arcsec" %
             (iterNum, len(tryRes.matches), tryMatchDist.distMean.asArcseconds(),
                 tryMatchDist.distStdDev.asArcseconds()))
-        if tryMatchDist.distMean.asArcseconds() < 0.2:
-            import pdb; pdb.set_trace()
+        # if tryMatchDist.distMean.asArcseconds() < 0.2:
+        #     import pdb; pdb.set_trace()
 
         exposure.setWcs(res.wcs)
 

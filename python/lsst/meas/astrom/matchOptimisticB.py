@@ -332,13 +332,12 @@ class MatchOptimisticBTask(pipeBase.Task):
             ref_array[ref_idx, 1] = np.sin(theta)*np.sin(phi)
             ref_array[ref_idx, 2] = np.cos(theta)
             ref_array[ref_idx, 3] = -2.5*np.log10(
-                np.where(refObj.getPsfFlux() > 0,
-                         refObj.getPsfFlux(), 10**-32))
+                np.where(refObj[refFluxField] > 0,
+                         refObj[refFluxField], 10**-32))
 
         src_array = np.empty((len(sourceCat), 4))
         for src_idx, srcObj in enumerate(sourceCat):
             coord = wcs.pixelToSky(srcObj.getCentroid())
-            # import pdb; pdb.set_trace()
             tmp_ra = coord.getLongitude().asRadians()
             tmp_dec = coord.getLatitude().asRadians()
             theta = np.pi/2 - tmp_dec
@@ -407,7 +406,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         print("Starting automated tolerance calculation...")
 
         # Currently hard coded for a 6 point pattern.
-        pattern_array = np.empty((cat_array.shape[0], 9))
+        pattern_array = np.empty((cat_array.shape[0] - 6, 9))
         flux_args_array = np.argsort(cat_array[:, -1])
 
         tmp_sort_array = cat_array[flux_args_array]
@@ -415,22 +414,22 @@ class MatchOptimisticBTask(pipeBase.Task):
         for start_idx in xrange(cat_array.shape[0] - 6):
             pattern_points = tmp_sort_array[start_idx:start_idx + 6, :-1]
             pattern_delta = pattern_points[1:, :] - pattern_points[0, :]
-            pattern_array[start_idx, :] = np.sqrt(pattern_delta[:, 0] ** 2 +
+            pattern_array[start_idx, :5] = np.sqrt(pattern_delta[:, 0] ** 2 +
                                                   pattern_delta[:, 1] ** 2 +
                                                   pattern_delta[:, 2] ** 2)
             tmp_pattern_dot = (np.dot(pattern_delta[1:], pattern_delta[0]) /
-                               (pattern_array[start_idx, 1:] *
+                               (pattern_array[start_idx, 1:5] *
                                 pattern_array[start_idx, 0]))
-            tmp_pattern_cross = np.empty(4)
+            tmp_pattern_cross = np.empty((4, 3))
             for idx in xrange(1, 5):
-                tmp_pattern_cross[start_idx] = (
+                tmp_pattern_cross[idx - 1, :] = (
                     np.cross(pattern_delta[idx], pattern_delta[0]) /
                     (pattern_array[start_idx, idx] *
                      pattern_array[start_idx, 0]))
             pattern_dot_cross = np.dot(tmp_pattern_cross,
-                                       pattern_points[0, 1:])
-            pattern_array[start_idx, :] = (np.sign(pattern_dot_cross) *
-                                           np.arccos(tmp_pattern_dot))
+                                       pattern_points[0])
+            pattern_array[start_idx, 5:] = (np.sign(pattern_dot_cross) *
+                                            np.arccos(tmp_pattern_dot))
             pattern_array[start_idx, :5] = pattern_array[
                 start_idx, np.argsort(pattern_array[start_idx, :5])]
             pattern_array[start_idx, 5:] = pattern_array[
@@ -439,22 +438,25 @@ class MatchOptimisticBTask(pipeBase.Task):
         dist_tree = cKDTree(pattern_array[:, :5])
         theta_tree = cKDTree(pattern_array[:, 5:])
 
-        dist_nearest_array = dist_tree.query(pattern_array[:, :5], k=2)[:, 1]
-        theta_nearest_array = theta_tree.query(pattern_array[:, 5:], k=2)[:, 1]
+        dist_nearest_array, ids = dist_tree.query(pattern_array[:, :5], k=2)
+        theta_nearest_array, ids = theta_tree.query(pattern_array[:, 5:], k=2)
+        dist_nearest_array = dist_nearest_array[:, 1]
+        theta_nearest_array = theta_nearest_array[:, 1]
         dist_nearest_array.sort()
         theta_nearest_array.sort()
 
-        dist_tol = (
-            dist_nearest_array[
-                np.int64(np.ceil(dist_nearest_array.shape[0]*0.01))] *
-            3600. * (180. / np.pi) / np.sqrt(5))
-        theta_tol = (
-            theta_nearest_array[
-                np.int64(np.ceil(theta_nearest_array.shape[0]*0.01))] *
-            (180. / np.pi) / np.sqrt(4))
+        dist_idx = np.min((
+            np.max((np.int64(np.ceil(dist_nearest_array.shape[0]*0.01)), 1)),
+            dist_nearest_array.shape[0] - 1))
+        theta_idx = np.min((
+            np.max((np.int64(np.ceil(theta_nearest_array.shape[0]*0.01)), 1)),
+            theta_nearest_array.shape[0] - 1))
+        print("Index: %i %i" % (dist_idx, theta_idx))
+        dist_tol = dist_nearest_array[dist_idx] * 3600. * (180. / np.pi) / np.sqrt(5.)
+        theta_tol = theta_nearest_array[theta_idx] * (180. / np.pi) / np.sqrt(4.)
 
         print("New tolerances")
-        print("\tdistance tol: %.2f [arcsec]" % dist_tol)
-        print("\ttheta tol: %.2f [deg]" % theta_tol)
+        print("\tdistance tol: %.4f [arcsec]" % dist_tol)
+        print("\ttheta tol: %.4f [deg]" % theta_tol)
 
         return dist_tol, theta_tol
