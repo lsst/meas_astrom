@@ -42,9 +42,6 @@ class joinMatchListWithCatalogTestCase(unittest.TestCase):
         testDir = os.path.dirname(__file__)
 
         self.srcSet = SourceCatalog.readFits(os.path.join(testDir, "v695833-e0-c000.xy.fits"))
-        aliasMap = self.srcSet.schema.getAliasMap()
-        # deblend_nChild is required by matcherSourceSelector used in matchOptimisticB.py
-        aliasMap.set("deblend_nChild", "parent")
 
         self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(2048, 4612))  # approximate
         # create an exposure with the right metadata; the closest thing we have is

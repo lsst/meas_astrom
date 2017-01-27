@@ -152,8 +152,6 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         refFluxRKey = refCat.schema["r_flux"].asKey()
 
         sourceSchema = afwTable.SourceTable.makeMinimalSchema()
-        # deblend_nChild is required by matcherSourceSelector used in matchOptimisticB.py
-        sourceDeblendNChild = sourceSchema.addField("deblend_nChild", type=int)
         measBase.SingleFrameMeasurementTask(schema=sourceSchema)  # expand the schema
         sourceCat = afwTable.SourceCatalog(sourceSchema)
         sourceCentroidKey = afwTable.Point2DKey(sourceSchema["slot_Centroid"])
@@ -165,7 +163,6 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
             src.set(sourceCentroidKey, refObj.get(refCentroidKey))
             src.set(sourceFluxKey, refObj.get(refFluxRKey))
             src.set(sourceFluxSigmaKey, refObj.get(refFluxRKey)/100)
-            src.set(sourceDeblendNChild, 0)
         return sourceCat
 
 

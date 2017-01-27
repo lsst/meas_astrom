@@ -177,12 +177,8 @@ class TestMatchOptimisticB(unittest.TestCase):
         sourceCat = afwTable.SourceCatalog.readFits(filename)
         aliasMap = sourceCat.schema.getAliasMap()
         aliasMap.set("slot_ApFlux", "base_PsfFlux")
-        # This is a kludge to create and force the deblend_nChild column to be set to 0.
-        # deblend_nChild is required by the sourceSelectors used by matchOptimisticB.
-        aliasMap.set("deblend_nChild", "parent")
         fluxKey = sourceCat.schema["slot_ApFlux_flux"].asKey()
         fluxSigmaKey = sourceCat.schema["slot_ApFlux_fluxSigma"].asKey()
-        nChildKey = sourceCat.schema["deblend_nChild"].asKey()
 
         # print("schema=", sourceCat.schema)
 
@@ -193,7 +189,6 @@ class TestMatchOptimisticB(unittest.TestCase):
             src.set(centroidKey, adjCentroid)
             src.set(fluxKey, 1000)
             src.set(fluxSigmaKey, 1)
-            src.set(nChildKey, 0)
 
         # Set catalog coord
         for src in sourceCat:
