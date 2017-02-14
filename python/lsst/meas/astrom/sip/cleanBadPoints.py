@@ -35,13 +35,13 @@ def clean(srcMatch, wcs, order=3, nsigma=3):
     """Remove bad points from srcMatch
 
     Input:
-    srcMatch : std::vector<det::SourceMatch>
+    srcMatch : list of det::SourceMatch
     order:      Order of polynomial to use in robust fitting
     nsigma:    Sources more than this far away from the robust best fit
                 polynomial are removed
 
     Return:
-    std::vector<det::SourceMatch> of the good data points
+    list of det::SourceMatch of the good data points
     """
 
     N = len(srcMatch)
