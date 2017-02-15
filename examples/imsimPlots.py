@@ -1,11 +1,7 @@
 from __future__ import print_function
 from optparse import OptionParser
-from math import hypot
 
-import lsst.pex.policy as policy
 import lsst.meas.astrom as measAstrom
-import lsst.afw.image as afwImage
-from lsst.afw.coord import DEGREES
 from lsst.log import Log
 import lsst.meas.algorithms.utils as maUtils
 
@@ -73,19 +69,10 @@ def plotsForField(inButler, keys, fixup, plots=None, prefix=''):
         print('Got sources', psources)
 
     pmatches = inButler.get('icMatch', **keys)
-    # print 'Got matches', pmatches
-    #matchmeta = pmatches.getSourceMatchMetadata()
-    #matches = pmatches.getSourceMatches()
-    # print 'Match metadata:', matchmeta
     sources = psources.getSources()
 
     calexp = inButler.get('calexp', **keys)
-    # print 'Got calexp', calexp
     wcs = calexp.getWcs()
-    # print 'Got wcs', wcs
-    # print wcs.getFitsMetadata().toString()
-    wcs = afwImage.cast_TanWcs(wcs)
-    # print 'After cast:', wcs
 
     photocal = calexp.getCalib()
     zp = photocal.getMagnitude(1.)
@@ -151,14 +138,6 @@ def plotsForField(inButler, keys, fixup, plots=None, prefix=''):
     if 'matches' in plots:
         print('matches...')
         wcsPlots.plotMatches(sources, ref, matches, wcs, W, H, prefix)
-
-    if 'corr' in plots:
-        # print 'corr...'
-        # requires astrometry.libkd (not available in 0.30)
-        #wcsPlots.plotCorrespondences2(sources, ref, matches, wcs, W, H, prefix)
-        # print 'corr...'
-        #wcsPlots.plotCorrespondences(sources, ref, matches, wcs, W, H, prefix)
-        pass
 
     if 'distortion' in plots:
         print('distortion...')
