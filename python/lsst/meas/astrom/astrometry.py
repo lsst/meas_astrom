@@ -150,7 +150,7 @@ class AstrometryTask(RefMatchTask):
         self.makeSubtask("wcsFitter")
 
     @pipeBase.timeMethod
-    def run(self, exposure, sourceCat):
+    def run(self, sourceCat, exposure):
         """!Load reference objects, match sources and optionally fit a WCS
 
         This is a thin layer around solve or loadAndMatch, depending on config.forceKnownWcs
