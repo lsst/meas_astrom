@@ -22,8 +22,11 @@
 from __future__ import absolute_import, division, print_function
 from builtins import range
 
+import numpy as np
+
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
+from lsst.afw import geom as afwGeom
 from .ref_match import RefMatchTask, RefMatchConfig
 from .fitTanSipWcs import FitTanSipWcsTask
 from .display import displayAstrometry
@@ -45,7 +48,7 @@ class AstrometryConfig(RefMatchConfig):
         doc="maximum number of iterations of match sources and fit WCS" +
         "ignored if not fitting a WCS",
         dtype=int,
-        default=3,
+        default=5,
         min=1,
     )
     minMatchDistanceArcSec = pexConfig.RangeField(
@@ -199,7 +202,7 @@ class AstrometryTask(RefMatchTask):
         matchMeta = createMatchMetadata(exposure, border=self.refObjLoader.config.pixelMargin)
         expMd = self._getExposureMetadata(exposure)
         exposure_bbox = exposure.getBBox()
-        exposure_bbox.grow(afwGeom.Extent2I(1000, 1000))
+        exposure_bbox.grow(afwGeom.Extent2I(750, 750))
 
         loadRes = self.refObjLoader.loadPixelBox(
             bbox=exposure_bbox,
@@ -222,6 +225,8 @@ class AstrometryTask(RefMatchTask):
         wcs = expMd.wcs
         maxMatchDist = None
         maxShift = None
+
+        hold_matcher = None
         for i in range(self.config.maxIter):
             iterNum = i + 1
             try:
@@ -244,21 +249,29 @@ class AstrometryTask(RefMatchTask):
                 else:
                     raise
 
+            hold_matches = tryRes.matches
+            match_dist_array = np.empty(len(hold_matches), dtype=np.float64)
+            for match_idx, match in enumerate(hold_matches):
+                match_dist_array[match_idx] = match[-1]*3600*180./np.pi
             tryMatchDist = self._computeMatchStatsOnSky(tryRes.matches)
             self.log.debug(
                 "Match and fit WCS iteration %d: found %d matches with scatter = %0.3f +- %0.3f arcsec; "
                 "max match distance = %0.3f arcsec",
                 iterNum, len(tryRes.matches), tryMatchDist.distMean.asArcseconds(),
                 tryMatchDist.distStdDev.asArcseconds(), tryMatchDist.maxMatchDist.asArcseconds())
-            if maxMatchDist is not None:
-                if tryMatchDist.maxMatchDist >= maxMatchDist:
-                    self.log.debug(
-                        "Iteration %d had no better maxMatchDist; using previous iteration", iterNum)
-                    iterNum -= 1
-                    break
+            # if maxMatchDist is not None:
+            #     if tryMatchDist.maxMatchDist.asArcseconds() >= maxMatchDist:
+            #         self.log.debug(
+            #             "Iteration %d had no better maxMatchDist; using previous iteration", iterNum)
+            #         iterNum -= 1
+            #         break
 
             maxShift = tryRes.resShift
-            maxMatchDist = tryMatchDist.maxMatchDist
+            
+            maxMatchDist = np.mean(match_dist_array) + 1. * np.std(match_dist_array)
+            print("Astrometry.py: maxMatchDist: %.4f, sigmaClipped: %.4f" %
+                  (tryMatchDist.maxMatchDist.asArcseconds(), maxMatchDist))
+            # maxMatchDist = tryMatchDist.maxMatchDist.asArcseconds()
             res = tryRes
             wcs = res.wcs
             if tryMatchDist.maxMatchDist.asArcseconds() < self.config.minMatchDistanceArcSec:
@@ -273,8 +286,22 @@ class AstrometryTask(RefMatchTask):
             "found %d matches with scatter = %0.3f +- %0.3f arcsec" %
             (iterNum, len(tryRes.matches), tryMatchDist.distMean.asArcseconds(),
                 tryMatchDist.distStdDev.asArcseconds()))
-        # if tryMatchDist.distMean.asArcseconds() < 0.2:
-        #     import pdb; pdb.set_trace()
+        tmp_str = 'Success'
+        if tryMatchDist.distMean.asArcseconds() > 0.2:
+            tmp_str = 'Failure'
+
+        ccd_id = exposure.getInfo().getDetector().getId()
+        output_file = open('/scratch/morriscb/test_matcher/output_match_dists_pyOPMb_%s_ccd%i.ascii' % 
+                           (tmp_str, exposure.getInfo().getDetector().getId()),
+                           'w')
+        output_file.writelines("# N mean std max\n")
+        output_file.writelines(
+            "%i %.8e %.8e %.8e\n" %
+            (len(tryRes.matches), tryMatchDist.distMean.asArcseconds(),
+             tryMatchDist.distStdDev.asArcseconds(), tryMatchDist.maxMatchDist.asArcseconds()))
+        for match in hold_matches:
+            output_file.writelines("%.8e\n" % match[-1])
+        output_file.close()
 
         exposure.setWcs(res.wcs)
 
