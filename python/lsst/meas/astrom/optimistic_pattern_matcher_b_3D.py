@@ -442,23 +442,45 @@ class OptimisticPatternMatcherB(object):
         shifted_references = np.dot(
             self.rot_matrix.transpose(),
             self._reference_catalog[:, :3].transpose()).transpose()
+        shifted_sources = np.dot(
+            self.rot_matrix,
+            source_catalog[:, :3].transpose()).tranpose()
         # Empty arrays for output.
         output_matches = np.empty((len(shifted_references), 2),
                                   dtype=np.int_)
+        src_matches = np.empty((len(shifted_sources), 2),
+                               dtype=np.int_)
         # Store the "id" of the references
         output_matches[:, 1] = np.arange(len(shifted_references),
                                          dtype=np.int_)
+        src_matches[:, 0] = np.arange(len(shifted_sources),
+                                      dtype=np.int_)
         # Find the matches.
-        tmp_src_dist, tmp_src_idx = self._kdtree.query(
+        tmp_src_dist, tmp_src_idx = self._src_kdtree.query(
             shifted_references[:, :3])
         output_matches[:, 0] = tmp_src_idx
-        tmp_src_dist = tmp_src_dist
+
+        tmp_ref_dist, tmp_ref_idx = self._ref_kdtree.query(
+            shifted_sources[:, :3])
+        src_matches[:, 1] = tmp_ref_idx
+
+        handshake_mask = self._handshake_match(output_matches,
+                                               src_matches)
         unique_mask = self._test_unique_matches(output_matches[:, 0],
                                                 tmp_src_dist)
         # Mask on the max distance and return the masked arrays.
-        dist_mask = np.logical_and(unique_mask,
+        dist_mask = np.logical_and(handshake_mask,
                                    tmp_src_dist < self._max_match_dist)
         return output_matches[dist_mask], tmp_src_dist[dist_mask]
+
+    def _handshake_match(self, matches_ref, src_matches):
+
+        handshake_mask_array = np.zeros(len(matches_ref))
+        for ref_match_idx, match in enumerate(matches_ref):
+            src_match_idx = np.searchsorted(src_matches[:, 0], match[0])
+            if match[1] == src_matches[src_match_idx, 1]:
+                handshake_mask_array[ref_match_idx] = True
+        return handshake_mask_array
 
     def _test_unique_matches(self, idx_array, dist_array):
         """Internal function for creating a mask of matches with unique indices.
@@ -503,7 +525,8 @@ class OptimisticPatternMatcherB(object):
         # If there are more sources we store them in the kd-tree. Opposite
         # if there are more references. This we we will always have unique
         # matches.
-        self._kdtree = cKDTree(source_catalog[:, :3])
+        self._src_kdtree = cKDTree(source_catalog[:, :3])
+        self._ref_kdtree = cKDTree(self._reference_catalog[:, :3])
         # Loop through the sources from brightest to faintest grabbing a chucnk
         # of n_check each time.
         for pattern_idx in xrange(np.min((self._max_n_patterns,
