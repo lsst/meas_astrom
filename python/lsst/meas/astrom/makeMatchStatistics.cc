@@ -19,33 +19,34 @@
  * the GNU General Public License along with this program.  If not,
  * see <https://www.lsstcorp.org/LegalNotices/>.
  */
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include "pybind11/pybind11.h"
+#include "pybind11/stl.h"
+
+#include "lsst/meas/astrom/makeMatchStatistics.h"
 
 namespace py = pybind11;
 using namespace pybind11::literals;
 
-#include "lsst/meas/astrom/makeMatchStatistics.h"
-
 namespace lsst {
 namespace meas {
 namespace astrom {
-
 namespace {
 
-template<typename MatchT>
-void declareMakeMatchStatistics(py::module & mod) {
-    mod.def("makeMatchStatistics", &makeMatchStatistics<MatchT>,
-            "matchList"_a, "flags"_a, "sctrl"_a=afw::math::StatisticsControl());
-    mod.def("makeMatchStatisticsInPixels", &makeMatchStatisticsInPixels<MatchT>,
-            "wcs"_a, "matchList"_a, "flags"_a, "sctrl"_a=afw::math::StatisticsControl());
-    mod.def("makeMatchStatisticsInRadians", &makeMatchStatisticsInRadians<MatchT>,
-            "wcs"_a, "matchList"_a, "flags"_a, "sctrl"_a=afw::math::StatisticsControl());
+template <typename MatchT>
+static void declareMakeMatchStatistics(py::module& mod) {
+    mod.def("makeMatchStatistics", &makeMatchStatistics<MatchT>, "matchList"_a, "flags"_a,
+            "sctrl"_a = afw::math::StatisticsControl());
+    mod.def("makeMatchStatisticsInPixels", &makeMatchStatisticsInPixels<MatchT>, "wcs"_a, "matchList"_a,
+            "flags"_a, "sctrl"_a = afw::math::StatisticsControl());
+    mod.def("makeMatchStatisticsInRadians", &makeMatchStatisticsInRadians<MatchT>, "wcs"_a, "matchList"_a,
+            "flags"_a, "sctrl"_a = afw::math::StatisticsControl());
 }
 
 }  // namespace lsst::meas::astrom::<anonymous>
 
 PYBIND11_PLUGIN(makeMatchStatistics) {
+    py::module::import("lsst.afw.math");
+
     py::module mod("makeMatchStatistics");
 
     declareMakeMatchStatistics<afw::table::ReferenceMatch>(mod);
@@ -53,5 +54,6 @@ PYBIND11_PLUGIN(makeMatchStatistics) {
 
     return mod.ptr();
 }
-
-}}}  // namespace lsst::meas::astrom
+}
+}
+}  // namespace lsst::meas::astrom

@@ -19,10 +19,10 @@
  * the GNU General Public License along with this program.  If not,
  * see <https://www.lsstcorp.org/LegalNotices/>.
  */
-#include <vector>
+#include "pybind11/pybind11.h"
+#include "pybind11/stl.h"
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <vector>
 
 #include "lsst/pex/config/python.h" // defines LSST_DECLARE_CONTROL_FIELD
 #include "lsst/afw/table/Match.h"
@@ -34,10 +34,9 @@ using namespace pybind11::literals;
 namespace lsst {
 namespace meas {
 namespace astrom {
-
 namespace {
 
-void declareOutlierRejectionControl(py::module & mod) {
+static void declareOutlierRejectionControl(py::module& mod) {
     py::class_<OutlierRejectionControl> cls(mod, "OutlierRejectionControl");
 
     cls.def(py::init<>());
@@ -47,13 +46,12 @@ void declareOutlierRejectionControl(py::module & mod) {
     LSST_DECLARE_CONTROL_FIELD(cls, OutlierRejectionControl, nClipMax);
 }
 
-void declareScaledPolynomialTransformFitter(py::module & mod) {
+static void declareScaledPolynomialTransformFitter(py::module& mod) {
     py::class_<ScaledPolynomialTransformFitter> cls(mod, "ScaledPolynomialTransformFitter");
 
     cls.def_static("fromMatches", &ScaledPolynomialTransformFitter::fromMatches);
     cls.def_static("fromGrid", &ScaledPolynomialTransformFitter::fromGrid);
-
-    cls.def("fit", &ScaledPolynomialTransformFitter::fit, "order"_a=-1);
+    cls.def("fit", &ScaledPolynomialTransformFitter::fit, "order"_a = -1);
     cls.def("updateModel", &ScaledPolynomialTransformFitter::updateModel);
     cls.def("updateIntrinsicScatter", &ScaledPolynomialTransformFitter::updateIntrinsicScatter);
     cls.def("getIntrinsicScatter", &ScaledPolynomialTransformFitter::getIntrinsicScatter);
@@ -78,5 +76,6 @@ PYBIND11_PLUGIN(scaledPolynomialTransformFitter) {
 
     return mod.ptr();
 }
-
-}}}  // namespace lsst::meas::astrom
+}
+}
+}  // namespace lsst::meas::astrom

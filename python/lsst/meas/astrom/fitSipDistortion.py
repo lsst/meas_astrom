@@ -1,4 +1,7 @@
 from __future__ import absolute_import, division, print_function
+
+__all__ = ["FitSipDistortionTask", "FitSipDistortionConfig"]
+
 from builtins import range
 
 import lsst.pipe.base
@@ -6,18 +9,12 @@ import lsst.afw.image
 import lsst.afw.geom
 import lsst.afw.coord
 import lsst.afw.display
-from . import (
-    ScaledPolynomialTransformFitter,
-    OutlierRejectionControl,
-    SipForwardTransform,
-    SipReverseTransform,
-    makeMatchStatisticsInRadians,
-    makeWcs
-)
+
+from .scaledPolynomialTransformFitter import ScaledPolynomialTransformFitter, OutlierRejectionControl
+from .sipTransform import SipForwardTransform, SipReverseTransform, makeWcs
+from .makeMatchStatistics import makeMatchStatisticsInRadians
 
 from .setMatchDistance import setMatchDistance
-
-__all__ = ["FitSipDistortionTask", "FitSipDistortionConfig"]
 
 
 class FitSipDistortionConfig(lsst.pex.config.Config):

@@ -19,10 +19,10 @@
  * the GNU General Public License along with this program.  If not,
  * see <https://www.lsstcorp.org/LegalNotices/>.
  */
-#include <memory>
+#include "pybind11/pybind11.h"
+#include "pybind11/stl.h"
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <memory>
 
 #include "lsst/pex/config/python.h" // defines LSST_DECLARE_CONTROL_FIELD
 #include "lsst/meas/astrom/matchOptimisticB.h"
@@ -33,18 +33,17 @@ using namespace pybind11::literals;
 namespace lsst {
 namespace meas {
 namespace astrom {
-
 namespace {
 
-void declareRecordProxy(py::module & mod) {
+static void declareRecordProxy(py::module &mod) {
     py::class_<RecordProxy, std::shared_ptr<RecordProxy>> cls(mod, "RecordProxy");
 
     cls.def_readwrite("record", &RecordProxy::record);
     cls.def_readwrite("position", &RecordProxy::position);
     cls.def_readwrite("used", &RecordProxy::used);
 
-    cls.def(py::init<std::shared_ptr<afw::table::SimpleRecord>, afw::geom::Point2D const &>(),
-            "record"_a, "position"_a);
+    cls.def(py::init<std::shared_ptr<afw::table::SimpleRecord>, afw::geom::Point2D const &>(), "record"_a,
+            "position"_a);
 
     // TO DO: decide if we need to wrap operator PTR(lsst::afw::table::SimpleRecord)()
 
@@ -55,7 +54,7 @@ void declareRecordProxy(py::module & mod) {
     cls.def("getY", &RecordProxy::getY);
 }
 
-void declareProxyPair(py::module & mod) {
+static void declareProxyPair(py::module &mod) {
     py::class_<ProxyPair, std::shared_ptr<ProxyPair>> cls(mod, "ProxyPair");
 
     cls.def_readwrite("first", &ProxyPair::first);
@@ -66,7 +65,7 @@ void declareProxyPair(py::module & mod) {
     cls.def(py::init<RecordProxy const &, RecordProxy const &>(), "s1"_a, "s2"_a);
 }
 
-void declareMatchOptimisticBControl(py::module & mod) {
+static void declareMatchOptimisticBControl(py::module &mod) {
     py::class_<MatchOptimisticBControl> cls(mod, "MatchOptimisticBControl");
 
     cls.def(py::init<>());
@@ -83,7 +82,6 @@ void declareMatchOptimisticBControl(py::module & mod) {
     LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, maxDeterminant);
 
     cls.def("validate", &MatchOptimisticBControl::validate);
-
 }
 
 }  // namespace lsst::meas::astrom::<anonymous>
@@ -95,20 +93,19 @@ PYBIND11_PLUGIN(matchOptimisticB) {
     declareProxyPair(mod);
     declareMatchOptimisticBControl(mod);
 
-    mod.def("makeProxies",
-            (ProxyVector (*)(afw::table::SourceCatalog const &,
-                             afw::image::Wcs const &,
-                             afw::image::Wcs const &)) &makeProxies,
+    mod.def("makeProxies", (ProxyVector(*)(afw::table::SourceCatalog const &, afw::image::Wcs const &,
+                                           afw::image::Wcs const &)) &
+                                   makeProxies,
             "sourceCat"_a, "distortedWcs"_a, "tanWcs"_a);
     mod.def("makeProxies",
-            (ProxyVector (*)(afw::table::SimpleCatalog const &,
-                             afw::image::Wcs const &)) &makeProxies,
+            (ProxyVector(*)(afw::table::SimpleCatalog const &, afw::image::Wcs const &)) & makeProxies,
             "posRefCat"_a, "tanWcs"_a);
 
-    mod.def("matchOptimisticB", &matchOptimisticB,
-            "posRefCat"_a, "sourceCat"_a, "control"_a, "wcs"_a, "posRefBegInd"_a=0, "verbose"_a=false);
+    mod.def("matchOptimisticB", &matchOptimisticB, "posRefCat"_a, "sourceCat"_a, "control"_a, "wcs"_a,
+            "posRefBegInd"_a = 0, "verbose"_a = false);
 
     return mod.ptr();
 }
-
-}}}  // namespace lsst::meas::astrom
+}
+}
+}  // namespace lsst::meas::astrom

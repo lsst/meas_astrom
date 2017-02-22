@@ -19,10 +19,11 @@
  * the GNU General Public License along with this program.  If not,
  * see <https://www.lsstcorp.org/LegalNotices/>.
  */
+#include "pybind11/pybind11.h"
+#include "pybind11/stl.h"
+
 #include <string>
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
 #include "numpy/arrayobject.h"
 #include "ndarray/pybind11.h"
 
@@ -35,17 +36,14 @@ namespace lsst {
 namespace meas {
 namespace astrom {
 namespace sip {
-
-namespace  {
+namespace {
 
 template <typename FittingFunc>
-void declareLeastSqFitter1d(py::module & mod, std::string const & name) {
-    py::class_<LeastSqFitter1d<FittingFunc>,
-               std::shared_ptr<LeastSqFitter1d<FittingFunc>>> cls(mod, name.c_str());
+static void declareLeastSqFitter1d(py::module &mod, std::string const &name) {
+    py::class_<LeastSqFitter1d<FittingFunc>, std::shared_ptr<LeastSqFitter1d<FittingFunc>>> cls(mod,
+                                                                                                name.c_str());
 
-    cls.def(py::init<std::vector<double> const &,
-                     std::vector<double> const &,
-                     std::vector<double> const &,
+    cls.def(py::init<std::vector<double> const &, std::vector<double> const &, std::vector<double> const &,
                      unsigned int>(),
             "x"_a, "y"_a, "s"_a, "order"_a);
 
@@ -73,5 +71,7 @@ PYBIND11_PLUGIN(leastSqFitter1d) {
 
     return mod.ptr();
 }
-
-}}}}  // namespace lsst::meas::astrom::sip
+}
+}
+}
+}  // namespace lsst::meas::astrom::sip

@@ -19,10 +19,11 @@
  * the GNU General Public License along with this program.  If not,
  * see <https://www.lsstcorp.org/LegalNotices/>.
  */
+#include "pybind11/pybind11.h"
+#include "pybind11/stl.h"
+
 #include <string>
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
 #include "numpy/arrayobject.h"
 #include "ndarray/pybind11.h"
 
@@ -35,19 +36,15 @@ namespace lsst {
 namespace meas {
 namespace astrom {
 namespace sip {
-
-namespace  {
+namespace {
 
 template <typename FittingFunc>
-void declareLeastSqFitter2d(py::module & mod, std::string const & name) {
-    py::class_<LeastSqFitter2d<FittingFunc>,
-               std::shared_ptr<LeastSqFitter2d<FittingFunc>>> cls(mod, name.c_str());
+static void declareLeastSqFitter2d(py::module &mod, std::string const &name) {
+    py::class_<LeastSqFitter2d<FittingFunc>, std::shared_ptr<LeastSqFitter2d<FittingFunc>>> cls(mod,
+                                                                                                name.c_str());
 
-    cls.def(py::init<std::vector<double> const &,
-                     std::vector<double> const &,
-                     std::vector<double> const &,
-                     std::vector<double> const &,
-                     int>(),
+    cls.def(py::init<std::vector<double> const &, std::vector<double> const &, std::vector<double> const &,
+                     std::vector<double> const &, int>(),
             "x"_a, "y"_a, "z"_a, "s"_a, "order"_a);
 
     cls.def("getParams", &LeastSqFitter2d<FittingFunc>::getParams);
@@ -59,7 +56,6 @@ void declareLeastSqFitter2d(py::module & mod, std::string const & name) {
 }
 
 }  // namespace lsst::meas::astrom::sip::<anonymous>
-
 
 PYBIND11_PLUGIN(leastSqFitter2d) {
     py::module mod("leastSqFitter2d");
@@ -74,5 +70,7 @@ PYBIND11_PLUGIN(leastSqFitter2d) {
 
     return mod.ptr();
 }
-
-}}}}  // namespace lsst::meas::astrom::sip
+}
+}
+}
+}  // namespace lsst::meas::astrom::sip

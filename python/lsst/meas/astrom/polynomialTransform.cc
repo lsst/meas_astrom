@@ -19,14 +19,13 @@
  * the GNU General Public License along with this program.  If not,
  * see <https://www.lsstcorp.org/LegalNotices/>.
  */
-#include <memory>
+#include "pybind11/pybind11.h"
+#include "pybind11/stl.h"
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <memory>
 
 #include "numpy/arrayobject.h"
 #include "ndarray/pybind11.h"
-#include "ndarray/converter.h"
 
 #include "lsst/afw/geom/AffineTransform.h"
 #include "lsst/meas/astrom/SipTransform.h"
@@ -41,24 +40,25 @@ namespace astrom {
 
 namespace {
 
-void declarePolynomialTransform(py::module & mod) {
+static void declarePolynomialTransform(py::module &mod) {
     py::class_<PolynomialTransform, std::shared_ptr<PolynomialTransform>> cls(mod, "PolynomialTransform");
 
-    cls.def(py::init<ndarray::Array<double const,2,2> const &, ndarray::Array<double const,2,2> const &>(),
+    cls.def(py::init<ndarray::Array<double const, 2, 2> const &,
+                     ndarray::Array<double const, 2, 2> const &>(),
             "xCoeffs"_a, "yCoeffs"_a);
     cls.def(py::init<PolynomialTransform const &>(), "other"_a);
 
     cls.def_static("convert",
-                   (PolynomialTransform (*)(ScaledPolynomialTransform const &)) &PolynomialTransform::convert,
+                   (PolynomialTransform(*)(ScaledPolynomialTransform const &)) & PolynomialTransform::convert,
                    "other"_a);
     cls.def_static("convert",
-                   (PolynomialTransform (*)(SipForwardTransform const &)) &PolynomialTransform::convert,
+                   (PolynomialTransform(*)(SipForwardTransform const &)) & PolynomialTransform::convert,
                    "other"_a);
     cls.def_static("convert",
-                   (PolynomialTransform (*)(SipReverseTransform const &)) &PolynomialTransform::convert,
+                   (PolynomialTransform(*)(SipReverseTransform const &)) & PolynomialTransform::convert,
                    "other"_a);
 
-    cls.def("__call__", &PolynomialTransform::operator(), "in"_a, py::is_operator());
+    cls.def("__call__", &PolynomialTransform::operator(), "in"_a);
 
     cls.def("getOrder", &PolynomialTransform::getOrder);
     cls.def("getXCoeffs", &PolynomialTransform::getXCoeffs);
@@ -66,38 +66,32 @@ void declarePolynomialTransform(py::module & mod) {
     cls.def("linearize", &PolynomialTransform::linearize);
 }
 
-void declareScaledPolynomialTransform(py::module & mod) {
-    py::class_<ScaledPolynomialTransform,
-               std::shared_ptr<ScaledPolynomialTransform>> cls(mod, "ScaledPolynomialTransform");
+static void declareScaledPolynomialTransform(py::module &mod) {
+    py::class_<ScaledPolynomialTransform, std::shared_ptr<ScaledPolynomialTransform>> cls(
+            mod, "ScaledPolynomialTransform");
 
-    cls.def(py::init<PolynomialTransform const &,
-                     afw::geom::AffineTransform const &,
+    cls.def(py::init<PolynomialTransform const &, afw::geom::AffineTransform const &,
                      afw::geom::AffineTransform const &>(),
             "poly"_a, "inputScaling"_a, "outputScalingInverse"_a);
-
     cls.def(py::init<ScaledPolynomialTransform const &>(), "other"_a);
 
-    cls.def_static("convert",
-                   (ScaledPolynomialTransform (*)(PolynomialTransform const &))
-                        &ScaledPolynomialTransform::convert,
+    cls.def_static("convert", (ScaledPolynomialTransform(*)(PolynomialTransform const &)) &
+                                      ScaledPolynomialTransform::convert,
                    "other"_a);
-    cls.def_static("convert",
-                   (ScaledPolynomialTransform (*)(SipForwardTransform const &))
-                        &ScaledPolynomialTransform::convert,
+    cls.def_static("convert", (ScaledPolynomialTransform(*)(SipForwardTransform const &)) &
+                                      ScaledPolynomialTransform::convert,
                    "other"_a);
-    cls.def_static("convert",
-                   (ScaledPolynomialTransform (*)(SipReverseTransform const &))
-                        &ScaledPolynomialTransform::convert,
+    cls.def_static("convert", (ScaledPolynomialTransform(*)(SipReverseTransform const &)) &
+                                      ScaledPolynomialTransform::convert,
                    "other"_a);
 
-    cls.def("__call__", &ScaledPolynomialTransform::operator(), "in"_a, py::is_operator());
+    cls.def("__call__", &ScaledPolynomialTransform::operator(), "in"_a);
 
     cls.def("getPoly", &ScaledPolynomialTransform::getPoly, py::return_value_policy::reference_internal);
     cls.def("getInputScaling", &ScaledPolynomialTransform::getInputScaling,
             py::return_value_policy::reference_internal);
     cls.def("getOutputScalingInverse", &ScaledPolynomialTransform::getOutputScalingInverse,
             py::return_value_policy::reference_internal);
-
     cls.def("linearize", &ScaledPolynomialTransform::linearize);
 }
 
@@ -107,21 +101,24 @@ PYBIND11_PLUGIN(polynomialTransform) {
     py::module mod("polynomialTransform");
 
     if (_import_array() < 0) {
-            PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import");
-            return nullptr;
+        PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import");
+        return nullptr;
     };
 
     declarePolynomialTransform(mod);
     declareScaledPolynomialTransform(mod);
 
-    mod.def("compose", (PolynomialTransform (*)(afw::geom::AffineTransform const &,
-                                                PolynomialTransform const &)) &compose,
+    mod.def("compose",
+            (PolynomialTransform(*)(afw::geom::AffineTransform const &, PolynomialTransform const &)) &
+                    compose,
             "t1"_a, "t2"_a);
-    mod.def("compose", (PolynomialTransform (*)(PolynomialTransform const &,
-                                                afw::geom::AffineTransform const &)) &compose,
+    mod.def("compose",
+            (PolynomialTransform(*)(PolynomialTransform const &, afw::geom::AffineTransform const &)) &
+                    compose,
             "t1"_a, "t2"_a);
 
     return mod.ptr();
 }
-
-}}}  // namespace lsst::meas::astrom
+}
+}
+}  // namespace lsst::meas::astrom

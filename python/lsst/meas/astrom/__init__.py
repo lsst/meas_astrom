@@ -21,10 +21,6 @@
 #
 from __future__ import absolute_import
 
-import lsst.afw.geom
-import lsst.afw.math
-import lsst.afw.table
-
 from .makeMatchStatistics import *
 from .matchOptimisticB import *
 from .polynomialTransform import *

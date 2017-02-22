@@ -19,11 +19,11 @@
  * the GNU General Public License along with this program.  If not,
  * see <https://www.lsstcorp.org/LegalNotices/>.
  */
+#include "pybind11/pybind11.h"
+#include "pybind11/stl.h"
+
 #include <memory>
 #include <vector>
-
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
 
 #include "numpy/arrayobject.h"
 #include "ndarray/pybind11.h"
@@ -40,20 +40,15 @@ namespace lsst {
 namespace meas {
 namespace astrom {
 namespace sip {
+namespace {
 
-namespace  {
+template <typename MatchT>
+static void declareCreateWcsWithSip(py::module &mod, std::string const &name) {
+    py::class_<CreateWcsWithSip<MatchT>, std::shared_ptr<CreateWcsWithSip<MatchT>>> cls(mod, name.c_str());
 
-template<typename MatchT>
-void declareCreateWcsWithSip(py::module & mod, std::string const & name) {
-    py::class_<CreateWcsWithSip<MatchT>,
-               std::shared_ptr<CreateWcsWithSip<MatchT>>> cls(mod, name.c_str());
-
-    cls.def(py::init<std::vector<MatchT> const &,
-                     afw::image::Wcs const &,
-                     int const,
-                     afw::geom::Box2I const &,
-                     int const>(),
-            "matches"_a, "linearWcs"_a, "order"_a, "bbox"_a=afw::geom::Box2I(), "ngrid"_a=0);
+    cls.def(py::init<std::vector<MatchT> const &, afw::image::Wcs const &, int const,
+                     afw::geom::Box2I const &, int const>(),
+            "matches"_a, "linearWcs"_a, "order"_a, "bbox"_a = afw::geom::Box2I(), "ngrid"_a = 0);
 
     cls.def("getNewWcs", &CreateWcsWithSip<MatchT>::getNewWcs);
     cls.def("getScatterInPixels", &CreateWcsWithSip<MatchT>::getScatterInPixels);
@@ -64,9 +59,8 @@ void declareCreateWcsWithSip(py::module & mod, std::string const & name) {
     cls.def("getNPoints", &CreateWcsWithSip<MatchT>::getNPoints);
     cls.def("getNGrid", &CreateWcsWithSip<MatchT>::getNGrid);
 
-    mod.def("makeCreateWcsWithSip", &makeCreateWcsWithSip<MatchT>,
-            "matches"_a, "linearWcs"_a, "order"_a, "bbox"_a=afw::geom::Box2I(), "ngrid"_a=0);
-
+    mod.def("makeCreateWcsWithSip", &makeCreateWcsWithSip<MatchT>, "matches"_a, "linearWcs"_a, "order"_a,
+            "bbox"_a = afw::geom::Box2I(), "ngrid"_a = 0);
 }
 
 }  // namespace lsst::meas::astrom::sip::<anonymous>
@@ -85,5 +79,7 @@ PYBIND11_PLUGIN(createWcsWithSip) {
 
     return mod.ptr();
 }
-
-}}}}  // namespace lsst::meas::astrom::sip
+}
+}
+}
+}  // namespace lsst::meas::astrom::sip
