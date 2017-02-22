@@ -103,8 +103,8 @@ void declareScaledPolynomialTransform(py::module & mod) {
 
 }  // namespace lsst::meas::astrom::<anonymous>
 
-PYBIND11_PLUGIN(_polynomialTransform) {
-    py::module mod("_polynomialTransform", "Python wrapper for afw _polynomialTransform library");
+PYBIND11_PLUGIN(polynomialTransform) {
+    py::module mod("polynomialTransform");
 
     if (_import_array() < 0) {
             PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import");

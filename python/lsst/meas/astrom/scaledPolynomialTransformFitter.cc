@@ -70,9 +70,8 @@ void declareScaledPolynomialTransformFitter(py::module & mod) {
 
 }  // namespace lsst::meas::astrom::<anonymous>
 
-PYBIND11_PLUGIN(_scaledPolynomialTransformFitter) {
-    py::module mod("_scaledPolynomialTransformFitter",
-                   "Python wrapper for afw _scaledPolynomialTransformFitter library");
+PYBIND11_PLUGIN(scaledPolynomialTransformFitter) {
+    py::module mod("scaledPolynomialTransformFitter");
 
     declareOutlierRejectionControl(mod);
     declareScaledPolynomialTransformFitter(mod);

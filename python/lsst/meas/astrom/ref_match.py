@@ -28,7 +28,7 @@ import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from .matchOptimisticB import MatchOptimisticBTask
 from .display import displayAstrometry
-from .astromLib import makeMatchStatistics
+from . import makeMatchStatistics
 from .createMatchMetadata import createMatchMetadata
 
 __all__ = ['RefMatchConfig', 'RefMatchTask']

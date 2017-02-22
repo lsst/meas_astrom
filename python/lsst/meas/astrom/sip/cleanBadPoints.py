@@ -28,7 +28,7 @@ import numpy as np
 
 import lsst.afw.detection as det
 
-from . import sipLib as sip
+from . import LeastSqFitter1dPoly
 
 
 def clean(srcMatch, wcs, order=3, nsigma=3):
@@ -80,7 +80,7 @@ def indicesOfGoodPoints(x, y, s, order=1, nsigma=3, maxiter=100):
         ry = chooseRy(y, idx, order)
         rs = np.ones((len(rx)))
 
-        lsf = sip.LeastSqFitter1dPoly(list(rx), list(ry), list(rs), order)
+        lsf = LeastSqFitter1dPoly(list(rx), list(ry), list(rs), order)
         fit = [lsf.valueAt(value) for value in rx]
         f = [lsf.valueAt(value) for value in x]
 

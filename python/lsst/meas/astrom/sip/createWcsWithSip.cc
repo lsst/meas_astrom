@@ -71,8 +71,8 @@ void declareCreateWcsWithSip(py::module & mod, std::string const & name) {
 
 }  // namespace lsst::meas::astrom::sip::<anonymous>
 
-PYBIND11_PLUGIN(_createWcsWithSip) {
-    py::module mod("_createWcsWithSip", "Python wrapper for code in CreateWcsWithSip.h");
+PYBIND11_PLUGIN(createWcsWithSip) {
+    py::module mod("createWcsWithSip");
 
     // Need to import numpy for ndarray and eigen conversions
     if (_import_array() < 0) {

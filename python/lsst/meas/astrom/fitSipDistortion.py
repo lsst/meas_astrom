@@ -6,7 +6,7 @@ import lsst.afw.image
 import lsst.afw.geom
 import lsst.afw.coord
 import lsst.afw.display
-from .astromLib import (
+from . import (
     ScaledPolynomialTransformFitter,
     OutlierRejectionControl,
     SipForwardTransform,

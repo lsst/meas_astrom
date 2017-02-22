@@ -193,9 +193,8 @@ void finalize() {
 
 }  // namespace lsst::meas::astrom::<anonymous>
 
-PYBIND11_PLUGIN(_astrometry_net) {
-    py::module mod("_astrometry_net",
-                   "Python wrapper for astrometry_net code needed by meas_astrom");
+PYBIND11_PLUGIN(astrometry_net) {
+    py::module mod("astrometry_net");
 
     // code that is run at import time
     fits_use_error_system();

@@ -45,8 +45,8 @@ void declareMakeMatchStatistics(py::module & mod) {
 
 }  // namespace lsst::meas::astrom::<anonymous>
 
-PYBIND11_PLUGIN(_makeMatchStatistics) {
-    py::module mod("_makeMatchStatistics", "Python wrapper for afw _makeMatchStatistics library");
+PYBIND11_PLUGIN(makeMatchStatistics) {
+    py::module mod("makeMatchStatistics");
 
     declareMakeMatchStatistics<afw::table::ReferenceMatch>(mod);
     declareMakeMatchStatistics<afw::table::SourceMatch>(mod);

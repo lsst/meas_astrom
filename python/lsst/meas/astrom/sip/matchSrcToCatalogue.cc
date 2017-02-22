@@ -36,8 +36,8 @@ namespace meas {
 namespace astrom {
 namespace sip {
 
-PYBIND11_PLUGIN(_matchSrcToCatalogue) {
-    py::module mod("_matchSrcToCatalogue", "Python wrapper for code in MatchSrcToCatalogue.h");
+PYBIND11_PLUGIN(matchSrcToCatalogue) {
+    py::module mod("matchSrcToCatalogue");
 
     py::class_<MatchSrcToCatalogue> cls(mod, "MatchSrcToCatalogue");
 

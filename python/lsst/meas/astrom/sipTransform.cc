@@ -112,8 +112,8 @@ void declareSipReverseTransform(py::module & mod) {
 
 }  // namespace lsst::meas::astrom::<anonymous>
 
-PYBIND11_PLUGIN(_sipTransform) {
-    py::module mod("_sipTransform", "Python wrapper for afw _sipTransform library");
+PYBIND11_PLUGIN(sipTransform) {
+    py::module mod("sipTransform");
 
     declareSipTransformBase(mod);
     declareSipForwardTransform(mod);

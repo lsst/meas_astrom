@@ -7,8 +7,8 @@ import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from lsst.meas.algorithms.sourceSelector import sourceSelectorRegistry
 
-from .setMatchDistance import setMatchDistance
-from .astromLib import matchOptimisticB, MatchOptimisticBControl
+from ..setMatchDistance import setMatchDistance
+from . import matchOptimisticB, MatchOptimisticBControl
 
 __all__ = ["matchOptimisticB", "MatchOptimisticBTask", "MatchOptimisticBConfig", "SourceInfo"]
 

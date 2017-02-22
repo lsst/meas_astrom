@@ -43,7 +43,7 @@ import lsst.afw.table as afwTable
 import lsst.meas.algorithms.utils as maUtils
 from .loadAstrometryNetObjects import LoadAstrometryNetObjectsTask, LoadMultiIndexes
 from .display import displayAstrometry
-from .astromLib import makeMatchStatisticsInRadians
+from . import makeMatchStatisticsInRadians
 
 from . import sip as astromSip
 

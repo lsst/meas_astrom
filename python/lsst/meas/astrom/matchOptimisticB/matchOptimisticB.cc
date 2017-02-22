@@ -88,8 +88,8 @@ void declareMatchOptimisticBControl(py::module & mod) {
 
 }  // namespace lsst::meas::astrom::<anonymous>
 
-PYBIND11_PLUGIN(_matchOptimisticB) {
-    py::module mod("_matchOptimisticB", "Python wrapper for afw _matchOptimisticB library");
+PYBIND11_PLUGIN(matchOptimisticB) {
+    py::module mod("matchOptimisticB");
 
     declareRecordProxy(mod);
     declareProxyPair(mod);

@@ -61,8 +61,8 @@ void declareLeastSqFitter2d(py::module & mod, std::string const & name) {
 }  // namespace lsst::meas::astrom::sip::<anonymous>
 
 
-PYBIND11_PLUGIN(_leastSqFitter2d) {
-    py::module mod("_leastSqFitter2d", "Python wrapper for code in LeastSqFitter2d.h");
+PYBIND11_PLUGIN(leastSqFitter2d) {
+    py::module mod("leastSqFitter2d");
 
     // Need to import numpy for ndarray and eigen conversions
     if (_import_array() < 0) {

@@ -21,7 +21,13 @@
 #
 from __future__ import absolute_import
 
-from .sipLib import *
+import lsst.afw.geom  # for Box2I
+
+from .leastSqFitter1d import *
+from .leastSqFitter2d import *
+from .createWcsWithSip import *
+from .matchSrcToCatalogue import *
+
 from .cleanBadPoints import *
 from .genDistortedImage import *
 from .sourceMatchStatistics import *

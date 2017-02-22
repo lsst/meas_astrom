@@ -5,4 +5,4 @@ scripts.BasicSConscript.pybind11([
     "leastSqFitter2d",
     "createWcsWithSip",
     "matchSrcToCatalogue",
-])
+], addUnderscore=False)

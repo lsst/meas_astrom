@@ -21,9 +21,18 @@
 #
 from __future__ import absolute_import
 
+import lsst.afw.geom
+import lsst.afw.math
+import lsst.afw.table
+
+from .makeMatchStatistics import *
+from .matchOptimisticB import *
+from .polynomialTransform import *
+from .scaledPolynomialTransformFitter import *
+from .sipTransform import *
+
 from . import sip
 
-from .astromLib import *
 from .ref_match import *
 from .astrometryNetDataConfig import *
 from .anetBasicAstrometry import *
