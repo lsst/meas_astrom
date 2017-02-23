@@ -444,7 +444,7 @@ class OptimisticPatternMatcherB(object):
             self._reference_catalog[:, :3].transpose()).transpose()
         shifted_sources = np.dot(
             self.rot_matrix,
-            source_catalog[:, :3].transpose()).tranpose()
+            source_catalog[:, :3].transpose()).transpose()
         # Empty arrays for output.
         output_matches = np.empty((len(shifted_references), 2),
                                   dtype=np.int_)
@@ -466,8 +466,8 @@ class OptimisticPatternMatcherB(object):
 
         handshake_mask = self._handshake_match(output_matches,
                                                src_matches)
-        unique_mask = self._test_unique_matches(output_matches[:, 0],
-                                                tmp_src_dist)
+        # unique_mask = self._test_unique_matches(output_matches[:, 0],
+        #                                         tmp_src_dist)
         # Mask on the max distance and return the masked arrays.
         dist_mask = np.logical_and(handshake_mask,
                                    tmp_src_dist < self._max_match_dist)

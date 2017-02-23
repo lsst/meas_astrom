@@ -65,7 +65,7 @@ class MatchOptimisticBConfig(pexConfig.Config):
         doc="Maximum allowed shift of WCS, due to matching (arcsec)",
         dtype=int,
         default=150,
-        max=400,
+        max=180,
     )
     maxRotationDeg = pexConfig.RangeField(
         doc="Rotation angle allowed between sources and position reference objects (degrees)",
@@ -383,13 +383,13 @@ class MatchOptimisticBTask(pipeBase.Task):
         dist_array = []
         for try_idx in xrange(4):
             match_id_list, dist_array = pyOPMb.match(src_array, self.config.numPointsForShapeAttempt + try_idx,
-                                                     self.config.numPointsForShape)
+                                                     self.config.numPointsForShape + try_idx)
             if len(match_id_list) > 0:
                 current_shift = np.arccos(pyOPMb._cos_theta)*3600/__deg_to_rad__
                 break
             else:
                 maxShift *= 2
-                maxShift = min((400., maxShift))
+                maxShift = min((150., maxShift))
                 maxMatchDistArcSec *= 2
                 max_ang_tol *= 2
                 max_rotation *=2
