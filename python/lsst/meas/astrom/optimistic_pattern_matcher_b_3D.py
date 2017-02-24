@@ -255,7 +255,10 @@ class OptimisticPatternMatcherB(object):
                        source_candidates[0],
                        self._reference_catalog[matched_references[0]],
                        source_delta[0], ref_delta, cos_theta)
-                    if self._is_valid_rotation:
+                    if (self._is_valid_rotation and
+                        self._test_match(
+                            source_candidates,
+                            self._reference_catalog[matched_references])):
                         break
             if self._is_valid_rotation:
                 break
@@ -431,6 +434,16 @@ class OptimisticPatternMatcherB(object):
         # This is a valid rotation.
         self._is_valid_rotation = True
         return None
+
+    def _test_match(self, src_objects, ref_objects):
+        shifted_references = np.dot(
+            self.rot_matrix.transpose(),
+            ref_objects.transpose()).transpose()
+        tmp_delta_array = src_objects - shifted_references
+        tmp_dist_array = (tmp_delta_array[:, 0] ** 2 +
+                          tmp_delta_array[:, 1] ** 2 +
+                          tmp_delta_array[:, 2] ** 2)
+        return np.all(tmp_dist_array < self._dist_tol ** 2)
 
     def _compute_shift_and_match_sources(self, source_catalog):
         """Given an input source catalog, pinwheel centers in the source and
