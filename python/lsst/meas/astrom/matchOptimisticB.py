@@ -365,9 +365,10 @@ class MatchOptimisticBTask(pipeBase.Task):
             self.maxAngTol = max_ang_tol
         else:
             maxMatchDistArcSec = maxMatchDist
-            maxMatchDistArcSec = np.min((maxMatchDistArcSec, self.maxMatchDistArcSec))
             max_ang_tol = np.min((self.maxAngTol,
                                   np.arctan(maxMatchDistArcSec/(0.2*4096*0.593))/__deg_to_rad__))
+            maxMatchDistArcSec = np.min((maxMatchDistArcSec, self.maxMatchDistArcSec))
+
         print("Current tol maxDist: %.4f, maxAngTol %.4f" % (maxMatchDistArcSec, max_ang_tol))
 
         pyOPMb = OptimisticPatternMatcherB(
@@ -417,8 +418,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         # Currently hard coded for a 6 point pattern.
         pattern_array = np.empty(
             (cat_array.shape[0] - self.config.numPointsForShape,
-             2 * self.config.numPointsForShape - 3 +
-             self.config.numPointsForShape))
+             2 * self.config.numPointsForShape - 3))
         flux_args_array = np.argsort(cat_array[:, -1])
 
         tmp_sort_array = cat_array[flux_args_array]

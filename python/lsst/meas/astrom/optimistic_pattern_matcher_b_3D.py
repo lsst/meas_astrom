@@ -255,10 +255,7 @@ class OptimisticPatternMatcherB(object):
                        source_candidates[0],
                        self._reference_catalog[matched_references[0]],
                        source_delta[0], ref_delta, cos_theta)
-                    if (self._is_valid_rotation and
-                        self._test_match(
-                            source_candidates,
-                            self._reference_catalog[matched_references])):
+                    if self._is_valid_rotation:
                         break
             if self._is_valid_rotation:
                 break
@@ -435,7 +432,9 @@ class OptimisticPatternMatcherB(object):
         self._is_valid_rotation = True
         return None
 
-    def _test_match(self, src_objects, ref_objects):
+    def _test_match(self, src_objects, ref_objects, pattern_idx):
+        if len(src_objects) != len(ref_objects):
+            return False
         shifted_references = np.dot(
             self.rot_matrix.transpose(),
             ref_objects.transpose()).transpose()
@@ -443,7 +442,11 @@ class OptimisticPatternMatcherB(object):
         tmp_dist_array = (tmp_delta_array[:, 0] ** 2 +
                           tmp_delta_array[:, 1] ** 2 +
                           tmp_delta_array[:, 2] ** 2)
-        return np.all(tmp_dist_array < self._dist_tol ** 2)
+        is_good_match = np.all(tmp_dist_array < self._dist_tol ** 2)
+        if not is_good_match:
+            print("Intermediate verify failed at pattern %i..." % pattern_idx)
+            self._is_valid_rotation = False
+        return is_good_match
 
     def _compute_shift_and_match_sources(self, source_catalog):
         """Given an input source catalog, pinwheel centers in the source and
@@ -546,6 +549,7 @@ class OptimisticPatternMatcherB(object):
                                           n_source - n_check))):
             matches = []
             distances = []
+            ref_cadidates = []
             # Grab the sources to attempt to create this pattern.
             pattern = sorted_catalog[pattern_idx: pattern_idx + n_check, :3]
             # Construct a pattern given the number of points we are using to
@@ -554,7 +558,10 @@ class OptimisticPatternMatcherB(object):
                                                                n_match)
             # If we have enough candidates we can shift and attempt to match
             # the two catalogs.
-            if len(ref_candidates) >= n_match:
+            if (len(ref_candidates) >= n_match and
+                self._test_match(
+                    pattern, self._reference_catalog[ref_candidates], 
+                    pattern_idx)):
                 print('Matching...')
                 matches, distances = self._compute_shift_and_match_sources(
                     source_catalog)
@@ -562,14 +569,14 @@ class OptimisticPatternMatcherB(object):
                 # If the number of matched objects satifies our criteria we
                 # can print summary statistics and exit. If not we start the
                 # loop over with the next pattern.
-                if len(matches) > self._min_matches:
+                if len(matches) >= self._min_matches:
                     print("Succeeded after %i patterns." % pattern_idx)
                     print("\tShift %.4f arcsec" %
                           (np.arccos(self._cos_theta)*3600/__deg_to_rad__))
                     print("\tRotation: %.4f deg" %
                           (np.arcsin(self._sin_phi)/__deg_to_rad__))
                     break
-        if len(matches) < n_match:
+        if len(matches) < self._min_matches:
             print("Failed after %i patterns." % pattern_idx)
             return ([], [])
         return (matches, distances)
