@@ -234,8 +234,8 @@ class OptimisticPatternMatcherB(object):
                         source_dist_array[cand_idx], source_delta[cand_idx],
                         source_candidates[0], source_delta[0],
                         source_dist_array[0], matched_references[0], ref_delta,
-                        ref_delta_dist, tmp_ref_dist_arary, tmp_ref_delta_array,
-                        tmp_ref_id_array)
+                        ref_delta_dist, tmp_ref_dist_arary,
+                        tmp_ref_delta_array, tmp_ref_id_array)
                     # If we don't find a mach for this spoke we can exit early.
                     if match is None:
                         n_failed += 1
@@ -271,6 +271,14 @@ class OptimisticPatternMatcherB(object):
         """Internal function finding matches for the remaining spokes of our
         candidate pinwheel.
         """
+        # Compute the max sine or equivalently the angle that our distance
+        # tolerance allows. This also sets a minimum scale for the spoke
+        # length.
+        cand_sin_tol = self._dist_tol / (cand_dist + self._dist_tol)
+        if cand_sin_tol > 0.14: # Small angle approx not valid, continue.
+            print("Not small angle, %.4e..." % cand_dist)
+            return None
+
         # As before we first check references with matching distances, exiting
         # early if we find none.
         start_idx = np.searchsorted(
@@ -306,24 +314,25 @@ class OptimisticPatternMatcherB(object):
             if ref_id_array[dist_idx, 1] == ref_center_id:
                 ref_sign = -1
             cos_theta_source = (np.dot(cand_delta, source_delta) /
-                                (cand_dist*source_delta_dist))
+                                (cand_dist * source_delta_dist))
             cos_theta_ref = ref_sign*(
                 np.dot(ref_delta_array[dist_idx], ref_delta) /
-                (ref_dist_array[dist_idx]*ref_delta_dist))
+                (ref_dist_array[dist_idx] * ref_delta_dist))
             # We need to test that the vectors are not completely aligned.
             # If they are our first test will be invalid thanks to
             # 1 - cos_theta**2 equaling zero.
             # Using a few trig relations and taylor expantions around
             # _ang_tol we compare the opening angles of our pinwheel
             # legs to see if they are within tolerance.
-            cos_comparison = -self._cos_limit < cos_theta_ref < self._cos_limit
+
+            cos_comparison = cos_theta_ref ** 2 < 1
             if (cos_comparison and
                 not ((cos_theta_source - cos_theta_ref)**2 /
-                     (1 - cos_theta_ref**2) < self._ang_tol**2)):
+                     (1 - cos_theta_ref**2) < cand_sin_tol**2)):
                 continue
             elif (not cos_comparison and
                   not ((cos_theta_source - cos_theta_ref)**2 /
-                       self._sin_limit**2 < self._ang_tol**2)):
+                       cand_sin_tol**2 < cand_sin_tol**2)):
                 continue
             # Now we compute the cross product between the first
             # rungs of our spokes and our candidate rungs. We then
@@ -343,16 +352,16 @@ class OptimisticPatternMatcherB(object):
             # with the centeral vectors. Again using trig relations and
             # small angle aproximation on _ang_tol we arrive at the
             # folloing relation.
-            sin_comparison = -self._sin_limit < cos_theta_ref < self._sin_limit
+            sin_comparison = -cand_sin_tol < cos_theta_ref < cand_sin_tol
             if (not sin_comparison and
-                not (-self._ang_tol <
-                     (dot_cross_source - dot_cross_ref)/cos_theta_ref <
-                     self._ang_tol)):
+                not (-cand_sin_tol <
+                     (dot_cross_source - dot_cross_ref) / cos_theta_ref <
+                     cand_sin_tol)):
                 continue
             elif (sin_comparison and
-                  not (-self._ang_tol <
-                       (dot_cross_source - dot_cross_ref)/self._sin_limit <
-                       self._ang_tol)):
+                  not (-cand_sin_tol <
+                       (dot_cross_source - dot_cross_ref) / cand_sin_tol <
+                       cand_sin_tol)):
                 continue
             # Check to see which id we should return.
             if ref_sign == 1:
@@ -560,7 +569,7 @@ class OptimisticPatternMatcherB(object):
             # the two catalogs.
             if (len(ref_candidates) >= n_match and
                 self._test_match(
-                    pattern, self._reference_catalog[ref_candidates], 
+                    pattern, self._reference_catalog[ref_candidates],
                     pattern_idx)):
                 print('Matching...')
                 matches, distances = self._compute_shift_and_match_sources(
