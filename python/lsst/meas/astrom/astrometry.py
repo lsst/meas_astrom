@@ -291,7 +291,7 @@ class AstrometryTask(RefMatchTask):
             tmp_str = 'Failure'
 
         ccd_id = exposure.getInfo().getDetector().getId()
-        output_file = open('/scratch/morriscb/test_matcher/output_match_dists_pyOPMbisGoodTM001_%s_ccd%i.ascii' % 
+        output_file = open('/scratch/morriscb/test_matcher/output_match_dists_pyOPMbisGoodTM0Max30NewTolSoft_%s_ccd%i.ascii' % 
                            (tmp_str, exposure.getInfo().getDetector().getId()),
                            'w')
         output_file.writelines("# N mean std max\n")

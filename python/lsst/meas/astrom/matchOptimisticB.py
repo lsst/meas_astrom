@@ -64,7 +64,7 @@ class MatchOptimisticBConfig(pexConfig.Config):
     maxShift = pexConfig.RangeField(
         doc="Maximum allowed shift of WCS, due to matching (arcsec)",
         dtype=int,
-        default=150,
+        default=30,
         max=180,
     )
     maxRotationDeg = pexConfig.RangeField(
@@ -375,23 +375,27 @@ class MatchOptimisticBTask(pipeBase.Task):
             reference_catalog=ref_array, max_rotation_theta=maxShift/3600.,
             max_rotation_phi=max_rotation, dist_tol=maxMatchDistArcSec/3600.,
             max_dist_cand=1000000, ang_tol=max_ang_tol,
-            max_match_dist=np.min((self.config.maxMatchDistArcSec/3600.,
-                                   maxMatchDistArcSec/3600.)),
+            max_match_dist=maxMatchDistArcSec/3600.,
             min_matches=minMatchedPairs, max_n_patterns=self.config.numPatterns)
 
         current_shift = None
         match_id_list = []
         dist_array = []
-        for try_idx in xrange(4):
+        hold_maxMatchDistArcSec = maxMatchDistArcSec
+        hold_maxShift = maxShift
+        for try_idx in xrange(5):
             match_id_list, dist_array = pyOPMb.match(src_array, self.config.numPointsForShapeAttempt + try_idx,
                                                      self.config.numPointsForShape + try_idx)
             if len(match_id_list) > 0:
                 current_shift = np.arccos(pyOPMb._cos_theta)*3600/__deg_to_rad__
                 break
             else:
-                maxShift *= 2
-                maxShift = min((150., maxShift))
-                maxMatchDistArcSec *= 2
+                if hold_maxShift < 30:
+                    hold_maxShift = 30
+                    maxShift = 30
+                else:
+                    maxShift = min((150., (try_idx + 1) * hold_maxShift))
+                maxMatchDistArcSec = (try_idx + 2) * hold_maxMatchDistArcSec
                 max_ang_tol *= 2
                 max_rotation *= 2
                 pyOPMb._max_cos_theta = np.cos(maxShift/3600.*__deg_to_rad__)
@@ -455,7 +459,7 @@ class MatchOptimisticBTask(pipeBase.Task):
                 start_idx,
                 np.argsort(pattern_array[
                     start_idx, :(self.config.numPointsForShape - 1)])]
-            pattern_array[start_idx, 5:] = pattern_array[
+            pattern_array[start_idx, (self.config.numPointsForShape - 1):] = pattern_array[
                 start_idx, np.argsort(pattern_array[
                     start_idx, (self.config.numPointsForShape - 1):]) +
                 (self.config.numPointsForShape - 1)]
@@ -486,7 +490,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         dist_tol = (dist_nearest_array[dist_idx] * 3600. * (180. / np.pi) /
                     np.sqrt(self.config.numPointsForShape - 1.))
         theta_tol = (theta_nearest_array[theta_idx] * (180. / np.pi) /
-                     np.sqrt((self.config.numPointsForShape - 2.)))
+                     np.sqrt(self.config.numPointsForShape - 2.))
 
         print("New tolerances")
         print("\tdistance tol: %.4f [arcsec]" % dist_tol)

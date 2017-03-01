@@ -275,8 +275,8 @@ class OptimisticPatternMatcherB(object):
         # tolerance allows. This also sets a minimum scale for the spoke
         # length.
         cand_sin_tol = self._dist_tol / (cand_dist + self._dist_tol)
-        if cand_sin_tol > 0.14: # Small angle approx not valid, continue.
-            print("Not small angle, %.4e..." % cand_dist)
+        if cand_sin_tol > 0.0447: # Small angle approx not valid, continue.
+            # print("Not small angle, %.4e..." % cand_dist)
             return None
 
         # As before we first check references with matching distances, exiting
