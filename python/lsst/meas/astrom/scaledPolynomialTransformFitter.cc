@@ -24,7 +24,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "lsst/pex/config/pybind11.h" // defines LSST_DECLARE_CONTROL_FIELD
+#include "lsst/pex/config/python.h" // defines LSST_DECLARE_CONTROL_FIELD
 #include "lsst/afw/table/Match.h"
 #include "lsst/meas/astrom/ScaledPolynomialTransformFitter.h"
 

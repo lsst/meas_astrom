@@ -27,7 +27,7 @@ extern "C" {
 
 #include "boost/format.hpp"
 
-#include "lsst/utils/pybind11.h"
+#include "lsst/utils/python.h"
 #include "lsst/meas/astrom/detail/utils.h"
 #include "lsst/base.h"
 #include "lsst/log/Log.h"
