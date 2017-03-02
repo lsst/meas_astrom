@@ -365,14 +365,13 @@ class MatchOptimisticBTask(pipeBase.Task):
             self.maxAngTol = max_ang_tol
         else:
             maxMatchDistArcSec = maxMatchDist
-            max_ang_tol = np.min((self.maxAngTol,
-                                  np.arctan(maxMatchDistArcSec/(0.2*4096*0.593))/__deg_to_rad__))
-            maxMatchDistArcSec = np.min((maxMatchDistArcSec, self.maxMatchDistArcSec))
+            max_ang_tol = np.arctan(maxMatchDistArcSec/(0.2*4096*0.593))/__deg_to_rad__
+            # maxMatchDistArcSec = np.min((maxMatchDistArcSec, self.maxMatchDistArcSec))
 
         print("Current tol maxDist: %.4f, maxAngTol %.4f" % (maxMatchDistArcSec, max_ang_tol))
 
         pyOPMb = OptimisticPatternMatcherB(
-            reference_catalog=ref_array, max_rotation_theta=maxShift/3600.,
+            reference_catalog=ref_array, max_rotation_theta=np.min((maxShift, 30))/3600.,
             max_rotation_phi=max_rotation, dist_tol=maxMatchDistArcSec/3600.,
             max_dist_cand=1000000, ang_tol=max_ang_tol,
             max_match_dist=maxMatchDistArcSec/3600.,
@@ -383,6 +382,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         dist_array = []
         hold_maxMatchDistArcSec = maxMatchDistArcSec
         hold_maxShift = maxShift
+        start_shift = 2
         for try_idx in xrange(5):
             match_id_list, dist_array = pyOPMb.match(src_array, self.config.numPointsForShapeAttempt + try_idx,
                                                      self.config.numPointsForShape + try_idx)
@@ -393,8 +393,9 @@ class MatchOptimisticBTask(pipeBase.Task):
                 if hold_maxShift < 30:
                     hold_maxShift = 30
                     maxShift = 30
+                    start_shift = 1
                 else:
-                    maxShift = min((150., (try_idx + 1) * hold_maxShift))
+                    maxShift = min((150., (try_idx + start_shift) * hold_maxShift))
                 maxMatchDistArcSec = (try_idx + 2) * hold_maxMatchDistArcSec
                 max_ang_tol *= 2
                 max_rotation *= 2
@@ -488,9 +489,9 @@ class MatchOptimisticBTask(pipeBase.Task):
         theta_idx = 0
         print("Index: %i %i" % (dist_idx, theta_idx))
         dist_tol = (dist_nearest_array[dist_idx] * 3600. * (180. / np.pi) /
-                    np.sqrt(self.config.numPointsForShape - 1.))
+                    (self.config.numPointsForShape - 1.))
         theta_tol = (theta_nearest_array[theta_idx] * (180. / np.pi) /
-                     np.sqrt(self.config.numPointsForShape - 2.))
+                     (self.config.numPointsForShape - 2.))
 
         print("New tolerances")
         print("\tdistance tol: %.4f [arcsec]" % dist_tol)
