@@ -366,7 +366,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         else:
             maxMatchDistArcSec = maxMatchDist
             max_ang_tol = np.arctan(maxMatchDistArcSec/(0.2*4096*0.593))/__deg_to_rad__
-            # maxMatchDistArcSec = np.min((maxMatchDistArcSec, self.maxMatchDistArcSec))
+            maxMatchDistArcSec = np.min((maxMatchDistArcSec, self.maxMatchDistArcSec))
 
         print("Current tol maxDist: %.4f, maxAngTol %.4f" % (maxMatchDistArcSec, max_ang_tol))
 
@@ -382,6 +382,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         dist_array = []
         hold_maxMatchDistArcSec = maxMatchDistArcSec
         hold_maxShift = maxShift
+        hold_maxRotation = max_rotation
         start_shift = 2
         for try_idx in xrange(5):
             match_id_list, dist_array = pyOPMb.match(src_array, self.config.numPointsForShapeAttempt + try_idx,
@@ -398,7 +399,7 @@ class MatchOptimisticBTask(pipeBase.Task):
                     maxShift = min((150., (try_idx + start_shift) * hold_maxShift))
                 maxMatchDistArcSec = (try_idx + 2) * hold_maxMatchDistArcSec
                 max_ang_tol *= 2
-                max_rotation *= 2
+                max_rotation = (try_idx + 2) * hold_maxRotation
                 pyOPMb._max_cos_theta = np.cos(maxShift/3600.*__deg_to_rad__)
                 pyOPMb._max_cos_phi_sq = np.cos(max_rotation*__deg_to_rad__)**2
                 pyOPMb._dist_tol = maxMatchDistArcSec/3600.*__deg_to_rad__

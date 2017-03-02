@@ -558,7 +558,7 @@ class OptimisticPatternMatcherB(object):
                                           n_source - n_check))):
             matches = []
             distances = []
-            ref_cadidates = []
+            ref_candidates = []
             # Grab the sources to attempt to create this pattern.
             pattern = sorted_catalog[pattern_idx: pattern_idx + n_check, :3]
             # Construct a pattern given the number of points we are using to
@@ -585,6 +585,73 @@ class OptimisticPatternMatcherB(object):
                     print("\tRotation: %.4f deg" %
                           (np.arcsin(self._sin_phi)/__deg_to_rad__))
                     break
+        if len(matches) < self._min_matches:
+            print("Failed after %i patterns." % pattern_idx)
+            return ([], [])
+        return (matches, distances)
+
+    def match_all(self, source_catalog, n_check, n_match):
+        """Function for matching a given source catalog into the loaded
+        reference catalog.
+        ----------------------------------------------------------------------
+        Args:
+            source_catalog: float array of spherical x,y,z coordinates and a
+                magnitude.
+            n_check: int value specifying the number of sources to attempt a
+                match on. Not all may be checked if n_match criteria is met
+                before hand. n_check should be greater than n_match by 1-3
+                objects.
+            n_match: Number of objects to use in constructing a pattern.
+        Returns:
+            tuple (2D int array of matched pairs,
+                   float array of pair distances)
+        """
+        # Given our input source_catalog we sort on magnitude.
+        sorted_catalog = source_catalog[source_catalog[:, -1].argsort()]
+        n_source = len(sorted_catalog)
+        # If there are more sources we store them in the kd-tree. Opposite
+        # if there are more references. This we we will always have unique
+        # matches.
+        self._src_kdtree = cKDTree(source_catalog[:, :3])
+        self._ref_kdtree = cKDTree(self._reference_catalog[:, :3])
+        # Loop through the sources from brightest to faintest grabbing a chucnk
+        # of n_check each time.
+        for pattern_idx in xrange(np.min((self._max_n_patterns,
+                                          n_source - n_check))):
+            matches = []
+            distances = []
+            ref_candidates = []
+            # Grab the sources to attempt to create this pattern.
+            pattern = sorted_catalog[pattern_idx: pattern_idx + n_check, :3]
+            # Construct a pattern given the number of points we are using to
+            # create it.
+            ref_candidates = self._construct_and_match_pattern(pattern,
+                                                               n_match)
+            # If we have enough candidates we can shift and attempt to match
+            # the two catalogs.
+            if (len(ref_candidates) >= n_match and
+                self._test_match(
+                    pattern, self._reference_catalog[ref_candidates],
+                    pattern_idx)):
+                print('Matching...')
+                matches, distances = self._compute_shift_and_match_sources(
+                    source_catalog)
+                print('Matches:', len(matches))
+                # If the number of matched objects satifies our criteria we
+                # can print summary statistics and exit. If not we start the
+                # loop over with the next pattern.
+                if len(matches) >= self._min_matches:
+                    print("Succeeded after %i patterns." % pattern_idx)
+                    print("\tShift %.4f arcsec" %
+                          (np.arccos(self._cos_theta)*3600/__deg_to_rad__))
+                    print("\tRotation: %.4f deg" %
+                          (np.arcsin(self._sin_phi)/__deg_to_rad__))
+                    print("dist mean: %.4f, std: %.4f" %
+                          (np.mean(distances)*3600/__deg_to_rad__,
+                           np.mean(distances)*3600/__deg_to_rad__))
+                    self._is_valid_rotation = False
+                else:
+                    self._is_valid_rotation = False
         if len(matches) < self._min_matches:
             print("Failed after %i patterns." % pattern_idx)
             return ([], [])
