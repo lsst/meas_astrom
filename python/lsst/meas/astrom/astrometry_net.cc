@@ -27,7 +27,7 @@ extern "C" {
 #include <pybind11/stl.h>
 
 #include "lsst/log/Log.h"
-#include "lsst/utils/pybind11.h"
+#include "lsst/utils/python.h"
 #include "lsst/meas/astrom/astrometry_net.h"
 
 namespace py = pybind11;
@@ -74,7 +74,7 @@ void declareMultiIndex(py::module & mod) {
     cls.def(py::init<std::string const &>(), "filepath"_a);
 
     cls.def("__getitem__", [](MultiIndex const & self, int i) {
-        auto cind = lsst::utils::cppIndex(self.getLength(), i);
+        auto cind = lsst::utils::python::cppIndex(self.getLength(), i);
         return self[cind];
     }, py::return_value_policy::reference_internal, py::is_operator());
 
