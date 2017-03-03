@@ -313,7 +313,7 @@ class OptimisticPatternMatcherB(object):
             # _ang_tol we compare the opening angles of our pinwheel
             # legs to see if they are within tolerance.
 
-            cos_comparison = cos_theta_ref ** 2 < 1
+            cos_comparison = cos_theta_ref ** 2 < 1 - 1e-8
             if (cos_comparison and
                 not ((cos_theta_source - cos_theta_ref)**2 /
                      (1 - cos_theta_ref**2) < cand_sin_tol**2)):
@@ -583,7 +583,7 @@ class OptimisticPatternMatcherB(object):
             return ([], [])
         return (matches, distances)
 
-    def match_consensus(self, source_catalog, n_check, n_match, n_consent):
+    def match_consent(self, source_catalog, n_check, n_match, n_consent):
         """Function for matching a given source catalog into the loaded
         reference catalog.
         ----------------------------------------------------------------------
@@ -618,9 +618,8 @@ class OptimisticPatternMatcherB(object):
         btm_vect /= np.sqrt(np.dot(top_vect, top_vect))
         top_vect /= np.sqrt(np.dot(top_vect, top_vect))
         print("test vector distance %.4f..." %
-              np.arccos(np.dot(btm_vect, top_vect))*3600/__deg_to_rad__)
+              (np.arccos(np.dot(btm_vect, top_vect))*3600./__deg_to_rad__))
 
-        rot_matrix_list = []
         rot_vect_list = []
 
         for pattern_idx in xrange(np.min((self._max_n_patterns,
@@ -638,12 +637,12 @@ class OptimisticPatternMatcherB(object):
             # the two catalogs.
             if (len(ref_candidates) >= n_match and
                 self._test_match(
-                    pattern, self._reference_catalog[ref_candidates],
+                    pattern, self._reference_catalog[ref_candidates, :3],
                     pattern_idx)):
                 rot_vect_list.append([np.dot(self.rot_matrix, btm_vect),
                                       np.dot(self.rot_matrix, top_vect)])
-                if (len(rot_matrix_list) < n_consent or
-                    self.test_rotations(rot_vect_list) < n_consent):
+                if (len(rot_vect_list) < n_consent or
+                    self.test_rotations(rot_vect_list) < n_consent - 1):
                     self._is_valid_rotation = False
                     continue
 
@@ -664,8 +663,7 @@ class OptimisticPatternMatcherB(object):
                           (np.mean(distances)*3600/__deg_to_rad__,
                            np.std(distances)*3600/__deg_to_rad__))
                     self._is_valid_rotation = False
-                else:
-                    self._is_valid_rotation = False
+                    break
         if len(matches) < self._min_matches:
             print("Failed after %i patterns." % pattern_idx)
             return ([], [])
@@ -676,12 +674,12 @@ class OptimisticPatternMatcherB(object):
         print("Comparing previous %i rotations..." % len(rot_vect_list))
 
         tot_consent = 0
-        for rot_idx in xrange(min(len(rot_vect_list) - 1), 0):
+        for rot_idx in xrange(max((len(rot_vect_list) - 1), 0)):
             tmp_btm_vect = rot_vect_list[rot_idx][0] - rot_vect_list[-1][0]
             tmp_top_vect = rot_vect_list[rot_idx][1] - rot_vect_list[-1][1]
             dist_list = [np.sqrt(np.dot(tmp_btm_vect, tmp_btm_vect)),
                          np.sqrt(np.dot(tmp_top_vect, tmp_top_vect))]
-            print('\tDist BOTTOM: %.4f, TOP: %.4f' %
+            print("Dist BOTTOM: %.4f, TOP: %.4f" %
                   (dist_list[0]*3600/__deg_to_rad__,
                    dist_list[1]*3600/__deg_to_rad__))
             if dist_list[0] < self._dist_tol and dist_list[1] < self._dist_tol:
