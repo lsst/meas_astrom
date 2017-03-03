@@ -528,7 +528,7 @@ class OptimisticPatternMatcherB(object):
                 dub_idx_array[np.argmin(dist_array[dub_idx_array])]] = True
         return unique_mask
 
-    def match(self, source_catalog, n_check, n_match):
+    def match(self, source_catalog, n_check, n_match, pattern_skip_array=None):
         """Function for matching a given source catalog into the loaded
         reference catalog.
         ----------------------------------------------------------------------
@@ -556,6 +556,11 @@ class OptimisticPatternMatcherB(object):
         # of n_check each time.
         for pattern_idx in xrange(np.min((self._max_n_patterns,
                                           n_source - n_check))):
+            if (not pattern_skip_array is None and
+                np.any(pattern_skip_array == pattern_idx)):
+                print("Skipping previously matched bad pattern %i..." %
+                      pattern_idx)
+                continue
             matches = []
             distances = []
             ref_candidates = []
@@ -616,6 +621,8 @@ class OptimisticPatternMatcherB(object):
         self._ref_kdtree = cKDTree(self._reference_catalog[:, :3])
         # Loop through the sources from brightest to faintest grabbing a chucnk
         # of n_check each time.
+
+        rot_matrix_list = []
         for pattern_idx in xrange(np.min((self._max_n_patterns,
                                           n_source - n_check))):
             matches = []
@@ -648,7 +655,10 @@ class OptimisticPatternMatcherB(object):
                           (np.arcsin(self._sin_phi)/__deg_to_rad__))
                     print("dist mean: %.4f, std: %.4f" %
                           (np.mean(distances)*3600/__deg_to_rad__,
-                           np.mean(distances)*3600/__deg_to_rad__))
+                           np.std(distances)*3600/__deg_to_rad__))
+                    if len(rot_matrix_list) > 0:
+                        self.test_rotations(rot_matrix_list)
+                    rot_matrix_list.append(copy(self.rot_matrix))
                     self._is_valid_rotation = False
                 else:
                     self._is_valid_rotation = False
@@ -656,3 +666,13 @@ class OptimisticPatternMatcherB(object):
             print("Failed after %i patterns." % pattern_idx)
             return ([], [])
         return (matches, distances)
+
+    def test_rotations(self, rot_matrix_list):
+
+        trans_matrix = self.rot_matrix.transpose()
+
+        print("Comparing previous %i rotations..." % len(rot_matrix_list))
+        for rot_idx, old_rot_matrix in enumerate(rot_matrix_list):
+            print("Running %i..." % rot_idx)
+            print(np.dot(trans_matrix, old_rot_matrix))
+            print(np.dot(old_rot_matrix.transpose(), self.rot_matrix))
