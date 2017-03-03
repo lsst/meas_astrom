@@ -169,14 +169,8 @@ class OptimisticPatternMatcherB(object):
         cand_idx_array = self._candidate_sort(
             self._dist_array[start_idx:end_idx], source_dist_array[0],
             start_idx)
-        # if cand_idx_array.shape[0] > self._max_dist_cand:
-            # print("Pattern cand array greater than max_dist_cand...")
-            # print("\tMax dist diff will be %.4f arcsec" %
-            #       ((source_dist_array[0] -
-            #         self._dist_array[
-            #             cand_idx_array[self._max_dist_cand - 1]]) /
-            #        __deg_to_rad__*3600))
-        for dist_idx in cand_idx_array[:self._max_dist_cand]:
+
+        for dist_idx in cand_idx_array:
             # Compute the value of cos_theta between our source candidate and
             # both reference objects. We will pick the one with the smaller
             # difference in angle, larger cosine to our candicate source.
@@ -296,14 +290,8 @@ class OptimisticPatternMatcherB(object):
         hold_id = -99
         cand_idx_array = self._candidate_sort(
             ref_dist_array[start_idx:end_idx], cand_dist, start_idx)
-        # if cand_idx_array.shape[0] > self._max_dist_cand:
-        #     print("Spoke cand array greater than max_dist_cand...")
-        #     print("\tMax dist diff will be %.4f arcsec" %
-        #           ((cand_dist -
-        #             ref_dist_array[
-        #                 cand_idx_array[self._max_dist_cand - 1]]) /
-        #            __deg_to_rad__*3600))
-        for dist_idx in cand_idx_array[:self._max_dist_cand]:
+
+        for dist_idx in cand_idx_array:
             # First we compute the dot product between our delta
             # vectors in each of the source and reference pinwheels
             # and test that they are the same within tolerance. Since
@@ -595,7 +583,7 @@ class OptimisticPatternMatcherB(object):
             return ([], [])
         return (matches, distances)
 
-    def match_all(self, source_catalog, n_check, n_match):
+    def match_consensus(self, source_catalog, n_check, n_match, n_consent):
         """Function for matching a given source catalog into the loaded
         reference catalog.
         ----------------------------------------------------------------------
@@ -622,7 +610,19 @@ class OptimisticPatternMatcherB(object):
         # Loop through the sources from brightest to faintest grabbing a chucnk
         # of n_check each time.
 
+        center_vect = np.nanmean(source_catalog[:, :3], axis=0)
+        btm_vect = np.array([center_vect[0], center_vect[1],
+                             np.min(source_catalog[:, 2])], dtype=np.float64)
+        top_vect = np.array([center_vect[0], center_vect[1],
+                             np.max(source_catalog[:, 2])], dtype=np.float64)
+        btm_vect /= np.sqrt(np.dot(top_vect, top_vect))
+        top_vect /= np.sqrt(np.dot(top_vect, top_vect))
+        print("test vector distance %.4f..." %
+              np.arccos(np.dot(btm_vect, top_vect))*3600/__deg_to_rad__)
+
         rot_matrix_list = []
+        rot_vect_list = []
+
         for pattern_idx in xrange(np.min((self._max_n_patterns,
                                           n_source - n_check))):
             matches = []
@@ -640,6 +640,13 @@ class OptimisticPatternMatcherB(object):
                 self._test_match(
                     pattern, self._reference_catalog[ref_candidates],
                     pattern_idx)):
+                rot_vect_list.append([np.dot(self.rot_matrix, btm_vect),
+                                      np.dot(self.rot_matrix, top_vect)])
+                if (len(rot_matrix_list) < n_consent or
+                    self.test_rotations(rot_vect_list) < n_consent):
+                    self._is_valid_rotation = False
+                    continue
+
                 print('Matching...')
                 matches, distances = self._compute_shift_and_match_sources(
                     source_catalog)
@@ -653,12 +660,9 @@ class OptimisticPatternMatcherB(object):
                           (np.arccos(self._cos_theta)*3600/__deg_to_rad__))
                     print("\tRotation: %.4f deg" %
                           (np.arcsin(self._sin_phi)/__deg_to_rad__))
-                    print("dist mean: %.4f, std: %.4f" %
+                    print("\tdist mean: %.4f, std: %.4f" %
                           (np.mean(distances)*3600/__deg_to_rad__,
                            np.std(distances)*3600/__deg_to_rad__))
-                    if len(rot_matrix_list) > 0:
-                        self.test_rotations(rot_matrix_list)
-                    rot_matrix_list.append(copy(self.rot_matrix))
                     self._is_valid_rotation = False
                 else:
                     self._is_valid_rotation = False
@@ -667,12 +671,19 @@ class OptimisticPatternMatcherB(object):
             return ([], [])
         return (matches, distances)
 
-    def test_rotations(self, rot_matrix_list):
+    def test_rotations(self, rot_vect_list):
 
-        trans_matrix = self.rot_matrix.transpose()
+        print("Comparing previous %i rotations..." % len(rot_vect_list))
 
-        print("Comparing previous %i rotations..." % len(rot_matrix_list))
-        for rot_idx, old_rot_matrix in enumerate(rot_matrix_list):
-            print("Running %i..." % rot_idx)
-            print(np.dot(trans_matrix, old_rot_matrix))
-            print(np.dot(old_rot_matrix.transpose(), self.rot_matrix))
+        tot_consent = 0
+        for rot_idx in xrange(min(len(rot_vect_list) - 1), 0):
+            tmp_btm_vect = rot_vect_list[rot_idx][0] - rot_vect_list[-1][0]
+            tmp_top_vect = rot_vect_list[rot_idx][1] - rot_vect_list[-1][1]
+            dist_list = [np.sqrt(np.dot(tmp_btm_vect, tmp_btm_vect)),
+                         np.sqrt(np.dot(tmp_top_vect, tmp_top_vect))]
+            print('\tDist BOTTOM: %.4f, TOP: %.4f' %
+                  (dist_list[0]*3600/__deg_to_rad__,
+                   dist_list[1]*3600/__deg_to_rad__))
+            if dist_list[0] < self._dist_tol and dist_list[1] < self._dist_tol:
+                tot_consent += 1
+        return tot_consent
