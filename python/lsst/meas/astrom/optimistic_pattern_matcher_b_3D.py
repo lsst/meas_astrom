@@ -583,7 +583,8 @@ class OptimisticPatternMatcherB(object):
             return ([], [])
         return (matches, distances)
 
-    def match_consent(self, source_catalog, n_check, n_match, n_consent):
+    def match_consent(self, source_catalog, n_check, n_match, n_consent,
+                      pattern_skip_array=None):
         """Function for matching a given source catalog into the loaded
         reference catalog.
         ----------------------------------------------------------------------
@@ -622,11 +623,18 @@ class OptimisticPatternMatcherB(object):
 
         rot_vect_list = []
 
+        successfull_pattern = -99
+
         for pattern_idx in xrange(np.min((self._max_n_patterns,
                                           n_source - n_check))):
             matches = []
             distances = []
             ref_candidates = []
+            if (not pattern_skip_array is None and
+                np.any(pattern_skip_array == pattern_idx)):
+                print("Skipping previously matched bad pattern %i..." %
+                      pattern_idx)
+                continue
             # Grab the sources to attempt to create this pattern.
             pattern = sorted_catalog[pattern_idx: pattern_idx + n_check, :3]
             # Construct a pattern given the number of points we are using to
@@ -640,7 +648,8 @@ class OptimisticPatternMatcherB(object):
                     pattern, self._reference_catalog[ref_candidates, :3],
                     pattern_idx)):
                 rot_vect_list.append([np.dot(self.rot_matrix, btm_vect),
-                                      np.dot(self.rot_matrix, top_vect)])
+                                      np.dot(self.rot_matrix, top_vect),
+                                      pattern_idx])
                 if (len(rot_vect_list) < n_consent or
                     self.test_rotations(rot_vect_list) < n_consent - 1):
                     self._is_valid_rotation = False
@@ -662,16 +671,18 @@ class OptimisticPatternMatcherB(object):
                     print("\tdist mean: %.4f, std: %.4f" %
                           (np.mean(distances)*3600/__deg_to_rad__,
                            np.std(distances)*3600/__deg_to_rad__))
+                    successfull_pattern = pattern_idx
                     self._is_valid_rotation = False
                     break
         if len(matches) < self._min_matches:
             print("Failed after %i patterns." % pattern_idx)
-            return ([], [])
-        return (matches, distances)
+            return ([], [], )
+        return (matches, distances, successfull_pattern)
 
     def test_rotations(self, rot_vect_list):
 
-        print("Comparing previous %i rotations..." % len(rot_vect_list))
+        print("Comparing pattern %i to previous %i rotations..." %
+              (rot_vect_list[-1][2], len(rot_vect_list)))
 
         tot_consent = 0
         for rot_idx in xrange(max((len(rot_vect_list) - 1), 0)):
@@ -679,8 +690,9 @@ class OptimisticPatternMatcherB(object):
             tmp_top_vect = rot_vect_list[rot_idx][1] - rot_vect_list[-1][1]
             dist_list = [np.sqrt(np.dot(tmp_btm_vect, tmp_btm_vect)),
                          np.sqrt(np.dot(tmp_top_vect, tmp_top_vect))]
-            print("Dist BOTTOM: %.4f, TOP: %.4f" %
-                  (dist_list[0]*3600/__deg_to_rad__,
+            print("Pattern %i, Dist BOTTOM: %.4f, TOP: %.4f" %
+                  (rot_vect_list[rot_idx][2],
+                   dist_list[0]*3600/__deg_to_rad__,
                    dist_list[1]*3600/__deg_to_rad__))
             if dist_list[0] < self._dist_tol and dist_list[1] < self._dist_tol:
                 tot_consent += 1

@@ -177,6 +177,8 @@ class MatchOptimisticBTask(pipeBase.Task):
 
     def __init__(self, **kwargs):
         pipeBase.Task.__init__(self, **kwargs)
+        self._previous_pattern_success = None
+        self._pattern_skip_list = []
         self.makeSubtask("sourceSelector")
 
     def filterStars(self, refCat):
@@ -386,15 +388,23 @@ class MatchOptimisticBTask(pipeBase.Task):
         start_shift = 2
         for try_idx in xrange(5):
             if try_idx > 0:
-                match_id_list, dist_array = pyOPMb.match_consent(src_array, self.config.numPointsForShapeAttempt + try_idx,
-                                                                 self.config.numPointsForShape + try_idx, 2)
+                match_id_list, dist_array, pattern_idx = pyOPMb.match_consent(
+                    src_array, self.config.numPointsForShapeAttempt + try_idx,
+                    self.config.numPointsForShape + try_idx, 2,
+                    np.array(self._pattern_skip_list))
             else:
-                match_id_list, dist_array = pyOPMb.match(src_array, self.config.numPointsForShapeAttemp,
-                                                         self.config.numPointsForShape)
+                match_id_list, dist_array, pattern_idx = pyOPMb.match(
+                    src_array, self.config.numPointsForShapeAttemp,
+                    self.config.numPointsForShape,
+                    np.array(self._pattern_skip_list))
             if len(match_id_list) > 0:
                 current_shift = np.arccos(pyOPMb._cos_theta)*3600/__deg_to_rad__
+                self._previous_pattern_success = pattern_idx
                 break
             else:
+                if not (self._previous_pattern_success is None):
+                    self._pattern_skip_list.append(self._previous_pattern_success)
+                    self._previous_pattern_success = None
                 if hold_maxShift < 30:
                     hold_maxShift = 30
                     maxShift = 30
