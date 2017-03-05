@@ -385,8 +385,12 @@ class MatchOptimisticBTask(pipeBase.Task):
         hold_maxRotation = max_rotation
         start_shift = 2
         for try_idx in xrange(5):
-            match_id_list, dist_array = pyOPMb.match(src_array, self.config.numPointsForShapeAttempt + try_idx,
-                                                     self.config.numPointsForShape + try_idx)
+            if try_idx > 0:
+                match_id_list, dist_array = pyOPMb.match_consent(src_array, self.config.numPointsForShapeAttempt + try_idx,
+                                                                 self.config.numPointsForShape + try_idx, 2)
+            else:
+                match_id_list, dist_array = pyOPMb.match(src_array, self.config.numPointsForShapeAttemp,
+                                                         self.config.numPointsForShape)
             if len(match_id_list) > 0:
                 current_shift = np.arccos(pyOPMb._cos_theta)*3600/__deg_to_rad__
                 break

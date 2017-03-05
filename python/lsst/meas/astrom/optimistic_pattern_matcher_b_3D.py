@@ -615,10 +615,10 @@ class OptimisticPatternMatcherB(object):
                              np.min(source_catalog[:, 2])], dtype=np.float64)
         top_vect = np.array([center_vect[0], center_vect[1],
                              np.max(source_catalog[:, 2])], dtype=np.float64)
-        btm_vect /= np.sqrt(np.dot(top_vect, top_vect))
+        btm_vect /= np.sqrt(np.dot(btm_vect, btm_vect))
         top_vect /= np.sqrt(np.dot(top_vect, top_vect))
-        print("test vector distance %.4f..." %
-              (np.arccos(np.dot(btm_vect, top_vect))*3600./__deg_to_rad__))
+        print("test vector distance %.4f deg..." %
+              (np.arccos(np.dot(btm_vect, top_vect))/__deg_to_rad__))
 
         rot_vect_list = []
 
