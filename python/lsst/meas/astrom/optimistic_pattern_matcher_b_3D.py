@@ -542,6 +542,8 @@ class OptimisticPatternMatcherB(object):
         self._ref_kdtree = cKDTree(self._reference_catalog[:, :3])
         # Loop through the sources from brightest to faintest grabbing a chucnk
         # of n_check each time.
+        successfull_pattern = -99
+
         for pattern_idx in xrange(np.min((self._max_n_patterns,
                                           n_source - n_check))):
             if (not pattern_skip_array is None and
@@ -577,11 +579,12 @@ class OptimisticPatternMatcherB(object):
                           (np.arccos(self._cos_theta)*3600/__deg_to_rad__))
                     print("\tRotation: %.4f deg" %
                           (np.arcsin(self._sin_phi)/__deg_to_rad__))
+                    successfull_pattern = pattern_idx
                     break
         if len(matches) < self._min_matches:
             print("Failed after %i patterns." % pattern_idx)
-            return ([], [])
-        return (matches, distances)
+            return ([], [], None)
+        return (matches, distances, successfull_pattern)
 
     def match_consent(self, source_catalog, n_check, n_match, n_consent,
                       pattern_skip_array=None):

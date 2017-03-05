@@ -394,7 +394,7 @@ class MatchOptimisticBTask(pipeBase.Task):
                     np.array(self._pattern_skip_list))
             else:
                 match_id_list, dist_array, pattern_idx = pyOPMb.match(
-                    src_array, self.config.numPointsForShapeAttemp,
+                    src_array, self.config.numPointsForShapeAttempt,
                     self.config.numPointsForShape,
                     np.array(self._pattern_skip_list))
             if len(match_id_list) > 0:
