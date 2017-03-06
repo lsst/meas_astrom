@@ -679,7 +679,7 @@ class OptimisticPatternMatcherB(object):
                     break
         if len(matches) < self._min_matches:
             print("Failed after %i patterns." % pattern_idx)
-            return ([], [], )
+            return ([], [], None)
         return (matches, distances, successfull_pattern)
 
     def test_rotations(self, rot_vect_list):

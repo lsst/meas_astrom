@@ -64,7 +64,7 @@ class MatchOptimisticBConfig(pexConfig.Config):
     maxShift = pexConfig.RangeField(
         doc="Maximum allowed shift of WCS, due to matching (arcsec)",
         dtype=int,
-        default=30,
+        default=150,
         max=180,
     )
     maxRotationDeg = pexConfig.RangeField(
@@ -373,7 +373,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         print("Current tol maxDist: %.4f, maxAngTol %.4f" % (maxMatchDistArcSec, max_ang_tol))
 
         pyOPMb = OptimisticPatternMatcherB(
-            reference_catalog=ref_array, max_rotation_theta=np.min((maxShift, 30))/3600.,
+            reference_catalog=ref_array, max_rotation_theta=np.min((maxShift, 150))/3600.,
             max_rotation_phi=max_rotation, dist_tol=maxMatchDistArcSec/3600.,
             max_dist_cand=1000000, ang_tol=max_ang_tol,
             max_match_dist=maxMatchDistArcSec/3600.,
@@ -405,17 +405,11 @@ class MatchOptimisticBTask(pipeBase.Task):
                 if not (self._previous_pattern_success is None):
                     self._pattern_skip_list.append(self._previous_pattern_success)
                     self._previous_pattern_success = None
-                if hold_maxShift < 30:
-                    hold_maxShift = 30
-                    maxShift = 30
-                    start_shift = 1
-                else:
-                    maxShift = min((150., (try_idx + start_shift) * hold_maxShift))
                 maxMatchDistArcSec = (try_idx + 2) * hold_maxMatchDistArcSec
                 max_ang_tol *= 2
-                max_rotation = (try_idx + 2) * hold_maxRotation
+                # max_rotation = (try_idx + 2) * hold_maxRotation
                 pyOPMb._max_cos_theta = np.cos(maxShift/3600.*__deg_to_rad__)
-                pyOPMb._max_cos_phi_sq = np.cos(max_rotation*__deg_to_rad__)**2
+                # pyOPMb._max_cos_phi_sq = np.cos(max_rotation*__deg_to_rad__)**2
                 pyOPMb._dist_tol = maxMatchDistArcSec/3600.*__deg_to_rad__
                 pyOPMb._max_match_dist = maxMatchDistArcSec/3600.*__deg_to_rad__
                 pyOPMb._ang_tol = max_ang_tol*__deg_to_rad__
