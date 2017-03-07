@@ -1,10 +1,9 @@
-from __future__ import absolute_import
 #
 # LSST Data Management System
-# Copyright 2008, 2009, 2010 LSST Corporation.
 #
 # This product includes software developed by the
 # LSST Project (http://www.lsst.org/).
+# See the COPYRIGHT file
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,23 +19,29 @@ from __future__ import absolute_import
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
-# import lsst.utils
+from __future__ import absolute_import
+
+from .makeMatchStatistics import *
+from .matchOptimisticB import *
+from .polynomialTransform import *
+from .scaledPolynomialTransformFitter import *
+from .sipTransform import *
 
 from . import sip
+
 from .ref_match import *
 from .astrometryNetDataConfig import *
 from .anetBasicAstrometry import *
 from .astrometry import *
 from .anetAstrometry import *
+from .approximateWcs import *
 from .loadAstrometryNetObjects import *
 from .matchOptimisticB import *
 from .setMatchDistance import *
 from .display import *
 from .approximateWcs import *
 from .createMatchMetadata import *
-from .astromLib import *
 from .catalogStarSelector import *
 from .directMatch import *
 from .fitSipDistortion import *
-
 from .version import *

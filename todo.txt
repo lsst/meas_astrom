@@ -1,0 +1,5 @@
+- Remove .i files
+x Remove details/utils.h, since nothing in there is used in Python:
+  - The only .i file that mentions utils.h is astrometry_net.i, which includes it but does *not* wrap it.
+  - The API of astrometry_net.h uses none of the symbols defined in utils.h.
+  - None of the symbols defined in utils.h are found in any LSST python code that I have.
