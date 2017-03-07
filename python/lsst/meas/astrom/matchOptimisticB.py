@@ -28,18 +28,6 @@ class MatchOptimisticBConfig(pexConfig.Config):
         default=15,
         min=0,
     )
-    maxOffsetPix = pexConfig.RangeField(
-        doc="Max offset in pixels to work with HSC.",
-        dtype=float,
-        default=750,
-        min=0,
-    )
-    maxAngTol = pexConfig.RangeField(
-        doc="Maximum angle allowed for pattern in degress",
-        dtype=float,
-        default=0.5,
-        min=0,
-    )
     numPatterns = pexConfig.RangeField(
         doc="Number of patterns to attempt before exiting",
         dtype=int,
@@ -57,7 +45,7 @@ class MatchOptimisticBConfig(pexConfig.Config):
         "the number of reference stars or the number of good sources; "
         "the actual minimum is the smaller of this value or minMatchedPairs",
         dtype=float,
-        default=0.15,
+        default=0.30,
         min=0,
         max=1,
     )
@@ -65,19 +53,13 @@ class MatchOptimisticBConfig(pexConfig.Config):
         doc="Maximum allowed shift of WCS, due to matching (arcsec)",
         dtype=int,
         default=150,
-        max=180,
+        max=800,
     )
     maxRotationDeg = pexConfig.RangeField(
         doc="Rotation angle allowed between sources and position reference objects (degrees)",
         dtype=float,
-        default=1.0,
-        max=6.0,
-    )
-    allowedNonperpDeg = pexConfig.RangeField(
-        doc="Allowed non-perpendicularity of x and y (degree)",
-        dtype=float,
         default=3.0,
-        max=45.0,
+        max=6.0,
     )
     numPointsForShape = pexConfig.Field(
         doc="number of points to define a shape for matching",
@@ -294,7 +276,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         return (not source.get(self.edgeKey) and
                 not source.get(self.interpolatedCenterKey) and
                 not source.get(self.saturatedKey))
-        
+
     @pipeBase.timeMethod
     def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numUsableSources, minMatchedPairs,
                  maxMatchDist, maxShift, sourceFluxField, verbose):
@@ -356,26 +338,23 @@ class MatchOptimisticBTask(pipeBase.Task):
 
         if maxMatchDist is None:
             print("Computing source statistics...")
-            maxMatchDistArcSecSrc, max_ang_tolSrc = self._get_pair_pattern_statistics(
+            maxMatchDistArcSecSrc = self._get_pair_pattern_statistics(
                 src_array)
             print("Computing reference statistics...")
-            maxMatchDistArcSecRef, max_ang_tolRef = self._get_pair_pattern_statistics(
+            maxMatchDistArcSecRef = self._get_pair_pattern_statistics(
                 ref_array)
             maxMatchDistArcSec = np.min((maxMatchDistArcSecSrc, maxMatchDistArcSecRef))
-            max_ang_tol = np.min((max_ang_tolSrc, max_ang_tolRef))
             self.maxMatchDistArcSec = maxMatchDistArcSec
-            self.maxAngTol = max_ang_tol
         else:
-            maxMatchDistArcSec = maxMatchDist
-            max_ang_tol = np.arctan(maxMatchDistArcSec/(0.2*4096*0.593))/__deg_to_rad__
-            maxMatchDistArcSec = np.min((maxMatchDistArcSec, self.maxMatchDistArcSec))
+            maxMatchDistArcSec = np.max(
+                (0.2, np.min((maxMatchDistArcSec, self.maxMatchDistArcSec))))
 
-        print("Current tol maxDist: %.4f, maxAngTol %.4f" % (maxMatchDistArcSec, max_ang_tol))
+        print("Current tol maxDist: %.4f..." % maxMatchDistArcSec)
 
         pyOPMb = OptimisticPatternMatcherB(
-            reference_catalog=ref_array, max_rotation_theta=np.min((maxShift, 150))/3600.,
+            reference_catalog=ref_array,
+            max_rotation_theta=np.min((maxShift, self.config.maxShift))/3600.,
             max_rotation_phi=max_rotation, dist_tol=maxMatchDistArcSec/3600.,
-            max_dist_cand=1000000, ang_tol=max_ang_tol,
             max_match_dist=maxMatchDistArcSec/3600.,
             min_matches=minMatchedPairs, max_n_patterns=self.config.numPatterns)
 
@@ -388,12 +367,12 @@ class MatchOptimisticBTask(pipeBase.Task):
         start_shift = 2
         for try_idx in xrange(5):
             if try_idx > 0:
-                match_id_list, dist_array, pattern_idx = pyOPMb.match_consent(
-                    src_array, self.config.numPointsForShapeAttempt + try_idx,
+                match_id_list, dist_array, pattern_idx = pyOPMb.match(
+                    src_array, self.config.numPointsForShapeAttempt + 2 * try_idx,
                     self.config.numPointsForShape + try_idx, 2,
                     np.array(self._pattern_skip_list))
             else:
-                match_id_list, dist_array, pattern_idx = pyOPMb.match(
+                match_id_list, dist_array, pattern_idx = pyOPMb.match_optimistic(
                     src_array, self.config.numPointsForShapeAttempt,
                     self.config.numPointsForShape,
                     np.array(self._pattern_skip_list))
@@ -402,17 +381,16 @@ class MatchOptimisticBTask(pipeBase.Task):
                 self._previous_pattern_success = pattern_idx
                 break
             else:
-                if not (self._previous_pattern_success is None):
+                if (not (self._previous_pattern_success is None) and
+                    maxMatchDistArcSec > self.maxMatchDistArcSec):
                     self._pattern_skip_list.append(self._previous_pattern_success)
                     self._previous_pattern_success = None
                 maxMatchDistArcSec = (try_idx + 2) * hold_maxMatchDistArcSec
-                max_ang_tol *= 2
-                # max_rotation = (try_idx + 2) * hold_maxRotation
-                pyOPMb._max_cos_theta = np.cos(maxShift/3600.*__deg_to_rad__)
-                # pyOPMb._max_cos_phi_sq = np.cos(max_rotation*__deg_to_rad__)**2
+
+                pyOPMb._max_cos_theta = np.cos(
+                    self.config.maxShift/3600.*__deg_to_rad__)
                 pyOPMb._dist_tol = maxMatchDistArcSec/3600.*__deg_to_rad__
                 pyOPMb._max_match_dist = maxMatchDistArcSec/3600.*__deg_to_rad__
-                pyOPMb._ang_tol = max_ang_tol*__deg_to_rad__
 
         matches = afwTable.ReferenceMatchVector()
         for match_ids, dist in zip(match_id_list, dist_array):
@@ -432,7 +410,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         # Currently hard coded for a 6 point pattern.
         pattern_array = np.empty(
             (cat_array.shape[0] - self.config.numPointsForShape,
-             2 * self.config.numPointsForShape - 3))
+             self.config.numPointsForShape - 1))
         flux_args_array = np.argsort(cat_array[:, -1])
 
         tmp_sort_array = cat_array[flux_args_array]
@@ -442,68 +420,27 @@ class MatchOptimisticBTask(pipeBase.Task):
             pattern_points = tmp_sort_array[start_idx:start_idx +
                                             self.config.numPointsForShape, :-1]
             pattern_delta = pattern_points[1:, :] - pattern_points[0, :]
-            pattern_array[start_idx,
-                          :(self.config.numPointsForShape - 1)] = np.sqrt(
+            pattern_array[start_idx, :] = np.sqrt(
                 pattern_delta[:, 0] ** 2 +
                 pattern_delta[:, 1] ** 2 +
                 pattern_delta[:, 2] ** 2)
-            tmp_pattern_dot = (
-                np.dot(pattern_delta[1:], pattern_delta[0]) /
-                (pattern_array[start_idx,
-                               1:(self.config.numPointsForShape - 1)] *
-                 pattern_array[start_idx, 0]))
-            tmp_pattern_cross = np.empty(
-                (self.config.numPointsForShape - 2, 3))
-            for idx in xrange(1, self.config.numPointsForShape - 1):
-                tmp_pattern_cross[idx - 1, :] = (
-                    np.cross(pattern_delta[idx], pattern_delta[0]) /
-                    (pattern_array[start_idx, idx] *
-                     pattern_array[start_idx, 0]))
-            pattern_dot_cross = np.dot(tmp_pattern_cross,
-                                       pattern_points[0])
-            pattern_array[start_idx, (self.config.numPointsForShape - 1):] = (
-                np.sign(pattern_dot_cross) * np.arccos(tmp_pattern_dot))
-            pattern_array[start_idx,
-                          :(self.config.numPointsForShape -
-                            1)] = pattern_array[
-                start_idx,
-                np.argsort(pattern_array[
-                    start_idx, :(self.config.numPointsForShape - 1)])]
-            pattern_array[start_idx, (self.config.numPointsForShape - 1):] = pattern_array[
-                start_idx, np.argsort(pattern_array[
-                    start_idx, (self.config.numPointsForShape - 1):]) +
-                (self.config.numPointsForShape - 1)]
+
+            pattern_array[start_idx, :] = pattern_array[
+                start_idx, np.argsort(pattern_array[start_idx, :])]
 
         dist_tree = cKDTree(
             pattern_array[:, :(self.config.numPointsForShape - 1)])
-        theta_tree = cKDTree(
-            pattern_array[:, (self.config.numPointsForShape - 1):])
 
         dist_nearest_array, ids = dist_tree.query(
             pattern_array[:, :(self.config.numPointsForShape - 1)], k=2)
-        theta_nearest_array, ids = theta_tree.query(pattern_array[:,
-            (self.config.numPointsForShape - 1):], k=2)
         dist_nearest_array = dist_nearest_array[:, 1]
-        theta_nearest_array = theta_nearest_array[:, 1]
         dist_nearest_array.sort()
-        theta_nearest_array.sort()
 
-        dist_idx = np.min((
-            np.max((np.int64(np.ceil(dist_nearest_array.shape[0]*0.001)), 0)),
-            dist_nearest_array.shape[0] - 1))
         dist_idx = 0
-        theta_idx = np.min((
-            np.max((np.int64(np.ceil(theta_nearest_array.shape[0]*0.001)), 0)),
-            theta_nearest_array.shape[0] - 1))
-        theta_idx = 0
-        print("Index: %i %i" % (dist_idx, theta_idx))
         dist_tol = (dist_nearest_array[dist_idx] * 3600. * (180. / np.pi) /
                     (self.config.numPointsForShape - 1.))
-        theta_tol = (theta_nearest_array[theta_idx] * (180. / np.pi) /
-                     (self.config.numPointsForShape - 2.))
 
-        print("New tolerances")
-        print("\tdistance tol: %.4f [arcsec]" % dist_tol)
-        print("\ttheta tol: %.4f [deg]" % theta_tol)
+        print("New tolerance")
+        print("\tdistance/match tol: %.4f [arcsec]" % dist_tol)
 
-        return dist_tol, theta_tol
+        return dist_tol

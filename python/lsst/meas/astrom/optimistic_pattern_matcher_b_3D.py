@@ -36,8 +36,8 @@ class OptimisticPatternMatcherB(object):
     """
 
     def __init__(self, reference_catalog, max_rotation_theta,
-                 max_rotation_phi, dist_tol, max_dist_cand, ang_tol,
-                 max_match_dist, min_matches, max_n_patterns):
+                 max_rotation_phi, dist_tol, max_match_dist,
+                 min_matches, max_n_patterns):
         self._reference_catalog = copy(reference_catalog[:, :3])
         self._n_reference = len(self._reference_catalog)
 
@@ -45,18 +45,10 @@ class OptimisticPatternMatcherB(object):
         self._max_cos_phi_sq = np.cos(max_rotation_phi*__deg_to_rad__)**2
 
         self._dist_tol = dist_tol*__deg_to_rad__
-        self._max_dist_cand = max_dist_cand
-        self._ang_tol = ang_tol*__deg_to_rad__
 
         self._max_match_dist = max_match_dist*__deg_to_rad__
         self._min_matches = min_matches
         self._max_n_patterns = max_n_patterns
-        # These two tests set limits the values of cosine theta in the spoken
-        # pattern part of the pattern matcher. These avoid divide by zero
-        # and also enforce a small angle approximation for the spokes at
-        # 0, 180 degrees of the first pair and 90, 270 respectively.
-        self._cos_limit = np.cos(np.max((1.4e-8, self._ang_tol)))
-        self._sin_limit = np.sin(np.max((1.4e-8, self._ang_tol)))
 
         self._is_valid_rotation = False
 
@@ -136,6 +128,7 @@ class OptimisticPatternMatcherB(object):
         # cosine and sine relations.
         """
         matched_references = []
+        matched_sources = [0, 1]
         # Create our vector and distances for the source object pinwheel.
         source_delta = np.empty((len(source_candidates) - 1, 3))
         source_delta[:, 0] = source_candidates[1:, 0] - source_candidates[0, 0]
@@ -144,6 +137,15 @@ class OptimisticPatternMatcherB(object):
         source_dist_array = np.sqrt(source_delta[:, 0]**2 +
                                     source_delta[:, 1]**2 +
                                     source_delta[:, 2]**2)
+        max_ang_tol_array = (self._dist_tol /
+                             (source_dist_array + self._dist_tol))
+        # if (np.sum(
+        #     np.ones(source_delta.shape[0], dtype=np.int)[max_ang_tol_array >
+        #                                                  0.0447]) >
+        #    source_delta.shape[0] - n_match):
+        #     return [], []
+
+
         # We first test if the distance of the first (AB) spoke of our source
         # pinwheel can be found in the array of reference catalog pairs.
         start_idx = np.searchsorted(
@@ -157,7 +159,7 @@ class OptimisticPatternMatcherB(object):
         # also test if the edges to make sure we are not running over the array
         # size.
         if start_idx == end_idx:
-            return ([], None, None)
+            return [], []
         if start_idx < 0:
             start_idx = 0
         if end_idx > self._dist_array.shape[0]:
@@ -181,6 +183,7 @@ class OptimisticPatternMatcherB(object):
                        self._reference_catalog[self._id_array[dist_idx][1]]))
             for cos_idx, cos_theta in enumerate(tmp_cos_theta_tuple):
                 matched_references = []
+                matched_sources = [0, 1]
                 # Now we can test the displacement we have on the sky between
                 # the centers of our source and reference pinwheels, exiting if
                 # it is to distant.
@@ -203,16 +206,6 @@ class OptimisticPatternMatcherB(object):
                 # we can narrow our search to only those pairs that contain our
                 # pinwheel reference and exclude the reference we have already
                 # used to match the first spoke.
-                # id_mask = np.logical_or(
-                #     np.logical_and(
-                #         self._id_array[:, 0] == matched_references[0],
-                #         self._id_array[:, 1] != matched_references[1]),
-                #     np.logical_and(
-                #         self._id_array[:, 1] == matched_references[0],
-                #         self._id_array[:, 0] != matched_references[1]))
-                # tmp_ref_dist_arary = self._dist_array[id_mask]
-                # tmp_ref_delta_array = self._delta_array[id_mask]
-                # tmp_ref_id_array = self._id_array[id_mask]
                 tmp_ref_dist_arary = self._dist_array[
                     self._pair_idx_array[matched_references[0]]]
                 tmp_ref_delta_array = self._delta_array[
@@ -236,6 +229,7 @@ class OptimisticPatternMatcherB(object):
                         if n_failed >= len(source_candidates) - n_match:
                             break
                         continue
+                    matched_sources.append(cand_idx + 1)
                     matched_references.append(match)
                     # If we've found enough spokes that agree with the referce
                     # pattern we can exit early.
@@ -255,8 +249,8 @@ class OptimisticPatternMatcherB(object):
                 break
         # Return the matches. If found.
         if len(matched_references) >= n_match:
-            return matched_references
-        return []
+            return matched_references, matched_sources
+        return [], []
 
     def _pattern_spoke_test(self, cand_dist, cand_delta, source_center,
                             source_delta, source_delta_dist, ref_center_id,
@@ -495,99 +489,13 @@ class OptimisticPatternMatcherB(object):
                 handshake_mask_array[ref_match_idx] = True
         return handshake_mask_array
 
-    def _test_unique_matches(self, idx_array, dist_array):
-        """Internal function for creating a mask of matches with unique indices.
-        """
-        # TODO:
-        #     Only returns matches that are truly unique. Could later add test
-        # on distances to return the closest match only.
-        unique_array, unique_idx_array, inverse_array = np.unique(
-            idx_array, return_index=True, return_inverse=True)
-        unique_mask = np.zeros(len(idx_array), dtype=np.bool)
-        unique_mask[unique_idx_array] = True
-        used_non_unique = np.array([], np.int64)
-        for non_unique_idx in idx_array[inverse_array[unique_array.shape[0]:]]:
-            if np.any(non_unique_idx == used_non_unique):
-                continue
-            used_non_unique = np.concatenate((used_non_unique,
-                                              [non_unique_idx]))
-            dub_idx_array = np.argwhere(idx_array == non_unique_idx)
-            unique_mask[
-                dub_idx_array[np.argmin(dist_array[dub_idx_array])]] = True
-        return unique_mask
+    def match_optimistic(self, source_catalog, n_check, n_match,
+                         pattern_skip_array=None):
+        return self.match(source_catalog, n_check, n_match, 1,
+                          pattern_skip_array)
 
-    def match(self, source_catalog, n_check, n_match, pattern_skip_array=None):
-        """Function for matching a given source catalog into the loaded
-        reference catalog.
-        ----------------------------------------------------------------------
-        Args:
-            source_catalog: float array of spherical x,y,z coordinates and a
-                magnitude.
-            n_check: int value specifying the number of sources to attempt a
-                match on. Not all may be checked if n_match criteria is met
-                before hand. n_check should be greater than n_match by 1-3
-                objects.
-            n_match: Number of objects to use in constructing a pattern.
-        Returns:
-            tuple (2D int array of matched pairs,
-                   float array of pair distances)
-        """
-        # Given our input source_catalog we sort on magnitude.
-        sorted_catalog = source_catalog[source_catalog[:, -1].argsort()]
-        n_source = len(sorted_catalog)
-        # If there are more sources we store them in the kd-tree. Opposite
-        # if there are more references. This we we will always have unique
-        # matches.
-        self._src_kdtree = cKDTree(source_catalog[:, :3])
-        self._ref_kdtree = cKDTree(self._reference_catalog[:, :3])
-        # Loop through the sources from brightest to faintest grabbing a chucnk
-        # of n_check each time.
-        successfull_pattern = -99
-
-        for pattern_idx in xrange(np.min((self._max_n_patterns,
-                                          n_source - n_check))):
-            if (not pattern_skip_array is None and
-                np.any(pattern_skip_array == pattern_idx)):
-                print("Skipping previously matched bad pattern %i..." %
-                      pattern_idx)
-                continue
-            matches = []
-            distances = []
-            ref_candidates = []
-            # Grab the sources to attempt to create this pattern.
-            pattern = sorted_catalog[pattern_idx: pattern_idx + n_check, :3]
-            # Construct a pattern given the number of points we are using to
-            # create it.
-            ref_candidates = self._construct_and_match_pattern(pattern,
-                                                               n_match)
-            # If we have enough candidates we can shift and attempt to match
-            # the two catalogs.
-            if (len(ref_candidates) >= n_match and
-                self._test_match(
-                    pattern, self._reference_catalog[ref_candidates],
-                    pattern_idx)):
-                print('Matching...')
-                matches, distances = self._compute_shift_and_match_sources(
-                    source_catalog)
-                print('Matches:', len(matches))
-                # If the number of matched objects satifies our criteria we
-                # can print summary statistics and exit. If not we start the
-                # loop over with the next pattern.
-                if len(matches) >= self._min_matches:
-                    print("Succeeded after %i patterns." % pattern_idx)
-                    print("\tShift %.4f arcsec" %
-                          (np.arccos(self._cos_theta)*3600/__deg_to_rad__))
-                    print("\tRotation: %.4f deg" %
-                          (np.arcsin(self._sin_phi)/__deg_to_rad__))
-                    successfull_pattern = pattern_idx
-                    break
-        if len(matches) < self._min_matches:
-            print("Failed after %i patterns." % pattern_idx)
-            return ([], [], None)
-        return (matches, distances, successfull_pattern)
-
-    def match_consent(self, source_catalog, n_check, n_match, n_consent,
-                      pattern_skip_array=None):
+    def match(self, source_catalog, n_check, n_match, n_consent,
+              pattern_skip_array=None):
         """Function for matching a given source catalog into the loaded
         reference catalog.
         ----------------------------------------------------------------------
@@ -633,6 +541,7 @@ class OptimisticPatternMatcherB(object):
             matches = []
             distances = []
             ref_candidates = []
+            src_candidates = []
             if (not pattern_skip_array is None and
                 np.any(pattern_skip_array == pattern_idx)):
                 print("Skipping previously matched bad pattern %i..." %
@@ -642,14 +551,17 @@ class OptimisticPatternMatcherB(object):
             pattern = sorted_catalog[pattern_idx: pattern_idx + n_check, :3]
             # Construct a pattern given the number of points we are using to
             # create it.
-            ref_candidates = self._construct_and_match_pattern(pattern,
-                                                               n_match)
+            ref_candidates, src_candidates = self._construct_and_match_pattern(
+                pattern, n_match)
             # If we have enough candidates we can shift and attempt to match
             # the two catalogs.
             if (len(ref_candidates) >= n_match and
                 self._test_match(
-                    pattern, self._reference_catalog[ref_candidates, :3],
+                    pattern[src_candidates],
+                    self._reference_catalog[ref_candidates, :3],
                     pattern_idx)):
+                print("Candidate match found at pattern %i..." %
+                      pattern_idx)
                 rot_vect_list.append([np.dot(self.rot_matrix, btm_vect),
                                       np.dot(self.rot_matrix, top_vect),
                                       pattern_idx])
@@ -671,9 +583,6 @@ class OptimisticPatternMatcherB(object):
                           (np.arccos(self._cos_theta)*3600/__deg_to_rad__))
                     print("\tRotation: %.4f deg" %
                           (np.arcsin(self._sin_phi)/__deg_to_rad__))
-                    print("\tdist mean: %.4f, std: %.4f" %
-                          (np.mean(distances)*3600/__deg_to_rad__,
-                           np.std(distances)*3600/__deg_to_rad__))
                     successfull_pattern = pattern_idx
                     self._is_valid_rotation = False
                     break
@@ -685,7 +594,7 @@ class OptimisticPatternMatcherB(object):
     def test_rotations(self, rot_vect_list):
 
         print("Comparing pattern %i to previous %i rotations..." %
-              (rot_vect_list[-1][2], len(rot_vect_list)))
+              (rot_vect_list[-1][2], len(rot_vect_list) - 1))
 
         tot_consent = 0
         for rot_idx in xrange(max((len(rot_vect_list) - 1), 0)):
