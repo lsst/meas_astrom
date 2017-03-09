@@ -58,7 +58,7 @@ class MatchOptimisticBConfig(pexConfig.Config):
     maxRotationDeg = pexConfig.RangeField(
         doc="Rotation angle allowed between sources and position reference objects (degrees)",
         dtype=float,
-        default=3.0,
+        default=1.0,
         max=6.0,
     )
     numPointsForShape = pexConfig.Field(
@@ -222,7 +222,8 @@ class MatchOptimisticBTask(pipeBase.Task):
         del sourceCat  # avoid accidentally using sourceCat; use usableSourceCat or goodSourceCat from now on
 
         minMatchedPairs = min(self.config.minMatchedPairs,
-                              int(self.config.minFracMatchedPairs * min([len(refCat), len(usableSourceCat)])))
+                              int(self.config.minFracMatchedPairs * 
+                                  min([len(refCat), len(usableSourceCat)])))
 
         # match usable (possibly saturated) sources and then purge saturated sources from the match list
         usableMatches, resShift = self._doMatch(
@@ -347,7 +348,7 @@ class MatchOptimisticBTask(pipeBase.Task):
             self.maxMatchDistArcSec = maxMatchDistArcSec
         else:
             maxMatchDistArcSec = np.max(
-                (0.2, np.min((maxMatchDistArcSec, self.maxMatchDistArcSec))))
+                (0.2, np.min((maxMatchDist, self.maxMatchDistArcSec))))
 
         print("Current tol maxDist: %.4f..." % maxMatchDistArcSec)
 
@@ -376,13 +377,13 @@ class MatchOptimisticBTask(pipeBase.Task):
                     src_array, self.config.numPointsForShapeAttempt,
                     self.config.numPointsForShape,
                     np.array(self._pattern_skip_list))
+
             if len(match_id_list) > 0:
                 current_shift = np.arccos(pyOPMb._cos_theta)*3600/__deg_to_rad__
                 self._previous_pattern_success = pattern_idx
                 break
             else:
-                if (not (self._previous_pattern_success is None) and
-                    maxMatchDistArcSec > self.maxMatchDistArcSec):
+                if not (self._previous_pattern_success is None):
                     self._pattern_skip_list.append(self._previous_pattern_success)
                     self._previous_pattern_success = None
                 maxMatchDistArcSec = (try_idx + 2) * hold_maxMatchDistArcSec
@@ -391,13 +392,16 @@ class MatchOptimisticBTask(pipeBase.Task):
                     self.config.maxShift/3600.*__deg_to_rad__)
                 pyOPMb._dist_tol = maxMatchDistArcSec/3600.*__deg_to_rad__
                 pyOPMb._max_match_dist = maxMatchDistArcSec/3600.*__deg_to_rad__
+                print("Shift: %.4f, MaxDist: %.4f" %
+                      (self.config.maxShift, maxMatchDistArcSec))
 
         matches = afwTable.ReferenceMatchVector()
         for match_ids, dist in zip(match_id_list, dist_array):
             match = afwTable.ReferenceMatch()
             match.first = refCat.get(match_ids[1])
             match.second = sourceCat.get(match_ids[0])
-            angular_sep = match.first.getCoord().angularSeparation(match.second.getCoord())
+            angular_sep = match.first.getCoord().angularSeparation(
+                match.second.getCoord())
             match.distance = angular_sep.asRadians()
             matches.append(match)
 
