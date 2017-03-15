@@ -27,6 +27,7 @@ from builtins import range
 
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
+import lsst.afw.geom as afwGeom
 from .ref_match import RefMatchTask, RefMatchConfig
 from .fitTanSipWcs import FitTanSipWcsTask
 from .display import displayAstrometry
@@ -201,9 +202,12 @@ class AstrometryTask(RefMatchTask):
 
         matchMeta = createMatchMetadata(exposure, border=self.refObjLoader.config.pixelMargin)
         expMd = self._getExposureMetadata(exposure)
+        exp_bbox = expMd.bbox
+        exp_bbox.grow(afwGeom.Extent2I(self.config.matcher.maxOffsetPix,
+                                       self.config.matcher.maxOffsetPix))
 
         loadRes = self.refObjLoader.loadPixelBox(
-            bbox=expMd.bbox,
+            bbox=exp_bbox,
             wcs=expMd.wcs,
             filterName=expMd.filterName,
             calib=expMd.calib,
@@ -221,7 +225,7 @@ class AstrometryTask(RefMatchTask):
 
         res = None
         wcs = expMd.wcs
-        maxMatchDist = None
+        toleranceStruct = None
         for i in range(self.config.maxIter):
             iterNum = i + 1
             try:
@@ -232,7 +236,7 @@ class AstrometryTask(RefMatchTask):
                     bbox=expMd.bbox,
                     wcs=wcs,
                     exposure=exposure,
-                    maxMatchDist=maxMatchDist,
+                    toleranceStruct=toleranceStruct,
                 )
             except Exception as e:
                 # if we have had a succeessful iteration then use that; otherwise fail
@@ -243,28 +247,24 @@ class AstrometryTask(RefMatchTask):
                 else:
                     raise
 
+            toleranceStruct = tryRes.toleranceStruct
             tryMatchDist = self._computeMatchStatsOnSky(tryRes.matches)
             self.log.debug(
                 "Match and fit WCS iteration %d: found %d matches with scatter = %0.3f +- %0.3f arcsec; "
                 "max match distance = %0.3f arcsec",
                 iterNum, len(tryRes.matches), tryMatchDist.distMean.asArcseconds(),
                 tryMatchDist.distStdDev.asArcseconds(), tryMatchDist.maxMatchDist.asArcseconds())
-            if maxMatchDist is not None:
-                if tryMatchDist.maxMatchDist >= maxMatchDist:
-                    self.log.debug(
-                        "Iteration %d had no better maxMatchDist; using previous iteration", iterNum)
-                    iterNum -= 1
-                    break
 
             maxMatchDist = tryMatchDist.maxMatchDist
             res = tryRes
             wcs = res.wcs
-            if tryMatchDist.maxMatchDist.asArcseconds() < self.config.minMatchDistanceArcSec:
+            if maxMatchDist.asArcseconds() < self.config.minMatchDistanceArcSec:
                 self.log.debug(
                     "Max match distance = %0.3f arcsec < %0.3f = config.minMatchDistanceArcSec; "
                     "that's good enough",
-                    tryMatchDist.maxMatchDist.asArcseconds(), self.config.minMatchDistanceArcSec)
+                    maxMatchDist.asArcseconds(), self.config.minMatchDistanceArcSec)
                 break
+            toleranceStruct.maxMatchDist = maxMatchDist
 
         self.log.info(
             "Matched and fit WCS in %d iterations; "
@@ -282,7 +282,7 @@ class AstrometryTask(RefMatchTask):
         )
 
     @pipeBase.timeMethod
-    def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, maxMatchDist=None,
+    def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, toleranceStruct,
                         exposure=None):
         """!Match sources to reference objects and fit a WCS
 
@@ -308,7 +308,7 @@ class AstrometryTask(RefMatchTask):
             sourceCat=sourceCat,
             wcs=wcs,
             refFluxField=refFluxField,
-            maxMatchDist=maxMatchDist,
+            toleranceStruct=toleranceStruct,
         )
         self.log.debug("Found %s matches", len(matchRes.matches))
         if debug.display:
@@ -350,4 +350,5 @@ class AstrometryTask(RefMatchTask):
             matches=matchRes.matches,
             wcs=fitWcs,
             scatterOnSky=scatterOnSky,
+            toleranceStruct=matchRes.toleranceStruct,
         )

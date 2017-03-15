@@ -208,8 +208,8 @@ class MatchOptimisticBTask(pipeBase.Task):
 
     See @ref MatchOptimisticBConfig
 
-    To modify the tests for usable sources and good sources, subclass SourceInfo and
-    set MatchOptimisticBTask.SourceInfoClass to your subclass.
+    To modify the tests for good sources for matching, create a new
+    sourceSelector class in meas_algorithms and use it in the config.
 
     @section meas_astrom_matchOptimisticB_Example  A complete example of using MatchOptimisticBTask
 
@@ -255,7 +255,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         return refCat
 
     @pipeBase.timeMethod
-    def matchObjectsToSources(self, refCat, sourceCat, wcs, refFluxField, maxMatchDist=None):
+    def matchObjectsToSources(self, refCat, sourceCat, wcs, refFluxField, toleranceStruct=None):
         """!Match sources to position reference stars
 
         @param[in] refCat  catalog of reference objects that overlap the exposure; reads fields for:
@@ -269,9 +269,10 @@ class MatchOptimisticBTask(pipeBase.Task):
             - aperture flux, if found, else PSF flux
         @param[in] wcs  estimated WCS
         @param[in] refFluxField  field of refCat to use for flux
-        @param[in] maxMatchDist  maximum on-sky distance between reference objects and sources
-            (an lsst.afw.geom.Angle); if specified then the smaller of config.maxMatchDistArcSec or
-            maxMatchDist is used; if None then config.maxMatchDistArcSec is used
+        @param[in] toleranceStruct a lsst.pipeBase.Struct for specifying 
+            tolerances. Must at minimum contains and lsst.afw.geom.Angle
+            called maxMatchDist that communicates state between AstrometryTask
+            and the macther Task.
         @return an lsst.pipe.base.Struct with fields:
         - matches  a list of matches, each instance of lsst.afw.table.ReferenceMatch
         - usableSourcCat  a catalog of sources potentially usable for matching.
@@ -289,6 +290,12 @@ class MatchOptimisticBTask(pipeBase.Task):
         if self.log:
             self.log.info("filterStars purged %d reference stars, leaving %d stars" %
                           (preNumObj - numRefObj, numRefObj))
+
+        if toleranceStruct is None:
+            toleranceStruct = pipeBase.Struct(
+                maxMatchDist=None,
+            )
+
 
         # usableSourceCat: sources that are good but may be saturated
         numSources = len(sourceCat)
@@ -314,7 +321,7 @@ class MatchOptimisticBTask(pipeBase.Task):
             refFluxField=refFluxField,
             numUsableSources=numUsableSources,
             minMatchedPairs=minMatchedPairs,
-            maxMatchDist=maxMatchDist,
+            maxMatchDist=toleranceStruct.maxMatchDist,
             sourceFluxField=self.sourceSelector.fluxField,
             verbose=debug.verbose,
         )
@@ -340,6 +347,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         return pipeBase.Struct(
             matches=matches,
             usableSourceCat=usableSourceCat,
+            toleranceStruct=toleranceStruct,
         )
 
     def _getIsGoodKeys(self, schema):

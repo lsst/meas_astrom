@@ -29,6 +29,7 @@ import lsst.afw.math as afwMath
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from .matchOptimisticB import MatchOptimisticBTask
+from .matchPessimisticB import MatchPessimisticBTask
 from .display import displayAstrometry
 from . import makeMatchStatistics
 from .createMatchMetadata import createMatchMetadata
@@ -109,7 +110,7 @@ class RefMatchTask(pipeBase.Task):
             sourceCat=sourceCat,
             wcs=expMd.wcs,
             refFluxField=loadRes.fluxField,
-            maxMatchDist=None,
+            toleranceStruct=None,
         )
 
         distStats = self._computeMatchStatsOnSky(matchRes.matches)
