@@ -24,17 +24,20 @@ from builtins import range
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
+import os
 import unittest
 import numpy as np
 import lsst.utils.tests
 import lsst.pex.exceptions
 import lsst.afw.geom
+import lsst.afw.image
 from lsst.meas.astrom import (
     PolynomialTransform,
     ScaledPolynomialTransform,
     SipForwardTransform,
     SipReverseTransform,
-    ScaledPolynomialTransformFitter
+    ScaledPolynomialTransformFitter,
+    transformWcsPixels
 )
 
 
@@ -329,6 +332,36 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
                                      rev2.getPoly().getXCoeffs())
         self.assertFloatsAlmostEqual(rev.getPoly().getYCoeffs(),
                                      rev2.getPoly().getYCoeffs())
+
+    def testTransformWcsPixels(self):
+        filename = os.path.join(os.path.dirname(__file__),
+                                'imgCharSources-v85501867-R01-S00.sipheader')
+        wcs1 = lsst.afw.image.makeWcs(lsst.afw.image.readMetadata(filename))
+        s = makeRandomAffineTransform()
+        wcs2 = transformWcsPixels(wcs1, s)
+        crval = wcs1.getSkyOrigin().getPosition(lsst.afw.geom.degrees)
+
+        def t1a(p):
+            sky = lsst.afw.coord.IcrsCoord(crval + lsst.afw.geom.Extent2D(p),
+                                           lsst.afw.geom.degrees)
+            return s(wcs1.skyToPixel(sky))
+
+        def t2a(p):
+            sky = lsst.afw.coord.IcrsCoord(crval + lsst.afw.geom.Extent2D(p),
+                                           lsst.afw.geom.degrees)
+            return wcs2.skyToPixel(sky)
+
+        self.assertTransformsNearlyEqual(t1a, t2a)
+
+        def t1b(p):
+            sky = wcs1.pixelToSky(s.invert()(p))
+            return sky.getPosition(lsst.afw.geom.degrees)
+
+        def t2b(p):
+            sky = wcs2.pixelToSky(p)
+            return sky.getPosition(lsst.afw.geom.degrees)
+
+        self.assertTransformsNearlyEqual(t1b, t2b)
 
 
 class SipReverseTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin):
