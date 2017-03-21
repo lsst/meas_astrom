@@ -112,6 +112,7 @@ PYBIND11_PLUGIN(sipTransform) {
 
     mod.def("makeWcs", &makeWcs);
     mod.def("transformWcsPixels", &transformWcsPixels, "wcs"_a, "s"_a);
+    mod.def("rotateWcsPixelsBy90", &rotateWcsPixelsBy90, "wcs"_a, "nQuarter"_a, "dimensions"_a);
 
     return mod.ptr();
 }
