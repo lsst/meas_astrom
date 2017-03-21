@@ -304,6 +304,12 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
             fwd, rev,
             lsst.afw.coord.IcrsCoord(crval, lsst.afw.geom.degrees)
         )
+
+        self.assertFloatsAlmostEqual(fwd.getPoly().getXCoeffs(), wcs.getSipA())
+        self.assertFloatsAlmostEqual(fwd.getPoly().getYCoeffs(), wcs.getSipB())
+        self.assertFloatsAlmostEqual(rev.getPoly().getXCoeffs(), wcs.getSipAp())
+        self.assertFloatsAlmostEqual(rev.getPoly().getYCoeffs(), wcs.getSipBp())
+
         # We can only test agreement with TanWcs in one direction, because
         # TanWcs doesn't provide an inverse to skyToIntermediateWorldCoord.
 
