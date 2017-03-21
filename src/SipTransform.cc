@@ -282,5 +282,18 @@ std::shared_ptr<afw::image::TanWcs> transformWcsPixels(
     }
 }
 
+std::shared_ptr<afw::image::TanWcs> rotateWcsPixels(
+    afw::image::TanWcs const & wcs,
+    afw::geom::Box2I const & bbox,
+    afw::geom::Angle const & angle
+) {
+    afw::geom::Extent2D offset(afw::geom::Box2D(bbox).getCenter());
+    return transformWcsPixels(
+        wcs,
+        afw::geom::AffineTransform(offset) *
+            afw::geom::LinearTransform::makeRotation(angle) *
+            afw::geom::AffineTransform(-offset)
+    );
+}
 
 }}} // namespace lsst::meas::astrom

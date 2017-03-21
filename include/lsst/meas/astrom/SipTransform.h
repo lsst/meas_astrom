@@ -25,6 +25,9 @@
 #define LSST_MEAS_ASTROM_SipTransform_INCLUDED
 
 #include "lsst/afw/geom/LinearTransform.h"
+#include "lsst/afw/geom/AffineTransform.h"
+#include "lsst/afw/geom/Box.h"
+#include "lsst/afw/geom/Angle.h"
 #include "lsst/meas/astrom/PolynomialTransform.h"
 
 
@@ -410,6 +413,21 @@ std::shared_ptr<afw::image::TanWcs> makeWcs(
 std::shared_ptr<afw::image::TanWcs> transformWcsPixels(
     afw::image::TanWcs const & wcs,
     afw::geom::AffineTransform const & s
+);
+
+/**
+ *  Rotate the given TanWcs to correspond to a rotation of the image
+ *  it corresponds to about the image's center.
+ *
+ *  @param[in]  wcs   Original TanWcs to be rotated.
+ *  @param[in]  bbox  Bounding box of the image the original Wcs corresponds to.
+ *  @param[in]  angle Rotation angle; positive values yield a counterclockwise
+ *                    rotation.
+ */
+std::shared_ptr<afw::image::TanWcs> rotateWcsPixels(
+    afw::image::TanWcs const & wcs,
+    afw::geom::Box2I const & bbox,
+    afw::geom::Angle const & angle
 );
 
 
