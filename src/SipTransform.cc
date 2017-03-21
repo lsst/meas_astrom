@@ -30,6 +30,18 @@
 
 namespace lsst { namespace meas { namespace astrom {
 
+void SipTransformBase::transformPixelsInPlace(afw::geom::AffineTransform const & s) {
+    // The implementation for transformPixels is identical for
+    // SipForwardTransform and SipReverseTransform.  That's pretty obvious for
+    // the pixel origin and CD matrix, which are the same in both cases, but
+    // it wasn't obvious to me until I did the math that the polynomial
+    // transforms are composed with the affine transform the same way.
+    auto sInv = s.invert();
+    _pixelOrigin = s.getLinear()(_pixelOrigin - sInv.getTranslation());
+    _cdMatrix = _cdMatrix * sInv.getLinear();
+    _poly = compose(s.getLinear(), compose(getPoly(), sInv.getLinear()));
+}
+
 SipForwardTransform SipForwardTransform::convert(
     PolynomialTransform const & poly,
     afw::geom::Point2D const & pixelOrigin,
@@ -87,6 +99,12 @@ afw::geom::Point2D SipForwardTransform::operator()(afw::geom::Point2D const & uv
     return getCDMatrix()(afw::geom::Extent2D(duv) + getPoly()(duv));
 }
 
+SipForwardTransform SipForwardTransform::transformPixels(afw::geom::AffineTransform const & s) const {
+    SipForwardTransform result(*this);
+    result.transformPixelsInPlace(s);
+    return result;
+}
+
 SipReverseTransform SipReverseTransform::convert(
     PolynomialTransform const & poly,
     afw::geom::Point2D const & pixelOrigin,
@@ -132,6 +150,13 @@ SipReverseTransform SipReverseTransform::convert(ScaledPolynomialTransform const
         afw::geom::Point2D(scaled.getOutputScalingInverse().getTranslation()),
         scaled.getInputScaling().getLinear()
     );
+}
+
+SipReverseTransform SipReverseTransform::transformPixels(afw::geom::AffineTransform const & s) const {
+    SipReverseTransform result(*this);
+    result.transformPixelsInPlace(s);
+    result._cdInverse = result._cdMatrix.invert();
+    return result;
 }
 
 afw::geom::AffineTransform SipReverseTransform::linearize(afw::geom::Point2D const & in) const {

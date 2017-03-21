@@ -279,6 +279,14 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         sip = lsst.meas.astrom.SipForwardTransform.convert(scaled)
         self.assertTransformsNearlyEqual(sip, scaled)
 
+    def testTransformPixels(self):
+        sip = makeRandomSipForwardTransform(4)
+        affine = makeRandomAffineTransform()
+        self.assertTransformsNearlyEqual(
+            sip.transformPixels(affine),
+            lambda p: sip(affine.invert()(p))
+        )
+
     def testMakeWcs(self):
         fwd = self.makeRandom()
         rev = SipReverseTransform(  # this isn't actually the inverse of fwd, but that doesn't matter
@@ -343,6 +351,14 @@ class SipReverseTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         scaled = makeRandomScaledPolynomialTransform(4)
         sip = lsst.meas.astrom.SipReverseTransform.convert(scaled)
         self.assertTransformsNearlyEqual(sip, scaled)
+
+    def testTransformPixels(self):
+        sip = makeRandomSipReverseTransform(4)
+        affine = makeRandomAffineTransform()
+        self.assertTransformsNearlyEqual(
+            sip.transformPixels(affine),
+            lambda p: affine(sip(p))
+        )
 
 
 class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):

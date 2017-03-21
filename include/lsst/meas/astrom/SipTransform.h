@@ -103,6 +103,8 @@ protected:
         _poly.swap(other._poly);
     }
 
+    void transformPixelsInPlace(afw::geom::AffineTransform const & s);
+
     afw::geom::Point2D _pixelOrigin;
     afw::geom::LinearTransform _cdMatrix;
     PolynomialTransform _poly;
@@ -222,6 +224,12 @@ public:
      */
     afw::geom::Point2D operator()(afw::geom::Point2D const & uv) const;
 
+    /**
+     * Return a new forward SIP transform that includes a transformation of
+     * the pixel coordinate system by the given affine transform.
+     */
+    SipForwardTransform transformPixels(afw::geom::AffineTransform const & s) const;
+
 };
 
 
@@ -340,6 +348,12 @@ public:
      * Apply the transform to a point.
      */
     afw::geom::Point2D operator()(afw::geom::Point2D const & xy) const;
+
+    /**
+     * Return a new reverse SIP transform that includes a transformation of
+     * the pixel coordinate system by the given affine transform.
+     */
+    SipReverseTransform transformPixels(afw::geom::AffineTransform const & s) const;
 
 private:
     friend class PolynomialTransform;
