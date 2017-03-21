@@ -66,6 +66,7 @@ static void declareSipForwardTransform(py::module &mod) {
                    "scaled"_a);
 
     cls.def("__call__", &SipForwardTransform::operator(), "in"_a);
+    cls.def("transformPixels", &SipForwardTransform::transformPixels, "s"_a);
 
     cls.def("linearize", &SipForwardTransform::linearize);
 }
@@ -93,6 +94,7 @@ static void declareSipReverseTransform(py::module &mod) {
                    "scaled"_a);
 
     cls.def("__call__", &SipReverseTransform::operator(), "in"_a);
+    cls.def("transformPixels", &SipReverseTransform::transformPixels, "s"_a);
 
     cls.def("linearize", &SipReverseTransform::linearize);
 }
