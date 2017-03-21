@@ -188,6 +188,11 @@ public:
     static SipForwardTransform convert(ScaledPolynomialTransform const & scaled);
 
     /**
+     *  Extract the reverse transform from a TanWcs.
+     */
+    static SipForwardTransform extract(afw::image::TanWcs const & wcs);
+
+    /**
      *  Construct a SipForwardTransform from its components.
      *
      *  @param[in]   pixelOrigin    CRPIX @f$(u_0,v_0)@f$ (zero-indexed).
@@ -310,6 +315,11 @@ public:
      *  input scalings (respectively).
      */
     static SipReverseTransform convert(ScaledPolynomialTransform const & scaled);
+
+    /**
+     *  Extract the reverse transform from a TanWcs.
+     */
+    static SipReverseTransform extract(afw::image::TanWcs const & wcs);
 
     /**
      *  Construct a SipReverseTransform from its components.

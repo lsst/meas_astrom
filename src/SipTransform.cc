@@ -87,6 +87,24 @@ SipForwardTransform SipForwardTransform::convert(ScaledPolynomialTransform const
     return convert(scaled, pixelOrigin, cdMatrix);
 }
 
+SipForwardTransform SipForwardTransform::extract(afw::image::TanWcs const & wcs) {
+    if (!wcs.hasDistortion()) {
+        throw LSST_EXCEPT(
+            pex::exceptions::LogicError,
+            "Constructing a SipForwardTransform from a TanWcs with no distortions is not implemented."
+        );
+    }
+    ndarray::Array<double,2,2> xCoeffs = ndarray::allocate(wcs.getSipA().rows(), wcs.getSipA().cols());
+    ndarray::Array<double,2,2> yCoeffs = ndarray::allocate(wcs.getSipB().rows(), wcs.getSipB().cols());
+    xCoeffs.asEigen() = wcs.getSipA();
+    yCoeffs.asEigen() = wcs.getSipB();
+    return SipForwardTransform(
+        wcs.getPixelOrigin(),
+        afw::geom::LinearTransform(wcs.getCDMatrix()),
+        PolynomialTransform(xCoeffs, yCoeffs)
+    );
+}
+
 afw::geom::AffineTransform SipForwardTransform::linearize(afw::geom::Point2D const & in) const {
     afw::geom::AffineTransform tail(-afw::geom::Extent2D(getPixelOrigin()));
     return afw::geom::AffineTransform(_cdMatrix)
@@ -149,6 +167,24 @@ SipReverseTransform SipReverseTransform::convert(ScaledPolynomialTransform const
         scaled,
         afw::geom::Point2D(scaled.getOutputScalingInverse().getTranslation()),
         scaled.getInputScaling().getLinear()
+    );
+}
+
+SipReverseTransform SipReverseTransform::extract(afw::image::TanWcs const & wcs) {
+    if (!wcs.hasDistortion()) {
+        throw LSST_EXCEPT(
+            pex::exceptions::LogicError,
+            "Constructing a SipReverseTransform from a TanWcs with no distortions is not implemented."
+        );
+    }
+    ndarray::Array<double,2,2> xCoeffs = ndarray::allocate(wcs.getSipAp().rows(), wcs.getSipAp().cols());
+    ndarray::Array<double,2,2> yCoeffs = ndarray::allocate(wcs.getSipBp().rows(), wcs.getSipBp().cols());
+    xCoeffs.asEigen() = wcs.getSipAp();
+    yCoeffs.asEigen() = wcs.getSipBp();
+    return SipReverseTransform(
+        wcs.getPixelOrigin(),
+        afw::geom::LinearTransform(wcs.getCDMatrix()),
+        PolynomialTransform(xCoeffs, yCoeffs)
     );
 }
 
