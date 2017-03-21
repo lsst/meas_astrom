@@ -111,6 +111,7 @@ PYBIND11_PLUGIN(sipTransform) {
     declareSipReverseTransform(mod);
 
     mod.def("makeWcs", &makeWcs);
+    mod.def("transformWcsPixels", &transformWcsPixels, "wcs"_a, "s"_a);
 
     return mod.ptr();
 }

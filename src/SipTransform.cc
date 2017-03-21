@@ -260,4 +260,27 @@ PTR(afw::image::TanWcs) makeWcs(
     );
 }
 
+std::shared_ptr<afw::image::TanWcs> transformWcsPixels(
+    afw::image::TanWcs const & wcs,
+    afw::geom::AffineTransform const & s
+) {
+    if (wcs.hasDistortion()) {
+        auto fwd = SipForwardTransform::extract(wcs).transformPixels(s);
+        auto rev = SipReverseTransform::extract(wcs).transformPixels(s);
+        return makeWcs(fwd, rev, *wcs.getSkyOrigin());
+    } else {
+        auto sInv = s.invert();
+        auto pixelOrigin = s.getLinear()(wcs.getPixelOrigin() - sInv.getTranslation());
+        Eigen::Matrix2d cdMatrix = wcs.getCDMatrix() * sInv.getLinear().getMatrix();
+        return std::make_shared<afw::image::TanWcs>(
+            wcs.getSkyOrigin()->toIcrs().getPosition(afw::geom::degrees),
+            pixelOrigin,
+            cdMatrix,
+            wcs.getEquinox(),
+            "ICRS"
+        );
+    }
+}
+
+
 }}} // namespace lsst::meas::astrom

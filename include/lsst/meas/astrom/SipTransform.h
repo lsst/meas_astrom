@@ -391,6 +391,28 @@ std::shared_ptr<afw::image::TanWcs> makeWcs(
     afw::coord::Coord const & skyOrigin
 );
 
+/**
+ *  Create a new TanWcs whose pixel coordinate system has been transformed
+ *  via an affine transform.
+ *
+ *  @param[in]  wcs   Original TanWcs object.
+ *  @param[in]  s     AffineTransform to apply to the pixel coordinate
+ *                    system.
+ *
+ *  @return a new Wcs that satisfies the following:
+ *  @code
+ *  newWcs = transformWcsPixels(wcs, s);
+ *  assert(newWcs.skyToPixel(sky), s(wcs.skyToPixel(sky)));
+ *  assert(newWcs.pixelToSky(pixel), wcs.pixelToSky(s.invert()(pixel)));
+ *  @endcode
+ *  for all sky coordinates @c sky and pixel coordinates @c pixel.
+ */
+std::shared_ptr<afw::image::TanWcs> transformWcsPixels(
+    afw::image::TanWcs const & wcs,
+    afw::geom::AffineTransform const & s
+);
+
+
 }}} // namespace lsst::meas::astrom
 
 #endif // !LSST_MEAS_ASTROM_SipTransform_INCLUDED
