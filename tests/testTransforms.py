@@ -311,6 +311,24 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
 
         self.assertTransformsAlmostEqual(t1, t2)
 
+        fwd2 = SipForwardTransform.extract(wcs)
+        rev2 = SipReverseTransform.extract(wcs)
+
+        self.assertPairsAlmostEqual(fwd.getPixelOrigin(), fwd2.getPixelOrigin())
+        self.assertPairsAlmostEqual(rev.getPixelOrigin(), rev2.getPixelOrigin())
+        self.assertFloatsAlmostEqual(fwd.getCDMatrix().getMatrix(),
+                                     fwd2.getCDMatrix().getMatrix())
+        self.assertFloatsAlmostEqual(rev.getCDMatrix().getMatrix(),
+                                     rev2.getCDMatrix().getMatrix())
+        self.assertFloatsAlmostEqual(fwd.getPoly().getXCoeffs(),
+                                     fwd2.getPoly().getXCoeffs())
+        self.assertFloatsAlmostEqual(fwd.getPoly().getYCoeffs(),
+                                     fwd2.getPoly().getYCoeffs())
+        self.assertFloatsAlmostEqual(rev.getPoly().getXCoeffs(),
+                                     rev2.getPoly().getXCoeffs())
+        self.assertFloatsAlmostEqual(rev.getPoly().getYCoeffs(),
+                                     rev2.getPoly().getYCoeffs())
+
 
 class SipReverseTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin):
 

@@ -64,6 +64,7 @@ static void declareSipForwardTransform(py::module &mod) {
     cls.def_static("convert",
                    (SipForwardTransform(*)(ScaledPolynomialTransform const &)) & SipForwardTransform::convert,
                    "scaled"_a);
+    cls.def_static("extract", &SipForwardTransform::extract, "wcs"_a);
 
     cls.def("__call__", &SipForwardTransform::operator(), "in"_a);
     cls.def("transformPixels", &SipForwardTransform::transformPixels, "s"_a);
@@ -92,6 +93,7 @@ static void declareSipReverseTransform(py::module &mod) {
     cls.def_static("convert",
                    (SipReverseTransform(*)(ScaledPolynomialTransform const &)) & SipReverseTransform::convert,
                    "scaled"_a);
+    cls.def_static("extract", &SipReverseTransform::extract, "wcs"_a);
 
     cls.def("__call__", &SipReverseTransform::operator(), "in"_a);
     cls.def("transformPixels", &SipReverseTransform::transformPixels, "s"_a);
