@@ -282,5 +282,31 @@ std::shared_ptr<afw::image::TanWcs> transformWcsPixels(
     }
 }
 
+std::shared_ptr<afw::image::TanWcs> rotateWcsPixelsBy90(
+    afw::image::TanWcs const & wcs,
+    int nQuarter,
+    afw::geom::Extent2I const & dimensions
+) {
+    afw::geom::Extent2D offset;
+    switch(nQuarter % 4) {
+    case 0:
+        offset = afw::geom::Extent2D(0, 0);
+        break;
+    case 1:
+        offset = afw::geom::Extent2D(dimensions.getY() - 1, 0);
+        break;
+    case 2:
+        offset = afw::geom::Extent2D(dimensions - afw::geom::Extent2I(1, 1));
+        break;
+    case 3:
+        offset = afw::geom::Extent2D(0, dimensions.getX() - 1);
+        break;
+    }
+    auto rot = afw::geom::LinearTransform::makeRotation(nQuarter*90.0*afw::geom::degrees);
+    return transformWcsPixels(
+        wcs,
+        afw::geom::AffineTransform(rot, offset)
+    );
+}
 
 }}} // namespace lsst::meas::astrom
