@@ -346,7 +346,7 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
                                 'imgCharSources-v85501867-R01-S00.sipheader')
         wcs1 = lsst.afw.image.makeWcs(lsst.afw.image.readMetadata(filename))
         s = makeRandomAffineTransform()
-        wcs2 = transformWcsPixels(wcs1, s)
+        wcs2 = transformWcsPixels(lsst.afw.image.TanWcs.cast(wcs1), s)
         crval = wcs1.getSkyOrigin().getPosition(lsst.afw.geom.degrees)
 
         def t1a(p):
