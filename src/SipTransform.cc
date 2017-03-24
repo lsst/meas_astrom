@@ -288,11 +288,10 @@ std::shared_ptr<afw::image::TanWcs> rotateWcsPixels(
     afw::geom::Angle const & angle
 ) {
     afw::geom::Extent2D offset(afw::geom::Box2D(bbox).getCenter());
+    auto rot = afw::geom::LinearTransform::makeRotation(angle);
     return transformWcsPixels(
         wcs,
-        afw::geom::AffineTransform(offset) *
-            afw::geom::LinearTransform::makeRotation(angle) *
-            afw::geom::AffineTransform(-offset)
+        afw::geom::AffineTransform(rot(offset))*rot*afw::geom::AffineTransform(-offset)
     );
 }
 
