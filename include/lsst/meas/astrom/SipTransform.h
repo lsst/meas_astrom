@@ -427,7 +427,8 @@ std::shared_ptr<afw::image::TanWcs> transformWcsPixels(
 std::shared_ptr<afw::image::TanWcs> rotateWcsPixels(
     afw::image::TanWcs const & wcs,
     afw::geom::Box2I const & bbox,
-    afw::geom::Angle const & angle
+    afw::geom::Angle const & angle,
+    afw::geom::Box2I const & bboxRot
 );
 
 
