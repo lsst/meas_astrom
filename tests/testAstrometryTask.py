@@ -100,8 +100,8 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
             exposure=self.exposure,
         )
         fitWcs = self.exposure.getWcs()
-        self.assertRaises(Exception, self.assertWcsNearlyEqualOverBBox, fitWcs, distortedWcs)
-        self.assertWcsNearlyEqualOverBBox(distortedWcs, fitWcs, self.bbox,
+        self.assertRaises(Exception, self.assertWcsAlmostEqualOverBBox, fitWcs, distortedWcs)
+        self.assertWcsAlmostEqualOverBBox(distortedWcs, fitWcs, self.bbox,
                                           maxDiffSky=0.01*afwGeom.arcseconds, maxDiffPix=0.02)
 
         srcCoordKey = afwTable.CoordKey(sourceCat.schema["coord"])

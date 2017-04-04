@@ -96,7 +96,7 @@ class ApproximateWcsTestCase(lsst.utils.tests.TestCase):
             self.plotWcs(wcs, fitWcs, self.bbox, xyTransform)
 
         msg = "ERROR: %s failed with order %s" % (name, order)
-        self.assertWcsNearlyEqualOverBBox(wcs, fitWcs, self.bbox,
+        self.assertWcsAlmostEqualOverBBox(wcs, fitWcs, self.bbox,
                                           maxDiffSky=0.001*afwGeom.arcseconds, maxDiffPix=0.02, msg=msg)
 
     def plotWcs(self, wcs0, wcs1, bbox, xyTransform):

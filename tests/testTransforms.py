@@ -94,7 +94,7 @@ class TransformTestMixin(object):
         """
         raise NotImplementedError()
 
-    def assertTransformsNearlyEqual(self, a, b, rtol=1E-8):
+    def assertTransformsAlmostEqual(self, a, b, rtol=1E-8):
         for i in range(10):
             point = lsst.afw.geom.Point2D(*np.random.randn(2))
             aOut = a(point)
@@ -163,21 +163,21 @@ class PolynomialTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         """
         scaled = makeRandomScaledPolynomialTransform(4)
         converted = PolynomialTransform.convert(scaled)
-        self.assertTransformsNearlyEqual(scaled, converted)
+        self.assertTransformsAlmostEqual(scaled, converted)
 
     def testConvertSipForward(self):
         """Test that we can convert a SipForwardTransform to a PolynomialTransform.
         """
         sipForward = makeRandomSipForwardTransform(4)
         converted = PolynomialTransform.convert(sipForward)
-        self.assertTransformsNearlyEqual(sipForward, converted)
+        self.assertTransformsAlmostEqual(sipForward, converted)
 
     def testConvertSipReverse(self):
         """Test that we can convert a SipForwardTransform to a PolynomialTransform.
         """
         sipReverse = makeRandomSipReverseTransform(4)
         converted = PolynomialTransform.convert(sipReverse)
-        self.assertTransformsNearlyEqual(sipReverse, converted)
+        self.assertTransformsAlmostEqual(sipReverse, converted)
 
     def testCompose(self):
         """Test that AffineTransforms and PolynomialTransforms can be composed
@@ -190,8 +190,8 @@ class PolynomialTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         )
         composed1 = lsst.meas.astrom.compose(poly, affine)
         composed2 = lsst.meas.astrom.compose(affine, poly)
-        self.assertTransformsNearlyEqual(composed1, lambda p: poly(affine(p)))
-        self.assertTransformsNearlyEqual(composed2, lambda p: affine(poly(p)))
+        self.assertTransformsAlmostEqual(composed1, lambda p: poly(affine(p)))
+        self.assertTransformsAlmostEqual(composed2, lambda p: affine(poly(p)))
         # Test that composition with an identity transform is a no-op
         composed3 = lsst.meas.astrom.compose(poly, lsst.afw.geom.AffineTransform())
         composed4 = lsst.meas.astrom.compose(lsst.afw.geom.AffineTransform(), poly)
@@ -214,7 +214,7 @@ class ScaledPolynomialTransformTestCase(lsst.utils.tests.TestCase, TransformTest
         inputScaling = makeRandomAffineTransform()
         outputScalingInverse = makeRandomAffineTransform()
         scaled = ScaledPolynomialTransform(poly, inputScaling, outputScalingInverse)
-        self.assertTransformsNearlyEqual(
+        self.assertTransformsAlmostEqual(
             scaled,
             lambda p: outputScalingInverse(poly(inputScaling(p)))
         )
@@ -224,21 +224,21 @@ class ScaledPolynomialTransformTestCase(lsst.utils.tests.TestCase, TransformTest
         """
         poly = makeRandomPolynomialTransform(4)
         converted = ScaledPolynomialTransform.convert(poly)
-        self.assertTransformsNearlyEqual(poly, converted)
+        self.assertTransformsAlmostEqual(poly, converted)
 
     def testConvertSipForward(self):
         """Test that we can convert a SipForwardTransform to a ScaledPolynomialTransform.
         """
         sipForward = makeRandomSipForwardTransform(4)
         converted = ScaledPolynomialTransform.convert(sipForward)
-        self.assertTransformsNearlyEqual(sipForward, converted)
+        self.assertTransformsAlmostEqual(sipForward, converted)
 
     def testConvertSipReverse(self):
         """Test that we can convert a SipReverseTransform to a ScaledPolynomialTransform.
         """
         sipReverse = makeRandomSipReverseTransform(4)
         converted = ScaledPolynomialTransform.convert(sipReverse)
-        self.assertTransformsNearlyEqual(sipReverse, converted)
+        self.assertTransformsAlmostEqual(sipReverse, converted)
 
 
 class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin):
@@ -254,7 +254,7 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         cd = lsst.afw.geom.LinearTransform(np.random.randn(2, 2))
         crpix = lsst.afw.geom.Point2D(*np.random.randn(2))
         sip = SipForwardTransform(crpix, cd, poly)
-        self.assertTransformsNearlyEqual(
+        self.assertTransformsAlmostEqual(
             sip,
             lambda p: cd((p - crpix) + poly(lsst.afw.geom.Point2D(p - crpix)))
         )
@@ -264,19 +264,19 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         cd = lsst.afw.geom.LinearTransform(np.random.randn(2, 2))
         crpix = lsst.afw.geom.Point2D(*np.random.randn(2))
         sip = lsst.meas.astrom.SipForwardTransform.convert(poly, crpix, cd)
-        self.assertTransformsNearlyEqual(sip, poly)
+        self.assertTransformsAlmostEqual(sip, poly)
 
     def testConvertScaledPolynomialManual(self):
         scaled = makeRandomScaledPolynomialTransform(4)
         cd = lsst.afw.geom.LinearTransform(np.random.randn(2, 2))
         crpix = lsst.afw.geom.Point2D(*np.random.randn(2))
         sip = lsst.meas.astrom.SipForwardTransform.convert(scaled, crpix, cd)
-        self.assertTransformsNearlyEqual(sip, scaled)
+        self.assertTransformsAlmostEqual(sip, scaled)
 
     def testConvertScaledPolynomialAutomatic(self):
         scaled = makeRandomScaledPolynomialTransform(4)
         sip = lsst.meas.astrom.SipForwardTransform.convert(scaled)
-        self.assertTransformsNearlyEqual(sip, scaled)
+        self.assertTransformsAlmostEqual(sip, scaled)
 
     def testMakeWcs(self):
         fwd = self.makeRandom()
@@ -301,7 +301,7 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
             sky = lsst.afw.coord.IcrsCoord(crval + lsst.afw.geom.Extent2D(p), lsst.afw.geom.degrees)
             return wcs.skyToPixel(sky)
 
-        self.assertTransformsNearlyEqual(t1, t2)
+        self.assertTransformsAlmostEqual(t1, t2)
 
 
 class SipReverseTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin):
@@ -319,7 +319,7 @@ class SipReverseTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         sip = SipReverseTransform(crpix, cd, poly)
         offset = lsst.afw.geom.Extent2D(crpix)
         cdInverse = cd.invert()
-        self.assertTransformsNearlyEqual(
+        self.assertTransformsAlmostEqual(
             sip,
             lambda p: offset + lsst.afw.geom.Extent2D(cdInverse(p)) + poly(cdInverse(p))
         )
@@ -329,19 +329,19 @@ class SipReverseTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         cd = lsst.afw.geom.LinearTransform(np.random.randn(2, 2))
         crpix = lsst.afw.geom.Point2D(*np.random.randn(2))
         sip = lsst.meas.astrom.SipReverseTransform.convert(poly, crpix, cd)
-        self.assertTransformsNearlyEqual(sip, poly)
+        self.assertTransformsAlmostEqual(sip, poly)
 
     def testConvertScaledPolynomialManual(self):
         scaled = makeRandomScaledPolynomialTransform(4)
         cd = lsst.afw.geom.LinearTransform(np.random.randn(2, 2))
         crpix = lsst.afw.geom.Point2D(*np.random.randn(2))
         sip = lsst.meas.astrom.SipReverseTransform.convert(scaled, crpix, cd)
-        self.assertTransformsNearlyEqual(sip, scaled)
+        self.assertTransformsAlmostEqual(sip, scaled)
 
     def testConvertScaledPolynomialAutomatic(self):
         scaled = makeRandomScaledPolynomialTransform(4)
         sip = lsst.meas.astrom.SipReverseTransform.convert(scaled)
-        self.assertTransformsNearlyEqual(sip, scaled)
+        self.assertTransformsAlmostEqual(sip, scaled)
 
 
 class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):

@@ -30,14 +30,14 @@ import lsst.afw.table as afwTable
 import lsst.afw.geom as afwGeom
 from lsst.meas.base import SingleFrameMeasurementTask
 from lsst.meas.astrom.sip import makeCreateWcsWithSip
-from lsst.afw.image.basicUtils import assertWcsNearlyEqualOverBBox
+from lsst.afw.image.basicUtils import assertWcsAlmostEqualOverBBox
 
 __all__ = ["approximateWcs"]
 
 
 class _MockTestCase(object):
     """A fake unit test case class that will enable us to call
-    assertWcsNearlyEqualOverBBox from the method approximateWcs"""
+    assertWcsAlmostEqualOverBBox from the method approximateWcs"""
 
     def fail(self, msgStr):
         raise UserWarning("WCS fitting failed " + msgStr)
@@ -105,7 +105,7 @@ def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3,
     fitWcs = sipObject.getNewWcs()
 
     mockTest = _MockTestCase()
-    assertWcsNearlyEqualOverBBox(mockTest, wcs, fitWcs, bbox, maxDiffSky=skyTolerance,
+    assertWcsAlmostEqualOverBBox(mockTest, wcs, fitWcs, bbox, maxDiffSky=skyTolerance,
                                  maxDiffPix=pixelTolerance)
 
     return fitWcs
