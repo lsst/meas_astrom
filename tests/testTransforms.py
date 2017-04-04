@@ -1,10 +1,6 @@
-#!/usr/bin/env python
-from __future__ import absolute_import, division, print_function
-from builtins import range
-
 #
 # LSST Data Management System
-# Copyright 2016 LSST/AURA.
+# Copyright 2016-2017 LSST/AURA.
 #
 # This product includes software developed by the
 # LSST Project (http://www.lsst.org/).
@@ -23,9 +19,12 @@ from builtins import range
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
-
+from __future__ import absolute_import, division, print_function
+from builtins import range
 import unittest
+
 import numpy as np
+
 import lsst.utils.tests
 import lsst.pex.exceptions
 import lsst.afw.geom
