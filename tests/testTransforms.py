@@ -359,10 +359,10 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
         cd = lsst.afw.geom.LinearTransform.makeScaling((0.2*lsst.afw.geom.arcseconds).asDegrees())
         initialWcs = lsst.afw.image.makeWcs(crval, crpix, cd[cd.XX], cd[cd.XY], cd[cd.YX], cd[cd.YY])
         bbox = lsst.afw.geom.Box2D(
-            (lsst.afw.geom.Point2D(crval.getPosition(lsst.afw.geom.arcseconds))
-                - lsst.afw.geom.Extent2D(20, 20)),
-            (lsst.afw.geom.Point2D(crval.getPosition(lsst.afw.geom.arcseconds))
-                + lsst.afw.geom.Extent2D(20, 20))
+            (lsst.afw.geom.Point2D(crval.getPosition(lsst.afw.geom.arcseconds)) -
+                lsst.afw.geom.Extent2D(20, 20)),
+            (lsst.afw.geom.Point2D(crval.getPosition(lsst.afw.geom.arcseconds)) +
+                lsst.afw.geom.Extent2D(20, 20))
         )
         srcSchema = lsst.afw.table.SourceTable.makeMinimalSchema()
         srcPosKey = lsst.afw.table.Point2DKey.addFields(srcSchema, "pos", "source position", "pix")
@@ -392,8 +392,8 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
             trueRec.set(srcPosKey, truePos)
             measRec = measSrc.addNew()
             covSqrt = np.random.randn(3, 2)
-            cov = (errScaling*(np.dot(covSqrt.transpose(), covSqrt)
-                   + np.diag([1.0, 1.0]))).astype(np.float32)
+            cov = (errScaling*(np.dot(covSqrt.transpose(), covSqrt) +
+                   np.diag([1.0, 1.0]))).astype(np.float32)
             # We don't actually perturb positions according to noise level, as
             # this makes it much harder to test that the result agrees with
             # what we put in.
@@ -483,6 +483,7 @@ class MemoryTester(lsst.utils.tests.MemoryTestCase):
 
 def setup_module(module):
     lsst.utils.tests.init()
+
 
 if __name__ == "__main__":
     lsst.utils.tests.init()
