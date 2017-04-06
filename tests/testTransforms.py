@@ -99,7 +99,7 @@ class TransformTestMixin(object):
             point = lsst.afw.geom.Point2D(*np.random.randn(2))
             aOut = a(point)
             bOut = b(point)
-            self.assertClose(np.array(aOut), np.array(bOut), rtol=rtol)
+            self.assertFloatsAlmostEqual(np.array(aOut), np.array(bOut), rtol=rtol)
 
     def testLinearize(self):
         """Test that the AffineTransform returned by linearize() is equivalent
@@ -108,16 +108,16 @@ class TransformTestMixin(object):
         transform = self.makeRandom()
         point = lsst.afw.geom.Point2D(*np.random.randn(2))
         affine = transform.linearize(point)
-        self.assertClose(np.array(transform(point)), np.array(affine(point)), rtol=1E-14)
+        self.assertFloatsAlmostEqual(np.array(transform(point)), np.array(affine(point)), rtol=1E-14)
         delta = 1E-4
         deltaX = lsst.afw.geom.Extent2D(delta, 0.0)
         deltaY = lsst.afw.geom.Extent2D(0.0, delta)
         dtdx = (transform(point + deltaX) - transform(point - deltaX)) / (2*delta)
         dtdy = (transform(point + deltaY) - transform(point - deltaY)) / (2*delta)
-        self.assertClose(affine[affine.XX], dtdx.getX(), rtol=1E-6)
-        self.assertClose(affine[affine.YX], dtdx.getY(), rtol=1E-6)
-        self.assertClose(affine[affine.XY], dtdy.getX(), rtol=1E-6)
-        self.assertClose(affine[affine.YY], dtdy.getY(), rtol=1E-6)
+        self.assertFloatsAlmostEqual(affine[affine.XX], dtdx.getX(), rtol=1E-6)
+        self.assertFloatsAlmostEqual(affine[affine.YX], dtdx.getY(), rtol=1E-6)
+        self.assertFloatsAlmostEqual(affine[affine.XY], dtdy.getX(), rtol=1E-6)
+        self.assertFloatsAlmostEqual(affine[affine.YY], dtdy.getY(), rtol=1E-6)
 
 
 class PolynomialTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin):
@@ -137,8 +137,8 @@ class PolynomialTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         yc = makeRandomCoefficientMatrix(order + 1)
         p = PolynomialTransform(xc, yc)
         self.assertEqual(p.getOrder(), order)
-        self.assertClose(p.getXCoeffs(), xc, atol=0, rtol=0)
-        self.assertClose(p.getYCoeffs(), yc, atol=0, rtol=0)
+        self.assertFloatsAlmostEqual(p.getXCoeffs(), xc, atol=0, rtol=0)
+        self.assertFloatsAlmostEqual(p.getYCoeffs(), yc, atol=0, rtol=0)
         # Test that the coefficients are not a view.
         old = xc[0, 0]
         xc[0, 0] += 100.0
@@ -195,10 +195,10 @@ class PolynomialTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         # Test that composition with an identity transform is a no-op
         composed3 = lsst.meas.astrom.compose(poly, lsst.afw.geom.AffineTransform())
         composed4 = lsst.meas.astrom.compose(lsst.afw.geom.AffineTransform(), poly)
-        self.assertClose(composed3.getXCoeffs(), poly.getXCoeffs())
-        self.assertClose(composed3.getYCoeffs(), poly.getYCoeffs())
-        self.assertClose(composed4.getXCoeffs(), poly.getXCoeffs())
-        self.assertClose(composed4.getYCoeffs(), poly.getYCoeffs())
+        self.assertFloatsAlmostEqual(composed3.getXCoeffs(), poly.getXCoeffs())
+        self.assertFloatsAlmostEqual(composed3.getYCoeffs(), poly.getYCoeffs())
+        self.assertFloatsAlmostEqual(composed4.getXCoeffs(), poly.getXCoeffs())
+        self.assertFloatsAlmostEqual(composed4.getYCoeffs(), poly.getYCoeffs())
 
 
 class ScaledPolynomialTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin):
@@ -422,12 +422,12 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
             refPos = initialWcs.skyToIntermediateWorldCoord(match.first.getCoord())
             self.assertEqual(refPos.getX(), dataRec.get("intermediate_x"))
             self.assertEqual(refPos.getY(), dataRec.get("intermediate_y"))
-            self.assertClose(match.second.get(srcErrKey), dataRec.get(dataErrKey), rtol=1E-7)
+            self.assertFloatsAlmostEqual(match.second.get(srcErrKey), dataRec.get(dataErrKey), rtol=1E-7)
             scaledIn = fitter.getInputScaling()(dataRec.get(dataInKey))
             scaledOut = fitter.getOutputScaling()(dataRec.get(dataOutKey))
             scaledInBBox.include(scaledIn)
             scaledOutBBox.include(scaledOut)
-            self.assertClose(np.array(expected(scaledIn)), np.array(scaledOut), rtol=1E-7)
+            self.assertFloatsAlmostEqual(np.array(expected(scaledIn)), np.array(scaledOut), rtol=1E-7)
             j = 0
             for n in range(order + 1):
                 for p in range(n + 1):
@@ -435,25 +435,25 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
                     vandermonde[i, j] = scaledIn.getX()**p * scaledIn.getY()**q
                     j += 1
         # Verify that scaling transforms move inputs and outputs into [-1, 1]
-        self.assertClose(scaledInBBox.getMinX(), -1.0, rtol=1E-12)
-        self.assertClose(scaledInBBox.getMinY(), -1.0, rtol=1E-12)
-        self.assertClose(scaledInBBox.getMaxX(), 1.0, rtol=1E-12)
-        self.assertClose(scaledInBBox.getMaxY(), 1.0, rtol=1E-12)
-        self.assertClose(scaledOutBBox.getMinX(), -1.0, rtol=1E-12)
-        self.assertClose(scaledOutBBox.getMinY(), -1.0, rtol=1E-12)
-        self.assertClose(scaledOutBBox.getMaxX(), 1.0, rtol=1E-12)
-        self.assertClose(scaledOutBBox.getMaxY(), 1.0, rtol=1E-12)
+        self.assertFloatsAlmostEqual(scaledInBBox.getMinX(), -1.0, rtol=1E-12)
+        self.assertFloatsAlmostEqual(scaledInBBox.getMinY(), -1.0, rtol=1E-12)
+        self.assertFloatsAlmostEqual(scaledInBBox.getMaxX(), 1.0, rtol=1E-12)
+        self.assertFloatsAlmostEqual(scaledInBBox.getMaxY(), 1.0, rtol=1E-12)
+        self.assertFloatsAlmostEqual(scaledOutBBox.getMinX(), -1.0, rtol=1E-12)
+        self.assertFloatsAlmostEqual(scaledOutBBox.getMinY(), -1.0, rtol=1E-12)
+        self.assertFloatsAlmostEqual(scaledOutBBox.getMaxX(), 1.0, rtol=1E-12)
+        self.assertFloatsAlmostEqual(scaledOutBBox.getMaxY(), 1.0, rtol=1E-12)
         # Run the fitter, and check that we get out approximately what we put in.
         fitter.fit(order)
         fitter.updateModel()
         # Check the transformed input points.
-        self.assertClose(data.get("model_x"), trueSrc.getX(), rtol=1E-15)
-        self.assertClose(data.get("model_y"), trueSrc.getY(), rtol=1E-15)
+        self.assertFloatsAlmostEqual(data.get("model_x"), trueSrc.getX(), rtol=1E-15)
+        self.assertFloatsAlmostEqual(data.get("model_y"), trueSrc.getY(), rtol=1E-15)
         # Check the actual transform's coefficients (after composing in the scaling, which is
         # a lot of the reason we lose a lot of precision here).
         fittedPoly = lsst.meas.astrom.PolynomialTransform.convert(fitter.getTransform())
-        self.assertClose(fittedPoly.getXCoeffs(), truePoly.getXCoeffs(), rtol=1E-5, atol=1E-5)
-        self.assertClose(fittedPoly.getYCoeffs(), truePoly.getYCoeffs(), rtol=1E-5, atol=1E-5)
+        self.assertFloatsAlmostEqual(fittedPoly.getXCoeffs(), truePoly.getXCoeffs(), rtol=1E-5, atol=1E-5)
+        self.assertFloatsAlmostEqual(fittedPoly.getYCoeffs(), truePoly.getYCoeffs(), rtol=1E-5, atol=1E-5)
 
     def testFromGrid(self):
         outOrder = 8
@@ -468,12 +468,11 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
         inputKey = lsst.afw.table.Point2DKey(data.schema["input"])
         outputKey = lsst.afw.table.Point2DKey(data.schema["output"])
         for record in data:
-            self.assertClose(np.array(record.get(inputKey)), np.array(toInvert(record.get(outputKey))))
-            self.assertClose(
-                np.array(result(record.get(inputKey))),
-                np.array(record.get(outputKey)),
-                rtol=1E-2  # even at much higher order, inverse can't be perfect.
-            )
+            self.assertFloatsAlmostEqual(np.array(record.get(inputKey)),
+                                         np.array(toInvert(record.get(outputKey))))
+            self.assertFloatsAlmostEqual(np.array(result(record.get(inputKey))),
+                                         np.array(record.get(outputKey)),
+                                         rtol=1E-2)  # even at much higher order, inverse can't be perfect.
 
 
 class MemoryTester(lsst.utils.tests.MemoryTestCase):
