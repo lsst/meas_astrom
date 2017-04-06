@@ -1,9 +1,6 @@
-#!/usr/bin/env python
-from __future__ import absolute_import, division, print_function
-
 #
 # LSST Data Management System
-# Copyright 2008, 2009, 2010 LSST Corporation.
+# Copyright 2008-2017 LSST Corporation.
 #
 # This product includes software developed by the
 # LSST Project (http://www.lsst.org/).
@@ -22,6 +19,8 @@ from __future__ import absolute_import, division, print_function
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
+from __future__ import absolute_import, division, print_function
+
 import os.path
 import math
 import unittest
@@ -101,8 +100,8 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
             exposure=self.exposure,
         )
         fitWcs = self.exposure.getWcs()
-        self.assertRaises(Exception, self.assertWcsNearlyEqualOverBBox, fitWcs, distortedWcs)
-        self.assertWcsNearlyEqualOverBBox(distortedWcs, fitWcs, self.bbox,
+        self.assertRaises(Exception, self.assertWcsAlmostEqualOverBBox, fitWcs, distortedWcs)
+        self.assertWcsAlmostEqualOverBBox(distortedWcs, fitWcs, self.bbox,
                                           maxDiffSky=0.01*afwGeom.arcseconds, maxDiffPix=0.02)
 
         srcCoordKey = afwTable.CoordKey(sourceCat.schema["coord"])
