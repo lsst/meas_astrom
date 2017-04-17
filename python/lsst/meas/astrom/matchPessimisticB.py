@@ -420,11 +420,11 @@ class MatchPessimisticBTask(pipeBase.Task):
                 # If we are on the first most stringent tolerance,
                 # the matcher should behave like an optimistic pattern
                 # matcher. Exiting at the first match.
-                (match_id_list, dist_array,
-                 pattern_idx, shift) = pyPPMb.match_optimistic(
+                matcher_struct = pyPPMb.match(
                     source_catalog=src_array,
                     n_check=self.config.numPointsForShapeAttempt,
                     n_match=self.config.numPointsForShape,
+                    n_agree=1,
                     max_n_patterns=self.config.numBrightStars,
                     max_shift=maxShiftArcseconds,
                     max_rotation=self.config.maxRotationDeg,
@@ -439,8 +439,7 @@ class MatchPessimisticBTask(pipeBase.Task):
                 # on a rotation before exiting. We double the match dist
                 # tolerance each round and add 1 to the pattern complexiy and
                 # two to the number of candidate spokes to check.
-                (match_id_list, dist_array,
-                 pattern_idx, shift) = pyPPMb.match(
+                matcher_struct = pyPPMb.match(
                     source_catalog=src_array,
                     n_check=self.config.numPointsForShapeAttempt + 2 * try_idx,
                     n_match=self.config.numPointsForShape + try_idx,
@@ -454,15 +453,9 @@ class MatchPessimisticBTask(pipeBase.Task):
                     pattern_skip_array=np.array(
                         toleranceStruct.failedPatternList)
                 )
-            if len(match_id_list) > 0:
-                # Match found, save a bit a state regarding this pattern
-                # in the struct and exit.
-                toleranceStruct.maxShift = afwgeom.Angle(shift,
-                                                         afwgeom.arcseconds)
-                toleranceStruct.lastPattern = pattern_idx
-                break
-            elif (not (toleranceStruct.lastPattern is None) and
-                  len(match_id_list) == 0 and try_idx == 0):
+            if matcher_struct is None and \
+               toleranceStruct.lastPattern is None and \
+               try_idx == 0:
                 # If we found a pattern on a previous run and can't
                 # find an optimistic match with the harhest tolerances
                 # the match we found previously was likely bad. We append
@@ -470,17 +463,26 @@ class MatchPessimisticBTask(pipeBase.Task):
                 # iterations.
                 toleranceStruct.failedPatternList.append(
                     toleranceStruct.lastPattern)
+            elif matcher_struct is not None:
+                # Match found, save a bit a state regarding this pattern
+                # in the struct and exit.
+                toleranceStruct.maxShift = afwgeom.Angle(matcher_struct.shift,
+                                                         afwgeom.arcseconds)
+                toleranceStruct.lastPattern = matcher_struct.pattern_idx
+                break
 
         # A match has been found, return our list of matches and
         # return.
         matches = []
-        for match_ids, dist in zip(match_id_list, dist_array):
-            match = afwTable.ReferenceMatch()
-            match.first = refCat[match_ids[1]]
-            match.second = sourceCat[match_ids[0]]
-            match.distance = match.first.getCoord().angularSeparation(
-                match.second.getCoord())
-            matches.append(match)
+        if matcher_struct is not None:
+            for match_ids, dist in zip(matcher_struct.matches,
+                                       matcher_struct.distances):
+                match = afwTable.ReferenceMatch()
+                match.first = refCat[match_ids[1]]
+                match.second = sourceCat[match_ids[0]]
+                match.distance = match.first.getCoord().angularSeparation(
+                    match.second.getCoord())
+                matches.append(match)
 
         return matches, toleranceStruct
 

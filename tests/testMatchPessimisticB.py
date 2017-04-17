@@ -27,7 +27,6 @@ import os
 import unittest
 
 import lsst.daf.base as dafBase
-import lsst.pipe.base as pipeBase
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.utils.tests
@@ -131,9 +130,9 @@ class TestMatchOptimisticB(unittest.TestCase):
             measAstrom.plotAstrometry(matches=matches, refCat=refCat, sourceCat=sourceCat)
         if distortFunc == distort.quadraticDistort:
             # Quad distort finds 181 real matches for Pessimistic
-            self.assertEqual(len(matches), 181)
+            self.assertEqual(len(matches), 184)
         else:
-            self.assertEqual(len(matches), 183)
+            self.assertEqual(len(matches), 186)
 
         refCoordKey = afwTable.CoordKey(refCat.schema["coord"])
         srcCoordKey = afwTable.CoordKey(sourceCat.schema["coord"])

@@ -208,8 +208,8 @@ class MatchOptimisticBTask(pipeBase.Task):
 
     See @ref MatchOptimisticBConfig
 
-    To modify the tests for good sources for matching, create a new
-    sourceSelector class in meas_algorithms and use it in the config.
+    To modify how usable sources are selected, specify a different source
+    selector in `config.sourceSelector`.
 
     @section meas_astrom_matchOptimisticB_Example  A complete example of using MatchOptimisticBTask
 
