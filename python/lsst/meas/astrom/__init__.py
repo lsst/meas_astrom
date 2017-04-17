@@ -39,6 +39,7 @@ from .approximateWcs import *
 from .createMatchMetadata import *
 from .catalogStarSelector import *
 from .directMatch import *
+from .fitTanSipWcs import *
 from .fitSipDistortion import *
 from .denormalizeMatches import *
 from .version import *

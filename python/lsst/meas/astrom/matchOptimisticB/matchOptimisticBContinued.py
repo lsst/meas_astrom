@@ -3,6 +3,9 @@ from builtins import range
 from builtins import object
 import math
 
+import numpy as np
+
+from lsst.afw.table import Point2DKey
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from lsst.meas.algorithms.sourceSelector import sourceSelectorRegistry
@@ -107,7 +110,7 @@ class SourceInfo(object):
 
         @throw RuntimeError if the flux field is not found
         """
-        self.centroidKey = afwTable.Point2DKey(schema["slot_Centroid"])
+        self.centroidKey = Point2DKey(schema["slot_Centroid"])
         self.centroidFlagKey = schema["slot_Centroid_flag"].asKey()
         self.edgeKey = schema["base_PixelFlags_flag_edge"].asKey()
         self.saturatedKey = schema["base_PixelFlags_flag_saturated"].asKey()
