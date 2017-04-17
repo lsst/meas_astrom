@@ -2,7 +2,8 @@ from __future__ import absolute_import, division, print_function
 
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import Task, Struct
-from . import MatchMetadata, LoadAstrometryNetObjectsTask
+from .createMatchMetadata import MatchMetadata
+from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
 import lsst.afw.table as afwTable
 import lsst.afw.coord as afwCoord
 from lsst.afw.geom import arcseconds
@@ -13,7 +14,7 @@ __all__ = ["DirectMatchConfig", "DirectMatchTask"]
 
 class DirectMatchConfig(Config):
     """Configuration for DirectMatchTask"""
-    refObjLoader = ConfigurableField(target=LoadAstrometryNetObjectsTask, doc="Load reference objects")
+    refObjLoader = ConfigurableField(target=LoadIndexedReferenceObjectsTask, doc="Load reference objects")
     matchRadius = Field(dtype=float, default=0.25, doc="Matching radius, arcsec")
 
 

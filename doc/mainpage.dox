@@ -6,14 +6,8 @@
 The astrometric solver, including:
 - \link AstrometryTask_ AstrometryTask \endlink compute an astrometric solution for a set of sources detected
     on an Exposure
-- \link ANetAstrometryTask_ ANetAstrometryTask \endlink variant astrometry task that uses the astrometry.net
-    solver
-- \link PhotoCalTask_ PhotoCalTask \endlink compute a photometric solution for a set of sources detected
-    on an Exposure
 
 Default subtasks used by \link AstrometryTask_ AstrometryTask \endlink:
-- \link LoadAstrometryNetObjectsTask_ LoadAstrometryNetTask \endlink load reference objects
-    from astrometry.net index files
 - \link MatchOptimisticBTask_ MatchOptimisticBTask \endlink match sources to reference objects
 - \link FitTanSipWcsTask_ FitTanSipWcsTask \endlink fit a TAN-SIP WCS given a list of matches of sources
     and reference objects
