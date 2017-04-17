@@ -104,7 +104,7 @@ class AstrometryTask(RefMatchTask):
 
     @section meas_astrom_astrometry_Example  A complete example of using AstrometryTask
 
-    See \ref meas_photocal_photocal_Example.
+    See \ref pipe_tasks_photocal_Example.
 
     @section meas_astrom_astrometry_Debug        Debug variables
 

@@ -213,7 +213,7 @@ class MatchOptimisticBTask(pipeBase.Task):
     @section meas_astrom_matchOptimisticB_Example  A complete example of using MatchOptimisticBTask
 
     MatchOptimisticBTask is a subtask of AstrometryTask, which is called by PhotoCalTask.
-    See \ref meas_photocal_photocal_Example.
+    See \ref pipe_tasks_photocal_Example.
 
     @section meas_astrom_matchOptimisticB_Debug        Debug variables
 

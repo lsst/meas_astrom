@@ -94,7 +94,7 @@ class FitTanSipWcsTask(pipeBase.Task):
     @section meas_astrom_fitTanSipWcs_Example  A complete example of using FitTanSipWcsTask
 
     FitTanSipWcsTask is a subtask of AstrometryTask, which is called by PhotoCalTask.
-    See \ref meas_photocal_photocal_Example.
+    See \ref pipe_tasks_photocal_Example.
 
     @section meas_astrom_fitTanSipWcs_Debug        Debug variables
 
