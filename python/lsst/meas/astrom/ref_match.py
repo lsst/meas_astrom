@@ -21,6 +21,8 @@
 #
 from __future__ import absolute_import, division, print_function
 
+__all__ = ['RefMatchConfig', 'RefMatchTask']
+
 from lsst.afw.image.utils import getDistortedWcs
 import lsst.afw.geom as afwGeom
 import lsst.afw.math as afwMath
@@ -30,8 +32,6 @@ from .matchOptimisticB import MatchOptimisticBTask
 from .display import displayAstrometry
 from . import makeMatchStatistics
 from .createMatchMetadata import createMatchMetadata
-
-__all__ = ['RefMatchConfig', 'RefMatchTask']
 
 
 class RefMatchConfig(pexConfig.Config):

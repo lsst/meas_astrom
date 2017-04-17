@@ -1,6 +1,8 @@
-import lsst.afw.table
+from __future__ import absolute_import, division, print_function
 
 __all__ = ["denormalizeMatches"]
+
+import lsst.afw.table
 
 
 def denormalizeMatches(matches, matchMeta=None):

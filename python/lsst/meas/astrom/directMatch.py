@@ -1,5 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
+__all__ = ["DirectMatchConfig", "DirectMatchTask"]
+
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import Task, Struct
 from .createMatchMetadata import MatchMetadata
@@ -7,9 +9,6 @@ from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
 import lsst.afw.table as afwTable
 import lsst.afw.coord as afwCoord
 from lsst.afw.geom import arcseconds
-
-
-__all__ = ["DirectMatchConfig", "DirectMatchTask"]
 
 
 class DirectMatchConfig(Config):

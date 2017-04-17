@@ -21,6 +21,8 @@
 #
 from __future__ import absolute_import, division, print_function
 
+__all__ = ["approximateWcs"]
+
 from builtins import range
 from builtins import object
 import numpy as np
@@ -31,8 +33,6 @@ import lsst.afw.geom as afwGeom
 from lsst.meas.base import SingleFrameMeasurementTask
 from lsst.meas.astrom.sip import makeCreateWcsWithSip
 from lsst.afw.image.basicUtils import assertWcsAlmostEqualOverBBox
-
-__all__ = ["approximateWcs"]
 
 
 class _MockTestCase(object):

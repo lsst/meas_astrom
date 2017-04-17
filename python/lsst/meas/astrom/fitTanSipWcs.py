@@ -1,4 +1,7 @@
 from __future__ import absolute_import, division, print_function
+
+__all__ = ["FitTanSipWcsTask", "FitTanSipWcsConfig"]
+
 from builtins import zip
 from builtins import range
 
@@ -12,8 +15,6 @@ import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from .setMatchDistance import setMatchDistance
 from .sip import makeCreateWcsWithSip
-
-__all__ = ["FitTanSipWcsTask", "FitTanSipWcsConfig"]
 
 
 class FitTanSipWcsConfig(pexConfig.Config):

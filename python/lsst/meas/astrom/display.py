@@ -20,6 +20,9 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 from __future__ import absolute_import, division, print_function
+
+__all__ = ["displayAstrometry", "plotAstrometry"]
+
 from builtins import zip
 import math
 
@@ -28,8 +31,6 @@ import numpy as np
 import lsst.afw.display as afwDisplay
 from lsst.afw.image import ExposureF
 from lsst.afw.table import Point2DKey
-
-__all__ = ["displayAstrometry", "plotAstrometry"]
 
 
 def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bbox=None, exposure=None,

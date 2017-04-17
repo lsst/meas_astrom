@@ -1,4 +1,7 @@
 from __future__ import absolute_import, division, print_function
+
+__all__ = ["matchOptimisticB", "MatchOptimisticBTask", "MatchOptimisticBConfig", "SourceInfo"]
+
 from builtins import range
 from builtins import object
 import math
@@ -12,8 +15,6 @@ from lsst.meas.algorithms.sourceSelector import sourceSelectorRegistry
 
 from ..setMatchDistance import setMatchDistance
 from . import matchOptimisticB, MatchOptimisticBControl
-
-__all__ = ["matchOptimisticB", "MatchOptimisticBTask", "MatchOptimisticBConfig", "SourceInfo"]
 
 
 class MatchOptimisticBConfig(pexConfig.Config):
