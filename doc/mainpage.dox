@@ -1,9 +1,9 @@
 /**
-\mainpage lsst::meas::astrom;  Astrometric and Photometric Calibration
+\mainpage lsst::meas::astrom;  Astrometric Calibration
 
 \section measAstromSecIntro Introduction
 
-Astrometric and photometric solvers, including:
+The astrometric solver, including:
 - \link AstrometryTask_ AstrometryTask \endlink compute an astrometric solution for a set of sources detected
     on an Exposure
 - \link ANetAstrometryTask_ ANetAstrometryTask \endlink variant astrometry task that uses the astrometry.net
