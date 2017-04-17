@@ -82,10 +82,10 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
     """Fit a TAN-SIP WCS given a list of reference object/source matches
 
     FitSipDistortionTask is a drop-in replacement for
-    :py:class:`lsst.meas.astrom.FitTanSinWcsTask`.  It is built on fundamentally
+    :py:class:`lsst.meas.astrom.FitTanSipWcsTask`.  It is built on fundamentally
     stronger fitting algorithms, but has received significantly less testing.
 
-    Like :py:class:`lsst.meas.astrom.FitTanSinWcsTask`, this task is most
+    Like :py:class:`lsst.meas.astrom.FitTanSipWcsTask`, this task is most
     easily used as the wcsFitter component of
     :py:class:`lsst.meas.astrom.AstrometryTask`; it can be enabled in a config
     file via e.g.
