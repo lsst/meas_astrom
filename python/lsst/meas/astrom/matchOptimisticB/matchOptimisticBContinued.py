@@ -373,7 +373,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         @param[in] maxMatchDist  maximum on-sky distance between reference objects and sources
             (an lsst.afw.geom.Angle); if specified then the smaller of config.maxMatchDistArcSec or
             maxMatchDist is used; if None then config.maxMatchDistArcSec is used
-        @param[in] sourceInfo  SourceInfo for the sourceCat
+        @param[in] sourceFluxField  Name of flux field in source catalog
         @param[in] verbose  true to print diagnostic information to std::cout
 
         @return a list of matches, an instance of lsst.afw.table.ReferenceMatch

@@ -59,12 +59,14 @@ class RefMatchConfig(pexConfig.Config):
 
 class RefMatchTask(pipeBase.Task):
     """!Match an input source catalog with objects from a reference catalog
+
+    @anchor RefMatchTask_
     """
     ConfigClass = RefMatchConfig
     _DefaultName = "calibrationBaseClass"
 
     def __init__(self, refObjLoader, schema=None, **kwargs):
-        """!Construct an AstrometryTask
+        """!Construct a RefMatchTask
 
         @param[in] refObjLoader A reference object loader object
         @param[in] schema  ignored; available for compatibility with an older astrometry task
