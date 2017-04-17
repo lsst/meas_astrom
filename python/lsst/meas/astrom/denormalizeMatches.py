@@ -2,6 +2,7 @@ import lsst.afw.table
 
 __all__ = ["denormalizeMatches"]
 
+
 def denormalizeMatches(matches, matchMeta=None):
     """Generate a denormalized Catalog of matches
 

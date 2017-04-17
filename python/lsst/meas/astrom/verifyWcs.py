@@ -29,6 +29,7 @@ import lsst.afw.math as afwMath
 import lsst.meas.algorithms as measAlg
 from lsst.log import Log
 
+
 def checkMatches(srcMatchSet, exposure, log=None):
     if not exposure:
         return {}

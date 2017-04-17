@@ -189,4 +189,5 @@ class CatalogStarSelectorTask(object):
             starCat=starCat,
         )
 
+
 starSelectorRegistry.register("catalog", CatalogStarSelectorTask)

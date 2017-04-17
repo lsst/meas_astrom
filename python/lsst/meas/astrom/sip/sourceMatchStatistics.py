@@ -25,7 +25,7 @@ import numpy as np
 
 
 def sourceMatchStatistics(matchList, log=None):
-    """ Compute statistics on the accuracy of a wcs solution, using a precomputed list 
+    """Compute statistics on the accuracy of a wcs solution, using a precomputed list
     of matches between an image and a catalogue
 
     Input:
@@ -35,7 +35,7 @@ def sourceMatchStatistics(matchList, log=None):
     A dictionary storing the following quanities
     meanOfDiffInPixels          Average distance between image and catalogue position (in pixels)
     rmsOfDiffInPixels           Root mean square of distribution of distances
-    quartilesOfDiffInPixels     An array of 5 values giving the boundaries of the quartiles of the 
+    quartilesOfDiffInPixels     An array of 5 values giving the boundaries of the quartiles of the
                                 distribution.
     """
 

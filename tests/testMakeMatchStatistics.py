@@ -77,8 +77,8 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
 
         np.random.seed(5)
         pixPointList = [afwGeom.Point2D(pos) for pos in
-                        np.random.random_sample([self.numMatches, 2])*self.bboxD.getDimensions()
-                        + self.bboxD.getMin()]
+                        np.random.random_sample([self.numMatches, 2])*self.bboxD.getDimensions() +
+                        self.bboxD.getMin()]
         for pixPoint in pixPointList:
             src = self.sourceCat.addNew()
             src.set(self.sourceCentroidKey, pixPoint)

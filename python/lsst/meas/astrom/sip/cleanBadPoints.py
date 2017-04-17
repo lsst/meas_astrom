@@ -22,11 +22,7 @@ from builtins import range
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
-
-import os
 import numpy as np
-
-import lsst.afw.detection as det
 
 from . import LeastSqFitter1dPoly
 
@@ -46,13 +42,13 @@ def clean(srcMatch, wcs, order=3, nsigma=3):
 
     N = len(srcMatch)
     catX = np.zeros(N)
-    #catY = np.zeros(N)
+    # catY = np.zeros(N)
     for i in range(N):
         x, y = wcs.skyToPixel(srcMatch[i].first.getCoord())
         catX[i] = x
-        #catY[i] = y
+        # catY[i] = y
 
-    # FIXME -- why does this only use X?
+    # TODO -- why does this only use X?
 
     x = np.array([s.second.getX() for s in srcMatch])
     dx = x - catX
@@ -95,7 +91,7 @@ def indicesOfGoodPoints(x, y, s, order=1, nsigma=3, maxiter=100):
             plt.plot(rx, ry, 'bs')
             plt.plot(rx, fit, 'ms')
             plt.plot(rx, fit, 'm-')
-            #plt.plot(x[newidx], y[newidx], 'rs')
+            # plt.plot(x[newidx], y[newidx], 'rs')
             plt.show()
 
         # If we haven't culled any points we're finished cleaning

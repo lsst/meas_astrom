@@ -24,7 +24,6 @@ from builtins import range
 
 import math
 
-import lsst.afw.image as afwImg
 import lsst.afw.table as afwTable
 
 
@@ -213,8 +212,8 @@ def T2DistortX(src, frac=1e-6):
 
 
 def distortList(srcList, function):
-    """Create a copy of srcList, and apply function to distort the 
-    values of x and y. 
+    """Create a copy of srcList, and apply function to distort the
+    values of x and y.
 
     Input:
     srcList     a SourceSet object
