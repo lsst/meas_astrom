@@ -100,8 +100,10 @@ class TestPythonOptimisticPatternMatcherB(unittest.TestCase):
             source_catalog=self.source_obj_array, n_check=9, n_match=6,
             n_agree=2, max_n_patterns=100, max_shift=60., max_rotation=5.0,
             max_dist=5., min_matches=30, pattern_skip_array=None)
-        self.assertEqual(len(match_struct.matches), len(self.reference_obj_array))
-        self.assertTrue(np.all(match_struct.distances < 0.01/3600.0*__deg_to_rad__))
+        self.assertEqual(len(match_struct.matches),
+                         len(self.reference_obj_array))
+        self.assertTrue(
+            np.all(match_struct.distances < 0.01/3600.0 * __deg_to_rad__))
 
     def testOptimisticMatch(self):
         """ Test the optimistic mode of the pattern matcher. That is
@@ -113,11 +115,13 @@ class TestPythonOptimisticPatternMatcherB(unittest.TestCase):
             log=self.log)
 
         match_struct = self.pyPPMb.match(
-            source_catalog=self.source_obj_array, n_check=9, n_match=6, n_agree=1,
-            max_n_patterns=100, max_shift=60., max_rotation=6.0, max_dist=5.,
-            min_matches=30, pattern_skip_array=None)
-        self.assertEqual(len(match_struct.matches), len(self.reference_obj_array))
-        self.assertTrue(np.all(match_struct.distances < 0.01/3600.0*__deg_to_rad__))
+            source_catalog=self.source_obj_array, n_check=9, n_match=6,
+            n_agree=1, max_n_patterns=100, max_shift=60., max_rotation=6.0,
+            max_dist=5., min_matches=30, pattern_skip_array=None)
+        self.assertEqual(len(match_struct.matches),
+                         len(self.reference_obj_array))
+        self.assertTrue(
+            np.all(match_struct.distances < 0.01/3600.0 * __deg_to_rad__))
 
     def testMatchSkip(self):
         """ Test the ablity to skip specified patterns in the matching
@@ -131,8 +135,10 @@ class TestPythonOptimisticPatternMatcherB(unittest.TestCase):
             source_catalog=self.source_obj_array, n_check=9, n_match=6,
             n_agree=2, max_n_patterns=100, max_shift=60., max_rotation=5.0,
             max_dist=5., min_matches=30, pattern_skip_array=np.array([0]))
-        self.assertEqual(len(match_struct.matches), len(self.reference_obj_array))
-        self.assertTrue(np.all(match_struct.distances < 0.01/3600.0*__deg_to_rad__))
+        self.assertEqual(len(match_struct.matches),
+                         len(self.reference_obj_array))
+        self.assertTrue(
+            np.all(match_struct.distances < 0.01/3600.0*__deg_to_rad__))
 
     def testMatchMoreSources(self):
         """ Test the case where we have more sources than references
@@ -146,8 +152,10 @@ class TestPythonOptimisticPatternMatcherB(unittest.TestCase):
             source_catalog=self.source_obj_array, n_check=9, n_match=6,
             n_agree=2, max_n_patterns=100, max_shift=60.0, max_rotation=5.0,
             max_dist=5., min_matches=30, pattern_skip_array=None)
-        self.assertEqual(len(match_struct.matches), len(self.reference_obj_array[:500]))
-        self.assertTrue(np.all(match_struct.distances < 0.01/3600.0*__deg_to_rad__))
+        self.assertEqual(len(match_struct.matches),
+                         len(self.reference_obj_array[:500]))
+        self.assertTrue(
+            np.all(match_struct.distances < 0.01/3600.0 * __deg_to_rad__))
 
     def testMatchMoreReferences(self):
         """ Test the case where we have more references than sources
@@ -161,8 +169,10 @@ class TestPythonOptimisticPatternMatcherB(unittest.TestCase):
             source_catalog=self.source_obj_array[:500], n_check=9, n_match=6,
             n_agree=2, max_n_patterns=100, max_shift=60., max_rotation=1.0,
             max_dist=5., min_matches=30, pattern_skip_array=None)
-        self.assertEqual(len(match_struct.matches), len(self.reference_obj_array[:500]))
-        self.assertTrue(np.all(match_struct.distances < 0.01/3600.0*__deg_to_rad__))
+        self.assertEqual(len(match_struct.matches),
+                         len(self.reference_obj_array[:500]))
+        self.assertTrue(
+            np.all(match_struct.distances < 0.01/3600.0 * __deg_to_rad__))
 
     def testShift(self):
         """ Test the matcher when a shift is applied to the data. We say
@@ -189,8 +199,10 @@ class TestPythonOptimisticPatternMatcherB(unittest.TestCase):
             n_agree=2, max_n_patterns=100, max_shift=60, max_rotation=5.0,
             max_dist=5., min_matches=30, pattern_skip_array=None)
 
-        self.assertEqual(len(match_struct.matches), len(self.reference_obj_array))
-        self.assertTrue(np.all(match_struct.distances < 0.1/3600.0 * __deg_to_rad__))
+        self.assertEqual(len(match_struct.matches),
+                         len(self.reference_obj_array))
+        self.assertTrue(
+            np.all(match_struct.distances < 0.1/3600.0 * __deg_to_rad__))
 
     def testRotation(self):
         """ Test the matcher for when a roation is applied to the data.
@@ -252,8 +264,10 @@ class TestPythonOptimisticPatternMatcherB(unittest.TestCase):
             n_agree=2, max_n_patterns=100, max_shift=60., max_rotation=5.0,
             max_dist=5., min_matches=30, pattern_skip_array=None)
 
-        self.assertEqual(len(match_struct.matches), len(self.reference_obj_array))
-        self.assertTrue(np.all(match_struct.distances < 0.1/3600.0*__deg_to_rad__))
+        self.assertEqual(len(match_struct.matches),
+                         len(self.reference_obj_array))
+        self.assertTrue(
+            np.all(match_struct.distances < 0.1/3600.0 * __deg_to_rad__))
 
 
 if __name__ == '__main__':
