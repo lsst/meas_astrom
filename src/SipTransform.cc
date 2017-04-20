@@ -30,6 +30,18 @@
 
 namespace lsst { namespace meas { namespace astrom {
 
+void SipTransformBase::transformPixelsInPlace(afw::geom::AffineTransform const & s) {
+    // The implementation for transformPixels is identical for
+    // SipForwardTransform and SipReverseTransform.  That's pretty obvious for
+    // the pixel origin and CD matrix, which are the same in both cases, but
+    // it wasn't obvious to me until I did the math that the polynomial
+    // transforms are composed with the affine transform the same way.
+    auto sInv = s.invert();
+    _pixelOrigin = s.getLinear()(_pixelOrigin - sInv.getTranslation());
+    _cdMatrix = _cdMatrix * sInv.getLinear();
+    _poly = compose(s.getLinear(), compose(getPoly(), sInv.getLinear()));
+}
+
 SipForwardTransform SipForwardTransform::convert(
     PolynomialTransform const & poly,
     afw::geom::Point2D const & pixelOrigin,
@@ -75,6 +87,24 @@ SipForwardTransform SipForwardTransform::convert(ScaledPolynomialTransform const
     return convert(scaled, pixelOrigin, cdMatrix);
 }
 
+SipForwardTransform SipForwardTransform::extract(afw::image::TanWcs const & wcs) {
+    if (!wcs.hasDistortion()) {
+        throw LSST_EXCEPT(
+            pex::exceptions::LogicError,
+            "Constructing a SipForwardTransform from a TanWcs with no distortions is not implemented."
+        );
+    }
+    ndarray::Array<double,2,2> xCoeffs = ndarray::allocate(wcs.getSipA().rows(), wcs.getSipA().cols());
+    ndarray::Array<double,2,2> yCoeffs = ndarray::allocate(wcs.getSipB().rows(), wcs.getSipB().cols());
+    xCoeffs.asEigen() = wcs.getSipA();
+    yCoeffs.asEigen() = wcs.getSipB();
+    return SipForwardTransform(
+        wcs.getPixelOrigin(),
+        afw::geom::LinearTransform(wcs.getCDMatrix()),
+        PolynomialTransform(xCoeffs, yCoeffs)
+    );
+}
+
 afw::geom::AffineTransform SipForwardTransform::linearize(afw::geom::Point2D const & in) const {
     afw::geom::AffineTransform tail(-afw::geom::Extent2D(getPixelOrigin()));
     return afw::geom::AffineTransform(_cdMatrix)
@@ -85,6 +115,12 @@ afw::geom::AffineTransform SipForwardTransform::linearize(afw::geom::Point2D con
 afw::geom::Point2D SipForwardTransform::operator()(afw::geom::Point2D const & uv) const {
     afw::geom::Point2D duv(uv - afw::geom::Extent2D(getPixelOrigin()));
     return getCDMatrix()(afw::geom::Extent2D(duv) + getPoly()(duv));
+}
+
+SipForwardTransform SipForwardTransform::transformPixels(afw::geom::AffineTransform const & s) const {
+    SipForwardTransform result(*this);
+    result.transformPixelsInPlace(s);
+    return result;
 }
 
 SipReverseTransform SipReverseTransform::convert(
@@ -132,6 +168,31 @@ SipReverseTransform SipReverseTransform::convert(ScaledPolynomialTransform const
         afw::geom::Point2D(scaled.getOutputScalingInverse().getTranslation()),
         scaled.getInputScaling().getLinear()
     );
+}
+
+SipReverseTransform SipReverseTransform::extract(afw::image::TanWcs const & wcs) {
+    if (!wcs.hasDistortion()) {
+        throw LSST_EXCEPT(
+            pex::exceptions::LogicError,
+            "Constructing a SipReverseTransform from a TanWcs with no distortions is not implemented."
+        );
+    }
+    ndarray::Array<double,2,2> xCoeffs = ndarray::allocate(wcs.getSipAp().rows(), wcs.getSipAp().cols());
+    ndarray::Array<double,2,2> yCoeffs = ndarray::allocate(wcs.getSipBp().rows(), wcs.getSipBp().cols());
+    xCoeffs.asEigen() = wcs.getSipAp();
+    yCoeffs.asEigen() = wcs.getSipBp();
+    return SipReverseTransform(
+        wcs.getPixelOrigin(),
+        afw::geom::LinearTransform(wcs.getCDMatrix()),
+        PolynomialTransform(xCoeffs, yCoeffs)
+    );
+}
+
+SipReverseTransform SipReverseTransform::transformPixels(afw::geom::AffineTransform const & s) const {
+    SipReverseTransform result(*this);
+    result.transformPixelsInPlace(s);
+    result._cdInverse = result._cdMatrix.invert();
+    return result;
 }
 
 afw::geom::AffineTransform SipReverseTransform::linearize(afw::geom::Point2D const & in) const {
@@ -196,6 +257,55 @@ PTR(afw::image::TanWcs) makeWcs(
         sipA, sipB, sipAP, sipBP,
         skyOrigin.getEpoch(),
         coordSys
+    );
+}
+
+std::shared_ptr<afw::image::TanWcs> transformWcsPixels(
+    afw::image::TanWcs const & wcs,
+    afw::geom::AffineTransform const & s
+) {
+    if (wcs.hasDistortion()) {
+        auto fwd = SipForwardTransform::extract(wcs).transformPixels(s);
+        auto rev = SipReverseTransform::extract(wcs).transformPixels(s);
+        return makeWcs(fwd, rev, *wcs.getSkyOrigin());
+    } else {
+        auto sInv = s.invert();
+        auto pixelOrigin = s.getLinear()(wcs.getPixelOrigin() - sInv.getTranslation());
+        Eigen::Matrix2d cdMatrix = wcs.getCDMatrix() * sInv.getLinear().getMatrix();
+        return std::make_shared<afw::image::TanWcs>(
+            wcs.getSkyOrigin()->toIcrs().getPosition(afw::geom::degrees),
+            pixelOrigin,
+            cdMatrix,
+            wcs.getEquinox(),
+            "ICRS"
+        );
+    }
+}
+
+std::shared_ptr<afw::image::TanWcs> rotateWcsPixelsBy90(
+    afw::image::TanWcs const & wcs,
+    int nQuarter,
+    afw::geom::Extent2I const & dimensions
+) {
+    afw::geom::Extent2D offset;
+    switch(nQuarter % 4) {
+    case 0:
+        offset = afw::geom::Extent2D(0, 0);
+        break;
+    case 1:
+        offset = afw::geom::Extent2D(dimensions.getY() - 1, 0);
+        break;
+    case 2:
+        offset = afw::geom::Extent2D(dimensions - afw::geom::Extent2I(1, 1));
+        break;
+    case 3:
+        offset = afw::geom::Extent2D(0, dimensions.getX() - 1);
+        break;
+    }
+    auto rot = afw::geom::LinearTransform::makeRotation(nQuarter*90.0*afw::geom::degrees);
+    return transformWcsPixels(
+        wcs,
+        afw::geom::AffineTransform(rot, offset)
     );
 }
 

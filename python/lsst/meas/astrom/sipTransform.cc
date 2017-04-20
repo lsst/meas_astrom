@@ -64,8 +64,10 @@ static void declareSipForwardTransform(py::module &mod) {
     cls.def_static("convert",
                    (SipForwardTransform(*)(ScaledPolynomialTransform const &)) & SipForwardTransform::convert,
                    "scaled"_a);
+    cls.def_static("extract", &SipForwardTransform::extract, "wcs"_a);
 
     cls.def("__call__", &SipForwardTransform::operator(), "in"_a);
+    cls.def("transformPixels", &SipForwardTransform::transformPixels, "s"_a);
 
     cls.def("linearize", &SipForwardTransform::linearize);
 }
@@ -91,8 +93,10 @@ static void declareSipReverseTransform(py::module &mod) {
     cls.def_static("convert",
                    (SipReverseTransform(*)(ScaledPolynomialTransform const &)) & SipReverseTransform::convert,
                    "scaled"_a);
+    cls.def_static("extract", &SipReverseTransform::extract, "wcs"_a);
 
     cls.def("__call__", &SipReverseTransform::operator(), "in"_a);
+    cls.def("transformPixels", &SipReverseTransform::transformPixels, "s"_a);
 
     cls.def("linearize", &SipReverseTransform::linearize);
 }
@@ -107,6 +111,8 @@ PYBIND11_PLUGIN(sipTransform) {
     declareSipReverseTransform(mod);
 
     mod.def("makeWcs", &makeWcs);
+    mod.def("transformWcsPixels", &transformWcsPixels, "wcs"_a, "s"_a);
+    mod.def("rotateWcsPixelsBy90", &rotateWcsPixelsBy90, "wcs"_a, "nQuarter"_a, "dimensions"_a);
 
     return mod.ptr();
 }

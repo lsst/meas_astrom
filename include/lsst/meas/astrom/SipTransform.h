@@ -25,6 +25,9 @@
 #define LSST_MEAS_ASTROM_SipTransform_INCLUDED
 
 #include "lsst/afw/geom/LinearTransform.h"
+#include "lsst/afw/geom/AffineTransform.h"
+#include "lsst/afw/geom/Box.h"
+#include "lsst/afw/geom/Angle.h"
 #include "lsst/meas/astrom/PolynomialTransform.h"
 
 
@@ -102,6 +105,8 @@ protected:
         std::swap(_cdMatrix, other._cdMatrix);
         _poly.swap(other._poly);
     }
+
+    void transformPixelsInPlace(afw::geom::AffineTransform const & s);
 
     afw::geom::Point2D _pixelOrigin;
     afw::geom::LinearTransform _cdMatrix;
@@ -186,6 +191,11 @@ public:
     static SipForwardTransform convert(ScaledPolynomialTransform const & scaled);
 
     /**
+     *  Extract the reverse transform from a TanWcs.
+     */
+    static SipForwardTransform extract(afw::image::TanWcs const & wcs);
+
+    /**
      *  Construct a SipForwardTransform from its components.
      *
      *  @param[in]   pixelOrigin    CRPIX @f$(u_0,v_0)@f$ (zero-indexed).
@@ -221,6 +231,12 @@ public:
      * Apply the transform to a point.
      */
     afw::geom::Point2D operator()(afw::geom::Point2D const & uv) const;
+
+    /**
+     * Return a new forward SIP transform that includes a transformation of
+     * the pixel coordinate system by the given affine transform.
+     */
+    SipForwardTransform transformPixels(afw::geom::AffineTransform const & s) const;
 
 };
 
@@ -304,6 +320,11 @@ public:
     static SipReverseTransform convert(ScaledPolynomialTransform const & scaled);
 
     /**
+     *  Extract the reverse transform from a TanWcs.
+     */
+    static SipReverseTransform extract(afw::image::TanWcs const & wcs);
+
+    /**
      *  Construct a SipReverseTransform from its components.
      *
      *  @param[in]   pixelOrigin    CRPIX @f$(u_0,v_0)@f$ (zero-indexed)
@@ -341,6 +362,12 @@ public:
      */
     afw::geom::Point2D operator()(afw::geom::Point2D const & xy) const;
 
+    /**
+     * Return a new reverse SIP transform that includes a transformation of
+     * the pixel coordinate system by the given affine transform.
+     */
+    SipReverseTransform transformPixels(afw::geom::AffineTransform const & s) const;
+
 private:
     friend class PolynomialTransform;
     friend class ScaledPolynomialTransform;
@@ -366,6 +393,42 @@ std::shared_ptr<afw::image::TanWcs> makeWcs(
     SipReverseTransform const & sipReverse,
     afw::coord::Coord const & skyOrigin
 );
+
+/**
+ *  Create a new TanWcs whose pixel coordinate system has been transformed
+ *  via an affine transform.
+ *
+ *  @param[in]  wcs   Original TanWcs object.
+ *  @param[in]  s     AffineTransform to apply to the pixel coordinate
+ *                    system.
+ *
+ *  @return a new Wcs that satisfies the following:
+ *  @code
+ *  newWcs = transformWcsPixels(wcs, s);
+ *  assert(newWcs.skyToPixel(sky), s(wcs.skyToPixel(sky)));
+ *  assert(newWcs.pixelToSky(pixel), wcs.pixelToSky(s.invert()(pixel)));
+ *  @endcode
+ *  for all sky coordinates @c sky and pixel coordinates @c pixel.
+ */
+std::shared_ptr<afw::image::TanWcs> transformWcsPixels(
+    afw::image::TanWcs const & wcs,
+    afw::geom::AffineTransform const & s
+);
+
+/**
+ *  Return a new TanWcs that represents a rotation of the image
+ *  it corresponds to about the image's center.
+ *
+ *  @param[in]  wcs        Original TanWcs to be rotated.
+ *  @param[in]  nQuarter   Number of 90 degree rotations (positive is counterclockwise).
+ *  @param[in]  dimensions Width and height of the image.
+ */
+std::shared_ptr<afw::image::TanWcs> rotateWcsPixelsBy90(
+    afw::image::TanWcs const & wcs,
+    int nQuarter,
+    afw::geom::Extent2I const & dimensions
+);
+
 
 }}} // namespace lsst::meas::astrom
 
