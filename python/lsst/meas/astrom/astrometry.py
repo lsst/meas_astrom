@@ -225,7 +225,7 @@ class AstrometryTask(RefMatchTask):
 
         res = None
         wcs = expMd.wcs
-        toleranceStruct = None
+        match_tolerance = None
         for i in range(self.config.maxIter):
             iterNum = i + 1
             try:
@@ -236,7 +236,7 @@ class AstrometryTask(RefMatchTask):
                     bbox=expMd.bbox,
                     wcs=wcs,
                     exposure=exposure,
-                    toleranceStruct=toleranceStruct,
+                    match_tolerance=match_tolerance,
                 )
             except Exception as e:
                 # if we have had a succeessful iteration then use that; otherwise fail
@@ -247,7 +247,7 @@ class AstrometryTask(RefMatchTask):
                 else:
                     raise
 
-            toleranceStruct = tryRes.toleranceStruct
+            match_tolerance = tryRes.match_tolerance
             tryMatchDist = self._computeMatchStatsOnSky(tryRes.matches)
             self.log.debug(
                 "Match and fit WCS iteration %d: found %d matches with scatter = %0.3f +- %0.3f arcsec; "
@@ -264,7 +264,7 @@ class AstrometryTask(RefMatchTask):
                     "that's good enough",
                     maxMatchDist.asArcseconds(), self.config.minMatchDistanceArcSec)
                 break
-            toleranceStruct.maxMatchDist = maxMatchDist
+            match_tolerance.maxMatchDist = maxMatchDist
 
         self.log.info(
             "Matched and fit WCS in %d iterations; "
@@ -282,7 +282,7 @@ class AstrometryTask(RefMatchTask):
         )
 
     @pipeBase.timeMethod
-    def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, toleranceStruct,
+    def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, match_tolerance,
                         exposure=None):
         """!Match sources to reference objects and fit a WCS
 
@@ -291,8 +291,9 @@ class AstrometryTask(RefMatchTask):
         @param[in] refFluxField  field of refCat to use for flux
         @param[in] bbox  bounding box of exposure (an lsst.afw.geom.Box2I)
         @param[in] wcs  initial guess for WCS of exposure (an lsst.afw.image.Wcs)
-        @param[in] maxMatchDist  maximum on-sky distance between reference objects and sources
-            (an lsst.afw.geom.Angle); if None then use the matcher's default
+        @param[in] match_tolerance a MatchTolerance object (or None) specifying
+            internal tolerances to the matcher. See the MatchTolerance
+            definition in the respective matcher for the class definition.
         @param[in] exposure  exposure whose WCS is to be fit, or None; used only for the debug display
 
         @return an lsst.pipe.base.Struct with these fields:
@@ -308,7 +309,7 @@ class AstrometryTask(RefMatchTask):
             sourceCat=sourceCat,
             wcs=wcs,
             refFluxField=refFluxField,
-            toleranceStruct=toleranceStruct,
+            match_tolerance=match_tolerance,
         )
         self.log.debug("Found %s matches", len(matchRes.matches))
         if debug.display:
@@ -350,5 +351,5 @@ class AstrometryTask(RefMatchTask):
             matches=matchRes.matches,
             wcs=fitWcs,
             scatterOnSky=scatterOnSky,
-            toleranceStruct=matchRes.toleranceStruct,
+            match_tolerance=matchRes.match_tolerance,
         )

@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
-__all__ = ["matchOptimisticB", "MatchOptimisticBTask", "MatchOptimisticBConfig", "SourceInfo"]
+__all__ = ["matchOptimisticB", "MatchOptimisticBTask", "MatchOptimisticBConfig",
+           "MatchTolerance"]
 
 from builtins import range
 from builtins import object
@@ -15,6 +16,23 @@ from lsst.meas.algorithms.sourceSelector import sourceSelectorRegistry
 
 from ..setMatchDistance import setMatchDistance
 from . import matchOptimisticB, MatchOptimisticBControl
+
+
+class MatchTolerance(object):
+    """ Stores match tolerances for use in AstrometryTask and later
+    iterations of the matcher.
+
+    Attributes
+    ----------
+    maxMatchDist : lsst.afw.geom.Angle
+    """
+
+    def __init__(self, maxMatchDist=None):
+        """ MatchOptimsiticBTask relies on a maximum distance for matching
+        set by either the default in MatchOptimisticBConfig or the 2 sigma
+        scatter found after AstrometryTask has fit for a wcs.
+        """
+        self.maxMatchDist = maxMatchDist
 
 
 class MatchOptimisticBConfig(pexConfig.Config):
@@ -84,88 +102,6 @@ class MatchOptimisticBConfig(pexConfig.Config):
     def setDefaults(self):
         sourceSelector = self.sourceSelector["matcher"]
         sourceSelector.setDefaults()
-
-
-class SourceInfo(object):
-    """Provide usability tests and catalog keys for sources in a source catalog
-
-    Fields set include:
-    - centroidKey  key for centroid
-    - centroidFlagKey  key for flag that is True if centroid is valid
-    - edgeKey  key for field that is True if source is near an edge
-    - saturatedKey  key for field that is True if source has any saturated pixels
-    - interpolatedCenterKey  key for field that is True if center pixels have interpolated values;
-        interpolation is triggered by saturation, cosmic rays and bad pixels, and possibly other reasons
-    - fluxField  name of flux field
-
-    @throw RuntimeError if schema version unsupported or a needed field is not found
-    """
-
-    def __init__(self, schema, fluxType="Ap", minSnr=50):
-        """Construct a SourceInfo
-
-        @param[in] schema  source catalog schema
-        @param[in] fluxType  flux type: typically one of "Ap" or "Psf"
-        @param[in] minSnr  minimum allowed signal-to-noise ratio for sources used for matching
-            (in the flux specified by fluxType); <=0 for no limit
-
-        @throw RuntimeError if the flux field is not found
-        """
-        self.centroidKey = Point2DKey(schema["slot_Centroid"])
-        self.centroidFlagKey = schema["slot_Centroid_flag"].asKey()
-        self.edgeKey = schema["base_PixelFlags_flag_edge"].asKey()
-        self.saturatedKey = schema["base_PixelFlags_flag_saturated"].asKey()
-        fluxPrefix = "slot_%sFlux_" % (fluxType,)
-        self.fluxField = fluxPrefix + "flux"
-        self.fluxKey = schema[fluxPrefix + "flux"].asKey()
-        self.fluxFlagKey = schema[fluxPrefix + "flag"].asKey()
-        self.fluxSigmaKey = schema[fluxPrefix + "fluxSigma"].asKey()
-        self.interpolatedCenterKey = schema["base_PixelFlags_flag_interpolatedCenter"].asKey()
-        self.parentKey = schema["parent"].asKey()
-        self.minSnr = float(minSnr)
-
-        if self.fluxField not in schema:
-            raise RuntimeError("Could not find flux field %s in source schema" % (self.fluxField,))
-
-    def _isMultiple(self, source):
-        """Return True if source is likely multiple sources
-        """
-        if source.get(self.parentKey) != 0:
-            return True
-        footprint = source.getFootprint()
-        return footprint is not None and len(footprint.getPeaks()) > 1
-
-    def hasCentroid(self, source):
-        """Return True if the source has a valid centroid
-        """
-        centroid = source.get(self.centroidKey)
-        return np.all(np.isfinite(centroid)) and not source.getCentroidFlag()
-
-    def isUsable(self, source):
-        """Return True if the source is usable for matching, even if it may have a poor centroid
-
-        For a source to be usable it must:
-        - have a valid centroid
-        - not be deblended
-        - have a valid flux (of the type specified in this object's constructor)
-        - have adequate signal-to-noise
-        """
-        return self.hasCentroid(source) \
-            and source.get(self.parentKey) == 0 \
-            and not source.get(self.fluxFlagKey) \
-            and (self.minSnr <= 0 or (source.get(self.fluxKey)/source.get(self.fluxSigmaKey) > self.minSnr))
-
-    def isGood(self, source):
-        """Return True if source is usable for matching (as per isUsable) and likely has a good centroid
-
-        The additional tests for a good centroid, beyond isUsable, are:
-        - not interpolated in the center (this includes saturated sources,
-            so we don't test separately for that)
-        - not near the edge
-        """
-        return self.isUsable(source) \
-            and not source.get(self.interpolatedCenterKey) \
-            and not source.get(self.edgeKey)
 
 
 # The following block adds links to this task from the Task Documentation page.
@@ -255,7 +191,8 @@ class MatchOptimisticBTask(pipeBase.Task):
         return refCat
 
     @pipeBase.timeMethod
-    def matchObjectsToSources(self, refCat, sourceCat, wcs, refFluxField, toleranceStruct=None):
+    def matchObjectsToSources(self, refCat, sourceCat, wcs, refFluxField,
+                              match_tolerance=None):
         """!Match sources to position reference stars
 
         @param[in] refCat  catalog of reference objects that overlap the exposure; reads fields for:
@@ -269,7 +206,7 @@ class MatchOptimisticBTask(pipeBase.Task):
             - aperture flux, if found, else PSF flux
         @param[in] wcs  estimated WCS
         @param[in] refFluxField  field of refCat to use for flux
-        @param[in] toleranceStruct a lsst.pipeBase.Struct for specifying 
+        @param[in] match_toleranc a MatchTolerance object for specifying 
             tolerances. Must at minimum contains and lsst.afw.geom.Angle
             called maxMatchDist that communicates state between AstrometryTask
             and the macther Task.
@@ -291,11 +228,8 @@ class MatchOptimisticBTask(pipeBase.Task):
             self.log.info("filterStars purged %d reference stars, leaving %d stars" %
                           (preNumObj - numRefObj, numRefObj))
 
-        if toleranceStruct is None:
-            toleranceStruct = pipeBase.Struct(
-                maxMatchDist=None,
-            )
-
+        if match_tolerance is None:
+            match_tolerance = MatchTolerance()
 
         # usableSourceCat: sources that are good but may be saturated
         numSources = len(sourceCat)
@@ -321,7 +255,7 @@ class MatchOptimisticBTask(pipeBase.Task):
             refFluxField=refFluxField,
             numUsableSources=numUsableSources,
             minMatchedPairs=minMatchedPairs,
-            maxMatchDist=toleranceStruct.maxMatchDist,
+            maxMatchDist=match_tolerance.maxMatchDist,
             sourceFluxField=self.sourceSelector.fluxField,
             verbose=debug.verbose,
         )
@@ -347,7 +281,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         return pipeBase.Struct(
             matches=matches,
             usableSourceCat=usableSourceCat,
-            toleranceStruct=toleranceStruct,
+            match_tolerance=match_tolerance,
         )
 
     def _getIsGoodKeys(self, schema):

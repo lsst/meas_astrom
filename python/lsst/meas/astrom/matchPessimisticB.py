@@ -14,6 +14,46 @@ from .pessimistic_pattern_matcher_b_3D import PessimisticPatternMatcherB
 __all__ = ["MatchPessimisticBTask", "MatchPessimisticBConfig"]
 
 
+class MatchTolerance(object):
+    """ Stores match tolerances for use in AstrometryTask and later
+    iterations of the matcher.
+
+    Attributes
+    ----------
+    maxMatchDist : lsst.afw.geom.Angle
+    autoMaxMatchDist : lsst.afw.geom.Angle
+    maxShift : lsst.afw.geom.Angle
+    lastMatchedPattern : int
+    failedPatternList : list of ints
+    """
+
+    def __init__(self, maxMatchDist=None, autoMaxMatchDist=None,
+                 maxShift=None, lastMatchedPattern=None,
+                 failedPatternList=None):
+        """ MatchPessimisticBTask relies on several state variables to be
+        preserved over different iterations in the matchAndFitWcs loop of
+        AstrometryTask.
+        maxMatchDist is the current 2 sigma scatter from the
+            previous matched wcs (if it exists. It is None if this is the first
+            iteration.)
+        autoMatxMatchDist is the the result of the automated match tolerance
+            generation. maxShift is either None for the first iteration or is
+            the magnitude of the previous iteration's wcs shift.
+        lastMatchedPattern is an int reference to the position in the
+            magnitude sorted source array where a successful pattern match was
+            found.
+        failedPatternList is a list of ints specifying indicies in the magnitude
+            sourced source array to skip. These are skipped are pervious
+            iterations that are likely false positives due to the code having
+            to soften after a pattern is matched.
+        """
+        self.maxMatchDist = maxMatchDist
+        self.autoMaxMatchDist = autoMaxMatchDist
+        self.maxShift = maxShift
+        self.lastMatchedPattern = lastMatchedPattern
+        self.failedPatternList = failedPatternList
+
+
 class MatchPessimisticBConfig(pexConfig.Config):
     """Configuration for MatchPessimisticBTask
     """
@@ -214,7 +254,7 @@ class MatchPessimisticBTask(pipeBase.Task):
 
     @pipeBase.timeMethod
     def matchObjectsToSources(self, refCat, sourceCat, wcs, refFluxField,
-                              toleranceStruct=None):
+                              match_tolerance=None):
         """!Match sources to position reference stars
 
         @param[in] refCat  catalog of reference objects that overlap the
@@ -230,20 +270,17 @@ class MatchPessimisticBTask(pipeBase.Task):
             - aperture flux, if found, else PSF flux
         @param[in] wcs  estimated WCS
         @param[in] refFluxField  field of refCat to use for flux
-        @param[in] toleranceStruct a lsst.pipeBase.Struct for specifying
-            tolerances. Must at minimum contains and lsst.afw.geom.Angle
-            called maxMatchDist that communicates state between AstrometryTask
-            and the macther Task. In MatchPessimisticBTask this struct is
-            additionally used to pass the index of the previously matched
-            pattern, a list of perviously failed patterns (if nessasary),
-            the magnitude of the previous shift, and a place to store the
-            maxMaxDist calculated from the density of sources and references.
+        @param[in] match_tolerance is a MatchTolerance class object or None.
+            This this class is used to comunicate state between AstrometryTask
+            and MatcherTask. AstrometryTask will also set the MatchTolerance
+            class variable maxMatchDist based on the scatter AstrometryTask has
+            found after fitting for the wcs.
         @return an lsst.pipe.base.Struct with fields:
         - matches  a list of matches, each instance of
             lsst.afw.table.ReferenceMatch
         - usableSourcCat  a catalog of sources potentially usable for
             matching.
-        - toleranceStruct a lsst.afw.pipe.base.Struct containing the resulting
+        - match_tolerance a MatchTolerance object containing the resulting
             state variables from the match.
         """
         import lsstDebug
@@ -260,14 +297,8 @@ class MatchPessimisticBTask(pipeBase.Task):
 
         # If we get an empty tolerance struct create the variables we need for
         # this matcher.
-        if toleranceStruct is None:
-            toleranceStruct = pipeBase.Struct(
-                maxMatchDist=None,
-                maxShift=None,
-                autoMaxDist=None,
-                failedPatternList=[],
-                lastPattern=None,
-            )
+        if match_tolerance is None:
+            match_tolerance = MatchTolerance()
 
         # usableSourceCat: sources that are good but may be saturated
         numSources = len(sourceCat)
@@ -289,17 +320,19 @@ class MatchPessimisticBTask(pipeBase.Task):
 
         # match usable (possibly saturated) sources and then purge saturated
         # sources from the match list
-        matches, toleranceStruct = self._doMatch(
+        doMatchReturn = self._doMatch(
             refCat=refCat,
             sourceCat=goodSourceCat,
             wcs=wcs,
             refFluxField=refFluxField,
             numUsableSources=numUsableSources,
             minMatchedPairs=minMatchedPairs,
-            toleranceStruct=toleranceStruct,
+            match_tolerance=match_tolerance,
             sourceFluxField=self.sourceSelector.fluxField,
             verbose=debug.verbose,
         )
+        matches = doMatchReturn.matches
+        match_tolerance = doMatchReturn.match_tolerance
 
         if len(matches) == 0:
             raise RuntimeError("Unable to match sources")
@@ -311,12 +344,12 @@ class MatchPessimisticBTask(pipeBase.Task):
         return pipeBase.Struct(
             matches=matches,
             usableSourceCat=goodSourceCat,
-            toleranceStruct=toleranceStruct,
+            match_tolerance=match_tolerance,
         )
 
     @pipeBase.timeMethod
     def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numUsableSources,
-                 minMatchedPairs, toleranceStruct, sourceFluxField, verbose):
+                 minMatchedPairs, match_tolerance, sourceFluxField, verbose):
         """!Implementation of matching sources to position reference stars
 
         Unlike matchObjectsToSources, this method does not check if the sources
@@ -330,24 +363,24 @@ class MatchPessimisticBTask(pipeBase.Task):
         @param[in] numUsableSources  number of usable sources (sources with
             known centroid that are not near the edge, but may be saturated)
         @param[in] minMatchedPairs  minimum number of matches
-        @param[in] toleranceStruct lsst.pipe.base.Struct containing
+        @param[in] match_tolerance a MatchTolerance object containing
             variables specifying matcher tolerances and state from possible
             previous runs.
         @param[in] sourceInfo  SourceInfo for the sourceCat
         @param[in] verbose  true to print diagnostic information to std::cout
 
         @return a list of matches, an instance of
-            lsst.afw.table.ReferenceMatch
+            lsst.afw.table.ReferenceMatch, a MatchTolerance object
         """
 
         # Set configurable defaults when we encounter None type or set
         # state based on pervious run of matchandfit.
-        if toleranceStruct.maxShift is None:
+        if match_tolerance.maxShift is None:
             maxShiftArcseconds = (self.config.maxOffsetPix *
                                   wcs.pixelScale().asArcseconds())
         else:
             maxShiftArcseconds = np.max(
-                (toleranceStruct.maxShift.asArcseconds(),
+                (match_tolerance.maxShift.asArcseconds(),
                  wcs.pixelScale().asArcseconds()))
 
         # Load the source and reference catalog as spherical points
@@ -383,7 +416,7 @@ class MatchPessimisticBTask(pipeBase.Task):
         # starting tolerance guess from statistics of patterns we can create
         # on both the source and reference catalog. We use the smaller of the
         # two.
-        if toleranceStruct.maxMatchDist is None:
+        if match_tolerance.maxMatchDist is None:
             self.log.debug("Computing source statistics...")
             maxMatchDistArcSecSrc = self._get_pair_pattern_statistics(
                 src_array)
@@ -392,13 +425,13 @@ class MatchPessimisticBTask(pipeBase.Task):
                 ref_array)
             maxMatchDistArcSec = np.min((maxMatchDistArcSecSrc,
                                          maxMatchDistArcSecRef))
-            toleranceStruct.autoMaxDist = afwgeom.Angle(maxMatchDistArcSec,
+            match_tolerance.autoMaxDist = afwgeom.Angle(maxMatchDistArcSec,
                                                         afwgeom.arcseconds)
         else:
             maxMatchDistArcSec = np.max(
                 (wcs.pixelScale().asArcseconds(),
-                 np.min((toleranceStruct.maxMatchDist.asArcseconds(),
-                         toleranceStruct.autoMaxDist.asArcseconds()))))
+                 np.min((match_tolerance.maxMatchDist.asArcseconds(),
+                         match_tolerance.autoMaxDist.asArcseconds()))))
 
         # Make sure the data we are considering is dense enough to require
         # the consensus mode of the matcher.
@@ -431,7 +464,7 @@ class MatchPessimisticBTask(pipeBase.Task):
                     max_dist=maxMatchDistArcSec,
                     min_matches=minMatchedPairs,
                     pattern_skip_array=np.array(
-                        toleranceStruct.failedPatternList)
+                        match_tolerance.failedPatternList)
                 )
             else:
                 # Once we fail and start softening tolerences we switch to
@@ -451,24 +484,24 @@ class MatchPessimisticBTask(pipeBase.Task):
                     max_dist=maxMatchDistArcSec * 2. ** try_idx,
                     min_matches=minMatchedPairs,
                     pattern_skip_array=np.array(
-                        toleranceStruct.failedPatternList)
+                        match_tolerance.failedPatternList)
                 )
             if matcher_struct is None and \
-               toleranceStruct.lastPattern is None and \
+               match_tolerance.lastPattern is None and \
                try_idx == 0:
                 # If we found a pattern on a previous run and can't
                 # find an optimistic match with the harhest tolerances
                 # the match we found previously was likely bad. We append
                 # its index to a list so we do not use it in future match
                 # iterations.
-                toleranceStruct.failedPatternList.append(
-                    toleranceStruct.lastPattern)
+                match_tolerance.failedPatternList.append(
+                    match_tolerance.lastPattern)
             elif matcher_struct is not None:
                 # Match found, save a bit a state regarding this pattern
                 # in the struct and exit.
-                toleranceStruct.maxShift = afwgeom.Angle(matcher_struct.shift,
+                match_tolerance.maxShift = afwgeom.Angle(matcher_struct.shift,
                                                          afwgeom.arcseconds)
-                toleranceStruct.lastPattern = matcher_struct.pattern_idx
+                match_tolerance.lastPattern = matcher_struct.pattern_idx
                 break
 
         # A match has been found, return our list of matches and
@@ -484,7 +517,10 @@ class MatchPessimisticBTask(pipeBase.Task):
                     match.second.getCoord())
                 matches.append(match)
 
-        return matches, toleranceStruct
+        return pipeBase.Struct(
+            matches=matches,
+            match_tolerance=match_tolerance,
+        )
 
     def _get_pair_pattern_statistics(self, cat_array):
         """ Convience functon for computing the tolerances for the
