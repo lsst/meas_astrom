@@ -13,10 +13,9 @@ from lsst.log import Log
 __deg_to_rad__ = np.pi/180
 
 
-class TestPythonOptimisticPatternMatcherB(unittest.TestCase):
+class TestPessimisticPatternMatcherB(unittest.TestCase):
 
-    """Unittest suite for the python implimentation of
-    Optimistic Pattern Matcher B.
+    """Unittest suite for the Pessimistic Pattern Matcher B.
     """
 
     def setUp(self):
