@@ -206,7 +206,7 @@ class MatchOptimisticBTask(pipeBase.Task):
             - aperture flux, if found, else PSF flux
         @param[in] wcs  estimated WCS
         @param[in] refFluxField  field of refCat to use for flux
-        @param[in] match_toleranc a MatchTolerance object for specifying 
+        @param[in] match_tolerance a MatchTolerance object for specifying
             tolerances. Must at minimum contains and lsst.afw.geom.Angle
             called maxMatchDist that communicates state between AstrometryTask
             and the macther Task.

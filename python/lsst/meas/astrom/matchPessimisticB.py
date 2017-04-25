@@ -11,7 +11,7 @@ from lsst.meas.algorithms.sourceSelector import sourceSelectorRegistry
 
 from .pessimistic_pattern_matcher_b_3D import PessimisticPatternMatcherB
 
-__all__ = ["MatchPessimisticBTask", "MatchPessimisticBConfig"]
+__all__ = ["MatchPessimisticBTask", "MatchPessimisticBConfig", "MatchTolerance"]
 
 
 class MatchTolerance(object):
@@ -37,15 +37,16 @@ class MatchTolerance(object):
             previous matched wcs (if it exists. It is None if this is the first
             iteration.)
         autoMatxMatchDist is the the result of the automated match tolerance
-            generation. maxShift is either None for the first iteration or is
+            generation.
+        maxShift is either None for the first iteration or is
             the magnitude of the previous iteration's wcs shift.
         lastMatchedPattern is an int reference to the position in the
             magnitude sorted source array where a successful pattern match was
             found.
-        failedPatternList is a list of ints specifying indicies in the magnitude
-            sourced source array to skip. These are skipped are pervious
-            iterations that are likely false positives due to the code having
-            to soften after a pattern is matched.
+        failedPatternList is a list of ints specifying indicies in the
+            magnitude sourced source array to skip. These are skipped are
+            pervious iterations that are likely false positives due to the code
+            having to soften after a pattern is matched.
         """
         self.maxMatchDist = maxMatchDist
         self.autoMaxMatchDist = autoMaxMatchDist
@@ -454,7 +455,7 @@ class MatchPessimisticBTask(pipeBase.Task):
                 # the matcher should behave like an optimistic pattern
                 # matcher. Exiting at the first match.
                 matcher_struct = pyPPMb.match(
-                    source_catalog=src_array,
+                    source_array=src_array,
                     n_check=self.config.numPointsForShapeAttempt,
                     n_match=self.config.numPointsForShape,
                     n_agree=1,
@@ -473,7 +474,7 @@ class MatchPessimisticBTask(pipeBase.Task):
                 # tolerance each round and add 1 to the pattern complexiy and
                 # two to the number of candidate spokes to check.
                 matcher_struct = pyPPMb.match(
-                    source_catalog=src_array,
+                    source_array=src_array,
                     n_check=self.config.numPointsForShapeAttempt + 2 * try_idx,
                     n_match=self.config.numPointsForShape + try_idx,
                     n_agree=numConsensus,
@@ -523,11 +524,24 @@ class MatchPessimisticBTask(pipeBase.Task):
         )
 
     def _get_pair_pattern_statistics(self, cat_array):
-        """ Convience functon for computing the tolerances for the
+        """ Computing the tolerances for the
         matcher automatically by sorting the data as we would
         for matching and creating the patterns to match in order.
         The tolerance is then the average difference in length
         between the spokes of the pattern.
+
+        Parameters
+        ----------
+        cat_array : float array
+            array of 3 vectors representing the x, y, z position of catalog
+            objedts on the unit sphere.
+
+        Returns
+        -------
+        float
+            Suggested max match tolerance distance calculated from comparisons
+            between pinwheel patterns used in optimistic/pessimsitic pattern
+            matcher.
         """
 
         self.log.debug("Starting automated tolerance calculation...")

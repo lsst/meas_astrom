@@ -48,7 +48,7 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         data and that the explicit ids match.
         """
         self.pyPPMb = PessimisticPatternMatcherB(
-            reference_catalog=self.reference_obj_array[:, :3],
+            reference_array=self.reference_obj_array[:, :3],
             log=self.log)
 
         pattern_struct = self.pyPPMb._construct_pattern_and_shift_rot_matrix(
@@ -92,11 +92,11 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         and test that we return a match.
         """
         self.pyPPMb = PessimisticPatternMatcherB(
-            reference_catalog=self.reference_obj_array[:, :3],
+            reference_array=self.reference_obj_array[:, :3],
             log=self.log)
 
         match_struct = self.pyPPMb.match(
-            source_catalog=self.source_obj_array, n_check=9, n_match=6,
+            source_array=self.source_obj_array, n_check=9, n_match=6,
             n_agree=2, max_n_patterns=100, max_shift=60., max_rotation=5.0,
             max_dist=5., min_matches=30, pattern_skip_array=None)
         self.assertEqual(len(match_struct.matches),
@@ -110,11 +110,11 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         Tabur 2007.
         """
         self.pyPPMb = PessimisticPatternMatcherB(
-            reference_catalog=self.reference_obj_array[:, :3],
+            reference_array=self.reference_obj_array[:, :3],
             log=self.log)
 
         match_struct = self.pyPPMb.match(
-            source_catalog=self.source_obj_array, n_check=9, n_match=6,
+            source_array=self.source_obj_array, n_check=9, n_match=6,
             n_agree=1, max_n_patterns=100, max_shift=60., max_rotation=6.0,
             max_dist=5., min_matches=30, pattern_skip_array=None)
         self.assertEqual(len(match_struct.matches),
@@ -127,11 +127,11 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         process.
         """
         self.pyPPMb = PessimisticPatternMatcherB(
-            reference_catalog=self.reference_obj_array[:, :3],
+            reference_array=self.reference_obj_array[:, :3],
             log=self.log)
 
         match_struct = self.pyPPMb.match(
-            source_catalog=self.source_obj_array, n_check=9, n_match=6,
+            source_array=self.source_obj_array, n_check=9, n_match=6,
             n_agree=2, max_n_patterns=100, max_shift=60., max_rotation=5.0,
             max_dist=5., min_matches=30, pattern_skip_array=np.array([0]))
         self.assertEqual(len(match_struct.matches),
@@ -144,11 +144,11 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         but no rotation or shift.
         """
         self.pyPPMb = PessimisticPatternMatcherB(
-            reference_catalog=self.reference_obj_array[:500, :3],
+            reference_array=self.reference_obj_array[:500, :3],
             log=self.log)
 
         match_struct = self.pyPPMb.match(
-            source_catalog=self.source_obj_array, n_check=9, n_match=6,
+            source_array=self.source_obj_array, n_check=9, n_match=6,
             n_agree=2, max_n_patterns=100, max_shift=60.0, max_rotation=5.0,
             max_dist=5., min_matches=30, pattern_skip_array=None)
         self.assertEqual(len(match_struct.matches),
@@ -161,11 +161,11 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         but no rotation or shift.
         """
         self.pyPPMb = PessimisticPatternMatcherB(
-            reference_catalog=self.reference_obj_array[:, :3],
+            reference_array=self.reference_obj_array[:, :3],
             log=self.log)
 
         match_struct = self.pyPPMb.match(
-            source_catalog=self.source_obj_array[:500], n_check=9, n_match=6,
+            source_array=self.source_obj_array[:500], n_check=9, n_match=6,
             n_agree=2, max_n_patterns=100, max_shift=60., max_rotation=1.0,
             max_dist=5., min_matches=30, pattern_skip_array=None)
         self.assertEqual(len(match_struct.matches),
@@ -179,7 +179,7 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         'focal plane' this will appear as a shift.
         """
         self.pyPPMb = PessimisticPatternMatcherB(
-            reference_catalog=self.reference_obj_array[:, :3],
+            reference_array=self.reference_obj_array[:, :3],
             log=self.log)
         theta = np.radians(45.0 / 3600.)
         cos_theta = np.cos(theta)
@@ -194,7 +194,7 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
             self.source_obj_array[:, :3].transpose()).transpose()
 
         match_struct = self.pyPPMb.match(
-            source_catalog=self.source_obj_array, n_check=9, n_match=6,
+            source_array=self.source_obj_array, n_check=9, n_match=6,
             n_agree=2, max_n_patterns=100, max_shift=60, max_rotation=5.0,
             max_dist=5., min_matches=30, pattern_skip_array=None)
 
@@ -207,7 +207,7 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         """ Test the matcher for when a roation is applied to the data.
         """
         self.pyPPMb = PessimisticPatternMatcherB(
-            reference_catalog=self.reference_obj_array[:, :3],
+            reference_array=self.reference_obj_array[:, :3],
             log=self.log)
         phi = 2.5*__deg_to_rad__
         cos_phi = np.cos(phi)
@@ -221,7 +221,7 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
             phi_rotation, self.source_obj_array[:, :3].transpose()).transpose()
 
         match_struct = self.pyPPMb.match(
-            source_catalog=self.source_obj_array, n_check=9, n_match=6,
+            source_array=self.source_obj_array, n_check=9, n_match=6,
             n_agree=2, max_n_patterns=100, max_shift=60, max_rotation=5.0,
             max_dist=5., min_matches=30, pattern_skip_array=None)
 
@@ -234,7 +234,7 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         """ Test both a shift and rotation being applied to the data.
         """
         self.pyPPMb = PessimisticPatternMatcherB(
-            reference_catalog=self.reference_obj_array[:, :3],
+            reference_array=self.reference_obj_array[:, :3],
             log=self.log)
         theta = np.radians(45.0 / 3600.)
         cos_theta = np.cos(theta)
@@ -259,7 +259,7 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
             self.source_obj_array[:, :3].transpose()).transpose()
 
         match_struct = self.pyPPMb.match(
-            source_catalog=self.source_obj_array, n_check=9, n_match=6,
+            source_array=self.source_obj_array, n_check=9, n_match=6,
             n_agree=2, max_n_patterns=100, max_shift=60., max_rotation=5.0,
             max_dist=5., min_matches=30, pattern_skip_array=None)
 

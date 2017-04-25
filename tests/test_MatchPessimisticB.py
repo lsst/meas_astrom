@@ -130,9 +130,9 @@ class TestMatchOptimisticB(unittest.TestCase):
             measAstrom.plotAstrometry(matches=matches, refCat=refCat, sourceCat=sourceCat)
         if distortFunc == distort.quadraticDistort:
             # Quad distort finds 181 real matches for Pessimistic
-            self.assertEqual(len(matches), 184)
+            self.assertEqual(len(matches), 181)
         else:
-            self.assertEqual(len(matches), 186)
+            self.assertEqual(len(matches), 183)
 
         refCoordKey = afwTable.CoordKey(refCat.schema["coord"])
         srcCoordKey = afwTable.CoordKey(sourceCat.schema["coord"])
