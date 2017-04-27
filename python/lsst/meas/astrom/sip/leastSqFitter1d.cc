@@ -44,7 +44,7 @@ static void declareLeastSqFitter1d(py::module &mod, std::string const &name) {
                                                                                                 name.c_str());
 
     cls.def(py::init<std::vector<double> const &, std::vector<double> const &, std::vector<double> const &,
-                     unsigned int>(),
+                     int>(),
             "x"_a, "y"_a, "s"_a, "order"_a);
 
     cls.def("getParams", &LeastSqFitter1d<FittingFunc>::getParams);

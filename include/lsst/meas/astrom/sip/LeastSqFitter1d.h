@@ -67,8 +67,7 @@ lsst::afw::math::Function1
 template <class FittingFunc>class LeastSqFitter1d {
 public:
     LeastSqFitter1d(const std::vector<double> &x, const std::vector<double> &y, 
-                    const std::vector<double> &s,  
-                    unsigned int order);
+                    const std::vector<double> &s, int order);
 
     Eigen::VectorXd getParams();
     Eigen::VectorXd getErrors();
@@ -106,7 +105,7 @@ private:
 ///\param s Vector of measured uncertainties in the values of z
 ///\param order Order of 2d function to fit
 template<class FittingFunc> LeastSqFitter1d<FittingFunc>::LeastSqFitter1d(const std::vector<double> &x, 
-    const std::vector<double> &y, const std::vector<double> &s, unsigned int order) :
+    const std::vector<double> &y, const std::vector<double> &s, int order) :
     _x(x), _y(y), _s(s), _order(order) {
     
     if (order == 0) {
