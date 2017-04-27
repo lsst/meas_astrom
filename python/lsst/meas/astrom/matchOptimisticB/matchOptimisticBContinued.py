@@ -207,9 +207,9 @@ class MatchOptimisticBTask(pipeBase.Task):
         @param[in] wcs  estimated WCS
         @param[in] refFluxField  field of refCat to use for flux
         @param[in] match_tolerance a MatchTolerance object for specifying
-            tolerances. Must at minimum contains and lsst.afw.geom.Angle
+            tolerances. Must at minimum contain a lsst.afw.geom.Angle
             called maxMatchDist that communicates state between AstrometryTask
-            and the macther Task.
+            and the matcher Task.
         @return an lsst.pipe.base.Struct with fields:
         - matches  a list of matches, each instance of lsst.afw.table.ReferenceMatch
         - usableSourcCat  a catalog of sources potentially usable for matching.

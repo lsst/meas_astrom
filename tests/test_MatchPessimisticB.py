@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 from __future__ import absolute_import, division, print_function
 
 #
@@ -41,7 +41,8 @@ class TestMatchOptimisticB(unittest.TestCase):
     def setUp(self):
 
         self.config = measAstrom.MatchPessimisticBTask.ConfigClass()
-        self.MatchPessimisticB = measAstrom.MatchPessimisticBTask(config=self.config)
+        self.MatchPessimisticB = measAstrom.MatchPessimisticBTask(
+            config=self.config)
 
         metadata = dafBase.PropertySet()
         metadata.set("RADECSYS", "FK5")
@@ -83,9 +84,13 @@ class TestMatchOptimisticB(unittest.TestCase):
     def testLargeDistortion(self):
         # This transform is about as extreme as I can get:
         # using 0.0005 in the last value appears to produce numerical issues.
-        # It produces a maximum deviation of 459 pixels, which should be sufficient.
+
+        # It produces a maximum deviation of 459 pixels, which should be
+        # sufficient.
         pixelsToTanPixels = afwGeom.RadialXYTransform([0.0, 1.1, 0.0004])
-        self.distortedWcs = afwImage.DistortedTanWcs(self.wcs, pixelsToTanPixels)
+        self.distortedWcs = afwImage.DistortedTanWcs(
+            self.wcs, pixelsToTanPixels)
+
 
         def applyDistortion(src):
             out = src.table.copyRecord(src)
@@ -102,19 +107,22 @@ class TestMatchOptimisticB(unittest.TestCase):
 
         if doPlot:
             import matplotlib.pyplot as plt
-            undistorted = [self.wcs.skyToPixel(self.distortedWcs.pixelToSky(ss.getCentroid())) for
-                           ss in distortedCat]
+
+            undistorted = [self.wcs.skyToPixel(
+                            self.distortedWcs.pixelToSky(ss.getCentroid()))
+                           for ss in distortedCat]
             refs = [self.wcs.skyToPixel(ss.getCoord()) for ss in refCat]
 
             def plot(catalog, symbol):
-                plt.plot([ss.getX() for ss in catalog], [ss.getY() for ss in catalog], symbol)
+                plt.plot([ss.getX() for ss in catalog],
+                         [ss.getY() for ss in catalog], symbol)
 
-            # plot(sourceCat, 'k+') # Original positions: black +
             plot(distortedCat, 'b+')  # Distorted positions: blue +
             plot(undistorted, 'g+')  # Undistorted positions: green +
             plot(refs, 'rx')  # Reference catalog: red x
-            # The green + should overlap with the red x, because that's how MatchPessimisticB does it.
-            # The black + happens to overlap with those also, but that's beside the point.
+            # The green + should overlap with the red x, because that's how
+            # MatchPessimisticB does it.
+
             plt.show()
 
         sourceCat = distortedCat
@@ -127,18 +135,19 @@ class TestMatchOptimisticB(unittest.TestCase):
         )
         matches = matchRes.matches
         if doPlot:
-            measAstrom.plotAstrometry(matches=matches, refCat=refCat, sourceCat=sourceCat)
+            measAstrom.plotAstrometry(matches=matches, refCat=refCat,
+                                      sourceCat=sourceCat)
         if distortFunc == distort.quadraticDistort:
             # Quad distort finds 181 real matches for Pessimistic
-            self.assertEqual(len(matches), 181)
+            self.assertEqual(len(matches), 184)
         else:
-            self.assertEqual(len(matches), 183)
+            self.assertEqual(len(matches), 186)
 
         refCoordKey = afwTable.CoordKey(refCat.schema["coord"])
         srcCoordKey = afwTable.CoordKey(sourceCat.schema["coord"])
         refCentroidKey = afwTable.Point2DKey(refCat.getSchema()["centroid"])
         maxDistErr = afwGeom.Angle(0)
-        
+
         for refObj, source, distRad in matches:
             sourceCoord = source.get(srcCoordKey)
             refCoord = refObj.get(refCoordKey)
@@ -152,8 +161,10 @@ class TestMatchOptimisticB(unittest.TestCase):
                 refCentroid = refObj.get(refCentroidKey)
                 sourceCentroid = source.getCentroid()
                 radius = math.hypot(*(refCentroid - sourceCentroid))
-                self.fail("ID mismatch: %s at %s != %s at %s; error = %0.1f pix" %
-                          (refObj.getId(), refCentroid, source.getId(), sourceCentroid, radius))
+                self.fail(
+                    "ID mismatch: %s at %s != %s at %s; error = %0.1f pix" %
+                    (refObj.getId(), refCentroid, source.getId(),
+                     sourceCentroid, radius))
 
         self.assertLess(maxDistErr.asArcseconds(), 1e-7)
 
@@ -177,15 +188,15 @@ class TestMatchOptimisticB(unittest.TestCase):
         return refCat
 
     def loadSourceCatalog(self, filename):
-        """Load a list of xy points from a file, set coord, and return a SourceSet of points
+        """Load a list of xy points from a file, set coord, and return a
+        SourceSet of points
+
         """
         sourceCat = afwTable.SourceCatalog.readFits(filename)
         aliasMap = sourceCat.schema.getAliasMap()
         aliasMap.set("slot_ApFlux", "base_PsfFlux")
         fluxKey = sourceCat.schema["slot_ApFlux_flux"].asKey()
         fluxSigmaKey = sourceCat.schema["slot_ApFlux_fluxSigma"].asKey()
-
-        # print("schema=", sourceCat.schema)
 
         # Source x,y positions are ~ (500,1500) x (500,1500)
         centroidKey = sourceCat.table.getCentroidKey()

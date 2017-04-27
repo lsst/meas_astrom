@@ -1,4 +1,24 @@
-
+#
+# LSST Data Management System
+# Copyright 2008, 2009, 2010 LSST Corporation.
+#
+# This product includes software developed by the
+# LSST Project (http://www.lsst.org/).
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the LSST License Statement and
+# the GNU General Public License along with this program.  If not,
+# see <http://www.lsstcorp.org/LegalNotices/>.
+#
 from __future__ import division, print_function, absolute_import
 
 from copy import copy
@@ -44,7 +64,7 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         self.log = Log()
 
     def testConstructPattern(self):
-        """ Test that a specified pattern can be found in the refernce
+        """ Test that a specified pattern can be found in the reference
         data and that the explicit ids match.
         """
         self.pyPPMb = PessimisticPatternMatcherB(
@@ -137,7 +157,7 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         self.assertEqual(len(match_struct.matches),
                          len(self.reference_obj_array))
         self.assertTrue(
-            np.all(match_struct.distances < 0.01/3600.0*__deg_to_rad__))
+            np.all(match_struct.distances < 0.01/3600.0 * __deg_to_rad__))
 
     def testMatchMoreSources(self):
         """ Test the case where we have more sources than references
@@ -174,9 +194,10 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
             np.all(match_struct.distances < 0.01/3600.0 * __deg_to_rad__))
 
     def testShift(self):
-        """ Test the matcher when a shift is applied to the data. We say
-        shift here as while we are rotating the unit-sphere in 3D on our
-        'focal plane' this will appear as a shift.
+        """ Test the matcher when a shift is applied to the data.
+
+        We say shift here as while we are rotating the unit-sphere in 3D, on
+        our 'focal plane' this will appear as a shift.
         """
         self.pyPPMb = PessimisticPatternMatcherB(
             reference_array=self.reference_obj_array[:, :3],
@@ -184,10 +205,8 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         theta = np.radians(45.0 / 3600.)
         cos_theta = np.cos(theta)
         sin_theta = np.sin(theta)
-        theta_rotation = np.array(
-            [[cos_theta, -sin_theta, 0.],
-             [sin_theta,  cos_theta, 0.],
-             [       0.,         0., 1.]])
+        theta_rotation = self.pyPPMb._create_spherical_rotation_matrix(
+            np.array([0, 0, 1]), cos_theta, sin_theta)
 
         self.source_obj_array[:, :3] = np.dot(
             theta_rotation,
@@ -201,7 +220,7 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         self.assertEqual(len(match_struct.matches),
                          len(self.reference_obj_array))
         self.assertTrue(
-            np.all(match_struct.distances < 0.1/3600.0 * __deg_to_rad__))
+            np.all(match_struct.distances < 0.01/3600.0 * __deg_to_rad__))
 
     def testRotation(self):
         """ Test the matcher for when a roation is applied to the data.
@@ -212,10 +231,8 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         phi = 2.5*__deg_to_rad__
         cos_phi = np.cos(phi)
         sin_phi = np.sin(phi)
-        phi_rotation = np.array(
-            [[1.,      0.,       0.],
-             [0., cos_phi, -sin_phi],
-             [0., sin_phi,  cos_phi]])
+        phi_rotation = self.pyPPMb._create_spherical_rotation_matrix(
+            np.array([1, 0, 0]), cos_phi, sin_phi)
 
         self.source_obj_array[:, :3] = np.dot(
             phi_rotation, self.source_obj_array[:, :3].transpose()).transpose()
@@ -228,7 +245,7 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         self.assertEqual(len(match_struct.matches),
                          len(self.reference_obj_array))
         self.assertTrue(
-            np.all(match_struct.distances < 0.1 / 3600.0 * __deg_to_rad__))
+            np.all(match_struct.distances < 0.01/3600.0 * __deg_to_rad__))
 
     def testShiftRotation(self):
         """ Test both a shift and rotation being applied to the data.
@@ -239,18 +256,14 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         theta = np.radians(45.0 / 3600.)
         cos_theta = np.cos(theta)
         sin_theta = np.sin(theta)
-        theta_rotation = np.array(
-            [[cos_theta, -sin_theta, 0.],
-             [sin_theta,  cos_theta, 0.],
-             [       0.,         0., 1.]])
+        theta_rotation = self.pyPPMb._create_spherical_rotation_matrix(
+            np.array([0, 0, 1]), cos_theta, sin_theta)
 
         phi = 2.5*__deg_to_rad__
         cos_phi = np.cos(phi)
         sin_phi = np.sin(phi)
-        phi_rotation = np.array(
-            [[1.,      0.,       0.],
-             [0., cos_phi, -sin_phi],
-             [0., sin_phi,  cos_phi]])
+        phi_rotation = self.pyPPMb._create_spherical_rotation_matrix(
+            np.array([1, 0, 0]), cos_phi, sin_phi)
 
         shift_rot_matrix = np.dot(theta_rotation, phi_rotation)
 
@@ -266,7 +279,7 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         self.assertEqual(len(match_struct.matches),
                          len(self.reference_obj_array))
         self.assertTrue(
-            np.all(match_struct.distances < 0.1/3600.0 * __deg_to_rad__))
+            np.all(match_struct.distances < 0.01/3600.0 * __deg_to_rad__))
 
 
 if __name__ == '__main__':
