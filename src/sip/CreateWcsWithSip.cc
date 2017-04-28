@@ -252,7 +252,7 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
 
     afwGeom::Point2D crval = _getCrvalAsGeomPoint();
 
-    _linearWcs = afwImg::Wcs::Ptr( new afwImg::Wcs(crval, crpix, CD));
+    _linearWcs = std::shared_ptr<afwImg::Wcs>( new afwImg::Wcs(crval, crpix, CD));
 
     //Get Sip terms
     
