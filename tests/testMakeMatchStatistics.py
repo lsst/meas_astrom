@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-from __future__ import absolute_import, division, print_function
-from builtins import zip
 #
 # LSST Data Management System
 # Copyright 2015 LSST Corporation.
@@ -22,6 +19,8 @@ from builtins import zip
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
+from __future__ import absolute_import, division, print_function
+from builtins import zip
 import unittest
 import math
 
@@ -77,8 +76,8 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
 
         np.random.seed(5)
         pixPointList = [afwGeom.Point2D(pos) for pos in
-                        np.random.random_sample([self.numMatches, 2])*self.bboxD.getDimensions()
-                        + self.bboxD.getMin()]
+                        np.random.random_sample([self.numMatches, 2])*self.bboxD.getDimensions() +
+                        self.bboxD.getMin()]
         for pixPoint in pixPointList:
             src = self.sourceCat.addNew()
             src.set(self.sourceCentroidKey, pixPoint)

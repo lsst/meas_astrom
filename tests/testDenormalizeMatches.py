@@ -1,3 +1,5 @@
+from __future__ import absolute_import, division, print_function
+
 import sys
 import unittest
 
@@ -5,6 +7,7 @@ import lsst.afw.geom
 import lsst.afw.table
 
 from lsst.meas.astrom import denormalizeMatches
+
 
 class DenormalizeMatchesTestCase(unittest.TestCase):
     """Test the behaviour of the denormalizedMatches function"""

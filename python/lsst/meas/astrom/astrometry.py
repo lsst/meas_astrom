@@ -20,6 +20,9 @@
 # see <https://www.lsstcorp.org/LegalNotices/>.
 #
 from __future__ import absolute_import, division, print_function
+
+__all__ = ["AstrometryConfig", "AstrometryTask"]
+
 from builtins import range
 
 import lsst.pex.config as pexConfig
@@ -104,7 +107,7 @@ class AstrometryTask(RefMatchTask):
 
     @section meas_astrom_astrometry_Example  A complete example of using AstrometryTask
 
-    See \ref meas_photocal_photocal_Example.
+    See \ref pipe_tasks_photocal_Example.
 
     @section meas_astrom_astrometry_Debug        Debug variables
 

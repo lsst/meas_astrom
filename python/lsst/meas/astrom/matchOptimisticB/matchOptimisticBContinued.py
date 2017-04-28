@@ -1,16 +1,20 @@
 from __future__ import absolute_import, division, print_function
+
+__all__ = ["matchOptimisticB", "MatchOptimisticBTask", "MatchOptimisticBConfig", "SourceInfo"]
+
 from builtins import range
 from builtins import object
 import math
 
+import numpy as np
+
+from lsst.afw.table import Point2DKey
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from lsst.meas.algorithms.sourceSelector import sourceSelectorRegistry
 
 from ..setMatchDistance import setMatchDistance
 from . import matchOptimisticB, MatchOptimisticBControl
-
-__all__ = ["matchOptimisticB", "MatchOptimisticBTask", "MatchOptimisticBConfig", "SourceInfo"]
 
 
 class MatchOptimisticBConfig(pexConfig.Config):
@@ -107,7 +111,7 @@ class SourceInfo(object):
 
         @throw RuntimeError if the flux field is not found
         """
-        self.centroidKey = afwTable.Point2DKey(schema["slot_Centroid"])
+        self.centroidKey = Point2DKey(schema["slot_Centroid"])
         self.centroidFlagKey = schema["slot_Centroid_flag"].asKey()
         self.edgeKey = schema["base_PixelFlags_flag_edge"].asKey()
         self.saturatedKey = schema["base_PixelFlags_flag_saturated"].asKey()
@@ -210,7 +214,7 @@ class MatchOptimisticBTask(pipeBase.Task):
     @section meas_astrom_matchOptimisticB_Example  A complete example of using MatchOptimisticBTask
 
     MatchOptimisticBTask is a subtask of AstrometryTask, which is called by PhotoCalTask.
-    See \ref meas_photocal_photocal_Example.
+    See \ref pipe_tasks_photocal_Example.
 
     @section meas_astrom_matchOptimisticB_Debug        Debug variables
 
@@ -352,7 +356,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         return (not source.get(self.edgeKey) and
                 not source.get(self.interpolatedCenterKey) and
                 not source.get(self.saturatedKey))
-        
+
     @pipeBase.timeMethod
     def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numUsableSources, minMatchedPairs,
                  maxMatchDist, sourceFluxField, verbose):
@@ -370,7 +374,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         @param[in] maxMatchDist  maximum on-sky distance between reference objects and sources
             (an lsst.afw.geom.Angle); if specified then the smaller of config.maxMatchDistArcSec or
             maxMatchDist is used; if None then config.maxMatchDistArcSec is used
-        @param[in] sourceInfo  SourceInfo for the sourceCat
+        @param[in] sourceFluxField  Name of flux field in source catalog
         @param[in] verbose  true to print diagnostic information to std::cout
 
         @return a list of matches, an instance of lsst.afw.table.ReferenceMatch

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from __future__ import absolute_import, division, print_function
 
 #
@@ -26,7 +25,8 @@ from __future__ import absolute_import, division, print_function
 import os
 import sys
 import unittest
-import numpy
+
+import numpy as np
 
 import lsst.utils.tests
 import lsst.meas.astrom
@@ -42,7 +42,7 @@ class DirectMatchTestCase(lsst.utils.tests.TestCase):
     """Tests for lsst.meas.astrom.DirectMatchTask"""
 
     def setUp(self):
-        numpy.random.seed(12345)
+        np.random.seed(12345)
         self.butler = Butler(RefCatDir)
         refObjLoader = LoadIndexedReferenceObjectsTask(butler=self.butler)
         center = lsst.afw.coord.IcrsCoord(215.5*lsst.afw.geom.degrees, 53.0*lsst.afw.geom.degrees)
@@ -81,9 +81,9 @@ class DirectMatchTestCase(lsst.utils.tests.TestCase):
         offset = (0.1*lsst.afw.geom.arcseconds).asRadians()
         num = len(references)
         ra, dec = references["coord_ra"], references["coord_dec"]
-        cosDec = numpy.cos(dec.mean())
-        ra += offset/cosDec*numpy.random.uniform(-1.0, 1.0, num)
-        dec += offset*numpy.random.uniform(-1.0, 1.0, num)
+        cosDec = np.cos(dec.mean())
+        ra += offset/cosDec*np.random.uniform(-1.0, 1.0, num)
+        dec += offset*np.random.uniform(-1.0, 1.0, num)
         self.checkMatching(references)
 
 

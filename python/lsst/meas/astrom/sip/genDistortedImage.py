@@ -1,5 +1,3 @@
-from __future__ import print_function
-from builtins import range
 #
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
@@ -21,10 +19,17 @@ from builtins import range
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
+from __future__ import absolute_import, division, print_function
+
+__all__ = ["noDistort", "linearXDistort", "quadraticDistortX",
+           "cubicDistortX", "manyTermX", "crossTerms1",
+           "crossTerms2", "crossTerms3", "quadraticDistort",
+           "T2DistortX", "T2DistortX"]
+
+from builtins import range
 
 import math
 
-import lsst.afw.image as afwImg
 import lsst.afw.table as afwTable
 
 
@@ -213,8 +218,8 @@ def T2DistortX(src, frac=1e-6):
 
 
 def distortList(srcList, function):
-    """Create a copy of srcList, and apply function to distort the 
-    values of x and y. 
+    """Create a copy of srcList, and apply function to distort the
+    values of x and y.
 
     Input:
     srcList     a SourceSet object

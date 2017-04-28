@@ -1,10 +1,10 @@
 from __future__ import absolute_import, division, print_function
 
+__all__ = ["MatchMetadata", "createMatchMetadata"]
+
 from lsst.daf.base import PropertyList
 from lsst.afw.geom import Box2D
 from lsst.afw.image.utils import getDistortedWcs
-
-__all__ = ["MatchMetadata", "createMatchMetadata"]
 
 
 class MatchMetadata(PropertyList):

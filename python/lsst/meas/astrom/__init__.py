@@ -30,12 +30,8 @@ from .sipTransform import *
 from . import sip
 
 from .ref_match import *
-from .astrometryNetDataConfig import *
-from .anetBasicAstrometry import *
 from .astrometry import *
-from .anetAstrometry import *
 from .approximateWcs import *
-from .loadAstrometryNetObjects import *
 from .matchOptimisticB import *
 from .setMatchDistance import *
 from .display import *
@@ -43,6 +39,7 @@ from .approximateWcs import *
 from .createMatchMetadata import *
 from .catalogStarSelector import *
 from .directMatch import *
+from .fitTanSipWcs import *
 from .fitSipDistortion import *
 from .denormalizeMatches import *
 from .version import *

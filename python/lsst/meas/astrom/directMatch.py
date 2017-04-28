@@ -1,19 +1,19 @@
 from __future__ import absolute_import, division, print_function
 
+__all__ = ["DirectMatchConfig", "DirectMatchTask"]
+
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import Task, Struct
-from . import MatchMetadata, LoadAstrometryNetObjectsTask
+from .createMatchMetadata import MatchMetadata
+from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
 import lsst.afw.table as afwTable
 import lsst.afw.coord as afwCoord
 from lsst.afw.geom import arcseconds
 
 
-__all__ = ["DirectMatchConfig", "DirectMatchTask"]
-
-
 class DirectMatchConfig(Config):
     """Configuration for DirectMatchTask"""
-    refObjLoader = ConfigurableField(target=LoadAstrometryNetObjectsTask, doc="Load reference objects")
+    refObjLoader = ConfigurableField(target=LoadIndexedReferenceObjectsTask, doc="Load reference objects")
     matchRadius = Field(dtype=float, default=0.25, doc="Matching radius, arcsec")
 
 
@@ -82,8 +82,8 @@ class DirectMatchTask(Task):
     def run(self, catalog, filterName=None):
         """!Load reference objects and match to them
 
-        @param catalog[in]  Catalog to match to (lsst.afw.table.SourceCatalog)
-        @param filterName[in]  Name of filter, for loading fluxes (str)
+        @param[in] catalog  Catalog to match to (lsst.afw.table.SourceCatalog)
+        @param[in] filterName  Name of filter, for loading fluxes (str)
         @return Struct with matches (lsst.afw.table.SourceMatchVector) and
             matchMeta (lsst.meas.astrom.MatchMetadata)
         """
@@ -98,7 +98,7 @@ class DirectMatchTask(Task):
     def calculateCircle(self, catalog):
         """!Calculate a circle enclosing the catalog
 
-        @param catalog[in]  Catalog we will encircle (lsst.afw.table.SourceCatalog)
+        @param[in] catalog  Catalog we will encircle (lsst.afw.table.SourceCatalog)
         @return Struct with center (lsst.afw.coord.Coord) and radius (lsst.afw.geom.Angle)
         """
         coordList = [src.getCoord() for src in catalog]

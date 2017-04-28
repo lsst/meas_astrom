@@ -1,5 +1,3 @@
-from builtins import range
-#!/usr/bin/env python
 #
 # LSST Data Management System
 #
@@ -22,6 +20,9 @@ from builtins import range
 # the GNU General Public License along with this program.  If not,
 # see <https://www.lsstcorp.org/LegalNotices/>.
 #
+from __future__ import absolute_import, division, print_function
+
+from builtins import range
 import os
 import unittest
 
@@ -55,7 +56,6 @@ class joinMatchListWithCatalogTestCase(unittest.TestCase):
         mi.assign(smallExposure.getMaskedImage(), smallExposure.getBBox())
 
         logLevel = Log.INFO
-        #logLevel = Log.DEBUG
         refCatDir = os.path.join(testDir, "data", "sdssrefcat")
         butler = Butler(refCatDir)
         refObjLoader = LoadIndexedReferenceObjectsTask(butler=butler)

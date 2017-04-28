@@ -1,4 +1,7 @@
 from __future__ import absolute_import, division, print_function
+
+__all__ = ["FitTanSipWcsTask", "FitTanSipWcsConfig"]
+
 from builtins import zip
 from builtins import range
 
@@ -12,8 +15,6 @@ import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from .setMatchDistance import setMatchDistance
 from .sip import makeCreateWcsWithSip
-
-__all__ = ["FitTanSipWcsTask", "FitTanSipWcsConfig"]
 
 
 class FitTanSipWcsConfig(pexConfig.Config):
@@ -94,7 +95,7 @@ class FitTanSipWcsTask(pipeBase.Task):
     @section meas_astrom_fitTanSipWcs_Example  A complete example of using FitTanSipWcsTask
 
     FitTanSipWcsTask is a subtask of AstrometryTask, which is called by PhotoCalTask.
-    See \ref meas_photocal_photocal_Example.
+    See \ref pipe_tasks_photocal_Example.
 
     @section meas_astrom_fitTanSipWcs_Debug        Debug variables
 

@@ -1,4 +1,3 @@
-from builtins import range
 #
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
@@ -20,6 +19,11 @@ from builtins import range
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
+from __future__ import absolute_import, division, print_function
+
+__all__ = ["checkMatches"]
+
+from builtins import range
 
 import numpy as np
 
@@ -28,6 +32,7 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.math as afwMath
 import lsst.meas.algorithms as measAlg
 from lsst.log import Log
+
 
 def checkMatches(srcMatchSet, exposure, log=None):
     if not exposure:
