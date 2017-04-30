@@ -1,8 +1,6 @@
 
 from __future__ import division, print_function, absolute_import
 
-from buildtins import xrange
-
 import numpy as np
 from scipy.spatial import cKDTree
 
@@ -254,8 +252,8 @@ class PessimisticPatternMatcherB(object):
 
         # Loop through the sources from brightest to faintest, grabbing a
         # chunk of n_check each time.
-        for pattern_idx in xrange(np.min((max_n_patterns,
-                                          n_source - n_match))):
+        for pattern_idx in range(np.min((max_n_patterns,
+                                         n_source - n_match))):
 
             # If this pattern is one that we matched on the past but we
             # now want to skip, we do so here.
@@ -790,7 +788,7 @@ class PessimisticPatternMatcherB(object):
         # candidate for. We break the loop if we haven't found enough.
         n_fail = 0
         # Loop over the source pairs.
-        for src_idx in xrange(1, len(src_dist_array)):
+        for src_idx in range(1, len(src_dist_array)):
             if n_fail > len(src_dist_array) - (n_match - 1):
                 break
 
@@ -1066,9 +1064,9 @@ class PessimisticPatternMatcherB(object):
                        (rot_vect_list[-1][-1], len(rot_vect_list) - 1))
 
         tot_consent = 0
-        for rot_idx in xrange(max((len(rot_vect_list) - 1), 0)):
+        for rot_idx in range(max((len(rot_vect_list) - 1), 0)):
             tmp_dist_list = []
-            for vect_idx in xrange(len(rot_vect_list[rot_idx]) - 1):
+            for vect_idx in range(len(rot_vect_list[rot_idx]) - 1):
                 tmp_delta_vect = (rot_vect_list[rot_idx][vect_idx] -
                                   rot_vect_list[-1][vect_idx])
                 tmp_dist_list.append(
