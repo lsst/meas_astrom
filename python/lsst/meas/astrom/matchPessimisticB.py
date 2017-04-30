@@ -413,7 +413,7 @@ class MatchPessimisticBTask(pipeBase.Task):
         pyPPMb = PessimisticPatternMatcherB(ref_array[:, :3], self.log)
 
         # Start the ineration over our tolerances.
-        for try_idx in xrange(self.config.matcherIterations):
+        for try_idx in range(self.config.matcherIterations):
             if try_idx == 0:
                 # If we are on the first, most stringent tolerance,
                 # the matcher should behave like an optimistic pattern
@@ -556,8 +556,8 @@ class MatchPessimisticBTask(pipeBase.Task):
         tmp_sort_array = cat_array[flux_args_array]
 
         # Start making patterns.
-        for start_idx in xrange(cat_array.shape[0] -
-                                self.config.numPointsForShape):
+        for start_idx in range(cat_array.shape[0] -
+                               self.config.numPointsForShape):
             pattern_points = tmp_sort_array[start_idx:start_idx +
                                             self.config.numPointsForShape, :-1]
             pattern_delta = pattern_points[1:, :] - pattern_points[0, :]
