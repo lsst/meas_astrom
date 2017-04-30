@@ -1137,7 +1137,7 @@ class PessimisticPatternMatcherB(object):
             distances=tmp_src_dist[final_mask],)
 
     def _handshake_match(self, matches_ref, matches_src):
-    	"""Return only those matches where both the source
+        """Return only those matches where both the source
         and reference objects agree they they are each others'
         nearest neighbor.
 
@@ -1155,8 +1155,8 @@ class PessimisticPatternMatcherB(object):
         bool array
            Return the array positions where the two match catalogs agree.
         """
-
         handshake_mask_array = np.zeros(len(matches_ref))
+
         for ref_match_idx, match in enumerate(matches_ref):
             src_match_idx = np.searchsorted(matches_src[:, 0], match[0])
             if match[1] == matches_src[src_match_idx, 1]:
