@@ -109,7 +109,7 @@ class RefMatchTask(pipeBase.Task):
             sourceCat=sourceCat,
             wcs=expMd.wcs,
             refFluxField=loadRes.fluxField,
-            maxMatchDist=None,
+            match_tolerance=None,
         )
 
         distStats = self._computeMatchStatsOnSky(matchRes.matches)

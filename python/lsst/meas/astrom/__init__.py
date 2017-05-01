@@ -33,6 +33,7 @@ from .ref_match import *
 from .astrometry import *
 from .approximateWcs import *
 from .matchOptimisticB import *
+from .matchPessimisticB import *
 from .setMatchDistance import *
 from .display import *
 from .approximateWcs import *
