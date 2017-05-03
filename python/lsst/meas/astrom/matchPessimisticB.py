@@ -62,7 +62,8 @@ class MatchTolerancePessimistic(MatchTolerance):
         self.autoMaxMatchDist = autoMaxMatchDist
         self.maxShift = maxShift
         self.lastMatchedPattern = lastMatchedPattern
-        self.failedPatternList = failedPatternList
+        if failedPatternList is None:
+            self.failedPatternList = []
 
 
 class MatchPessimisticBConfig(pexConfig.Config):
@@ -451,22 +452,24 @@ class MatchPessimisticBTask(pipeBase.Task):
                     pattern_skip_array=np.array(
                         match_tolerance.failedPatternList)
                 )
-            if len(matcher_struct.matches) < 0 and \
-               match_tolerance.lastPattern is None and \
-               try_idx == 0:
-                # If we found a pattern on a previous run and can't
-                # find an optimistic match with the harshest tolerances,
-                # the match we found previously was likely bad. We append
-                # its index to a list so we do not use it in future match
-                # iterations.
+            if try_idx == 0 and \
+               len(matcher_struct.matches) == 0 and \
+               match_tolerance.lastMatchedPattern is not None:
+                # If we found a pattern on a previous match-fit iteration and
+                # can't find an optimistic match on our first try with the 
+                # tolerances as found in the previous match-fit,
+                # the match we found in the last iteration was likely bad. We
+                # append the bad match's index to the a list of
+                # patterns/matches to skip on subsequent iterations.
                 match_tolerance.failedPatternList.append(
-                    match_tolerance.lastPattern)
+                    match_tolerance.lastMatchedPattern)
+                match_tolerance.lastMatchedPattern = None
             elif len(matcher_struct.matches) > 0:
                 # Match found, save a bit a state regarding this pattern
                 # in the struct and exit.
                 match_tolerance.maxShift = afwgeom.Angle(matcher_struct.shift,
                                                          afwgeom.arcseconds)
-                match_tolerance.lastPattern = matcher_struct.pattern_idx
+                match_tolerance.lastMatchedPattern = matcher_struct.pattern_idx
                 break
 
         # A match has been found, return our list of matches and
