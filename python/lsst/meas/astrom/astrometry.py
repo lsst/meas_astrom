@@ -25,8 +25,6 @@ __all__ = ["AstrometryConfig", "AstrometryTask"]
 
 from builtins import range
 
-import random
-
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 import lsst.afw.geom as afwGeom
@@ -60,11 +58,6 @@ class AstrometryConfig(RefMatchConfig):
         dtype=float,
         default=0.001,
         min=0,
-    )
-    doWriteOutput = pexConfig.Field(
-        dtype=bool,
-        default=True,
-        doc="Write used flag to the schema",
     )
 
 # The following block adds links to this task from the Task Documentation page.
@@ -159,9 +152,9 @@ class AstrometryTask(RefMatchTask):
         """
         RefMatchTask.__init__(self, refObjLoader, schema=schema, **kwargs)
 
-        if self.config.doWriteOutput and not schema is None:
+        if schema is not None:
             self.usedKey = schema.addField("calib_astrometryUsed", type="Flag",
-                                               doc="set if source was used in astrometric calibration")
+                                           doc="set if source was used in astrometric calibration")
         else:
             self.usedKey = None
 
