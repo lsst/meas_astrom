@@ -85,6 +85,47 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         """
         self.doTest(afwGeom.RadialXYTransform([0, 1.01, 1e-7]))
 
+    def testUsedFlag(self):
+        """Test that the solver will record number of sources used to table
+           if it is passed a schema on initialization.
+        """
+        distortedWcs = afwImage.DistortedTanWcs(self.tanWcs, afwGeom.IdentityXYTransform())
+        self.exposure.setWcs(distortedWcs)
+        loadRes = self.refObjLoader.loadPixelBox(bbox=self.bbox, wcs=distortedWcs, filterName="r")
+        refCat = loadRes.refCat
+        refCentroidKey = afwTable.Point2DKey(refCat.schema["centroid"])
+        refFluxRKey = refCat.schema["r_flux"].asKey()
+
+        sourceSchema = afwTable.SourceTable.makeMinimalSchema()
+        measBase.SingleFrameMeasurementTask(schema=sourceSchema)  # expand the schema
+        config = AstrometryTask.ConfigClass()
+        config.wcsFitter.order = 2
+        config.wcsFitter.numRejIter = 0
+        #   schema must be passed to the solver task constructor
+        solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=sourceSchema)
+        sourceCat = afwTable.SourceCatalog(sourceSchema)
+        sourceCentroidKey = afwTable.Point2DKey(sourceSchema["slot_Centroid"])
+        sourceFluxKey = sourceSchema["slot_ApFlux_flux"].asKey()
+        sourceFluxSigmaKey = sourceSchema["slot_ApFlux_fluxSigma"].asKey()
+
+        for refObj in refCat:
+            src = sourceCat.addNew()
+            src.set(sourceCentroidKey, refObj.get(refCentroidKey))
+            src.set(sourceFluxKey, refObj.get(refFluxRKey))
+            src.set(sourceFluxSigmaKey, refObj.get(refFluxRKey)/100)
+
+        results = solver.run(
+            sourceCat=sourceCat,
+            exposure=self.exposure,
+        )
+        #   check that the used flag is set the right number of times
+        count = 0
+        flagKey = sourceCat.getSchema().find("calib_astrometryUsed").key
+        for source in sourceCat:
+            if source.get(flagKey):
+                count += 1
+        self.assertEqual(count, len(results.matches))
+
     def doTest(self, pixelsToTanPixels, order=3):
         """Test using pixelsToTanPixels to distort the source positions
         """
@@ -95,6 +136,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         config.wcsFitter.order = order
         config.wcsFitter.numRejIter = 0
         solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
+
         results = solver.run(
             sourceCat=sourceCat,
             exposure=self.exposure,

@@ -61,11 +61,6 @@ class AstrometryConfig(RefMatchConfig):
         default=0.001,
         min=0,
     )
-    doWriteOutput = pexConfig.Field(
-        dtype=bool,
-        default=True,
-        doc="Write used flag to the schema",
-    )
 
 # The following block adds links to this task from the Task Documentation page.
 ## \addtogroup LSST_task_documentation
@@ -159,7 +154,7 @@ class AstrometryTask(RefMatchTask):
         """
         RefMatchTask.__init__(self, refObjLoader, schema=schema, **kwargs)
 
-        if self.config.doWriteOutput and not schema is None:
+        if not schema is None:
             self.usedKey = schema.addField("calib_astrometryUsed", type="Flag",
                                                doc="set if source was used in astrometric calibration")
         else:
