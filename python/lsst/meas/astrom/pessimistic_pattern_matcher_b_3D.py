@@ -123,11 +123,12 @@ class PessimisticPatternMatcherB(object):
             self._pair_id_array[ref_id, ref_id:] = sub_id_array[:, 1]
             self._pair_delta_array[ref_id, ref_id:, :] = sub_delta_array
             self._pair_dist_array[ref_id, ref_id:] = sub_dist_array
-
-            # Don't fill the array column wise if we are on the last object
-            # to avoid array overrun.
+            
+            # Don't fill the array column wise if we are on the last as
+            # these pairs have already been filled by pervious 
+            # iterations.
             if ref_id < self._n_reference - 1:
-                self._pair_id_array[ref_id + 1:, ref_id] = sub_id_array[:, 1]
+                self._pair_id_array[ref_id + 1:, ref_id] = ref_id
                 self._pair_delta_array[ref_id + 1:, ref_id, :] = \
                     sub_delta_array
                 self._pair_dist_array[ref_id + 1:, ref_id] = sub_dist_array
@@ -320,12 +321,12 @@ class PessimisticPatternMatcherB(object):
                 self.log.debug("\tShift %.4f arcsec" % shift)
                 self.log.debug("\tRotation: %.4f deg" %
                                np.degrees(np.arcsin(sin_rot)))
-                # Return.
+
+                # Fill the struct and return.
                 output_match_struct.matches = match_sources_struct.matches
                 output_match_struct.distances = match_sources_struct.distances
                 output_match_struct.pattern_idx = pattern_idx
                 output_match_struct.shift = shift
-
                 return output_match_struct
 
         self.log.warn("Failed after %i patterns." % (pattern_idx + 1))
@@ -436,7 +437,7 @@ class PessimisticPatternMatcherB(object):
         # the shift and rotation of the final pattern.
         output_matched_pattern = pipeBase.Struct(
             ref_candidates=[],
-            src_candidates=[0, 1],
+            src_candidates=[],
             shift_rot_matrix=None,
             cos_shift=None,
             sin_rot=None)
@@ -467,11 +468,11 @@ class PessimisticPatternMatcherB(object):
             # over and test both possiblities.
             tmp_ref_pair_list = self._id_array[ref_dist_idx]
             for pair_idx, ref_id in enumerate(tmp_ref_pair_list):
-                output_matched_pattern.src_candidates = [0, 1]
-                output_matched_pattern.ref_candidates = []
-                output_matched_pattern.shift_rot_matrix = None
-                output_matched_pattern.cos_shift = None
-                output_matched_pattern.sin_rot = None
+                src_candidates = [0, 1]
+                ref_candidates = []
+                shift_rot_matrix = None
+                cos_shift = None
+                sin_rot = None
                 # Test the angle between our candidate ref center and the
                 # source center of our pattern. This angular distance also
                 # defines the shift we will later use.
@@ -480,20 +481,17 @@ class PessimisticPatternMatcherB(object):
                 if cos_shift < max_cos_theta_shift:
                     continue
 
-                # Store the current cos shift.
-                output_matched_pattern.cos_shift = cos_shift
-
                 # We can now append this one as a candaite.
-                output_matched_pattern.ref_candidates.append(ref_id)
+                ref_candidates.append(ref_id)
                 ref_delta = self._delta_array[ref_dist_idx]
                 # If the candidate reference center we found is second in
                 # this pair we need to reverse the direction of the
                 # corresponding pair's delta vector.
                 if pair_idx == 0:
-                    output_matched_pattern.ref_candidates.append(
+                    ref_candidates.append(
                         tmp_ref_pair_list[1])
                 else:
-                    output_matched_pattern.ref_candidates.append(
+                    ref_candidates.append(
                         tmp_ref_pair_list[0])
                     ref_delta *= -1
 
@@ -537,10 +535,8 @@ class PessimisticPatternMatcherB(object):
                     continue
 
                 # If we have the right number of matched ids we store these.
-                output_matched_pattern.ref_candidates.extend(
-                    pattern_spoke_struct.ref_spoke_list)
-                output_matched_pattern.src_candidates.extend(
-                    pattern_spoke_struct.src_spoke_list)
+                ref_candidates.extend(pattern_spoke_struct.ref_spoke_list)
+                src_candidates.extend(pattern_spoke_struct.src_spoke_list)
 
                 # We can now create our full rotation matrix for both the
                 # shift and rotation. Reminder shift, aligns the pattern
@@ -555,20 +551,24 @@ class PessimisticPatternMatcherB(object):
                     continue
 
                 # Get the data from the return struct.
-                output_matched_pattern.sin_rot = shift_rot_struct.sin_rot
-                output_matched_pattern.shift_rot_matrix = \
-                    shift_rot_struct.shift_rot_matrix
+                sin_rot = shift_rot_struct.sin_rot
+                shift_rot_matrix = shift_rot_struct.shift_rot_matrix
 
                 # Now that we have enough candidates we test to see if it
                 # passes intermediate verify. This shifts and rotates the
                 # source pattern into the reference frame and tests that each
                 # source/reference object pair is within max_dist.
                 if self._intermediate_verify(
-                        src_pattern_array[
-                            output_matched_pattern.src_candidates],
-                        self._reference_array[
-                            output_matched_pattern.ref_candidates],
-                        output_matched_pattern.shift_rot_matrix, max_dist_rad):
+                        src_pattern_array[src_candidates],
+                        self._reference_array[ref_candidates],
+                        shift_rot_matrix, max_dist_rad):
+
+                    # Fill the struct and return.
+                    output_matched_pattern.ref_candidates = ref_candidates
+                    output_matched_pattern.src_candidates = src_candidates
+                    output_matched_pattern.shift_rot_matrix = shift_rot_matrix
+                    output_matched_pattern.cos_shift = cos_shift
+                    output_matched_pattern.sin_rot = sin_rot
                     return output_matched_pattern
 
         return output_matched_pattern
@@ -787,6 +787,8 @@ class PessimisticPatternMatcherB(object):
         # Counter for number of spokes we failed to find a reference
         # candidate for. We break the loop if we haven't found enough.
         n_fail = 0
+        ref_spoke_list = []
+        src_spoke_list = []
         # Loop over the source pairs.
         for src_idx in range(1, len(src_dist_array)):
             if n_fail > len(src_dist_array) - (n_match - 1):
@@ -822,18 +824,19 @@ class PessimisticPatternMatcherB(object):
 
             # Append the successful indices to our list. The src_idx needs
             # an extra iteration to skip the first and second source objects.
-            output_spokes.ref_spoke_list.append(ref_id)
-            output_spokes.src_spoke_list.append(src_idx + 1)
+            ref_spoke_list.append(ref_id)
+            src_spoke_list.append(src_idx + 1)
             # If we found enough reference objects we can return early. This is
             # n_match - 2 as we already have 2 source objects matched into the
             # reference data.
-            if len(output_spokes.ref_spoke_list) >= n_match - 2:
-                break
+            if len(ref_spoke_list) >= n_match - 2:
+                # Set the struct data and return the struct.
+                output_spokes.ref_spoke_list = ref_spoke_list
+                output_spokes.src_spoke_list = src_spoke_list
+                return output_spokes
+
         return output_spokes
 
-    # TODO: Possibly clean up the arguments here by pre computing
-    # the source dot and cross products of the opening angle in the
-    # previous method.
     def _test_spoke(self, src_ctr, src_delta, src_dist, src_ctr_delta,
                     src_ctr_dist, ref_ctr, ref_ctr_id, ref_delta, ref_dist,
                     ref_dist_idx_array, ref_delta_array, ref_dist_array,
