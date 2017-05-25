@@ -36,8 +36,8 @@ class MatchTolerancePessimistic(MatchTolerance):
         """Construct a MatchPessimisticTolerance
 
         MatchPessimisticBTask relies on several state variables to be
-        preserved over different iterations in the matchAndFitWcs loop of
-        AstrometryTask.
+        preserved over different iterations in the
+        AstrometryTask.matchAndFitWcs loop of AstrometryTask.
 
         Parameters
         ----------
@@ -54,7 +54,7 @@ class MatchTolerancePessimistic(MatchTolerance):
             a successful pattern match was found.
         failedPatternList : list of ints
             List of ints specifying indicies in the magnitude sourced source
-            array to skip. These are skipped are pervious iterations that are
+            array to skip. These are skipped are previous iterations that are
             likely false positives due to the code having to soften after a
             pattern is matched.
         """
@@ -135,11 +135,11 @@ class MatchPessimisticBConfig(pexConfig.Config):
         doc="How to select sources for cross-matching. The default "
             "matcherSourceSelector removes objects with low S/N, bad "
             "saturated objects, edge objects, and interpolated objects.",
-        default="matcher"
+        default="matcherPessimistic"
     )
 
     def setDefaults(self):
-        sourceSelector = self.sourceSelector["matcher"]
+        sourceSelector = self.sourceSelector["matcherPessimistic"]
         sourceSelector.setDefaults()
 
     def validate(self):
@@ -342,18 +342,6 @@ class MatchPessimisticBTask(pipeBase.Task):
             lsst.afw.table.ReferenceMatch, a MatchTolerance object
         """
 
-        # Set configurable defaults when we encounter None type or set
-        # state based on pervious run of matchandfit.
-        if match_tolerance.maxShift is None:
-            maxShiftArcseconds = (self.config.maxOffsetPix *
-                                  wcs.pixelScale().asArcseconds())
-        else:
-            # We don't want to clamp down to hard on the allowed shift so
-            # we test that the smallest we ever allow is the pixel scale.
-            maxShiftArcseconds = np.max(
-                (match_tolerance.maxShift.asArcseconds(),
-                 wcs.pixelScale().asArcseconds()))
-
         # Load the source and reference catalog as spherical points
         # in numpy array. We do this rather than relying on internal
         # lsst C objects for simplicity and because we require
@@ -376,6 +364,18 @@ class MatchPessimisticBTask(pipeBase.Task):
             flux = srcObj.getPsfFlux()
             src_array[src_idx, :] = \
                 self._latlong_flux_to_xyz_mag(theta, phi, flux)
+
+        # Set configurable defaults when we encounter None type or set
+        # state based on previous run of AstrometryTask._matchAndFitWcs.
+        if match_tolerance.maxShift is None:
+            maxShiftArcseconds = (self.config.maxOffsetPix *
+                                  wcs.pixelScale().asArcseconds())
+        else:
+            # We don't want to clamp down too hard on the allowed shift so
+            # we test that the smallest we ever allow is the pixel scale.
+            maxShiftArcseconds = np.max(
+                (match_tolerance.maxShift.asArcseconds(),
+                 wcs.pixelScale().asArcseconds()))
 
         # If our tolerances are not set from a previous run, estiamte a
         # starting tolerance guess from statistics of patterns we can create
@@ -402,23 +402,28 @@ class MatchPessimisticBTask(pipeBase.Task):
         # the consensus mode of the matcher. If not default to Optimistic
         # pattern matcher behavior.
         numConsensus = self.config.numPatternConsensus
-        if ref_array.shape[0] < self.config.numBrightStars or \
-           src_array.shape[0] < self.config.numBrightStars:
+        minObjectsForConsensus = \
+            self.config.numBrightStars + self.config.numPointsForShapeAttempt
+        if ref_array.shape[0] < minObjectsForConsensus or \
+           src_array.shape[0] < minObjectsForConsensus:
             numConsensus = 1
 
-        self.log.debug("Current tol maxDist: %.4f..." % maxMatchDistArcSec)
-        self.log.debug("Current shift: %.4f" % maxShiftArcseconds)
-        self.log.debug("Current rot: %.4f" % self.config.maxRotationDeg)
+        self.log.debug("Current tol maxDist: %.4f arcsec" %
+                       maxMatchDistArcSec)
+        self.log.debug("Current shift: %.4f arcsec" %
+                       maxShiftArcseconds)
 
         # Create our matcher object.
         pyPPMb = PessimisticPatternMatcherB(ref_array[:, :3], self.log)
 
         # Start the ineration over our tolerances.
         for try_idx in range(self.config.matcherIterations):
-            if try_idx == 0:
+            if try_idx == 0 and \
+               match_tolerance.lastMatchedPattern is not None:
                 # If we are on the first, most stringent tolerance,
-                # the matcher should behave like an optimistic pattern
-                # matcher. Exiting at the first match.
+                # and have already found a match, the matcher should behave
+                # like an optimistic pattern matcher. Exiting at the first
+                # match.
                 matcher_struct = pyPPMb.match(
                     source_array=src_array,
                     n_check=self.config.numPointsForShapeAttempt,
@@ -453,10 +458,10 @@ class MatchPessimisticBTask(pipeBase.Task):
                         match_tolerance.failedPatternList)
                 )
             if try_idx == 0 and \
-               len(matcher_struct.matches) == 0 and \
+               len(matcher_struct.match_ids) == 0 and \
                match_tolerance.lastMatchedPattern is not None:
                 # If we found a pattern on a previous match-fit iteration and
-                # can't find an optimistic match on our first try with the 
+                # can't find an optimistic match on our first try with the
                 # tolerances as found in the previous match-fit,
                 # the match we found in the last iteration was likely bad. We
                 # append the bad match's index to the a list of
@@ -464,30 +469,110 @@ class MatchPessimisticBTask(pipeBase.Task):
                 match_tolerance.failedPatternList.append(
                     match_tolerance.lastMatchedPattern)
                 match_tolerance.lastMatchedPattern = None
-            elif len(matcher_struct.matches) > 0:
+            elif len(matcher_struct.match_ids) > 0:
                 # Match found, save a bit a state regarding this pattern
                 # in the struct and exit.
                 match_tolerance.maxShift = afwgeom.Angle(matcher_struct.shift,
                                                          afwgeom.arcseconds)
-                match_tolerance.lastMatchedPattern = matcher_struct.pattern_idx
+                match_tolerance.lastMatchedPattern = \
+                    matcher_struct.pattern_idx
                 break
+
+        # The matcher returns all the nearest neighbors that agree between
+        # the reference and source catalog. For the currrent astrometry solver
+        # we need to remove as many false positives as possible before sending
+        # the matches off to the astronomery solver.
+        distances_arcsec = np.degrees(matcher_struct.distances_rad) * 3600
+        # Rather than have a hard cut on the max distance we allow for
+        # objects we preform a iterative sigma clipping. We input a
+        # starting point for the clipping based on the largest of the
+        # distances we have. The hope is this distance will not be so
+        # large as to have the sigma_clip return a large unphysical value
+        # and not so small that we don't allow for some distortion in the
+        # WCS between source and reference.
+        clipped_dist_arcsec = self._sigma_clip(
+            values=distances_arcsec, n_sigma=2,
+            input_cut=np.max((10 * wcs.pixelScale().asArcseconds(),
+                              maxMatchDistArcSec,
+                              maxShiftArcseconds)))
+        print("len distances", len(distances_arcsec))
+        print("max_dist", distances_arcsec.max())
+        # We pick the largest of the sigma clipping, the unsofted
+        # maxMatchDistArcSec or 2 pixels. This pevents
+        # the AstrometryTask._matchAndFitWCS from overfitting to a small
+        # number of objects and also allows the WCS fitter to bring in more
+        # matches as the WCS fit improves.
+        dist_cut_arcsec = np.max(
+            (2 * wcs.pixelScale().asArcseconds(),
+             clipped_dist_arcsec, maxMatchDistArcSec))
+        print("Dist cut", dist_cut_arcsec, "arcsec")
 
         # A match has been found, return our list of matches and
         # return.
         matches = []
-        for match_ids, dist in zip(matcher_struct.matches,
-                                   matcher_struct.distances):
-            match = afwTable.ReferenceMatch()
-            match.first = refCat[match_ids[1]]
-            match.second = sourceCat[match_ids[0]]
-            match.distance = match.first.getCoord().angularSeparation(
-                match.second.getCoord())
-            matches.append(match)
+        for match_id_pair, dist_arcsec in zip(matcher_struct.match_ids,
+                                              distances_arcsec):
+            if dist_arcsec < dist_cut_arcsec:
+                match = afwTable.ReferenceMatch()
+                match.first = refCat[match_id_pair[1]]
+                match.second = sourceCat[match_id_pair[0]]
+                # We compute the true distance along and sphere instead
+                # and store it in units of arcseconds. The previous
+                # distances we used were aproximate.
+                match.distance = match.first.getCoord().angularSeparation(
+                    match.second.getCoord()).asArcseconds()
+                matches.append(match)
 
         return pipeBase.Struct(
             matches=matches,
             match_tolerance=match_tolerance,
         )
+
+    def _sigma_clip(self, values, n_sigma, input_cut=None):
+        """
+        Find the distance cut by recursively cliping by n_sigma.
+
+        The algorithm converges once the length of the array on the
+        nth iteration is equal to the the length of the array on the
+        n+1th interation.
+
+        Parameters
+        ----------
+        values : float array
+            float array of values to caculate the cut on.
+        n_sigma : float
+            Number of sigma to use for the recersive clipping.
+        input_cut : float
+            Optional starting cut for the clipping.
+
+        Returns
+        -------
+            float
+                Value at which the clipping algorithm converged or the
+                value after a maximum of 100 iterations.
+        """
+        # Initialize the variables that will persist over the different
+        # iteration steps.
+        hold_total = 0
+        if input_cut is None:
+            hold_cut = np.max(values)
+        else:
+            hold_cut = input_cut
+        # Start clipping
+        for clip_idx in xrange(100):
+            # Find the mask and current total objects.
+            mask = (values < hold_cut)
+            total = len(values[mask])
+            # Test to see if the current total is equal to the previous.
+            # If it is we exit returning the previous cut.
+            if total == hold_total:
+                return hold_cut
+            # If we have not converged store the current total.
+            hold_tot = total
+            # Recompute the cut using the current mask.
+            hold_cut = (np.mean(values[mask]) +
+                        n_sigma * np.std(values[mask], ddof=1))
+        return hold_cut
 
     def _latlong_flux_to_xyz_mag(self, theta, phi, flux):
         r"""Convert angles theta and phi plux a flux into unit sphere
