@@ -559,7 +559,7 @@ class MatchPessimisticBTask(pipeBase.Task):
         else:
             hold_cut = input_cut
         # Start clipping
-        for clip_idx in xrange(100):
+        for clip_idx in range(100):
             # Find the mask and current total objects.
             mask = (values < hold_cut)
             total = len(values[mask])
