@@ -36,7 +36,7 @@ import lsst.meas.astrom.sip.genDistortedImage as distort
 import lsst.meas.astrom as measAstrom
 
 
-class TestMatchOptimisticB(unittest.TestCase):
+class TestMatchPessimisticB(unittest.TestCase):
 
     def setUp(self):
 
@@ -91,7 +91,6 @@ class TestMatchOptimisticB(unittest.TestCase):
         self.distortedWcs = afwImage.DistortedTanWcs(
             self.wcs, pixelsToTanPixels)
 
-
         def applyDistortion(src):
             out = src.table.copyRecord(src)
             out.set(out.table.getCentroidKey(),
@@ -137,11 +136,7 @@ class TestMatchOptimisticB(unittest.TestCase):
         if doPlot:
             measAstrom.plotAstrometry(matches=matches, refCat=refCat,
                                       sourceCat=sourceCat)
-        if distortFunc == distort.quadraticDistort:
-            # Quad distort finds 181 real matches for Pessimistic
-            self.assertEqual(len(matches), 184)
-        else:
-            self.assertEqual(len(matches), 186)
+        self.assertEqual(len(matches), 183)
 
         refCoordKey = afwTable.CoordKey(refCat.schema["coord"])
         srcCoordKey = afwTable.CoordKey(sourceCat.schema["coord"])
@@ -155,9 +150,7 @@ class TestMatchOptimisticB(unittest.TestCase):
             distErr = abs(predDist - distRad*afwGeom.radians)
             maxDistErr = max(distErr, maxDistErr)
 
-            # Current skip refObj 15 as it matches to source 12.
-            # All other matches are correct.
-            if refObj.getId() != source.getId() and refObj.getId() != 15:
+            if refObj.getId() != source.getId():
                 refCentroid = refObj.get(refCentroidKey)
                 sourceCentroid = source.getCentroid()
                 radius = math.hypot(*(refCentroid - sourceCentroid))
