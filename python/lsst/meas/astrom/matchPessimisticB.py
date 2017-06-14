@@ -495,8 +495,6 @@ class MatchPessimisticBTask(pipeBase.Task):
             input_cut=np.max((10 * wcs.pixelScale().asArcseconds(),
                               maxMatchDistArcSec,
                               maxShiftArcseconds)))
-        print("len distances", len(distances_arcsec))
-        print("max_dist", distances_arcsec.max())
         # We pick the largest of the sigma clipping, the unsofted
         # maxMatchDistArcSec or 2 pixels. This pevents
         # the AstrometryTask._matchAndFitWCS from overfitting to a small
@@ -505,7 +503,6 @@ class MatchPessimisticBTask(pipeBase.Task):
         dist_cut_arcsec = np.max(
             (2 * wcs.pixelScale().asArcseconds(),
              clipped_dist_arcsec, maxMatchDistArcSec))
-        print("Dist cut", dist_cut_arcsec, "arcsec")
 
         # A match has been found, return our list of matches and
         # return.

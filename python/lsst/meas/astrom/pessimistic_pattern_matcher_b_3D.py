@@ -256,7 +256,7 @@ class PessimisticPatternMatcherB(object):
                 matches : int array
                     (N, 2) array of matched ids for pairs. Empty list if no
                     match found.
-                distances : float array
+                distances_rad : float array
                     Radian distances between the matched objects. Empty list
                     if no match found.
                 pattern_idx : int
@@ -273,7 +273,7 @@ class PessimisticPatternMatcherB(object):
         # Initialize output struct.
         output_match_struct = pipeBase.Struct(
             match_ids=[],
-            distances=[],
+            distances_rad=[],
             pattern_idx=None,
             shift=None,)
 
