@@ -23,6 +23,7 @@
  */
 
 #include <map>
+#include <limits>
 
 #include "Eigen/LU" // for determinant, even though it's a 2x2 that doesn't use actual LU implementation
 
@@ -299,7 +300,7 @@ void ScaledPolynomialTransformFitter::fit(int order) {
             vx[i2] = output.getX();
             vy[i2] = output.getY();
             m.row(i2) = _vandermonde.row(i1).head(packedSize);
-            if (_keys.outputErr.isValid()) {
+            if (_keys.outputErr.isValid() && _data[i1].get(_keys.outputErr).allFinite()) {
                 Eigen::Matrix2d modelErr = outS*_data[i1].get(_keys.outputErr).cast<double>()*outS.adjoint();
                 sxx[i2] = modelErr(0, 0);
                 sxy[i2] = modelErr(0, 1);
@@ -450,11 +451,14 @@ std::pair<double,std::size_t> ScaledPolynomialTransformFitter::rejectOutliers(
                 % _data.size() % ctrl.nClipMin).str()
         );
     }
-    std::map<double,afw::table::BaseRecord *> rankings;
+    std::multimap<double,afw::table::BaseRecord *> rankings;
     for (auto & record : _data) {
         Eigen::Matrix2d cov = record.get(_keys.outputErr).cast<double>();
         Eigen::Vector2d d = (record.get(_keys.output) - record.get(_keys.model)).asEigen();
         double r2 = d.dot(cov.inverse() * d);
+        if (!std::isfinite(r2)) {
+            r2 = std::numeric_limits<double>::infinity();
+        }
         rankings.insert(std::make_pair(r2, &record));
     }
     auto cutoff = rankings.upper_bound(ctrl.nSigma * ctrl.nSigma);
