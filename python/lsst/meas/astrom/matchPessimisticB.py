@@ -99,7 +99,8 @@ class MatchPessimisticBConfig(pexConfig.Config):
         min=1,
     )
     maxOffsetPix = pexConfig.RangeField(
-        doc="Maximum allowed shift of WCS, due to matching (pixel).",
+        doc="Maximum allowed shift of WCS, due to matching (pixel). "
+            "When changing this value, the LoadReferenceObjectsConfig.pixelMargin should also be updated.",
         dtype=int,
         default=300,
         max=4000,

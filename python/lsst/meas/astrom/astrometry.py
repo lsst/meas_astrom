@@ -207,12 +207,9 @@ class AstrometryTask(RefMatchTask):
         debug = lsstDebug.Info(__name__)
 
         expMd = self._getExposureMetadata(exposure)
-        exp_bbox = expMd.bbox
-        exp_bbox.grow(afwGeom.Extent2I(self.config.matcher.maxOffsetPix,
-                                       self.config.matcher.maxOffsetPix))
 
         loadRes = self.refObjLoader.loadPixelBox(
-            bbox=exp_bbox,
+            bbox=expMd.bbox,
             wcs=expMd.wcs,
             filterName=expMd.filterName,
             calib=expMd.calib,
