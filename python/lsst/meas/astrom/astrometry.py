@@ -31,7 +31,6 @@ import lsst.afw.geom as afwGeom
 from .ref_match import RefMatchTask, RefMatchConfig
 from .fitTanSipWcs import FitTanSipWcsTask
 from .display import displayAstrometry
-from .createMatchMetadata import createMatchMetadata
 
 
 class AstrometryConfig(RefMatchConfig):
@@ -207,7 +206,6 @@ class AstrometryTask(RefMatchTask):
         import lsstDebug
         debug = lsstDebug.Info(__name__)
 
-        matchMeta = createMatchMetadata(exposure, border=self.refObjLoader.config.pixelMargin)
         expMd = self._getExposureMetadata(exposure)
         exp_bbox = expMd.bbox
         exp_bbox.grow(afwGeom.Extent2I(self.config.matcher.maxOffsetPix,
@@ -219,6 +217,13 @@ class AstrometryTask(RefMatchTask):
             filterName=expMd.filterName,
             calib=expMd.calib,
         )
+        matchMeta = self.refObjLoader.getMetadataBox(
+            bbox=expMd.bbox,
+            wcs=expMd.wcs,
+            filterName=expMd.filterName,
+            calib=expMd.calib,
+        )
+
         if debug.display:
             frame = int(debug.frame)
             displayAstrometry(

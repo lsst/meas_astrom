@@ -4,7 +4,6 @@ __all__ = ["DirectMatchConfig", "DirectMatchTask"]
 
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import Task, Struct
-from .createMatchMetadata import MatchMetadata
 from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
 import lsst.afw.table as afwTable
 import lsst.afw.coord as afwCoord
@@ -88,7 +87,7 @@ class DirectMatchTask(Task):
             matchMeta (lsst.meas.astrom.MatchMetadata)
         """
         circle = self.calculateCircle(catalog)
-        matchMeta = MatchMetadata(circle.center, circle.radius, filterName)
+        matchMeta = self.refObjLoader.getMetadataCircle(circle.center, circle.radius, filterName)
         refData = self.refObjLoader.loadSkyCircle(circle.center, circle.radius, filterName)
         matches = afwTable.matchRaDec(refData.refCat, catalog, self.config.matchRadius*arcseconds)
         self.log.info("Matched %d from %d input and %d reference sources" %
