@@ -107,8 +107,7 @@ class TestMatchPessimisticB(unittest.TestCase):
         if doPlot:
             import matplotlib.pyplot as plt
 
-            undistorted = [self.wcs.skyToPixel(
-                            self.distortedWcs.pixelToSky(ss.getCentroid()))
+            undistorted = [self.wcs.skyToPixel(self.distortedWcs.pixelToSky(ss.getCentroid()))
                            for ss in distortedCat]
             refs = [self.wcs.skyToPixel(ss.getCoord()) for ss in refCat]
 
