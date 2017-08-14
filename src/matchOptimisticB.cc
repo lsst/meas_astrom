@@ -16,7 +16,6 @@
 
 #include "lsst/pex/exceptions.h"
 #include "lsst/afw/image/Wcs.h"
-#include "lsst/afw/image/DistortedTanWcs.h"
 #include "lsst/afw/geom/Angle.h"
 #include "lsst/meas/astrom/matchOptimisticB.h"
 
