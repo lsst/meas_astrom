@@ -84,13 +84,13 @@ class TestMatchOptimisticB(unittest.TestCase):
         # This transform is about as extreme as I can get:
         # using 0.0005 in the last value appears to produce numerical issues.
         # It produces a maximum deviation of 459 pixels, which should be sufficient.
-        pixelsToTanPixels = afwGeom.RadialXYTransform([0.0, 1.1, 0.0004])
+        pixelsToTanPixels = afwGeom.makeRadialTransform([0.0, 1.1, 0.0004])
         self.distortedWcs = afwImage.DistortedTanWcs(self.wcs, pixelsToTanPixels)
 
         def applyDistortion(src):
             out = src.table.copyRecord(src)
             out.set(out.table.getCentroidKey(),
-                    pixelsToTanPixels.reverseTransform(src.getCentroid()))
+                    pixelsToTanPixels.applyInverse(src.getCentroid()))
             return out
 
         self.singleTestInstance(self.filename, applyDistortion)

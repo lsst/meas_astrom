@@ -153,10 +153,10 @@ class SideLoadTestCases(object):
 
     def testRadial(self):
         """Add radial distortion"""
-        radialTransform = afwGeom.RadialXYTransform([0, 1.02, 1e-6])
+        radialTransform = afwGeom.makeRadialTransform([0, 1.02, 1e-6])
 
         def radialDistortion(x, y):
-            x, y = radialTransform.forwardTransform(afwGeom.Point2D(x, y))
+            x, y = radialTransform.applyForward(afwGeom.Point2D(x, y))
             return (x, y)
         self.doTest("testRadial", radialDistortion)
 
