@@ -81,10 +81,10 @@ class ApproximateWcsTestCase(lsst.utils.tests.TestCase):
         with self.assertRaises(UserWarning):
             approximateWcs(wcs=wcs, bbox=self.bbox, order=2)
 
-    def doTest(self, name, xyTransform, order=3, doPlot=False):
+    def doTest(self, name, transform, order=3, doPlot=False):
         """Create a DistortedTanWcs from the specified transform and fit it
         """
-        wcs = afwImage.DistortedTanWcs(self.tanWcs, xyTransform)
+        wcs = afwImage.DistortedTanWcs(self.tanWcs, transform)
 
         fitWcs = approximateWcs(
             wcs=wcs,
@@ -93,13 +93,13 @@ class ApproximateWcsTestCase(lsst.utils.tests.TestCase):
         )
 
         if doPlot:
-            self.plotWcs(wcs, fitWcs, self.bbox, xyTransform)
+            self.plotWcs(wcs, fitWcs, self.bbox, transform)
 
         msg = "ERROR: %s failed with order %s" % (name, order)
         self.assertWcsAlmostEqualOverBBox(wcs, fitWcs, self.bbox,
                                           maxDiffSky=0.001*afwGeom.arcseconds, maxDiffPix=0.02, msg=msg)
 
-    def plotWcs(self, wcs0, wcs1, bbox, xyTransform):
+    def plotWcs(self, wcs0, wcs1, bbox, transform):
         import matplotlib.pyplot as plt
         bboxd = afwGeom.Box2D(bbox)
         x0Arr = []
@@ -113,7 +113,7 @@ class ApproximateWcsTestCase(lsst.utils.tests.TestCase):
                 pixelPos0 = afwGeom.Point2D(x, y)
                 skyCoord = wcs0.pixelToSky(pixelPos0)
                 pixelPos1 = wcs1.skyToPixel(skyCoord)
-                distortedPos = xyTransform.applyForward(pixelPos0)
+                distortedPos = transform.applyForward(pixelPos0)
                 x0Arr.append(pixelPos0[0])
                 y0Arr.append(pixelPos0[1])
                 x1Arr.append(pixelPos1[0])
