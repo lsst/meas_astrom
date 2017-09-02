@@ -76,20 +76,20 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
     def testTrivial(self):
         """Test fit with no distortion
         """
-        self.doTest(afwGeom.IdentityXYTransform())
+        self.doTest(afwGeom.makeIdentityTransform())
 
     def testRadial(self):
         """Test fit with radial distortion
 
         The offset comes from the fact that the CCD is not centered
         """
-        self.doTest(afwGeom.RadialXYTransform([0, 1.01, 1e-7]))
+        self.doTest(afwGeom.makeRadialTransform([0, 1.01, 1e-7]))
 
     def testUsedFlag(self):
         """Test that the solver will record number of sources used to table
            if it is passed a schema on initialization.
         """
-        distortedWcs = afwImage.DistortedTanWcs(self.tanWcs, afwGeom.IdentityXYTransform())
+        distortedWcs = afwImage.DistortedTanWcs(self.tanWcs, afwGeom.makeIdentityTransform())
         self.exposure.setWcs(distortedWcs)
         loadRes = self.refObjLoader.loadPixelBox(bbox=self.bbox, wcs=distortedWcs, filterName="r")
         refCat = loadRes.refCat

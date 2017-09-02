@@ -1,6 +1,3 @@
-
-from __future__ import absolute_import, division, print_function
-
 #
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
@@ -22,6 +19,8 @@ from __future__ import absolute_import, division, print_function
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
+from __future__ import absolute_import, division, print_function
+
 import math
 import os
 import unittest
@@ -31,18 +30,18 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.utils.tests
 import lsst.afw.image as afwImage
+import lsst.pex.exceptions as pexExcept
 from lsst.meas.algorithms import LoadReferenceObjectsTask
 import lsst.meas.astrom.sip.genDistortedImage as distort
 import lsst.meas.astrom as measAstrom
 
 
-class TestMatchPessimisticB(unittest.TestCase):
+class TestMatchOptimisticB(unittest.TestCase):
 
     def setUp(self):
 
-        self.config = measAstrom.MatchPessimisticBTask.ConfigClass()
-        self.MatchPessimisticB = measAstrom.MatchPessimisticBTask(
-            config=self.config)
+        self.config = measAstrom.MatchOptimisticBTask.ConfigClass()
+        self.matchOptimisticB = measAstrom.MatchOptimisticBTask(config=self.config)
 
         metadata = dafBase.PropertySet()
         metadata.set("RADECSYS", "FK5")
@@ -68,7 +67,7 @@ class TestMatchPessimisticB(unittest.TestCase):
 
     def tearDown(self):
         del self.config
-        del self.MatchPessimisticB
+        del self.matchOptimisticB
         del self.wcs
         del self.distortedWcs
 
@@ -84,17 +83,14 @@ class TestMatchPessimisticB(unittest.TestCase):
     def testLargeDistortion(self):
         # This transform is about as extreme as I can get:
         # using 0.0005 in the last value appears to produce numerical issues.
-
-        # It produces a maximum deviation of 459 pixels, which should be
-        # sufficient.
-        pixelsToTanPixels = afwGeom.RadialXYTransform([0.0, 1.1, 0.0004])
-        self.distortedWcs = afwImage.DistortedTanWcs(
-            self.wcs, pixelsToTanPixels)
+        # It produces a maximum deviation of 459 pixels, which should be sufficient.
+        pixelsToTanPixels = afwGeom.makeRadialTransform([0.0, 1.1, 0.0004])
+        self.distortedWcs = afwImage.DistortedTanWcs(self.wcs, pixelsToTanPixels)
 
         def applyDistortion(src):
             out = src.table.copyRecord(src)
             out.set(out.table.getCentroidKey(),
-                    pixelsToTanPixels.reverseTransform(src.getCentroid()))
+                    pixelsToTanPixels.applyInverse(src.getCentroid()))
             return out
 
         self.singleTestInstance(self.filename, applyDistortion)
@@ -106,27 +102,24 @@ class TestMatchPessimisticB(unittest.TestCase):
 
         if doPlot:
             import matplotlib.pyplot as plt
-
-            undistorted = [self.wcs.skyToPixel(
-                            self.distortedWcs.pixelToSky(ss.getCentroid()))
-                           for ss in distortedCat]
+            undistorted = [self.wcs.skyToPixel(self.distortedWcs.pixelToSky(ss.getCentroid())) for
+                           ss in distortedCat]
             refs = [self.wcs.skyToPixel(ss.getCoord()) for ss in refCat]
 
             def plot(catalog, symbol):
-                plt.plot([ss.getX() for ss in catalog],
-                         [ss.getY() for ss in catalog], symbol)
+                plt.plot([ss.getX() for ss in catalog], [ss.getY() for ss in catalog], symbol)
 
+            # plot(sourceCat, 'k+') # Original positions: black +
             plot(distortedCat, 'b+')  # Distorted positions: blue +
             plot(undistorted, 'g+')  # Undistorted positions: green +
             plot(refs, 'rx')  # Reference catalog: red x
-            # The green + should overlap with the red x, because that's how
-            # MatchPessimisticB does it.
-
+            # The green + should overlap with the red x, because that's how matchOptimisticB does it.
+            # The black + happens to overlap with those also, but that's beside the point.
             plt.show()
 
         sourceCat = distortedCat
 
-        matchRes = self.MatchPessimisticB.matchObjectsToSources(
+        matchRes = self.matchOptimisticB.matchObjectsToSources(
             refCat=refCat,
             sourceCat=sourceCat,
             wcs=self.distortedWcs,
@@ -134,15 +127,13 @@ class TestMatchPessimisticB(unittest.TestCase):
         )
         matches = matchRes.matches
         if doPlot:
-            measAstrom.plotAstrometry(matches=matches, refCat=refCat,
-                                      sourceCat=sourceCat)
+            measAstrom.plotAstrometry(matches=matches, refCat=refCat, sourceCat=sourceCat)
         self.assertEqual(len(matches), 183)
 
         refCoordKey = afwTable.CoordKey(refCat.schema["coord"])
         srcCoordKey = afwTable.CoordKey(sourceCat.schema["coord"])
         refCentroidKey = afwTable.Point2DKey(refCat.getSchema()["centroid"])
         maxDistErr = afwGeom.Angle(0)
-
         for refObj, source, distRad in matches:
             sourceCoord = source.get(srcCoordKey)
             refCoord = refObj.get(refCoordKey)
@@ -154,10 +145,8 @@ class TestMatchPessimisticB(unittest.TestCase):
                 refCentroid = refObj.get(refCentroidKey)
                 sourceCentroid = source.getCentroid()
                 radius = math.hypot(*(refCentroid - sourceCentroid))
-                self.fail(
-                    "ID mismatch: %s at %s != %s at %s; error = %0.1f pix" %
-                    (refObj.getId(), refCentroid, source.getId(),
-                     sourceCentroid, radius))
+                self.fail("ID mismatch: %s at %s != %s at %s; error = %0.1f pix" %
+                          (refObj.getId(), refCentroid, source.getId(), sourceCentroid, radius))
 
         self.assertLess(maxDistErr.asArcseconds(), 1e-7)
 
@@ -181,15 +170,15 @@ class TestMatchPessimisticB(unittest.TestCase):
         return refCat
 
     def loadSourceCatalog(self, filename):
-        """Load a list of xy points from a file, set coord, and return a
-        SourceSet of points
-
+        """Load a list of xy points from a file, set coord, and return a SourceSet of points
         """
         sourceCat = afwTable.SourceCatalog.readFits(filename)
         aliasMap = sourceCat.schema.getAliasMap()
         aliasMap.set("slot_ApFlux", "base_PsfFlux")
         fluxKey = sourceCat.schema["slot_ApFlux_flux"].asKey()
         fluxSigmaKey = sourceCat.schema["slot_ApFlux_fluxSigma"].asKey()
+
+        # print("schema=", sourceCat.schema)
 
         # Source x,y positions are ~ (500,1500) x (500,1500)
         centroidKey = sourceCat.table.getCentroidKey()
@@ -203,6 +192,50 @@ class TestMatchPessimisticB(unittest.TestCase):
         for src in sourceCat:
             src.updateCoord(self.wcs)
         return sourceCat
+
+    def testArgumentErrors(self):
+        """Test argument sanity checking in matchOptimisticB
+        """
+        matchControl = measAstrom.MatchOptimisticBControl()
+
+        sourceCat = self.loadSourceCatalog(self.filename)
+        emptySourceCat = afwTable.SourceCatalog(sourceCat.schema)
+
+        refCat = self.computePosRefCatalog(sourceCat)
+        emptyRefCat = afwTable.SimpleCatalog(refCat.schema)
+
+        with self.assertRaises(pexExcept.InvalidParameterError):
+            measAstrom.matchOptimisticB(
+                emptyRefCat,
+                sourceCat,
+                matchControl,
+                self.wcs,
+                0,
+            )
+        with self.assertRaises(pexExcept.InvalidParameterError):
+            measAstrom.matchOptimisticB(
+                refCat,
+                emptySourceCat,
+                matchControl,
+                self.wcs,
+                0,
+            )
+        with self.assertRaises(pexExcept.InvalidParameterError):
+            measAstrom.matchOptimisticB(
+                refCat,
+                sourceCat,
+                matchControl,
+                self.wcs,
+                len(refCat),
+            )
+        with self.assertRaises(pexExcept.InvalidParameterError):
+            measAstrom.matchOptimisticB(
+                refCat,
+                sourceCat,
+                matchControl,
+                self.wcs,
+                -1,
+            )
 
 
 class MemoryTester(lsst.utils.tests.MemoryTestCase):
