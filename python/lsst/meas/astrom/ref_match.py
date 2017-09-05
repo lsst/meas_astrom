@@ -31,7 +31,6 @@ import lsst.pipe.base as pipeBase
 from .matchOptimisticB import MatchOptimisticBTask
 from .display import displayAstrometry
 from . import makeMatchStatistics
-from .createMatchMetadata import createMatchMetadata
 
 
 class RefMatchConfig(pexConfig.Config):
@@ -94,10 +93,15 @@ class RefMatchTask(pipeBase.Task):
         import lsstDebug
         debug = lsstDebug.Info(__name__)
 
-        matchMeta = createMatchMetadata(exposure, border=self.refObjLoader.config.pixelMargin)
         expMd = self._getExposureMetadata(exposure)
 
         loadRes = self.refObjLoader.loadPixelBox(
+            bbox=expMd.bbox,
+            wcs=expMd.wcs,
+            filterName=expMd.filterName,
+            calib=expMd.calib,
+        )
+        matchMeta = self.refObjLoader.getMetadataBox(
             bbox=expMd.bbox,
             wcs=expMd.wcs,
             filterName=expMd.filterName,
