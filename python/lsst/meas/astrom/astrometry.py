@@ -280,7 +280,7 @@ class AstrometryTask(RefMatchTask):
             "found %d matches with scatter = %0.3f +- %0.3f arcsec" %
             (iterNum, len(tryRes.matches), tryMatchDist.distMean.asArcseconds(),
                 tryMatchDist.distStdDev.asArcseconds()))
-
+      
         for m in res.matches:
             if self.usedKey:
                 m.second.set(self.usedKey, True)
