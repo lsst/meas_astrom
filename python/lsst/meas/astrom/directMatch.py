@@ -4,7 +4,8 @@ __all__ = ["DirectMatchConfig", "DirectMatchTask"]
 
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import Task, Struct
-from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
+from lsst.meas.algorithms import (LoadIndexedReferenceObjectsTask, ScienceSourceSelectorTask,
+                                  ReferenceSourceSelectorTask)
 import lsst.afw.table as afwTable
 import lsst.afw.coord as afwCoord
 from lsst.afw.geom import arcseconds
@@ -14,6 +15,10 @@ class DirectMatchConfig(Config):
     """Configuration for DirectMatchTask"""
     refObjLoader = ConfigurableField(target=LoadIndexedReferenceObjectsTask, doc="Load reference objects")
     matchRadius = Field(dtype=float, default=0.25, doc="Matching radius, arcsec")
+    sourceSelection = ConfigurableField(target=ScienceSourceSelectorTask,
+                                        doc="Selection of science sources")
+    referenceSelection = ConfigurableField(target=ReferenceSourceSelectorTask,
+                                           doc="Selection of reference sources")
 
 
 class DirectMatchTask(Task):
@@ -77,6 +82,8 @@ class DirectMatchTask(Task):
             self.makeSubtask("refObjLoader", butler=butler)
         else:
             self.refObjLoader = refObjLoader
+        self.makeSubtask("sourceSelection")
+        self.makeSubtask("referenceSelection")
 
     def run(self, catalog, filterName=None):
         """!Load reference objects and match to them
@@ -88,11 +95,24 @@ class DirectMatchTask(Task):
         """
         circle = self.calculateCircle(catalog)
         matchMeta = self.refObjLoader.getMetadataCircle(circle.center, circle.radius, filterName)
+        emptyResult = Struct(matches=[], matchMeta=matchMeta)
+        sourceSelection = self.sourceSelection.selectSources(catalog)
+        if len(sourceSelection.sourceCat) == 0:
+            self.log.warn("No objects selected from %d objects in source catalog", len(catalog))
+            return emptyResult
         refData = self.refObjLoader.loadSkyCircle(circle.center, circle.radius, filterName)
-        matches = afwTable.matchRaDec(refData.refCat, catalog, self.config.matchRadius*arcseconds)
-        self.log.info("Matched %d from %d input and %d reference sources" %
-                      (len(matches), len(catalog), len(refData.refCat)))
-        return Struct(matches=matches, matchMeta=matchMeta)
+        refCat = refData.refCat
+        refSelection = self.referenceSelection.selectSources(refCat)
+        if len(refSelection.sourceCat) == 0:
+            self.log.warn("No objects selected from %d objects in reference catalog", len(refCat))
+            return emptyResult
+        matches = afwTable.matchRaDec(refSelection.sourceCat, sourceSelection.sourceCat,
+                                      self.config.matchRadius*arcseconds)
+        self.log.info("Matched %d from %d/%d input and %d/%d reference sources" %
+                      (len(matches), len(sourceSelection.sourceCat), len(catalog),
+                       len(refSelection.sourceCat), len(refCat)))
+        return Struct(matches=matches, matchMeta=matchMeta, refCat=refCat, sourceSelection=sourceSelection,
+                      refSelection=refSelection)
 
     def calculateCircle(self, catalog):
         """!Calculate a circle enclosing the catalog
