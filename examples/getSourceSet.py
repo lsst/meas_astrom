@@ -80,14 +80,14 @@ def detectFootprints(exposure, positiveThreshold, psf=None, negativeThreshold=No
     middle = convolvedImage.Factory(convolvedImage, goodBBox)
 
     dsNegative = None
-    if negativeThreshold != None:
+    if negativeThreshold is not None:
         # detect negative sources
         dsNegative = afwDetection.makeDetectionSet(middle, negativeThreshold, "DETECTED_NEGATIVE", npixMin)
         if not ds9.getMaskPlaneColor("DETECTED_NEGATIVE"):
             ds9.setMaskPlaneColor("DETECTED_NEGATIVE", ds9.CYAN)
 
     dsPositive = None
-    if positiveThreshold != None:
+    if positiveThreshold is not None:
         dsPositive = afwDetection.makeFootprintSet(middle, positiveThreshold, "DETECTED", npixMin)
     #
     # ds only searched the middle but it belongs to the entire MaskedImage
@@ -190,8 +190,6 @@ def mergeSourceSets(sourceSetList):
 
     return outlist
 
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
 
 def makeSourceList(dir, basename, e, c, aList, threshold, verbose=0):
     """Return the sources detected above threshold in all the amplifiers, aList, of the given field
@@ -218,8 +216,6 @@ def makeSourceList(dir, basename, e, c, aList, threshold, verbose=0):
         sourceSets.append(detectSources(exp, threshold))
 
     return mergeSourceSets(sourceSets)
-
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 
 def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF, verbose=0):
@@ -277,11 +273,9 @@ def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF
 
     return ccdImage
 
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
 
 def readStandards(filename):
-    fd = file(filename, "r")
+    fd = open(filename, "r")
 
     sourceSet = afwDetection.SourceSet()
     lineno = 0
