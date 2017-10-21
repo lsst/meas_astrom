@@ -63,13 +63,13 @@ public:
     
     MatchSrcToCatalogue(afw::table::SimpleCatalog const& catSet,
                         afw::table::SourceCatalog const& imgSet,       
-                        CONST_PTR(afw::image::Wcs) wcs,   
+                        CONST_PTR(afw::geom::SkyWcs) wcs,   
                         afw::geom::Angle dist
                        );
 
     //Mutators
     void setDist(afw::geom::Angle dist);
-    void setWcs(CONST_PTR(afw::image::Wcs) wcs);
+    void setWcs(CONST_PTR(afw::geom::SkyWcs) wcs);
     void setCatSrcSet(afw::table::SimpleCatalog const & catSet);
     void setImgSrcSet(afw::table::SourceCatalog const & srcSet);
 
@@ -83,7 +83,7 @@ private:
     afw::table::SimpleCatalog _catSet;       ///< Copy of input catalog
     afw::table::SourceCatalog _imgSet;       ///< Copy of input catalog
     afw::table::ReferenceMatchVector _match;    ///List of tuples of matching indices
-    CONST_PTR(lsst::afw::image::Wcs) _wcs;
+    CONST_PTR(lsst::afw::geom::SkyWcs) _wcs;
     lsst::afw::geom::Angle _dist;              ///< How close must two objects be to match 
 
     void _removeOneToMany();

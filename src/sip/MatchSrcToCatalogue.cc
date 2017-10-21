@@ -23,7 +23,7 @@
  */
  
 #include "lsst/meas/astrom/sip/MatchSrcToCatalogue.h"
-#include "lsst/afw/image/Wcs.h"
+#include "lsst/afw/geom/SkyWcs.h"
 
 namespace lsst { namespace meas { namespace astrom { namespace sip {
 
@@ -44,7 +44,7 @@ namespace lsst { namespace meas { namespace astrom { namespace sip {
 /// 
 MatchSrcToCatalogue::MatchSrcToCatalogue(afw::table::SimpleCatalog const& catSet,  
                                          afw::table::SourceCatalog const& imgSet, 
-                                         CONST_PTR(lsst::afw::image::Wcs) wcs, 
+                                         CONST_PTR(lsst::afw::geom::SkyWcs) wcs, 
                                          afw::geom::Angle dist)
 {
     setImgSrcSet(imgSet);
@@ -62,7 +62,7 @@ void MatchSrcToCatalogue::setDist(afw::geom::Angle dist) {
 }
 
 /// Set a different Wcs solution
-void MatchSrcToCatalogue::setWcs(CONST_PTR(lsst::afw::image::Wcs) wcs) {
+void MatchSrcToCatalogue::setWcs(CONST_PTR(lsst::afw::geom::SkyWcs) wcs) {
     _wcs = wcs;
 }
 

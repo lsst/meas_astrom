@@ -38,13 +38,6 @@
 #include "lsst/afw/geom/Angle.h"
 
 namespace lsst { 
-    namespace afw {
-        namespace image {
-            class Wcs;
-            class TanWcs;
-        }
-    }
-
 namespace meas { 
 namespace astrom { 
 namespace sip {
@@ -105,13 +98,13 @@ public:
      */
     CreateWcsWithSip(
         std::vector<MatchT> const & matches,
-        afw::image::Wcs const & linearWcs,
+        afw::geom::SkyWcs const & linearWcs,
         int const order,
         afw::geom::Box2I const& bbox = afw::geom::Box2I(),
         int const ngrid=0
     );
 
-    PTR(afw::image::TanWcs) getNewWcs() { return _newWcs; }
+    std::shared_ptr<afw::geom::SkyWcs> getNewWcs() { return _newWcs; }
 
     /**
      Compute the median separation, in pixels, between items in this object's match list
@@ -166,7 +159,7 @@ private:
     std::vector<MatchT> const _matches;
     afw::geom::Box2I mutable _bbox;
     int _ngrid;                         // grid size to calculate inverse SIP coefficients (1-D)
-    CONST_PTR(afw::image::Wcs) _linearWcs;
+    std::shared_ptr<const afw::geom::SkyWcs> _linearWcs;
     // _sipOrder is polynomial order for forward transform.
     // _reverseSipOrder is order for reverse transform, not necessarily the same.
     int const _sipOrder, _reverseSipOrder;      
@@ -174,19 +167,17 @@ private:
     Eigen::MatrixXd _sipA, _sipB;
     Eigen::MatrixXd _sipAp, _sipBp;
 
-    PTR(afw::image::TanWcs) _newWcs;
+    std::shared_ptr<afw::geom::SkyWcs> _newWcs;
 
     void _calculateForwardMatrices();
     void _calculateReverseMatrices();
-    
-    afw::geom::Point2D _getCrvalAsGeomPoint() const;
 };    
 
 /// Factory function for CreateWcsWithSip
 template<class MatchT>
 CreateWcsWithSip<MatchT> makeCreateWcsWithSip(
     std::vector<MatchT> const & matches,
-    afw::image::Wcs const& linearWcs,
+    afw::geom::SkyWcs const& linearWcs,
     int const order,
     afw::geom::Box2I const& bbox = afw::geom::Box2I(),
     int const ngrid=0

@@ -7,7 +7,6 @@ from builtins import range
 
 import numpy as np
 
-import lsst.afw.image as afwImage
 import lsst.afw.coord as afwCoord
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
@@ -130,7 +129,7 @@ class FitTanSipWcsTask(pipeBase.Task):
         @param[in] exposure  Ignored; present for consistency with FitSipDistortionTask.
 
         @return an lsst.pipe.base.Struct with the following fields:
-        - wcs  the fit WCS as an lsst.afw.image.Wcs
+        - wcs  the fit WCS as an lsst.afw.geom.Wcs
         - scatterOnSky  median on-sky separation between reference objects and sources in "matches",
             as an lsst.afw.geom.Angle
         """
@@ -209,8 +208,9 @@ class FitTanSipWcsTask(pipeBase.Task):
             crval += afwGeom.Extent3D(mm.first.getCoord().toIcrs().getVector())
         crpix /= len(matches)
         crval /= len(matches)
-        newWcs = afwImage.Wcs(afwCoord.IcrsCoord(afwGeom.Point3D(crval)).getPosition(),
-                              afwGeom.Point2D(crpix), wcs.getCDMatrix())
+        newWcs = afwGeom.makeSkyWcs(crpix=afwGeom.Point2D(crpix),
+                                    crval=afwCoord.IcrsCoord(afwGeom.Point3D(crval)),
+                                    cdMatrix=wcs.getCdMatrix())
         return newWcs
 
     def _fitWcs(self, matches, wcs):

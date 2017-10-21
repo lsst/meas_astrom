@@ -253,7 +253,7 @@ def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF
                 bbox.grow(xy1)
 
                 ampBBox[a] = afwGeom.Box2I(xy0, xy1)
-                wcs[a] = afwImage.Wcs(md)
+                wcs[a] = afwGeom.makeSkyWcs(md)
             else:
                 try:
                     data = imageFactory(filename + "_img.fits")

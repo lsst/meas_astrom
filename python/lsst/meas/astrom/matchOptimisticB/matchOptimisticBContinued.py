@@ -328,7 +328,7 @@ class MatchOptimisticBTask(pipeBase.Task):
             maxMatchDistArcSec = self.config.maxMatchDistArcSec
         else:
             maxMatchDistArcSec = min(maxMatchDist.asArcseconds(), self.config.maxMatchDistArcSec)
-        configMatchDistPix = maxMatchDistArcSec/wcs.pixelScale().asArcseconds()
+        configMatchDistPix = maxMatchDistArcSec/wcs.getPixelScale().asArcseconds()
 
         matchControl = MatchOptimisticBControl()
         matchControl.refFluxField = refFluxField

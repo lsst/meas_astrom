@@ -160,18 +160,19 @@ afw::geom::AffineTransform computeScaling(
 ScaledPolynomialTransformFitter ScaledPolynomialTransformFitter::fromMatches(
     int maxOrder,
     afw::table::ReferenceMatchVector const & matches,
-    afw::image::Wcs const & initialWcs,
+    afw::geom::SkyWcs const & initialWcs,
     double intrinsicScatter
 ) {
     Keys const & keys = Keys::forMatches();
     afw::table::BaseCatalog catalog(keys.schema);
     catalog.reserve(matches.size());
     float var2 = intrinsicScatter*intrinsicScatter;
+    auto initialIwcToSky = getIntermediateWorldCoordsToSky(initialWcs);
     for (auto const & match : matches) {
         auto record = catalog.addNew();
         record->set(keys.refId, match.first->getId());
         record->set(keys.srcId, match.second->getId());
-        record->set(keys.input, initialWcs.skyToIntermediateWorldCoord(match.first->getCoord()));
+        record->set(keys.input, initialIwcToSky->applyInverse(match.first->getCoord()));
         record->set(keys.initial, initialWcs.skyToPixel(match.first->getCoord()));
         record->set(keys.output, match.second->getCentroid());
         record->set(keys.outputErr, match.second->getCentroidErr() + var2*Eigen::Matrix2f::Identity());

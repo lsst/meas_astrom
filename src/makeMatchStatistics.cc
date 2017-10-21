@@ -49,7 +49,7 @@ afw::math::Statistics makeMatchStatistics(
 
 template<typename MatchT>
 afw::math::Statistics makeMatchStatisticsInPixels(
-    afw::image::Wcs const & wcs,
+    afw::geom::SkyWcs const & wcs,
     std::vector<MatchT> const & matchList,
     int const flags,  
     afw::math::StatisticsControl const & sctrl
@@ -75,7 +75,7 @@ afw::math::Statistics makeMatchStatisticsInPixels(
 
 template<typename MatchT>
 afw::math::Statistics makeMatchStatisticsInRadians(
-    afw::image::Wcs const & wcs,
+    afw::geom::SkyWcs const & wcs,
     std::vector<MatchT> const & matchList,
     int const flags,  
     afw::math::StatisticsControl const & sctrl
@@ -91,7 +91,7 @@ afw::math::Statistics makeMatchStatisticsInRadians(
         auto srcPtr = match.second;
         auto refCoord = refPtr->getCoord();
         auto srcCoord = wcs.pixelToSky(srcPtr->getCentroid());
-        auto angSep = refCoord.angularSeparation(*srcCoord);
+        auto angSep = refCoord.angularSeparation(srcCoord);
         val.push_back(angSep.asRadians());
     }
     return afw::math::makeStatistics(val, flags, sctrl);
@@ -104,13 +104,13 @@ afw::math::Statistics makeMatchStatisticsInRadians(
         afw::math::StatisticsControl const & sctrl \
     ); \
     template afw::math::Statistics makeMatchStatisticsInPixels<MATCH>( \
-        afw::image::Wcs const & wcs, \
+        afw::geom::SkyWcs const & wcs, \
         std::vector<MATCH> const & matchList, \
         int const flags,   \
         afw::math::StatisticsControl const & sctrl \
     ); \
     template afw::math::Statistics makeMatchStatisticsInRadians<MATCH>( \
-        afw::image::Wcs const & wcs, \
+        afw::geom::SkyWcs const & wcs, \
         std::vector<MATCH> const & matchList, \
         int const flags,   \
         afw::math::StatisticsControl const & sctrl \

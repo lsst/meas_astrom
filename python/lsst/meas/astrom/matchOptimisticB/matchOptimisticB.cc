@@ -93,12 +93,12 @@ PYBIND11_PLUGIN(matchOptimisticB) {
     declareProxyPair(mod);
     declareMatchOptimisticBControl(mod);
 
-    mod.def("makeProxies", (ProxyVector(*)(afw::table::SourceCatalog const &, afw::image::Wcs const &,
-                                           afw::image::Wcs const &)) &
+    mod.def("makeProxies", (ProxyVector(*)(afw::table::SourceCatalog const &, afw::geom::SkyWcs const &,
+                                           afw::geom::SkyWcs const &)) &
                                    makeProxies,
             "sourceCat"_a, "distortedWcs"_a, "tanWcs"_a);
     mod.def("makeProxies",
-            (ProxyVector(*)(afw::table::SimpleCatalog const &, afw::image::Wcs const &)) & makeProxies,
+            (ProxyVector(*)(afw::table::SimpleCatalog const &, afw::geom::SkyWcs const &)) & makeProxies,
             "posRefCat"_a, "tanWcs"_a);
 
     mod.def("matchOptimisticB", &matchOptimisticB, "posRefCat"_a, "sourceCat"_a, "control"_a, "wcs"_a,

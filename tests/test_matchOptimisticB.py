@@ -29,7 +29,6 @@ import lsst.daf.base as dafBase
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.utils.tests
-import lsst.afw.image as afwImage
 import lsst.pex.exceptions as pexExcept
 from lsst.meas.algorithms import LoadReferenceObjectsTask
 import lsst.meas.astrom.sip.genDistortedImage as distort
@@ -58,7 +57,7 @@ class TestMatchOptimisticB(unittest.TestCase):
         metadata.set("CD1_2", 0.0)
         metadata.set("CD2_2", 5.17e-05)
         metadata.set("CD2_1", 0.0)
-        self.wcs = afwImage.makeWcs(metadata)
+        self.wcs = afwGeom.makeSkyWcs(metadata)
         self.distortedWcs = self.wcs
 
         self.filename = os.path.join(os.path.dirname(__file__), "cat.xy.fits")
@@ -85,7 +84,9 @@ class TestMatchOptimisticB(unittest.TestCase):
         # using 0.0005 in the last value appears to produce numerical issues.
         # It produces a maximum deviation of 459 pixels, which should be sufficient.
         pixelsToTanPixels = afwGeom.makeRadialTransform([0.0, 1.1, 0.0004])
-        self.distortedWcs = afwImage.DistortedTanWcs(self.wcs, pixelsToTanPixels)
+        self.distortedWcs = afwGeom.makeModifiedWcs(pixelTransform=pixelsToTanPixels,
+                                                    wcs=self.wcs,
+                                                    modifyActualPixels=False)
 
         def applyDistortion(src):
             out = src.table.copyRecord(src)

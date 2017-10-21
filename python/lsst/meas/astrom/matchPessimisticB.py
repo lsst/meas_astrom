@@ -384,14 +384,14 @@ class MatchPessimisticBTask(pipeBase.Task):
         # state based on previous run of AstrometryTask._matchAndFitWcs.
         if match_tolerance.maxShift is None:
             maxShiftArcseconds = (self.config.maxOffsetPix *
-                                  wcs.pixelScale().asArcseconds())
+                                  wcs.getPixelScale().asArcseconds())
         else:
             # We don't want to clamp down too hard on the allowed shift so
             # we test that the smallest we ever allow is the pixel scale.
             maxShiftArcseconds = np.max(
                 (match_tolerance.maxShift.asArcseconds(),
                  self.config.minMatchDistPixels *
-                 wcs.pixelScale().asArcseconds()))
+                 wcs.getPixelScale().asArcseconds()))
 
         # If our tolerances are not set from a previous run, estimate a
         # starting tolerance guess from the statistics of patterns we can
@@ -411,7 +411,7 @@ class MatchPessimisticBTask(pipeBase.Task):
         else:
             maxMatchDistArcSec = np.max(
                 (self.config.minMatchDistPixels *
-                 wcs.pixelScale().asArcseconds(),
+                 wcs.getPixelScale().asArcseconds(),
                  np.min((match_tolerance.maxMatchDist.asArcseconds(),
                          match_tolerance.autoMaxDist.asArcseconds()))))
 
@@ -477,7 +477,7 @@ class MatchPessimisticBTask(pipeBase.Task):
                         match_tolerance.lastMatchedPattern)
                     match_tolerance.lastMatchedPattern = None
                     maxShiftArcseconds = \
-                        self.config.maxOffsetPix * wcs.pixelScale().asArcseconds()
+                        self.config.maxOffsetPix * wcs.getPixelScale().asArcseconds()
                 elif len(matcher_struct.match_ids) > 0:
                     # Match found, save a bit a state regarding this pattern
                     # in the match tolerance class object and exit.
@@ -509,7 +509,7 @@ class MatchPessimisticBTask(pipeBase.Task):
         distances_arcsec = np.degrees(matcher_struct.distances_rad) * 3600
         clip_max_dist = np.max(
             (sigmaclip(distances_arcsec, low=100, high=2)[-1],
-             self.config.minMatchDistPixels * wcs.pixelScale().asArcseconds())
+             self.config.minMatchDistPixels * wcs.getPixelScale().asArcseconds())
         )
         # Assuming the number of matched objects surviving the clip_max_dist
         # cut if greater the requested min number of pairs, we select the

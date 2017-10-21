@@ -27,7 +27,6 @@ import numpy as np
 import lsst.utils.tests
 import lsst.daf.base as dafBase
 import lsst.afw.geom as afwGeom
-import lsst.afw.image as afwImage
 from lsst.meas.astrom import approximateWcs
 
 
@@ -58,7 +57,7 @@ class ApproximateWcsTestCase(lsst.utils.tests.TestCase):
         metadata.setDouble("CD1_2", 1.85579539217196E-07)
         metadata.setDouble("CD2_2", -5.10281493481982E-05)
         metadata.setDouble("CD2_1", -8.27440751733828E-07)
-        self.tanWcs = afwImage.makeWcs(metadata)
+        self.tanWcs = afwGeom.makeSkyWcs(metadata)
 
     def tearDown(self):
         del self.tanWcs
@@ -77,14 +76,20 @@ class ApproximateWcsTestCase(lsst.utils.tests.TestCase):
     def testWarnings(self):
         """Test that approximateWcs raises a UserWarning when it cannot achieve desired tolerance"""
         radialTransform = afwGeom.makeRadialTransform([0, 2.0, 3.0])
-        wcs = afwImage.DistortedTanWcs(self.tanWcs, radialTransform)
+        wcs = afwGeom.makeModifiedWcs(pixelTransform=radialTransform, wcs=self.tanWcs,
+                                      modifyActualPixels=False)
         with self.assertRaises(UserWarning):
             approximateWcs(wcs=wcs, bbox=self.bbox, order=2)
 
     def doTest(self, name, transform, order=3, doPlot=False):
-        """Create a DistortedTanWcs from the specified transform and fit it
+        """Add the specified distorting transform to a TAN WCS and fit it
+
+        The resulting WCS pixelToSky method acts as follows:
+            pixelToSky(transform.applyForward(pixels))
         """
-        wcs = afwImage.DistortedTanWcs(self.tanWcs, transform)
+        wcs = afwGeom.makeModifiedWcs(pixelTransform=transform,
+                                      wcs=self.tanWcs,
+                                      modifyActualPixels=False)
 
         fitWcs = approximateWcs(
             wcs=wcs,

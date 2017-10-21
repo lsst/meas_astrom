@@ -29,7 +29,7 @@
 #include "ndarray/pybind11.h"
 
 #include "lsst/afw/geom/Box.h"
-#include "lsst/afw/image/TanWcs.h"
+#include "lsst/afw/geom/SkyWcs.h"
 #include "lsst/afw/table/Match.h"
 #include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
 
@@ -46,7 +46,7 @@ template <typename MatchT>
 static void declareCreateWcsWithSip(py::module &mod, std::string const &name) {
     py::class_<CreateWcsWithSip<MatchT>, std::shared_ptr<CreateWcsWithSip<MatchT>>> cls(mod, name.c_str());
 
-    cls.def(py::init<std::vector<MatchT> const &, afw::image::Wcs const &, int const,
+    cls.def(py::init<std::vector<MatchT> const &, afw::geom::SkyWcs const &, int const,
                      afw::geom::Box2I const &, int const>(),
             "matches"_a, "linearWcs"_a, "order"_a, "bbox"_a = afw::geom::Box2I(), "ngrid"_a = 0);
 
