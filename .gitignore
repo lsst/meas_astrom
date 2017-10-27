@@ -4,6 +4,7 @@
 *.pyc
 *.so
 _build.*
+.cache
 .sconf_temp/
 .sconsign.dblite
 config.log
@@ -14,8 +15,9 @@ examples/refSources
 tests/.cache
 tests/.tests
 tests/testConvertCheby
-tests/testlsf1d
-tests/testlsf2d
+tests/test_lsf1d
+tests/test_lsf2d
+pytest_session.txt
 *.cfgc
 doc/html/
 doc/*.tag
