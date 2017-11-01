@@ -88,8 +88,8 @@ PolynomialTransform::PolynomialTransform(int order) :
 }
 
 PolynomialTransform::PolynomialTransform(
-    ndarray::Array<double const,2,2> const & xCoeffs,
-    ndarray::Array<double const,2,2> const & yCoeffs
+    ndarray::Array<double const,2,0> const & xCoeffs,
+    ndarray::Array<double const,2,0> const & yCoeffs
 ) : _xCoeffs(ndarray::copy(xCoeffs)),
     _yCoeffs(ndarray::copy(yCoeffs)),
     _u(_xCoeffs.rows()),
