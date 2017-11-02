@@ -58,7 +58,7 @@ class SipTransformBase {
 public:
 
     /**
-     *  Return the pixel origin (CRPIX) of the transform.
+     *  Return the pixel origin (CRPIX, but zero-indexed) of the transform.
      */
     afw::geom::Point2D const & getPixelOrigin() const { return _pixelOrigin; }
 
