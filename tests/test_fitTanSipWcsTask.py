@@ -151,14 +151,14 @@ class BaseTestCase(object):
             distErr = abs(dist - angSep)
             maxDistErr = max(maxDistErr, distErr)
             maxAngSep = max(maxAngSep, angSep)
-            self.assertLess(angSep.asArcseconds(), 0.001)
 
             pixSep = math.hypot(*(srcPixPos - refPixPos))
             maxPixSep = max(maxPixSep, pixSep)
-            self.assertLess(pixSep, 0.005)
 
         print("max angular separation = %0.4f arcsec" % (maxAngSep.asArcseconds(),))
         print("max pixel separation = %0.3f" % (maxPixSep,))
+        self.assertLess(maxAngSep.asArcseconds(), 0.001)
+        self.assertLess(maxPixSep, 0.005)
         if catsUpdated:
             allowedDistErr = 1e-7
         else:
