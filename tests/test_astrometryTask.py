@@ -197,6 +197,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         sourceFluxKey = sourceSchema["slot_ApFlux_flux"].asKey()
         sourceFluxSigmaKey = sourceSchema["slot_ApFlux_fluxSigma"].asKey()
 
+        sourceCat.reserve(len(refCat))
         for refObj in refCat:
             src = sourceCat.addNew()
             src.set(sourceCentroidKey, refObj.get(refCentroidKey))

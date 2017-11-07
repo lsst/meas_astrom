@@ -28,6 +28,7 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.math as afwMath
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
+from lsst.meas.algorithms import ScienceSourceSelectorTask, ReferenceSourceSelectorTask
 from .matchOptimisticB import MatchOptimisticBTask
 from .display import displayAstrometry
 from . import makeMatchStatistics
@@ -46,6 +47,10 @@ class RefMatchConfig(pexConfig.Config):
         default=2,
         min=0,
     )
+    sourceSelection = pexConfig.ConfigurableField(target=ScienceSourceSelectorTask,
+                                                  doc="Selection of science sources")
+    referenceSelection = pexConfig.ConfigurableField(target=ReferenceSourceSelectorTask,
+                                                     doc="Selection of reference sources")
 
 # The following block adds links to this task from the Task Documentation page.
 ## \addtogroup LSST_task_documentation
@@ -74,6 +79,8 @@ class RefMatchTask(pipeBase.Task):
         pipeBase.Task.__init__(self, **kwargs)
         self.refObjLoader = refObjLoader
         self.makeSubtask("matcher")
+        self.makeSubtask("sourceSelection")
+        self.makeSubtask("referenceSelection")
 
     @pipeBase.timeMethod
     def loadAndMatch(self, exposure, sourceCat):
@@ -95,12 +102,17 @@ class RefMatchTask(pipeBase.Task):
 
         expMd = self._getExposureMetadata(exposure)
 
+        sourceSelection = self.sourceSelection.selectSources(sourceCat)
+
         loadRes = self.refObjLoader.loadPixelBox(
             bbox=expMd.bbox,
             wcs=expMd.wcs,
             filterName=expMd.filterName,
             calib=expMd.calib,
         )
+
+        refSelection = self.referenceSelection.selectSources(loadRes.refCat)
+
         matchMeta = self.refObjLoader.getMetadataBox(
             bbox=expMd.bbox,
             wcs=expMd.wcs,
@@ -109,8 +121,8 @@ class RefMatchTask(pipeBase.Task):
         )
 
         matchRes = self.matcher.matchObjectsToSources(
-            refCat=loadRes.refCat,
-            sourceCat=sourceCat,
+            refCat=refSelection.sourceCat,
+            sourceCat=sourceSelection.sourceCat,
             wcs=expMd.wcs,
             refFluxField=loadRes.fluxField,
             match_tolerance=None,
@@ -125,8 +137,8 @@ class RefMatchTask(pipeBase.Task):
         if debug.display:
             frame = int(debug.frame)
             displayAstrometry(
-                refCat=loadRes.refCat,
-                sourceCat=sourceCat,
+                refCat=refSelection.sourceCat,
+                sourceCat=sourceSelection.sourceCat,
                 matches=matchRes.matches,
                 exposure=exposure,
                 bbox=expMd.bbox,
@@ -136,6 +148,8 @@ class RefMatchTask(pipeBase.Task):
 
         return pipeBase.Struct(
             refCat=loadRes.refCat,
+            refSelection=refSelection,
+            sourceSelection=sourceSelection,
             matches=matchRes.matches,
             matchMeta=matchMeta,
         )
