@@ -48,7 +48,8 @@ def _rotation_matrix_chi_sq(flattened_rot_matrix,
     diff_pattern_a_to_b = rot_pattern_a - pattern_b
     # Compute the matrix inverse and compare the opposite transform to better
     # constrain the matrix.
-    rot_pattern_b = np.dot(np.linalg.inv(rot_matrix), pattern_b.transpose()).transpose()
+    rot_pattern_b = np.dot(np.linalg.inv(rot_matrix),
+                           pattern_b.transpose()).transpose()
     diff_pattern_b_to_a = rot_pattern_b - pattern_a
     # Return the flattened differences and length tolerances for use in a least
     # squares fitter.
@@ -297,7 +298,6 @@ class PessimisticPatternMatcherB(object):
         # We now create an empty list of our resultant rotated vectors to
         # compare the different rotations we find.
         rot_vect_list = []
-        rot_ref_vect_list = []
 
         # Convert the tolerances to values we will use in the code.
         max_cos_shift = np.cos(np.radians(max_shift / 3600.))
@@ -374,8 +374,11 @@ class PessimisticPatternMatcherB(object):
                     source_array[:, :3],
                     shift_rot_matrix)
 
+            n_matched = len(match_sources_struct.match_ids[
+                match_sources_struct.distances_rad < max_dist_rad])
+
             # Check that we have enough matches.
-            if len(match_sources_struct.match_ids) >= min_matches:
+            if n_matched < max_dist_rad >= min_matches:
                 # Convert the observed shift to arcseconds
                 shift = np.degrees(np.arccos(cos_shift)) * 3600.
                 # Print information to the logger.
