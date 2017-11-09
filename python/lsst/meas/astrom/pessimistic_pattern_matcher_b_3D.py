@@ -378,7 +378,7 @@ class PessimisticPatternMatcherB(object):
                 match_sources_struct.distances_rad < max_dist_rad])
 
             # Check that we have enough matches.
-            if n_matched < max_dist_rad >= min_matches:
+            if n_matched >= min_matches:
                 # Convert the observed shift to arcseconds
                 shift = np.degrees(np.arccos(cos_shift)) * 3600.
                 # Print information to the logger.

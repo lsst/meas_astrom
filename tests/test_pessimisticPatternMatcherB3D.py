@@ -281,7 +281,7 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         self.assertTrue(
             np.all(match_struct.distances_rad < 0.01/3600.0 * __deg_to_rad__))
 
-    def test_distortion(self):
+    def testLinearDistortion(self):
         """ Create a simple linear distortion and test that the correct
         references are still matched.
         """
@@ -292,13 +292,14 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
 
         max_z = np.cos(np.pi/2 + 0.5 * __deg_to_rad__)
         min_z = np.cos(np.pi/2 - 0.5 * __deg_to_rad__)
-        # The max shift in position we add to the position will be 15
-        # arcseconds
-        max_distort = 10 / 3600. * __deg_to_rad__
-        self.source_obj_array[:, 3] = (
-            self.source_obj_array[:, 3] -
-            max_distort * (self.source_obj_array[:, 3] - min_z) /
+        # The max shift in position we add to the position will be 25
+        # arcseconds.
+        max_distort = 25.0 / 3600. * __deg_to_rad__
+        self.source_obj_array[:, 2] = (
+            self.source_obj_array[:, 2] -
+            max_distort * (self.source_obj_array[:, 2] - min_z) /
             (max_z - min_z))
+        # Renomalize the 3 vectors to be unit length.
         distorted_dists = np.sqrt(self.source_obj_array[:, 0] ** 2 +
                                   self.source_obj_array[:, 1] ** 2 +
                                   self.source_obj_array[:, 2] ** 2)
