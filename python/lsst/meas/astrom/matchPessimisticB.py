@@ -486,7 +486,7 @@ class MatchPessimisticBTask(pipeBase.Task):
                 break
 
         # The matcher returns all the nearest neighbors that agree between
-        # the reference and source catalog. For the current asymmetry solver
+        # the reference and source catalog. For the current astrometric solver
         # we need to remove as many false positives as possible before sending
         # the matches off to the solver.
         distances_arcsec = np.degrees(matcher_struct.distances_rad) * 3600

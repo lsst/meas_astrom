@@ -22,7 +22,7 @@ def _rotation_matrix_chi_sq(flattened_rot_matrix,
     ----------
     flattened_rot_matrix : float array
         A flattened array representing a 3x3 rotation matrix. The array is
-        flattened to comply with the API of scipy.optimize.leas_squares.
+        flattened to comply with the API of scipy.optimize.least_squares.
         Flattened elements are [[0, 0], [0, 1], [0, 2], [1, 0]...]
     pattern_a : float array of 3 vectors
         A array containing N, 3 vectors representing the objects we would like
@@ -352,11 +352,10 @@ class PessimisticPatternMatcherB(object):
             # use.
             tmp_rot_vect_list = []
             for test_vect in test_vectors:
-                tmp_rot_vect_list.append(
-                    np.dot(shift_rot_matrix, test_vect))
+                tmp_rot_vect_list.append(np.dot(shift_rot_matrix, test_vect))
             # Since our test point are in the source frame, we can test if
             # their lengths are mostly preserved under the transform.
-            if not self._test_pattern_lengths(np.array(tmp_rot_vect_list),
+            if not self._test_pattern_lengths(np.array(tmp_rot_vect_list), 
                                               max_dist_rad):
                 continue
 
@@ -365,14 +364,13 @@ class PessimisticPatternMatcherB(object):
 
             # Test if we have enough rotations, which agree, or if we
             # are in optimistic mode.
-            if self._test_rotation_agreement(rot_vect_list,
-                                             max_dist_rad) < n_agree - 1:
+            if self._test_rotation_agreement(rot_vect_list, max_dist_rad) < \
+               n_agree - 1:
                 continue
 
             # Perform final verify.
-            match_sources_struct = self._match_sources(
-                    source_array[:, :3],
-                    shift_rot_matrix)
+            match_sources_struct = self._match_sources(source_array[:, :3], 
+                                                       shift_rot_matrix)
 
             n_matched = len(match_sources_struct.match_ids[
                 match_sources_struct.distances_rad < max_dist_rad])
@@ -411,8 +409,8 @@ class PessimisticPatternMatcherB(object):
 
         Returns
         -------
-        list of 3 vectors
-            list of vectors representing the maximum extents in x, y, z
+        float array of 3 vectors
+            Array of vectors representing the maximum extents in x, y, z
             of the input source array. These are used with the rotations
             the code finds to test for agreement from different patterns
             when the code is running in pessimistic mode.
