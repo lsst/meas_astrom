@@ -143,7 +143,7 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
             np.all(match_struct.distances_rad < 0.01/3600.0 * __deg_to_rad__))
 
     def testMatchSkip(self):
-        """ Test the ablity to skip specified patterns in the matching
+        """ Test the ability to skip specified patterns in the matching
         process.
         """
         self.pyPPMb = PessimisticPatternMatcherB(
@@ -259,7 +259,7 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         theta_rotation = self.pyPPMb._create_spherical_rotation_matrix(
             np.array([0, 0, 1]), cos_theta, sin_theta)
 
-        phi = 2.5*__deg_to_rad__
+        phi = 2.5 * __deg_to_rad__
         cos_phi = np.cos(phi)
         sin_phi = np.sin(phi)
         phi_rotation = self.pyPPMb._create_spherical_rotation_matrix(
@@ -280,6 +280,42 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
                          len(self.reference_obj_array))
         self.assertTrue(
             np.all(match_struct.distances_rad < 0.01/3600.0 * __deg_to_rad__))
+
+    def testLinearDistortion(self):
+        """ Create a simple linear distortion and test that the correct
+        references are still matched.
+        """
+
+        self.pyPPMb = PessimisticPatternMatcherB(
+            reference_array=self.reference_obj_array[:, :3],
+            log=self.log)
+
+        max_z = np.cos(np.pi/2 + 0.5 * __deg_to_rad__)
+        min_z = np.cos(np.pi/2 - 0.5 * __deg_to_rad__)
+        # The max shift in position we add to the position will be 25
+        # arcseconds.
+        max_distort = 25.0 / 3600. * __deg_to_rad__
+        self.source_obj_array[:, 2] = (
+            self.source_obj_array[:, 2] -
+            max_distort * (self.source_obj_array[:, 2] - min_z) /
+            (max_z - min_z))
+        # Renomalize the 3 vectors to be unit length.
+        distorted_dists = np.sqrt(self.source_obj_array[:, 0] ** 2 +
+                                  self.source_obj_array[:, 1] ** 2 +
+                                  self.source_obj_array[:, 2] ** 2)
+        self.source_obj_array[:, 0] /= distorted_dists
+        self.source_obj_array[:, 1] /= distorted_dists
+        self.source_obj_array[:, 2] /= distorted_dists
+
+        match_struct = self.pyPPMb.match(
+            source_array=self.source_obj_array, n_check=9, n_match=6,
+            n_agree=2, max_n_patterns=100, max_shift=60., max_rotation=5.0,
+            max_dist=5., min_matches=30, pattern_skip_array=None)
+
+        self.assertEqual(len(match_struct.match_ids),
+                         len(self.reference_obj_array))
+        self.assertTrue(
+            np.all(match_struct.distances_rad < 10 / 3600.0 * __deg_to_rad__))
 
 
 if __name__ == '__main__':
