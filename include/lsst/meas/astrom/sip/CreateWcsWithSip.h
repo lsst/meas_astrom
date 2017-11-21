@@ -152,6 +152,15 @@ public:
     /// Return the number of grid points (on each axis) used in inverse SIP transform
     int getNGrid() const { return _ngrid; }
 
+    // Return the SIP A matrix
+    Eigen::MatrixXd const getSipA() { return _sipA; }
+    // Return the SIP B matrix
+    Eigen::MatrixXd const getSipB() { return _sipB; }
+    // Return the SIP Ap matrix
+    Eigen::MatrixXd const getSipAp() { return _sipAp; }
+    // Return the SIP Bp matrix
+    Eigen::MatrixXd const getSipBp() { return _sipBp; }
+
 private:
 
     std::vector<MatchT> const _matches;
