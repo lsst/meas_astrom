@@ -166,7 +166,7 @@ class BaseTestCase(object):
         self.assertLess(maxDistErr.asArcseconds(), allowedDistErr,
                         "Computed distance in match list is off by %s arcsec" % (maxDistErr.asArcseconds(),))
 
-    def doTest(self, name, func, order=3, numIter=4, specifyBBox=False, doPlot=False):
+    def doTest(self, name, func, order=3, numIter=4, specifyBBox=False, doPlot=False, doPrint=False):
         """Apply func(x, y) to each source in self.sourceCat, then fit and check the resulting WCS
         """
         bbox = afwGeom.Box2I()
@@ -189,6 +189,19 @@ class BaseTestCase(object):
             wcs=tanSipWcs,
             scatterOnSky=sipObject.getScatterOnSky(),
         )
+
+        if doPrint:
+            print("TAN-SIP metadata fit over bbox=", bbox)
+            metadata = makeTanSipMetadata(
+                crpix = tanSipWcs.getPixelOrigin(),
+                crval = tanSipWcs.getSkyOrigin(),
+                cdMatrix = tanSipWcs.getCdMatrix(),
+                sipA = sipObject.getSipA(),
+                sipB = sipObject.getSipB(),
+                sipAp = sipObject.getSipAp(),
+                sipBp = sipObject.getSipBp(),
+            )
+            print(metadata.toString())
 
         if doPlot:
             self.plotWcs(tanSipWcs, name=name)
@@ -337,7 +350,8 @@ class SideLoadTestCases(object):
             x, y = radialTransform.applyForward(afwGeom.Point2D(x, y))
             return (x, y)
         for order in (4, 5, 6):
-            self.doTest("testRadial", radialDistortion, order=order)
+            doPrint = order == 5
+            self.doTest("testRadial", radialDistortion, order=order, doPrint=doPrint)
 
 # The test classes inherit from two base classes and differ in the match
 # class being used.
