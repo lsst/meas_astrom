@@ -31,6 +31,7 @@ import lsst.afw.detection as afwDetection
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.afw.math as afwMath
+from lsst.afw.fits import readMetadata
 import lsst.afw.display.ds9 as ds9
 import lsst.meas.algorithms as algorithms
 
@@ -246,7 +247,7 @@ def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF
                 print(filename)
 
             if what == "header":
-                md = afwImage.readMetadata(filename + "_img.fits")
+                md = readMetadata(filename + "_img.fits")
                 xy0 = afwGeom.Point2I(md.get("CRVAL1A"), md.get("CRVAL2A"))
                 xy1 = xy0 + afwGeom.Extent2I(md.get("NAXIS1") - 1, md.get("NAXIS2") - 1)
                 bbox.grow(xy0)

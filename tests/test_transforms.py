@@ -32,6 +32,7 @@ import lsst.pex.exceptions
 import lsst.afw.geom
 import lsst.afw.image
 import lsst.afw.math
+from lsst.afw.fits import readMetadata
 from lsst.afw.geom.testUtils import makeSipIwcToPixel, makeSipPixelToIwc
 from lsst.meas.astrom import (
     PolynomialTransform,
@@ -303,7 +304,7 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         """
         filename = os.path.join(os.path.dirname(__file__),
                                 'imgCharSources-v85501867-R01-S00.sipheader')
-        sipMetadata = lsst.afw.image.readMetadata(filename)
+        sipMetadata = readMetadata(filename)
         # We're building an ICRS-based TAN-SIP using coefficients read from metadata
         # so ignore the RADESYS in metadata (which is missing anyway, falling back to FK5)
         sipMetadata.set("RADESYS", "ICRS")
@@ -364,7 +365,7 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
     def testTransformWcsPixels(self):
         filename = os.path.join(os.path.dirname(__file__),
                                 'imgCharSources-v85501867-R01-S00.sipheader')
-        wcs1 = lsst.afw.geom.makeSkyWcs(lsst.afw.image.readMetadata(filename))
+        wcs1 = lsst.afw.geom.makeSkyWcs(readMetadata(filename))
         s = makeRandomAffineTransform()
         wcs2 = transformWcsPixels(wcs1, s)
         crval = wcs1.getSkyOrigin().getPosition(lsst.afw.geom.degrees)
@@ -394,7 +395,7 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
     def testRotateWcsPixelsBy90(self):
         filename = os.path.join(os.path.dirname(__file__),
                                 'imgCharSources-v85501867-R01-S00.sipheader')
-        wcs0 = lsst.afw.geom.makeSkyWcs(lsst.afw.image.readMetadata(filename))
+        wcs0 = lsst.afw.geom.makeSkyWcs(readMetadata(filename))
         w, h = 11, 12
         image0 = lsst.afw.image.ImageD(w, h)
         x, y = np.meshgrid(np.arange(w), np.arange(h))
