@@ -391,7 +391,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
                 disp.line([(rx, ry), (mx, my)], ctype=colors[0])
                 sx, sy = record.get(srcKey)
                 sErr = record.get(srcErrKey)
-                sEllipse = lsst.afw.geom.ellipses.Quadrupole(sErr[0, 0], sErr[1, 1], sErr[0, 1])
+                sEllipse = lsst.afw.geom.Quadrupole(sErr[0, 0], sErr[1, 1], sErr[0, 1])
                 disp.dot(sEllipse, sx, sy, ctype=colors[1])
         if pause or pause is None:  # default is to pause
             print("Dropping into debugger to allow inspection of display. Type 'continue' when done.")
