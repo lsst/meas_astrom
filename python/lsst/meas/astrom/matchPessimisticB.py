@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import numpy as np
 from scipy.spatial import cKDTree
+from scipy.stats import sigmaclip
 
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
@@ -490,15 +491,16 @@ class MatchPessimisticBTask(pipeBase.Task):
         # we need to remove as many false positives as possible before sending
         # the matches off to the solver.
         distances_arcsec = np.degrees(matcher_struct.distances_rad) * 3600
+        clip_max_dist = np.max(
+            (sigmaclip(distances_arcsec, low=100, high=2)[-1],
+             self.config.minMatchDistPixels * wcs.pixelScale().asArcseconds())
+        )
         # We pick the largest of the the unsoftened maxMatchDistArcSec or
         # a user specified distance in pixels. This prevents the
         # AstrometryTask._matchAndFitWCS from over-fitting to a small number of
         # objects and also allows the WCS fitter to bring in more matches as
         # the WCS fit improves.
-        dist_cut_arcsec = np.max(
-            (self.config.minMatchDistPixels * wcs.pixelScale().asArcseconds(),
-             maxMatchDistArcSec)
-        )
+        dist_cut_arcsec = np.min((clip_max_dist, maxMatchDistArcSec))
 
         # A match has been found, return our list of matches and
         # return.
