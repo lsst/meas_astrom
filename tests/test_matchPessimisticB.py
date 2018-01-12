@@ -41,6 +41,7 @@ class TestMatchPessimisticB(unittest.TestCase):
     def setUp(self):
 
         self.config = measAstrom.MatchPessimisticBTask.ConfigClass()
+        self.config.minMatchDistPixels = 3.0
         self.MatchPessimisticB = measAstrom.MatchPessimisticBTask(
             config=self.config)
 
