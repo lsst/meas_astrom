@@ -435,8 +435,8 @@ class MatchPessimisticBTask(pipeBase.Task):
 
         match_found = False
         # Start the iteration over our tolerances.
-        for try_idx in range(self.config.matcherIterations):
-            for soften_idx in range(self.config.matcherIterations):
+        for soften_pattern in range(self.config.matcherIterations):
+            for soften_dist in range(self.config.matcherIterations):
                 if try_idx == 0 and soften_idx == 0 and \
                     match_tolerance.lastMatchedPattern is not None:
                     # If we are on the first, most stringent tolerance,
@@ -452,19 +452,19 @@ class MatchPessimisticBTask(pipeBase.Task):
                 # to the number of candidate spokes to check.
                 matcher_struct = pyPPMb.match(
                     source_array=src_array,
-                    n_check=self.config.numPointsForShapeAttempt + try_idx,
+                    n_check=self.config.numPointsForShapeAttempt + soften_pattern,
                     n_match=self.config.numPointsForShape,
                     n_agree=run_n_consent,
                     max_n_patterns=self.config.numBrightStars,
                     max_shift=maxShiftArcseconds,
                     max_rotation=self.config.maxRotationDeg,
-                    max_dist=maxMatchDistArcSec * 2. ** soften_idx,
+                    max_dist=maxMatchDistArcSec * 2. ** soften_dist,
                     min_matches=minMatchedPairs,
                     pattern_skip_array=np.array(
                         match_tolerance.failedPatternList)
                 )
 
-                if try_idx == 0 and soften_idx == 0 and \
+                if soften_pattern == 0 and soften_dist == 0 and \
                    len(matcher_struct.match_ids) == 0 and \
                    match_tolerance.lastMatchedPattern is not None:
                     # If we found a pattern on a previous match-fit iteration and
@@ -478,7 +478,6 @@ class MatchPessimisticBTask(pipeBase.Task):
                     match_tolerance.lastMatchedPattern = None
                     maxShiftArcseconds = \
                         self.config.maxOffsetPix * wcs.pixelScale().asArcseconds()
-                    continue
                 elif len(matcher_struct.match_ids) > 0:
                     # Match found, save a bit a state regarding this pattern
                     # in the match tolerance class object and exit.
@@ -501,20 +500,19 @@ class MatchPessimisticBTask(pipeBase.Task):
         # The matcher returns all the nearest neighbors that agree between
         # the reference and source catalog. For the current astrometric solver
         # we need to remove as many false positives as possible before sending
-        # the matches off to the solver.
-        distances_arcsec = np.degrees(matcher_struct.distances_rad) * 3600 
+        # the matches off to the solver. The low value of 100 and high value of
+        # 2 are the low number of sigma and high respectively.
+        distances_arcsec = np.degrees(matcher_struct.distances_rad) * 3600
         clip_max_dist = np.max(
             (sigmaclip(distances_arcsec, low=100, high=2)[-1],
              self.config.minMatchDistPixels * wcs.pixelScale().asArcseconds())
         )
-        # We pick the largest of the the unsoftened maxMatchDistArcSec or
-        # a user specified distance in pixels. This prevents the
-        # AstrometryTask._matchAndFitWCS from over-fitting to a small number of
-        # objects and also allows the WCS fitter to bring in more matches as
-        # the WCS fit improves.
+        # Assuming the number of matched objects surviving the clip_max_dist
+        # cut if greater the requested min number of pairs, we select the
+        # smaller of the current maxMatchDist or the sigma clipped distance.
         if not np.isfinite(clip_max_dist):
             clip_max_dist = maxMatchDistArcSec
-        
+
         if clip_max_dist < maxMatchDistArcSec and \
            len(distances_arcsec[distances_arcsec < clip_max_dist]) < \
            minMatchedPairs:
