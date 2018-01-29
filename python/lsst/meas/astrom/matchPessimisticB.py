@@ -501,7 +501,11 @@ class MatchPessimisticBTask(pipeBase.Task):
         # the reference and source catalog. For the current astrometric solver
         # we need to remove as many false positives as possible before sending
         # the matches off to the solver. The low value of 100 and high value of
-        # 2 are the low number of sigma and high respectively.
+        # 2 are the low number of sigma and high respectively. The exact values
+        # were found after testing on data of various reference/source
+        # densities and astrometric distortion quality, specifically the
+        # visits:  HSC (3358), DECam (406285, 410827),
+        # CFHT (793169, 896070, 980526).
         distances_arcsec = np.degrees(matcher_struct.distances_rad) * 3600
         clip_max_dist = np.max(
             (sigmaclip(distances_arcsec, low=100, high=2)[-1],
