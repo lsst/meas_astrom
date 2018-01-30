@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import numpy as np
 from scipy.spatial import cKDTree
+from scipy.stats import sigmaclip
 
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
@@ -432,73 +433,96 @@ class MatchPessimisticBTask(pipeBase.Task):
         # Create our matcher object.
         pyPPMb = PessimisticPatternMatcherB(ref_array[:, :3], self.log)
 
+        match_found = False
         # Start the iteration over our tolerances.
-        for try_idx in range(self.config.matcherIterations):
-            if try_idx == 0 and \
-               match_tolerance.lastMatchedPattern is not None:
-                # If we are on the first, most stringent tolerance,
-                # and have already found a match, the matcher should behave
-                # like an optimistic pattern matcher. Exiting at the first
-                # match.
-                run_n_consent = 1
-            else:
-                # If we fail or this is the first match attempt, set the
-                # pattern consensus to the specified config value.
-                run_n_consent = numConsensus
-            # We double the match dist tolerance each round and add 1 to the
-            # to the number of candidate spokes to check.
-            matcher_struct = pyPPMb.match(
-                source_array=src_array,
-                n_check=self.config.numPointsForShapeAttempt + try_idx,
-                n_match=self.config.numPointsForShape,
-                n_agree=run_n_consent,
-                max_n_patterns=self.config.numBrightStars,
-                max_shift=maxShiftArcseconds,
-                max_rotation=self.config.maxRotationDeg,
-                max_dist=maxMatchDistArcSec * 2. ** try_idx,
-                min_matches=minMatchedPairs,
-                pattern_skip_array=np.array(
-                    match_tolerance.failedPatternList)
-            )
+        for soften_pattern in range(self.config.matcherIterations):
+            for soften_dist in range(self.config.matcherIterations):
+                if soften_pattern == 0 and soften_dist == 0 and \
+                    match_tolerance.lastMatchedPattern is not None:
+                    # If we are on the first, most stringent tolerance,
+                    # and have already found a match, the matcher should behave
+                    # like an optimistic pattern matcher. Exiting at the first
+                    # match.
+                    run_n_consent = 1
+                else:
+                    # If we fail or this is the first match attempt, set the
+                    # pattern consensus to the specified config value.
+                    run_n_consent = numConsensus
+                # We double the match dist tolerance each round and add 1 to the
+                # to the number of candidate spokes to check.
+                matcher_struct = pyPPMb.match(
+                    source_array=src_array,
+                    n_check=self.config.numPointsForShapeAttempt + soften_pattern,
+                    n_match=self.config.numPointsForShape,
+                    n_agree=run_n_consent,
+                    max_n_patterns=self.config.numBrightStars,
+                    max_shift=maxShiftArcseconds,
+                    max_rotation=self.config.maxRotationDeg,
+                    max_dist=maxMatchDistArcSec * 2. ** soften_dist,
+                    min_matches=minMatchedPairs,
+                    pattern_skip_array=np.array(
+                        match_tolerance.failedPatternList)
+                )
 
-            if try_idx == 0 and \
-               len(matcher_struct.match_ids) == 0 and \
-               match_tolerance.lastMatchedPattern is not None:
-                # If we found a pattern on a previous match-fit iteration and
-                # can't find an optimistic match on our first try with the
-                # tolerances as found in the previous match-fit,
-                # the match we found in the last iteration was likely bad. We
-                # append the bad match's index to the a list of
-                # patterns/matches to skip on subsequent iterations.
-                match_tolerance.failedPatternList.append(
-                    match_tolerance.lastMatchedPattern)
-                match_tolerance.lastMatchedPattern = None
-                maxShiftArcseconds = \
-                    self.config.maxOffsetPix * wcs.pixelScale().asArcseconds()
-                continue
-            elif len(matcher_struct.match_ids) > 0:
-                # Match found, save a bit a state regarding this pattern
-                # in the match tolerance class object and exit.
-                match_tolerance.maxShift = \
-                    matcher_struct.shift * afwgeom.arcseconds
-                match_tolerance.lastMatchedPattern = \
-                    matcher_struct.pattern_idx
+                if soften_pattern == 0 and soften_dist == 0 and \
+                   len(matcher_struct.match_ids) == 0 and \
+                   match_tolerance.lastMatchedPattern is not None:
+                    # If we found a pattern on a previous match-fit iteration and
+                    # can't find an optimistic match on our first try with the
+                    # tolerances as found in the previous match-fit,
+                    # the match we found in the last iteration was likely bad. We
+                    # append the bad match's index to the a list of
+                    # patterns/matches to skip on subsequent iterations.
+                    match_tolerance.failedPatternList.append(
+                        match_tolerance.lastMatchedPattern)
+                    match_tolerance.lastMatchedPattern = None
+                    maxShiftArcseconds = \
+                        self.config.maxOffsetPix * wcs.pixelScale().asArcseconds()
+                elif len(matcher_struct.match_ids) > 0:
+                    # Match found, save a bit a state regarding this pattern
+                    # in the match tolerance class object and exit.
+                    match_tolerance.maxShift = \
+                        matcher_struct.shift * afwgeom.arcseconds
+                    match_tolerance.lastMatchedPattern = \
+                        matcher_struct.pattern_idx
+                    match_found = True
+                    break
+            if match_found:
                 break
+
+        # If we didn't find a match, exit early.
+        if not match_found:
+            return pipeBase.Struct(
+                matches=[],
+                match_tolerance=match_tolerance,
+            )
 
         # The matcher returns all the nearest neighbors that agree between
         # the reference and source catalog. For the current astrometric solver
         # we need to remove as many false positives as possible before sending
-        # the matches off to the solver.
+        # the matches off to the solver. The low value of 100 and high value of
+        # 2 are the low number of sigma and high respectively. The exact values
+        # were found after testing on data of various reference/source
+        # densities and astrometric distortion quality, specifically the
+        # visits:  HSC (3358), DECam (406285, 410827),
+        # CFHT (793169, 896070, 980526).
         distances_arcsec = np.degrees(matcher_struct.distances_rad) * 3600
-        # We pick the largest of the the unsoftened maxMatchDistArcSec or
-        # a user specified distance in pixels. This prevents the
-        # AstrometryTask._matchAndFitWCS from over-fitting to a small number of
-        # objects and also allows the WCS fitter to bring in more matches as
-        # the WCS fit improves.
-        dist_cut_arcsec = np.max(
-            (self.config.minMatchDistPixels * wcs.pixelScale().asArcseconds(),
-             maxMatchDistArcSec)
+        clip_max_dist = np.max(
+            (sigmaclip(distances_arcsec, low=100, high=2)[-1],
+             self.config.minMatchDistPixels * wcs.pixelScale().asArcseconds())
         )
+        # Assuming the number of matched objects surviving the clip_max_dist
+        # cut if greater the requested min number of pairs, we select the
+        # smaller of the current maxMatchDist or the sigma clipped distance.
+        if not np.isfinite(clip_max_dist):
+            clip_max_dist = maxMatchDistArcSec
+
+        if clip_max_dist < maxMatchDistArcSec and \
+           len(distances_arcsec[distances_arcsec < clip_max_dist]) < \
+           minMatchedPairs:
+            dist_cut_arcsec = maxMatchDistArcSec
+        else:
+            dist_cut_arcsec = np.min((clip_max_dist, maxMatchDistArcSec))
 
         # A match has been found, return our list of matches and
         # return.
