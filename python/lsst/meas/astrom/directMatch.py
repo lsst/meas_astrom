@@ -1,6 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
-__all__ = ["DirectMatchConfig", "DirectMatchTask"]
+__all__ = ["DirectMatchConfig", "DirectMatchTask", "DirectMatchConfigWithoutLoader"]
 
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import Task, Struct
@@ -11,14 +11,19 @@ import lsst.afw.coord as afwCoord
 from lsst.afw.geom import arcseconds
 
 
-class DirectMatchConfig(Config):
-    """Configuration for DirectMatchTask"""
-    refObjLoader = ConfigurableField(target=LoadIndexedReferenceObjectsTask, doc="Load reference objects")
+class DirectMatchConfigWithoutLoader(Config):
+    """Configuration for DirectMatchTask when an already-initialized
+    refObjLoader will be passed to this task."""
     matchRadius = Field(dtype=float, default=0.25, doc="Matching radius, arcsec")
     sourceSelection = ConfigurableField(target=ScienceSourceSelectorTask,
                                         doc="Selection of science sources")
     referenceSelection = ConfigurableField(target=ReferenceSourceSelectorTask,
                                            doc="Selection of reference sources")
+
+
+class DirectMatchConfig(DirectMatchConfigWithoutLoader):
+    """Configuration for DirectMatchTask"""
+    refObjLoader = ConfigurableField(target=LoadIndexedReferenceObjectsTask, doc="Load reference objects")
 
 
 class DirectMatchTask(Task):
@@ -79,6 +84,9 @@ class DirectMatchTask(Task):
         """
         Task.__init__(self, **kwargs)
         if not refObjLoader:
+            if not isinstance(self.config, DirectMatchConfig):
+                raise RuntimeError("DirectMatchTask must be initialized with DirectMatchConfig "
+                                   "if a refObjLoader is not supplied at initialization")
             self.makeSubtask("refObjLoader", butler=butler)
         else:
             self.refObjLoader = refObjLoader
