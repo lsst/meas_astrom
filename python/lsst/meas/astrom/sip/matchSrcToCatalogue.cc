@@ -42,7 +42,7 @@ PYBIND11_PLUGIN(matchSrcToCatalogue) {
     py::class_<MatchSrcToCatalogue> cls(mod, "MatchSrcToCatalogue");
 
     cls.def(py::init<afw::table::SimpleCatalog const &, afw::table::SourceCatalog const &,
-                     std::shared_ptr<afw::image::Wcs const>, afw::geom::Angle>(),
+                     std::shared_ptr<afw::geom::SkyWcs const>, afw::geom::Angle>(),
             "catSet"_a, "imgSet"_a, "wcs"_a, "dist"_a);
 
     cls.def("setDist", &MatchSrcToCatalogue::setDist, "dist"_a);

@@ -29,7 +29,6 @@ import numpy as np
 import lsst.utils.tests
 from lsst.daf.base import PropertySet
 import lsst.afw.geom as afwGeom
-import lsst.afw.image as afwImage
 import lsst.afw.math as afwMath
 import lsst.afw.table as afwTable
 from lsst.meas.base import SingleFrameMeasurementTask
@@ -58,7 +57,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         metadata.set("CD1_2", 0.0)
         metadata.set("CD2_2", -5.1e-05)
         metadata.set("CD2_1", 0.0)
-        self.wcs = afwImage.makeWcs(metadata)
+        self.wcs = afwGeom.makeSkyWcs(metadata)
         self.bboxD = afwGeom.Box2D(afwGeom.Point2D(10, 100), afwGeom.Extent2D(1000, 1500))
         self.numMatches = 25
 

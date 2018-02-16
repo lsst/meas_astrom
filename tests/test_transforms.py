@@ -32,6 +32,8 @@ import lsst.pex.exceptions
 import lsst.afw.geom
 import lsst.afw.image
 import lsst.afw.math
+from lsst.afw.fits import readMetadata
+from lsst.afw.geom.testUtils import makeSipIwcToPixel, makeSipPixelToIwc
 from lsst.meas.astrom import (
     PolynomialTransform,
     ScaledPolynomialTransform,
@@ -41,6 +43,7 @@ from lsst.meas.astrom import (
     transformWcsPixels,
     rotateWcsPixelsBy90
 )
+from lsst.afw.geom.wcsUtils import getSipMatrixFromMetadata, getCdMatrixFromMetadata
 
 
 def makeRandomCoefficientMatrix(n):
@@ -100,12 +103,16 @@ class TransformTestMixin(object):
         """
         raise NotImplementedError()
 
-    def assertTransformsAlmostEqual(self, a, b, rtol=1E-8):
+    def assertTransformsAlmostEqual(self, a, b, minval=0.0, maxval=1.0, atol=0, rtol=1E-8):
+        rangeval = maxval - minval
+        aArr = []
+        bArr = []
         for i in range(10):
-            point = lsst.afw.geom.Point2D(*np.random.randn(2))
-            aOut = a(point)
-            bOut = b(point)
-            self.assertFloatsAlmostEqual(np.array(aOut), np.array(bOut), rtol=rtol)
+            xy = rangeval * np.random.rand(2) - minval
+            point = lsst.afw.geom.Point2D(*xy)
+            aArr.append(list(a(point)))
+            bArr.append(list(b(point)))
+        self.assertFloatsAlmostEqual(np.array(aArr), np.array(bArr), atol=atol, rtol=rtol)
 
     def testLinearize(self):
         """Test that the AffineTransform returned by linearize() is equivalent
@@ -293,58 +300,72 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         )
 
     def testMakeWcs(self):
-        fwd = self.makeRandom()
-        rev = SipReverseTransform(  # this isn't actually the inverse of fwd, but that doesn't matter
-            fwd.getPixelOrigin(),
-            fwd.getCDMatrix(),
-            makeRandomPolynomialTransform(4)
+        """Test SipForwardTransform, SipReverseTransform and makeWcs
+        """
+        filename = os.path.join(os.path.dirname(__file__),
+                                'imgCharSources-v85501867-R01-S00.sipheader')
+        sipMetadata = readMetadata(filename)
+        # We're building an ICRS-based TAN-SIP using coefficients read from metadata
+        # so ignore the RADESYS in metadata (which is missing anyway, falling back to FK5)
+        sipMetadata.set("RADESYS", "ICRS")
+        crpix = lsst.afw.geom.Point2D(
+            sipMetadata.get("CRPIX1") - 1,
+            sipMetadata.get("CRPIX2") - 1,
         )
-        crval = lsst.afw.geom.Point2D(45.0, 45.0)
-        wcs = lsst.meas.astrom.makeWcs(
-            fwd, rev,
-            lsst.afw.coord.IcrsCoord(crval, lsst.afw.geom.degrees)
+        crval = lsst.afw.coord.IcrsCoord(
+            sipMetadata.get("CRVAL1") * lsst.afw.geom.degrees,
+            sipMetadata.get("CRVAL2") * lsst.afw.geom.degrees,
         )
+        cdLinearTransform = lsst.afw.geom.LinearTransform(getCdMatrixFromMetadata(sipMetadata))
+        aArr = getSipMatrixFromMetadata(sipMetadata, "A")
+        bArr = getSipMatrixFromMetadata(sipMetadata, "B")
+        apArr = getSipMatrixFromMetadata(sipMetadata, "AP")
+        bpArr = getSipMatrixFromMetadata(sipMetadata, "BP")
+        abPoly = PolynomialTransform(aArr, bArr)
+        abRevPoly = PolynomialTransform(apArr, bpArr)
+        fwd = SipForwardTransform(crpix, cdLinearTransform, abPoly)
+        rev = SipReverseTransform(crpix, cdLinearTransform, abRevPoly)
+        wcsFromMakeWcs = lsst.meas.astrom.makeWcs(fwd, rev, crval)
+        wcsFromMetadata = lsst.afw.geom.makeSkyWcs(sipMetadata, strip=False)
 
-        self.assertFloatsAlmostEqual(fwd.getPoly().getXCoeffs(), wcs.getSipA())
-        self.assertFloatsAlmostEqual(fwd.getPoly().getYCoeffs(), wcs.getSipB())
-        self.assertFloatsAlmostEqual(rev.getPoly().getXCoeffs(), wcs.getSipAp())
-        self.assertFloatsAlmostEqual(rev.getPoly().getYCoeffs(), wcs.getSipBp())
+        # Check SipForwardTransform against a local implementation
+        localPixelToIwc = makeSipPixelToIwc(sipMetadata)
+        self.assertTransformsAlmostEqual(fwd, localPixelToIwc.applyForward, maxval=2000)
 
-        # We can only test agreement with TanWcs in one direction, because
-        # TanWcs doesn't provide an inverse to skyToIntermediateWorldCoord.
+        # Compare SipReverseTransform against a local implementation
+        # Use the forward direction first to get sensible inputs
+        localIwcToPixel = makeSipIwcToPixel(sipMetadata)
 
-        def t1(p):
-            sky = lsst.afw.coord.IcrsCoord(crval + lsst.afw.geom.Extent2D(p), lsst.afw.geom.degrees)
-            return rev(wcs.skyToIntermediateWorldCoord(sky))
+        def fwdThenRev(p):
+            return rev(fwd(p))
 
-        def t2(p):
-            sky = lsst.afw.coord.IcrsCoord(crval + lsst.afw.geom.Extent2D(p), lsst.afw.geom.degrees)
-            return wcs.skyToPixel(sky)
+        def fwdThenLocalRev(p):
+            return localIwcToPixel.applyForward(fwd(p))
 
-        self.assertTransformsAlmostEqual(t1, t2)
+        self.assertTransformsAlmostEqual(fwdThenRev, fwdThenLocalRev, maxval=2000)
 
-        fwd2 = SipForwardTransform.extract(wcs)
-        rev2 = SipReverseTransform.extract(wcs)
+        # Check that SipReverseTransform is the inverse of SipForwardTransform;
+        # this is not perfect because the coefficients don't define a perfect inverse
+        def nullTransform(p):
+            return p
 
-        self.assertPairsAlmostEqual(fwd.getPixelOrigin(), fwd2.getPixelOrigin())
-        self.assertPairsAlmostEqual(rev.getPixelOrigin(), rev2.getPixelOrigin())
-        self.assertFloatsAlmostEqual(fwd.getCDMatrix().getMatrix(),
-                                     fwd2.getCDMatrix().getMatrix())
-        self.assertFloatsAlmostEqual(rev.getCDMatrix().getMatrix(),
-                                     rev2.getCDMatrix().getMatrix())
-        self.assertFloatsAlmostEqual(fwd.getPoly().getXCoeffs(),
-                                     fwd2.getPoly().getXCoeffs())
-        self.assertFloatsAlmostEqual(fwd.getPoly().getYCoeffs(),
-                                     fwd2.getPoly().getYCoeffs())
-        self.assertFloatsAlmostEqual(rev.getPoly().getXCoeffs(),
-                                     rev2.getPoly().getXCoeffs())
-        self.assertFloatsAlmostEqual(rev.getPoly().getYCoeffs(),
-                                     rev2.getPoly().getYCoeffs())
+        self.assertTransformsAlmostEqual(fwdThenRev, nullTransform, maxval=2000, atol=1e-3)
+
+        # Check SipForwardTransform against the one contained in wcsFromMakeWcs
+        # (Don't bother with the other direction because the WCS transform is iterative,
+        # so it doesn't tell us anything useful about SipReverseTransform
+        pixelToIwc = lsst.afw.geom.getPixelToIntermediateWorldCoords(wcsFromMetadata)
+        self.assertTransformsAlmostEqual(fwd, pixelToIwc.applyForward, maxval=2000)
+
+        # Check a WCS constructed from SipForwardTransform, SipReverseTransform
+        # against one constructed directly from the metadata
+        bbox = lsst.afw.geom.Box2D(lsst.afw.geom.Point2D(0, 0), lsst.afw.geom.Extent2D(2000, 2000))
+        self.assertWcsAlmostEqualOverBBox(wcsFromMakeWcs, wcsFromMetadata, bbox)
 
     def testTransformWcsPixels(self):
         filename = os.path.join(os.path.dirname(__file__),
                                 'imgCharSources-v85501867-R01-S00.sipheader')
-        wcs1 = lsst.afw.image.makeWcs(lsst.afw.image.readMetadata(filename))
+        wcs1 = lsst.afw.geom.makeSkyWcs(readMetadata(filename))
         s = makeRandomAffineTransform()
         wcs2 = transformWcsPixels(wcs1, s)
         crval = wcs1.getSkyOrigin().getPosition(lsst.afw.geom.degrees)
@@ -374,7 +395,7 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
     def testRotateWcsPixelsBy90(self):
         filename = os.path.join(os.path.dirname(__file__),
                                 'imgCharSources-v85501867-R01-S00.sipheader')
-        wcs0 = lsst.afw.image.makeWcs(lsst.afw.image.readMetadata(filename))
+        wcs0 = lsst.afw.geom.makeSkyWcs(readMetadata(filename))
         w, h = 11, 12
         image0 = lsst.afw.image.ImageD(w, h)
         x, y = np.meshgrid(np.arange(w), np.arange(h))
@@ -405,11 +426,11 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         # even with nearest-neighbor interpolation, so we have to
         # ignore pixels it didn't know how to populate.
         def compareFinite(ref, target):
-            mask = np.isfinite(target.getArray())
-            self.assertGreater(mask.sum(), 0.8*target.getArray().size)
+            finitPixels = np.isfinite(target.getArray())
+            self.assertGreater(finitPixels.sum(), 0.7*target.getArray().size)
             self.assertFloatsAlmostEqual(
-                ref.getArray()[mask],
-                target.getArray()[mask],
+                ref.getArray()[finitPixels],
+                target.getArray()[finitPixels],
                 rtol=1E-6
             )
 
@@ -478,8 +499,8 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
         truePoly = makeRandomPolynomialTransform(order)
         crval = lsst.afw.coord.IcrsCoord(lsst.afw.geom.Point2D(35.0, 10.0), lsst.afw.geom.degrees)
         crpix = lsst.afw.geom.Point2D(50, 50)
-        cd = lsst.afw.geom.LinearTransform.makeScaling((0.2*lsst.afw.geom.arcseconds).asDegrees())
-        initialWcs = lsst.afw.image.makeWcs(crval, crpix, cd[cd.XX], cd[cd.XY], cd[cd.YX], cd[cd.YY])
+        cd = lsst.afw.geom.LinearTransform.makeScaling((0.2*lsst.afw.geom.arcseconds).asDegrees()).getMatrix()
+        initialWcs = lsst.afw.geom.makeSkyWcs(crpix=crpix, crval=crval, cdMatrix=cd)
         bbox = lsst.afw.geom.Box2D(
             (lsst.afw.geom.Point2D(crval.getPosition(lsst.afw.geom.arcseconds)) -
                 lsst.afw.geom.Extent2D(20, 20)),
@@ -501,6 +522,7 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
         refCoordKey = ref.getCoordKey()
         errScaling = 1E-14
         matches = []
+        initialIwcToSky = lsst.afw.geom.getIntermediateWorldCoordsToSky(initialWcs)
         for i in range(nPoints):
             refRec = ref.addNew()
             skyPos = lsst.afw.geom.Point2D(
@@ -510,7 +532,7 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
             skyCoord = lsst.afw.coord.IcrsCoord(skyPos, lsst.afw.geom.arcseconds)
             refRec.set(refCoordKey, skyCoord)
             trueRec = trueSrc.addNew()
-            truePos = truePoly(initialWcs.skyToIntermediateWorldCoord(skyCoord))
+            truePos = truePoly(initialIwcToSky.applyInverse(skyCoord))
             trueRec.set(srcPosKey, truePos)
             measRec = measSrc.addNew()
             covSqrt = np.random.randn(3, 2)
@@ -542,7 +564,7 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
             self.assertEqual(match.second.getY(), dataRec.get("src_y"))
             self.assertEqual(match.first.getId(), dataRec.get("ref_id"))
             self.assertEqual(match.second.getId(), dataRec.get("src_id"))
-            refPos = initialWcs.skyToIntermediateWorldCoord(match.first.getCoord())
+            refPos = initialIwcToSky.applyInverse(match.first.getCoord())
             self.assertEqual(refPos.getX(), dataRec.get("intermediate_x"))
             self.assertEqual(refPos.getY(), dataRec.get("intermediate_y"))
             self.assertFloatsAlmostEqual(match.second.get(srcErrKey), dataRec.get(dataErrKey), rtol=1E-7)

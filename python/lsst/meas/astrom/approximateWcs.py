@@ -27,12 +27,11 @@ from builtins import range
 from builtins import object
 import numpy as np
 
-import lsst.afw.image as afwImage
 import lsst.afw.table as afwTable
 import lsst.afw.geom as afwGeom
 from lsst.meas.base import SingleFrameMeasurementTask
 from lsst.meas.astrom.sip import makeCreateWcsWithSip
-from lsst.afw.image.basicUtils import assertWcsAlmostEqualOverBBox
+from lsst.afw.geom.utils import assertWcsAlmostEqualOverBBox
 
 
 class _MockTestCase(object):
@@ -64,10 +63,10 @@ def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3,
     @return the fit TAN-SIP WCS
     """
     if useTanWcs:
-        crCoord = wcs.getSkyOrigin()
-        crPix = wcs.getPixelOrigin()
-        cdMat = wcs.getCDMatrix()
-        tanWcs = afwImage.makeWcs(crCoord, crPix, cdMat[0, 0], cdMat[0, 1], cdMat[1, 0], cdMat[1, 1])
+        crpix = wcs.getPixelOrigin()
+        crval = wcs.getSkyOrigin()
+        cdMatrix = wcs.getCdMatrix(crpix)
+        tanWcs = afwGeom.makeSkyWcs(crpix=crpix, crval=crval, cdMatrix=cdMatrix)
     else:
         tanWcs = wcs
 

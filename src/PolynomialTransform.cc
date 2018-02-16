@@ -43,7 +43,7 @@ PolynomialTransform PolynomialTransform::convert(SipForwardTransform const & oth
     poly._xCoeffs(1, 0) += 1;
     poly._yCoeffs(0, 1) += 1;
     return compose(
-        other.getCDMatrix(),
+        other.getCdMatrix(),
         compose(
             poly,
             afw::geom::AffineTransform(afw::geom::Point2D() - other.getPixelOrigin())
@@ -88,8 +88,8 @@ PolynomialTransform::PolynomialTransform(int order) :
 }
 
 PolynomialTransform::PolynomialTransform(
-    ndarray::Array<double const,2,2> const & xCoeffs,
-    ndarray::Array<double const,2,2> const & yCoeffs
+    ndarray::Array<double const,2,0> const & xCoeffs,
+    ndarray::Array<double const,2,0> const & yCoeffs
 ) : _xCoeffs(ndarray::copy(xCoeffs)),
     _yCoeffs(ndarray::copy(yCoeffs)),
     _u(_xCoeffs.rows()),
@@ -207,7 +207,7 @@ ScaledPolynomialTransform ScaledPolynomialTransform::convert(SipForwardTransform
     ScaledPolynomialTransform result(
         sipForward.getPoly(),
         afw::geom::AffineTransform(afw::geom::Point2D(0, 0) - sipForward.getPixelOrigin()),
-        afw::geom::AffineTransform(sipForward.getCDMatrix())
+        afw::geom::AffineTransform(sipForward.getCdMatrix())
     );
     // Account for the terms outside the sum in the SIP definition (see comment
     // earlier in the file for more explanation).

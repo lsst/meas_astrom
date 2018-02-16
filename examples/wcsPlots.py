@@ -503,7 +503,7 @@ def wcsPlots(wcs, imgsources, refsources, matches, W, H, prefix, titleprefix,
              plotdata=None, plotformat='png'):
     '''Create diagnostic plots for WCS determination.
 
-    wcs -- an lsst.afw.image.Wcs
+    wcs -- an lsst.afw.geom.Wcs
     imgsources -- an lsst.afw.detection.SourceSet, of sources found in the image.
     refsources -- an lsst.afw.detection.SourceSet, of sources in the reference catalog.
     matches -- an lsst.afw.detection.SourceMatchSet (vector of SourceMatch)
@@ -553,7 +553,7 @@ def plotDistortion(sip, W, H, ncells, prefix, titletxt, exaggerate=1.,
     a grid and distorting it.  Allows exaggeration of the distortion for ease
     of visualization.
 
-    sip -- an lsst.afw.image.TanWcs
+    sip -- an lsst.afw.geom.SkyWcs
     W, H -- the image size
     ncells -- the approximate number of grid cells to split the image into.
     prefix -- output plot filename prefix.

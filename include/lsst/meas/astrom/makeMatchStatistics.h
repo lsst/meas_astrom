@@ -27,7 +27,7 @@
 
 #include <vector>
 
-#include "lsst/afw/image/Wcs.h"
+#include "lsst/afw/geom/SkyWcs.h"
 #include "lsst/afw/math/Statistics.h"
 #include "lsst/afw/table/Match.h"
 
@@ -66,7 +66,7 @@ afw::math::Statistics makeMatchStatistics(
  */
 template<typename MatchT>
 afw::math::Statistics makeMatchStatisticsInPixels(
-    afw::image::Wcs const & wcs,
+    afw::geom::SkyWcs const & wcs,
     std::vector<MatchT> const & matchList,
     int const flags,  
     afw::math::StatisticsControl const & sctrl = afw::math::StatisticsControl()
@@ -85,7 +85,7 @@ afw::math::Statistics makeMatchStatisticsInPixels(
  */
 template<typename MatchT>
 afw::math::Statistics makeMatchStatisticsInRadians(
-    afw::image::Wcs const & wcs,
+    afw::geom::SkyWcs const & wcs,
     std::vector<MatchT> const & matchList,
     int const flags,
     afw::math::StatisticsControl const & sctrl = afw::math::StatisticsControl()

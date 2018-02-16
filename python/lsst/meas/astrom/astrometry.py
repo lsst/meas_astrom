@@ -27,7 +27,6 @@ from builtins import range
 
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
-import lsst.afw.geom as afwGeom
 from .ref_match import RefMatchTask, RefMatchConfig
 from .fitTanSipWcs import FitTanSipWcsTask
 from .display import displayAstrometry
@@ -301,7 +300,7 @@ class AstrometryTask(RefMatchTask):
         @param[in] sourceCat  catalog of sources detected on the exposure (an lsst.afw.table.SourceCatalog)
         @param[in] refFluxField  field of refCat to use for flux
         @param[in] bbox  bounding box of exposure (an lsst.afw.geom.Box2I)
-        @param[in] wcs  initial guess for WCS of exposure (an lsst.afw.image.Wcs)
+        @param[in] wcs  initial guess for WCS of exposure (an lsst.afw.geom.Wcs)
         @param[in] match_tolerance a MatchTolerance object (or None) specifying
             internal tolerances to the matcher. See the MatchTolerance
             definition in the respective matcher for the class definition.
@@ -309,7 +308,7 @@ class AstrometryTask(RefMatchTask):
 
         @return an lsst.pipe.base.Struct with these fields:
         - matches  astrometric matches, a list of lsst.afw.table.ReferenceMatch
-        - wcs  the fit WCS (an lsst.afw.image.Wcs)
+        - wcs  the fit WCS (an lsst.afw.geom.Wcs)
         - scatterOnSky  median on-sky separation between reference objects and sources in "matches"
             (an lsst.afw.geom.Angle)
         """

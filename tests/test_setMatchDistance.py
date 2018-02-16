@@ -39,7 +39,6 @@ import numpy as np
 import lsst.utils.tests
 from lsst.afw.coord import IcrsCoord
 import lsst.afw.geom as afwGeom
-from lsst.afw.image import makeWcs
 import lsst.afw.table as afwTable
 from lsst.meas.algorithms import LoadReferenceObjectsTask
 from lsst.meas.base import SingleFrameMeasurementTask
@@ -67,13 +66,9 @@ class BaseTestCase(unittest.TestCase):
         crval = IcrsCoord(afwGeom.PointD(44., 45.))
         crpix = afwGeom.PointD(0, 0)
 
-        arcsecPerPixel = 1/3600.0
-        CD11 = arcsecPerPixel
-        CD12 = 0
-        CD21 = 0
-        CD22 = arcsecPerPixel
-
-        self.tanWcs = makeWcs(crval, crpix, CD11, CD12, CD21, CD22)
+        scale = 1 * afwGeom.arcseconds
+        self.tanWcs = afwGeom.makeSkyWcs(crpix=crpix, crval=crval,
+                                         cdMatrix=afwGeom.makeCdMatrix(scale=scale))
 
         S = 300
         N = 5

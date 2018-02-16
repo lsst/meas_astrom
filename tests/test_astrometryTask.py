@@ -60,7 +60,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         metadata.set("CD1_2", 0.0)
         metadata.set("CD2_2", -5.1e-05)
         metadata.set("CD2_1", 0.0)
-        self.tanWcs = afwImage.makeWcs(metadata)
+        self.tanWcs = afwGeom.makeSkyWcs(metadata)
         self.exposure = afwImage.ExposureF(self.bbox)
         self.exposure.setWcs(self.tanWcs)
         self.exposure.setFilter(afwImage.Filter("r", True))
@@ -89,9 +89,8 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         """Test that the solver will record number of sources used to table
            if it is passed a schema on initialization.
         """
-        distortedWcs = afwImage.DistortedTanWcs(self.tanWcs, afwGeom.makeIdentityTransform())
-        self.exposure.setWcs(distortedWcs)
-        loadRes = self.refObjLoader.loadPixelBox(bbox=self.bbox, wcs=distortedWcs, filterName="r")
+        self.exposure.setWcs(self.tanWcs)
+        loadRes = self.refObjLoader.loadPixelBox(bbox=self.bbox, wcs=self.tanWcs, filterName="r")
         refCat = loadRes.refCat
         refCentroidKey = afwTable.Point2DKey(refCat.schema["centroid"])
         refFluxRKey = refCat.schema["r_flux"].asKey()
@@ -128,7 +127,8 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
     def doTest(self, pixelsToTanPixels, order=3):
         """Test using pixelsToTanPixels to distort the source positions
         """
-        distortedWcs = afwImage.DistortedTanWcs(self.tanWcs, pixelsToTanPixels)
+        distortedWcs = afwGeom.makeModifiedWcs(pixelTransform=pixelsToTanPixels, wcs=self.tanWcs,
+                                               modifyActualPixels=False)
         self.exposure.setWcs(distortedWcs)
         sourceCat = self.makeSourceCat(distortedWcs)
         config = AstrometryTask.ConfigClass()

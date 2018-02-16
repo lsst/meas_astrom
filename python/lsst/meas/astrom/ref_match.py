@@ -23,7 +23,6 @@ from __future__ import absolute_import, division, print_function
 
 __all__ = ['RefMatchConfig', 'RefMatchTask']
 
-from lsst.afw.image.utils import getDistortedWcs
 import lsst.afw.geom as afwGeom
 import lsst.afw.math as afwMath
 import lsst.pex.config as pexConfig
@@ -179,7 +178,7 @@ class RefMatchTask(pipeBase.Task):
 
         @return an lsst.pipe.base.Struct containing the following exposure metadata:
         - bbox: parent bounding box
-        - wcs: WCS (an lsst.afw.image.Wcs)
+        - wcs: WCS (an lsst.afw.geom.Wcs)
         - calib calibration (an lsst.afw.image.Calib), or None if unknown
         - filterName: name of filter, or None if unknown
         """
@@ -189,7 +188,7 @@ class RefMatchTask(pipeBase.Task):
             filterName = None
         return pipeBase.Struct(
             bbox=exposure.getBBox(),
-            wcs=getDistortedWcs(exposureInfo, log=self.log),
+            wcs=exposureInfo.getWcs(),
             calib=exposureInfo.getCalib() if exposureInfo.hasCalib() else None,
             filterName=filterName,
         )

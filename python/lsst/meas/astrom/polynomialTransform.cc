@@ -43,8 +43,8 @@ namespace {
 static void declarePolynomialTransform(py::module &mod) {
     py::class_<PolynomialTransform, std::shared_ptr<PolynomialTransform>> cls(mod, "PolynomialTransform");
 
-    cls.def(py::init<ndarray::Array<double const, 2, 2> const &,
-                     ndarray::Array<double const, 2, 2> const &>(),
+    cls.def(py::init<ndarray::Array<double const, 2, 0> const &,
+                     ndarray::Array<double const, 2, 0> const &>(),
             "xCoeffs"_a, "yCoeffs"_a);
     cls.def(py::init<PolynomialTransform const &>(), "other"_a);
 

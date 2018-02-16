@@ -28,21 +28,16 @@
 #include "lsst/afw/geom/AffineTransform.h"
 #include "lsst/afw/geom/Box.h"
 #include "lsst/afw/geom/Angle.h"
+#include "lsst/afw/geom/SkyWcs.h"
 #include "lsst/meas/astrom/PolynomialTransform.h"
 
-
-namespace lsst { namespace afw { namespace image {
-
-class TanWcs;
-
-} // namespace image
-
+namespace lsst {
+namespace afw {
 namespace coord {
 
-class Coord;
+class IcrsCoord;
 
 } // namespace coord
-
 } // namespace afw
 
 namespace meas { namespace astrom {
@@ -58,14 +53,14 @@ class SipTransformBase {
 public:
 
     /**
-     *  Return the pixel origin (CRPIX) of the transform.
+     *  Return the pixel origin (CRPIX, but zero-indexed) of the transform.
      */
     afw::geom::Point2D const & getPixelOrigin() const { return _pixelOrigin; }
 
     /**
      *  Return the CD matrix of the transform.
      */
-    afw::geom::LinearTransform const & getCDMatrix() const { return _cdMatrix; }
+    afw::geom::LinearTransform const & getCdMatrix() const { return _cdMatrix; }
 
     /**
      *  Return the polynomial component of the transform (A,B) or (AP,BP).
@@ -189,11 +184,6 @@ public:
      *  output scalings (respectively).
      */
     static SipForwardTransform convert(ScaledPolynomialTransform const & scaled);
-
-    /**
-     *  Extract the reverse transform from a TanWcs.
-     */
-    static SipForwardTransform extract(afw::image::TanWcs const & wcs);
 
     /**
      *  Construct a SipForwardTransform from its components.
@@ -320,11 +310,6 @@ public:
     static SipReverseTransform convert(ScaledPolynomialTransform const & scaled);
 
     /**
-     *  Extract the reverse transform from a TanWcs.
-     */
-    static SipReverseTransform extract(afw::image::TanWcs const & wcs);
-
-    /**
      *  Construct a SipReverseTransform from its components.
      *
      *  @param[in]   pixelOrigin    CRPIX @f$(u_0,v_0)@f$ (zero-indexed)
@@ -388,17 +373,17 @@ private:
  *  @throw pex::exceptions::InvalidParameterError if the forward and reverse
  *         SIP transforms have different CRPIX values or CD matrices.
  */
-std::shared_ptr<afw::image::TanWcs> makeWcs(
+std::shared_ptr<afw::geom::SkyWcs> makeWcs(
     SipForwardTransform const & sipForward,
     SipReverseTransform const & sipReverse,
-    afw::coord::Coord const & skyOrigin
+    afw::coord::IcrsCoord const & skyOrigin
 );
 
 /**
- *  Create a new TanWcs whose pixel coordinate system has been transformed
+ *  Create a new SkyWcs whose pixel coordinate system has been transformed
  *  via an affine transform.
  *
- *  @param[in]  wcs   Original TanWcs object.
+ *  @param[in]  wcs   Original SkyWcs object.
  *  @param[in]  s     AffineTransform to apply to the pixel coordinate
  *                    system.
  *
@@ -410,21 +395,21 @@ std::shared_ptr<afw::image::TanWcs> makeWcs(
  *  @endcode
  *  for all sky coordinates @c sky and pixel coordinates @c pixel.
  */
-std::shared_ptr<afw::image::TanWcs> transformWcsPixels(
-    afw::image::TanWcs const & wcs,
+std::shared_ptr<afw::geom::SkyWcs> transformWcsPixels(
+    afw::geom::SkyWcs const & wcs,
     afw::geom::AffineTransform const & s
 );
 
 /**
- *  Return a new TanWcs that represents a rotation of the image
+ *  Return a new SkyWcs that represents a rotation of the image
  *  it corresponds to about the image's center.
  *
- *  @param[in]  wcs        Original TanWcs to be rotated.
+ *  @param[in]  wcs        Original SkyWcs to be rotated.
  *  @param[in]  nQuarter   Number of 90 degree rotations (positive is counterclockwise).
  *  @param[in]  dimensions Width and height of the image.
  */
-std::shared_ptr<afw::image::TanWcs> rotateWcsPixelsBy90(
-    afw::image::TanWcs const & wcs,
+std::shared_ptr<afw::geom::SkyWcs> rotateWcsPixelsBy90(
+    afw::geom::SkyWcs const & wcs,
     int nQuarter,
     afw::geom::Extent2I const & dimensions
 );

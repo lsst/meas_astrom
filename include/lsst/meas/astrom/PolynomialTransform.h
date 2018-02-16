@@ -68,8 +68,8 @@ public:
      *  elements with p + q > N should be zero.
      */
     PolynomialTransform(
-        ndarray::Array<double const,2,2> const & xCoeffs,
-        ndarray::Array<double const,2,2> const & yCoeffs
+        ndarray::Array<double const,2,0> const & xCoeffs,
+        ndarray::Array<double const,2,0> const & yCoeffs
     );
 
     /**

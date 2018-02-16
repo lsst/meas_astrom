@@ -24,7 +24,7 @@
 
 #include "lsst/afw/coord/Coord.h"
 #include "lsst/afw/geom/AffineTransform.h"
-#include "lsst/afw/image/TanWcs.h"
+#include "lsst/afw/geom/SkyWcs.h"
 #include "lsst/meas/astrom/SipTransform.h"
 
 namespace py = pybind11;
@@ -39,7 +39,7 @@ static void declareSipTransformBase(py::module &mod) {
     py::class_<SipTransformBase, std::shared_ptr<SipTransformBase>> cls(mod, "_SipTransformBase");
 
     cls.def("getPixelOrigin", &SipTransformBase::getPixelOrigin, py::return_value_policy::copy);
-    cls.def("getCDMatrix", &SipTransformBase::getCDMatrix, py::return_value_policy::copy);
+    cls.def("getCdMatrix", &SipTransformBase::getCdMatrix, py::return_value_policy::copy);
     cls.def("getPoly", &SipTransformBase::getPoly, py::return_value_policy::copy);
 }
 
@@ -64,7 +64,6 @@ static void declareSipForwardTransform(py::module &mod) {
     cls.def_static("convert",
                    (SipForwardTransform(*)(ScaledPolynomialTransform const &)) & SipForwardTransform::convert,
                    "scaled"_a);
-    cls.def_static("extract", &SipForwardTransform::extract, "wcs"_a);
 
     cls.def("__call__", &SipForwardTransform::operator(), "in"_a);
     cls.def("transformPixels", &SipForwardTransform::transformPixels, "s"_a);
@@ -93,7 +92,6 @@ static void declareSipReverseTransform(py::module &mod) {
     cls.def_static("convert",
                    (SipReverseTransform(*)(ScaledPolynomialTransform const &)) & SipReverseTransform::convert,
                    "scaled"_a);
-    cls.def_static("extract", &SipReverseTransform::extract, "wcs"_a);
 
     cls.def("__call__", &SipReverseTransform::operator(), "in"_a);
     cls.def("transformPixels", &SipReverseTransform::transformPixels, "s"_a);
@@ -110,9 +108,9 @@ PYBIND11_PLUGIN(sipTransform) {
     declareSipForwardTransform(mod);
     declareSipReverseTransform(mod);
 
-    mod.def("makeWcs", &makeWcs);
-    mod.def("transformWcsPixels", &transformWcsPixels, "wcs"_a, "s"_a);
-    mod.def("rotateWcsPixelsBy90", &rotateWcsPixelsBy90, "wcs"_a, "nQuarter"_a, "dimensions"_a);
+    mod.def("makeWcs", makeWcs, "sipForward"_a, "sipReverse"_a, "skyOrigin"_a);
+    mod.def("transformWcsPixels", transformWcsPixels, "wcs"_a, "s"_a);
+    mod.def("rotateWcsPixelsBy90", rotateWcsPixelsBy90, "wcs"_a, "nQuarter"_a, "dimensions"_a);
 
     return mod.ptr();
 }

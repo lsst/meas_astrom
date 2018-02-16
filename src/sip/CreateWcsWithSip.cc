@@ -21,7 +21,7 @@
  * the GNU General Public License along with this program.  If not, 
  * see <http://www.lsstcorp.org/LegalNotices/>.
  */
- 
+#include <cmath> 
 
 #include "Eigen/SVD"
 #include "Eigen/Cholesky"
@@ -31,7 +31,7 @@
 #include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
 #include "lsst/afw/geom/Angle.h"
 #include "lsst/afw/math/Statistics.h"
-#include "lsst/afw/image/TanWcs.h"
+#include "lsst/afw/geom/SkyWcs.h"
 #include "lsst/log/Log.h"
 #include "lsst/meas/astrom/makeMatchStatistics.h"
 
@@ -53,6 +53,9 @@ namespace afwMath  = lsst::afw::math;
 namespace afwTable = lsst::afw::table;
 
 namespace {
+
+double const MAX_DISTANCE_CRPIX_TO_BBOXCTR = 1000;
+
 /*
  * Given an index and a SIP order, calculate p and q for the index'th term u^p v^q
  * (Cf. Eqn 2 in http://fits.gsfc.nasa.gov/registry/sip/SIP_distortion_v1_0.pdf)
@@ -109,7 +112,7 @@ leastSquaresSolve(Eigen::VectorXd b, Eigen::MatrixXd A) {
 template<class MatchT>
 CreateWcsWithSip<MatchT>::CreateWcsWithSip(
     std::vector<MatchT> const & matches,
-    afwImg::Wcs const& linearWcs,
+    afw::geom::SkyWcs const& linearWcs,
     int const order,
     afwGeom::Box2I const& bbox,
     int const ngrid
@@ -117,7 +120,7 @@ CreateWcsWithSip<MatchT>::CreateWcsWithSip(
     _matches(matches),
     _bbox(bbox),
     _ngrid(ngrid),
-    _linearWcs(linearWcs.clone()),
+    _linearWcs(std::make_shared<afw::geom::SkyWcs>(linearWcs)),
     _sipOrder(order+1),
     _reverseSipOrder(order+2), //Higher order for reverse transform
     _sipA(Eigen::MatrixXd::Zero(_sipOrder, _sipOrder)),
@@ -169,21 +172,33 @@ CreateWcsWithSip<MatchT>::CreateWcsWithSip(
 
         _bbox.grow(border);
     }
+
+    // If crpix is too far from the center of the fit bbox, move it to the center to improve the fit
+    auto const initialCrpix = _linearWcs->getPixelOrigin();
+    auto const bboxCenter = afw::geom::Box2D(_bbox).getCenter();
+    if (std::hypot(initialCrpix[0] - bboxCenter[0], initialCrpix[1] - bboxCenter[1]) >
+        MAX_DISTANCE_CRPIX_TO_BBOXCTR) {
+        LOGL_DEBUG(_log,
+                   "_linearWcs crpix = %d, %d farther than %f from bbox center; shifting to center %d, %d",
+                   initialCrpix[0], initialCrpix[1], MAX_DISTANCE_CRPIX_TO_BBOXCTR, bboxCenter[0],
+                   bboxCenter[1]);
+        _linearWcs = _linearWcs->getTanWcs(bboxCenter);
+    }
+
     // Calculate the forward part of the SIP distortion
     _calculateForwardMatrices();
 
-    //Build a new wcs incorporating the forward sip matrix, it's all we know so far
-    afwGeom::Point2D crval = _getCrvalAsGeomPoint();
-    afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
-    Eigen::MatrixXd CD = _linearWcs->getCDMatrix();
-    
-    _newWcs = PTR(afwImg::TanWcs)(new afwImg::TanWcs(crval, crpix, CD, _sipA, _sipB, _sipAp, _sipBp));
+    // Build a new wcs incorporating the forward SIP matrix, it's all we know so far
+    auto const crval = _linearWcs->getSkyOrigin();
+    auto const crpix = _linearWcs->getPixelOrigin();
+    Eigen::MatrixXd cdMatrix = _linearWcs->getCdMatrix();
+    _newWcs = afw::geom::makeTanSipWcs(crpix, crval, cdMatrix, _sipA, _sipB);
+
     // Use _newWcs to calculate the forward transformation on a grid, and derive the back transformation
     _calculateReverseMatrices();
 
-    //Build a new wcs incorporating both of the sip matrices
-    _newWcs = PTR(afwImg::TanWcs)(new afwImg::TanWcs(crval, crpix, CD, _sipA, _sipB, _sipAp, _sipBp));
-
+    // Build a new wcs incorporating all SIP matrices
+    _newWcs = afw::geom::makeTanSipWcs(crpix, crval, cdMatrix, _sipA, _sipB, _sipAp, _sipBp);
 }
 
 template<class MatchT>
@@ -198,6 +213,7 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
     Eigen::VectorXd u(nPoints), v(nPoints), iwc1(nPoints), iwc2(nPoints);
 
     int i = 0;
+    auto linearIwcToSky = getIntermediateWorldCoordsToSky(*_linearWcs);
     for (
         typename std::vector<MatchT>::const_iterator ptr = _matches.begin();
         ptr != _matches.end();
@@ -207,7 +223,7 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
 
         // iwc: intermediate world coordinate positions of catalogue objects
         afwCoord::IcrsCoord c = match.first->getCoord();
-        afwGeom::Point2D p = _linearWcs->skyToIntermediateWorldCoord(c);
+        afwGeom::Point2D p = linearIwcToSky->applyInverse(c);
         iwc1[i] = p[0];
         iwc2[i] = p[1];
         // u and v are intermediate pixel coordinates of observed (distorted) positions
@@ -250,9 +266,9 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
     crpix[0] -= mu[0]*CDinv(0,0) + nu[0]*CDinv(0,1); 
     crpix[1] -= mu[0]*CDinv(1,0) + nu[0]*CDinv(1,1);
 
-    afwGeom::Point2D crval = _getCrvalAsGeomPoint();
+    auto const crval = _linearWcs->getSkyOrigin();
 
-    _linearWcs = std::shared_ptr<afwImg::Wcs>( new afwImg::Wcs(crval, crpix, CD));
+    _linearWcs = afw::geom::makeSkyWcs(crpix, crval, CD);
 
     //Get Sip terms
     
@@ -298,9 +314,18 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
     LOGL_DEBUG(_log, "_calcReverseMatrices: x0,y0 %i,%i, W,H %i,%i, ngrid %i, dx,dy %g,%g, CRPIX %g,%g",
                x0, y0, _bbox.getWidth(), _bbox.getHeight(), _ngrid, dx, dy, crpix[0], crpix[1]);
 
+    auto tanWcs = _newWcs->getTanWcs(_newWcs->getPixelOrigin());
+    auto applySipAB = afwGeom::makeWcsPairTransform(*_newWcs, *tanWcs);
     int k = 0;
     for (int i = 0; i < _ngrid; ++i) {
         double const y = y0 + i*dy;
+        std::vector<afwGeom::Point2D> beforeSipABPoints;
+        beforeSipABPoints.reserve(_ngrid);
+        for (int j = 0; j < _ngrid; ++j) {
+            double const x = x0 + j*dx;
+            beforeSipABPoints.emplace_back(afwGeom::Point2D(x, y));
+        }
+        auto const afterSipABPoints = applySipAB->applyForward(beforeSipABPoints);
         for (int j = 0; j < _ngrid; ++j, ++k) {
             double const x = x0 + j*dx;
             double u,v;
@@ -309,13 +334,9 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
             v = y - crpix[1];
 
             // U and V are the result of applying the "forward" (A,B) SIP coefficients
-            // NOTE that the "undistortPixel()" function accepts 1-indexed (FITS-style)
-            // coordinates, and here we are treating "x" and "y" as LSST-style.
-            afwGeom::Point2D xy = _newWcs->undistortPixel(afwGeom::Point2D(x + 1, y + 1));
-            // "crpix", on the other hand, is LSST-style 0-indexed, so we have to remove
-            // the FITS-style 1-index from "xy"
-            U[k] = xy[0] - 1 - crpix[0];
-            V[k] = xy[1] - 1 - crpix[1];
+            afwGeom::Point2D const xy = afterSipABPoints[j];
+            U[k] = xy[0] - crpix[0];
+            V[k] = xy[1] - crpix[1];
 
             if ((i == 0 || i == (_ngrid-1) || i == (_ngrid/2)) &&
                 (j == 0 || j == (_ngrid-1) || j == (_ngrid/2))) {
@@ -374,12 +395,6 @@ afwGeom::Angle CreateWcsWithSip<MatchT>::getLinearScatterOnSky() const {
     assert(_linearWcs.get());
     return makeMatchStatisticsInRadians(
         *_linearWcs, _matches, afw::math::MEDIAN).getValue()*afw::geom::radians;
-}
-
-template<class MatchT>
-afwGeom::Point2D CreateWcsWithSip<MatchT>::_getCrvalAsGeomPoint() const {
-    afwCoord::Fk5Coord coo = _linearWcs->getSkyOrigin()->toFk5();
-    return coo.getPosition(afwGeom::degrees);
 }
 
 

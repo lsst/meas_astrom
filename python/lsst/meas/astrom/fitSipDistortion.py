@@ -211,7 +211,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
             - match.first (reference object) centroid,
             - match.second (source) centroid
             - match.distance (on sky separation, in radians)
-        initWcs : :cpp:class:`lsst::afw::image::Wcs`
+        initWcs : :cpp:class:`lsst::afw::geom::SkyWcs`
             An initial WCS whose CD matrix is used as the final CD matrix.
         bbox : :cpp:class:`lsst::afw::geom::Box2I`
             The region over which the WCS will be valid (PARENT pixel coordinates);
@@ -239,7 +239,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
 
         An lsst.pipe.base.Struct with the following fields:
 
-        wcs : :cpp:class:`lsst::afw::image::TanWcs`
+        wcs : :cpp:class:`lsst::afw::geom::SkyWcs`
             The best-fit WCS.
         scatterOnSky : :cpp:class:`lsst::afw::geom::Angle`
             The median on-sky separation between reference objects and
@@ -257,7 +257,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
             bbox = lsst.afw.geom.Box2I(bbox)
 
         wcs = self.makeInitialWcs(matches, initWcs)
-        cdMatrix = lsst.afw.geom.LinearTransform(wcs.getCDMatrix())
+        cdMatrix = lsst.afw.geom.LinearTransform(wcs.getCdMatrix())
 
         # Fit the "reverse" mapping from intermediate world coordinates to
         # pixels, rejecting outliers. Fitting in this direction first makes it
@@ -391,7 +391,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
                 disp.line([(rx, ry), (mx, my)], ctype=colors[0])
                 sx, sy = record.get(srcKey)
                 sErr = record.get(srcErrKey)
-                sEllipse = lsst.afw.geom.ellipses.Quadrupole(sErr[0, 0], sErr[1, 1], sErr[0, 1])
+                sEllipse = lsst.afw.geom.Quadrupole(sErr[0, 0], sErr[1, 1], sErr[0, 1])
                 disp.dot(sEllipse, sx, sy, ctype=colors[1])
         if pause or pause is None:  # default is to pause
             print("Dropping into debugger to allow inspection of display. Type 'continue' when done.")
@@ -417,14 +417,14 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
             The following fields are read:
             - match.first (reference object) coord
             - match.second (source) centroid
-        wcs : :cpp:class:`lsst::afw::image::Wcs`
+        wcs : :cpp:class:`lsst::afw::geom::SkyWcs`
             An initial WCS whose CD matrix is used as the CD matrix of the
             result.
 
         Returns
         -------
 
-        A new :cpp:class:`lsst::afw::image::Wcs`.
+        A new :cpp:class:`lsst::afw::geom::SkyWcs`.
         """
         crpix = lsst.afw.geom.Extent2D(0, 0)
         crval = lsst.afw.geom.Extent3D(0, 0, 0)
@@ -433,7 +433,8 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
             crval += lsst.afw.geom.Extent3D(mm.first.getCoord().toIcrs().getVector())
         crpix /= len(matches)
         crval /= len(matches)
-        cd = wcs.getCDMatrix()
-        newWcs = lsst.afw.image.makeWcs(lsst.afw.coord.IcrsCoord(lsst.afw.geom.Point3D(crval)),
-                                        lsst.afw.geom.Point2D(crpix), cd[0, 0], cd[0, 1], cd[1, 0], cd[1, 1])
+        cd = wcs.getCdMatrix()
+        newWcs = lsst.afw.geom.makeSkyWcs(crpix=lsst.afw.geom.Point2D(crpix),
+                                          crval=lsst.afw.coord.IcrsCoord(lsst.afw.geom.Point3D(crval)),
+                                          cdMatrix=cd)
         return newWcs

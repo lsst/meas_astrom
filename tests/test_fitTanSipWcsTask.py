@@ -41,7 +41,7 @@ import lsst.pipe.base
 import lsst.utils.tests
 import lsst.afw.coord as afwCoord
 import lsst.afw.geom as afwGeom
-import lsst.afw.image as afwImage
+from lsst.afw.geom.wcsUtils import makeTanSipMetadata
 import lsst.afw.table as afwTable
 from lsst.meas.algorithms import LoadReferenceObjectsTask
 from lsst.meas.base import SingleFrameMeasurementTask
@@ -65,13 +65,9 @@ class BaseTestCase(object):
         crval = afwCoord.IcrsCoord(afwGeom.PointD(44., 45.))
         crpix = afwGeom.Point2D(15000, 4000)
 
-        arcsecPerPixel = 1/3600.0
-        CD11 = arcsecPerPixel
-        CD12 = 0
-        CD21 = 0
-        CD22 = arcsecPerPixel
-
-        self.tanWcs = afwImage.makeWcs(crval, crpix, CD11, CD12, CD21, CD22)
+        scale = 1 * afwGeom.arcseconds
+        cdMatrix = afwGeom.makeCdMatrix(scale=scale, flipX=True)
+        self.tanWcs = afwGeom.makeSkyWcs(crpix=crpix, crval=crval, cdMatrix=cdMatrix)
         self.loadData()
 
     def loadData(self, rangePix=3000, numPoints=25):
@@ -108,7 +104,7 @@ class BaseTestCase(object):
                 src.set(self.srcCentroidKey_xSigma, 0.1)
                 src.set(self.srcCentroidKey_ySigma, 0.1)
 
-                c = self.tanWcs.pixelToSky(afwGeom.Point2D(i, j))
+                c = self.tanWcs.pixelToSky(i, j)
                 refObj.setCoord(c)
 
                 if False:
@@ -127,7 +123,7 @@ class BaseTestCase(object):
         """Check results
 
         @param[in] fitRes  a object with two fields:
-            - wcs  fit TAN-SIP WCS, an lsst.afw.image.TanWcs
+            - wcs  fit TAN-SIP WCS, an lsst.afw.geom.SkyWcs
             - scatterOnSky  median on-sky scatter, an lsst.afw.geom.Angle
         @param[in] catsUpdated  if True then coord field of self.sourceCat and centroid fields of self.refCat
             have been updated
@@ -155,14 +151,14 @@ class BaseTestCase(object):
             distErr = abs(dist - angSep)
             maxDistErr = max(maxDistErr, distErr)
             maxAngSep = max(maxAngSep, angSep)
-            self.assertLess(angSep.asArcseconds(), 0.001)
 
             pixSep = math.hypot(*(srcPixPos - refPixPos))
             maxPixSep = max(maxPixSep, pixSep)
-            self.assertLess(pixSep, 0.001)
 
         print("max angular separation = %0.4f arcsec" % (maxAngSep.asArcseconds(),))
         print("max pixel separation = %0.3f" % (maxPixSep,))
+        self.assertLess(maxAngSep.asArcseconds(), 0.001)
+        self.assertLess(maxPixSep, 0.005)
         if catsUpdated:
             allowedDistErr = 1e-7
         else:
@@ -170,7 +166,7 @@ class BaseTestCase(object):
         self.assertLess(maxDistErr.asArcseconds(), allowedDistErr,
                         "Computed distance in match list is off by %s arcsec" % (maxDistErr.asArcseconds(),))
 
-    def doTest(self, name, func, order=3, numIter=4, specifyBBox=False, doPlot=False):
+    def doTest(self, name, func, order=3, numIter=4, specifyBBox=False, doPlot=False, doPrint=False):
         """Apply func(x, y) to each source in self.sourceCat, then fit and check the resulting WCS
         """
         bbox = afwGeom.Box2I()
@@ -193,6 +189,19 @@ class BaseTestCase(object):
             wcs=tanSipWcs,
             scatterOnSky=sipObject.getScatterOnSky(),
         )
+
+        if doPrint:
+            print("TAN-SIP metadata fit over bbox=", bbox)
+            metadata = makeTanSipMetadata(
+                crpix = tanSipWcs.getPixelOrigin(),
+                crval = tanSipWcs.getSkyOrigin(),
+                cdMatrix = tanSipWcs.getCdMatrix(),
+                sipA = sipObject.getSipA(),
+                sipB = sipObject.getSipB(),
+                sipAp = sipObject.getSipAp(),
+                sipBp = sipObject.getSipBp(),
+            )
+            print(metadata.toString())
 
         if doPlot:
             self.plotWcs(tanSipWcs, name=name)
@@ -245,7 +254,7 @@ class BaseTestCase(object):
             yc.append(refPixPos[1])
             rc.append(ref.getRa())
             dc.append(ref.getDec())
-            srd = tanSipWcs.pixelToSky(src.getX(), src.getY()).toFk5()
+            srd = tanSipWcs.pixelToSky(src.get(self.srcCentroidKey))
             rs.append(srd.getRa())
             ds.append(srd.getDec())
         xs = np.array(xs)
@@ -341,7 +350,8 @@ class SideLoadTestCases(object):
             x, y = radialTransform.applyForward(afwGeom.Point2D(x, y))
             return (x, y)
         for order in (4, 5, 6):
-            self.doTest("testRadial", radialDistortion, order=order)
+            doPrint = order == 5
+            self.doTest("testRadial", radialDistortion, order=order, doPrint=doPrint)
 
 # The test classes inherit from two base classes and differ in the match
 # class being used.

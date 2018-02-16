@@ -26,7 +26,7 @@
 
 #include "lsst/pex/config.h"
 #include "lsst/afw/geom/LinearTransform.h"
-#include "lsst/afw/image/TanWcs.h"
+#include "lsst/afw/geom/SkyWcs.h"
 #include "lsst/afw/table/Catalog.h"
 #include "lsst/afw/table/BaseRecord.h"
 #include "lsst/meas/astrom/PolynomialTransform.h"
@@ -141,7 +141,7 @@ public:
     static ScaledPolynomialTransformFitter fromMatches(
         int maxOrder,
         afw::table::ReferenceMatchVector const & matches,
-        afw::image::Wcs const & initialWcs,
+        afw::geom::SkyWcs const & initialWcs,
         double intrinsicScatter
     );
 

@@ -31,6 +31,7 @@ import lsst.afw.detection as afwDetection
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.afw.math as afwMath
+from lsst.afw.fits import readMetadata
 import lsst.afw.display.ds9 as ds9
 import lsst.meas.algorithms as algorithms
 
@@ -80,14 +81,14 @@ def detectFootprints(exposure, positiveThreshold, psf=None, negativeThreshold=No
     middle = convolvedImage.Factory(convolvedImage, goodBBox)
 
     dsNegative = None
-    if negativeThreshold != None:
+    if negativeThreshold is not None:
         # detect negative sources
         dsNegative = afwDetection.makeDetectionSet(middle, negativeThreshold, "DETECTED_NEGATIVE", npixMin)
         if not ds9.getMaskPlaneColor("DETECTED_NEGATIVE"):
             ds9.setMaskPlaneColor("DETECTED_NEGATIVE", ds9.CYAN)
 
     dsPositive = None
-    if positiveThreshold != None:
+    if positiveThreshold is not None:
         dsPositive = afwDetection.makeFootprintSet(middle, positiveThreshold, "DETECTED", npixMin)
     #
     # ds only searched the middle but it belongs to the entire MaskedImage
@@ -190,8 +191,6 @@ def mergeSourceSets(sourceSetList):
 
     return outlist
 
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
 
 def makeSourceList(dir, basename, e, c, aList, threshold, verbose=0):
     """Return the sources detected above threshold in all the amplifiers, aList, of the given field
@@ -218,8 +217,6 @@ def makeSourceList(dir, basename, e, c, aList, threshold, verbose=0):
         sourceSets.append(detectSources(exp, threshold))
 
     return mergeSourceSets(sourceSets)
-
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 
 def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF, verbose=0):
@@ -250,14 +247,14 @@ def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF
                 print(filename)
 
             if what == "header":
-                md = afwImage.readMetadata(filename + "_img.fits")
+                md = readMetadata(filename + "_img.fits")
                 xy0 = afwGeom.Point2I(md.get("CRVAL1A"), md.get("CRVAL2A"))
                 xy1 = xy0 + afwGeom.Extent2I(md.get("NAXIS1") - 1, md.get("NAXIS2") - 1)
                 bbox.grow(xy0)
                 bbox.grow(xy1)
 
                 ampBBox[a] = afwGeom.Box2I(xy0, xy1)
-                wcs[a] = afwImage.Wcs(md)
+                wcs[a] = afwGeom.makeSkyWcs(md)
             else:
                 try:
                     data = imageFactory(filename + "_img.fits")
@@ -277,11 +274,9 @@ def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF
 
     return ccdImage
 
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
 
 def readStandards(filename):
-    fd = file(filename, "r")
+    fd = open(filename, "r")
 
     sourceSet = afwDetection.SourceSet()
     lineno = 0

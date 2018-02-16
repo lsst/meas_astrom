@@ -15,7 +15,7 @@
 #include "gsl/gsl_linalg.h"
 
 #include "lsst/pex/exceptions.h"
-#include "lsst/afw/image/Wcs.h"
+#include "lsst/afw/geom/SkyWcs.h"
 #include "lsst/afw/geom/Angle.h"
 #include "lsst/meas/astrom/matchOptimisticB.h"
 
@@ -488,8 +488,8 @@ namespace astrom {
     }
 
     ProxyVector makeProxies(afwTable::SourceCatalog const & sourceCat,
-                            afw::image::Wcs const& distortedWcs,
-                            afw::image::Wcs const& tanWcs
+                            afw::geom::SkyWcs const& distortedWcs,
+                            afw::geom::SkyWcs const& tanWcs
                             )
     {
         ProxyVector r;
@@ -497,13 +497,13 @@ namespace astrom {
         for (afwTable::SourceCatalog::const_iterator sourcePtr = sourceCat.begin();
             sourcePtr != sourceCat.end(); ++sourcePtr) {
             r.push_back(RecordProxy(sourcePtr,
-                                    tanWcs.skyToPixel(*distortedWcs.pixelToSky(sourcePtr->getCentroid()))));
+                                    tanWcs.skyToPixel(distortedWcs.pixelToSky(sourcePtr->getCentroid()))));
         }
         return r;
     }
 
     ProxyVector makeProxies(afwTable::SimpleCatalog const & posRefCat,
-                            afw::image::Wcs const& tanWcs
+                            afw::geom::SkyWcs const& tanWcs
                             )
     {
         auto coordKey = afwTable::CoordKey(posRefCat.getSchema()["coord"]);
@@ -520,7 +520,7 @@ namespace astrom {
         afwTable::SimpleCatalog const &posRefCat,
         afwTable::SourceCatalog const &sourceCat,
         MatchOptimisticBControl const &control,
-        afw::image::Wcs const& wcs,
+        afw::geom::SkyWcs const& wcs,
         int posRefBegInd,
         bool verbose
     ) {
@@ -539,31 +539,28 @@ namespace astrom {
         }
         double const maxRotationRad = afw::geom::degToRad(control.maxRotationDeg);
 
-        CONST_PTR(afw::image::Wcs) tanWcs; // Undistorted Wcs, providing tangent plane
-        if (wcs.hasDistortion()) {
-            // Create an undistorted Wcs to project everything with
-            // We'll anchor it at the center of the area.
-            afw::geom::Extent2D srcCenter(0, 0);
-            for (auto iter = sourceCat.begin(); iter != sourceCat.end(); ++iter) {
-                srcCenter += afw::geom::Extent2D(iter->getCentroid());
-            }
-            srcCenter /= sourceCat.size();
-
-            afw::geom::Extent3D refCenter(0, 0, 0);
-            for (auto iter = posRefCat.begin(); iter != posRefCat.end(); ++iter) {
-                refCenter += afw::geom::Extent3D(iter->getCoord().toIcrs().getVector());
-            }
-            refCenter /= posRefCat.size();
-
-            tanWcs = std::make_shared<afw::image::Wcs>(
-                afw::coord::IcrsCoord(afw::geom::Point3D(refCenter)).getPosition(),
-                afw::geom::Point2D(srcCenter),
-                wcs.getCDMatrix()
-                );
+        // Create an undistorted Wcs to project everything with
+        // We'll anchor it at the center of the area.
+        afw::geom::Extent2D srcCenter(0, 0);
+        for (auto iter = sourceCat.begin(); iter != sourceCat.end(); ++iter) {
+            srcCenter += afw::geom::Extent2D(iter->getCentroid());
         }
+        srcCenter /= sourceCat.size();
 
-        ProxyVector posRefProxyCat = makeProxies(posRefCat, tanWcs ? *tanWcs : wcs);
-        ProxyVector sourceProxyCat = makeProxies(sourceCat, wcs, tanWcs ? *tanWcs : wcs);
+        afw::geom::Extent3D refCenter(0, 0, 0);
+        for (auto iter = posRefCat.begin(); iter != posRefCat.end(); ++iter) {
+            refCenter += afw::geom::Extent3D(iter->getCoord().toIcrs().getVector());
+        }
+        refCenter /= posRefCat.size();
+
+        auto tanWcs = afw::geom::makeSkyWcs(
+            afw::geom::Point2D(srcCenter),
+            afw::coord::IcrsCoord(afw::geom::Point3D(refCenter)).getPosition(),
+            wcs.getCdMatrix()
+        );
+
+        ProxyVector posRefProxyCat = makeProxies(posRefCat, *tanWcs);
+        ProxyVector sourceProxyCat = makeProxies(sourceCat, wcs, *tanWcs);
 
         // sourceSubCat contains at most the numBrightStars brightest sources, sorted by decreasing flux
         ProxyVector sourceSubCat = selectPoint(

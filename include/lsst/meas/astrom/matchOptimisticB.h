@@ -53,12 +53,12 @@ namespace astrom {
     typedef std::vector<RecordProxy> ProxyVector;
 
     ProxyVector makeProxies(lsst::afw::table::SourceCatalog const & sourceCat,
-                            afw::image::Wcs const& distortedWcs,
-                            afw::image::Wcs const& tanWcs
+                            afw::geom::SkyWcs const& distortedWcs,
+                            afw::geom::SkyWcs const& tanWcs
         );
 
     ProxyVector makeProxies(lsst::afw::table::SimpleCatalog const & posRefCat,
-                            afw::image::Wcs const& tanWcs
+                            afw::geom::SkyWcs const& tanWcs
         );
 
     struct ProxyPair {
@@ -133,7 +133,7 @@ namespace astrom {
         lsst::afw::table::SimpleCatalog const &posRefCat,
         lsst::afw::table::SourceCatalog const &sourceCat,
         MatchOptimisticBControl const &control,
-        afw::image::Wcs const& wcs,
+        afw::geom::SkyWcs const& wcs,
         int posRefBegInd=0,
         bool verbose = false
     );
