@@ -155,7 +155,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
             srcCoord = src.get(srcCoordKey)
             srcPixPos = src.getCentroid()
 
-            angSep = refCoord.angularSeparation(srcCoord)
+            angSep = refCoord.separation(srcCoord)
             maxAngSep = max(maxAngSep, angSep)
 
             pixSep = math.hypot(*(srcPixPos-refPixPos))

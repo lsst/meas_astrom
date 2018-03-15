@@ -91,7 +91,7 @@ afw::math::Statistics makeMatchStatisticsInRadians(
         auto srcPtr = match.second;
         auto refCoord = refPtr->getCoord();
         auto srcCoord = wcs.pixelToSky(srcPtr->getCentroid());
-        auto angSep = refCoord.angularSeparation(srcCoord);
+        auto angSep = refCoord.separation(srcCoord);
         val.push_back(angSep.asRadians());
     }
     return afw::math::makeStatistics(val, flags, sctrl);

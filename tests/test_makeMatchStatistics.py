@@ -117,8 +117,8 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         offDirList = [val*afwGeom.radians for val in np.random.random_sample([self.numMatches])*math.pi*2]
         for offLen, offDir, match in zip(offLenList, offDirList, self.matchList):
             coord = match.first.get(self.refCoordKey)
-            coord.offset(offDir, offLen)  # an in-place operation
-            match.first.set(self.refCoordKey, coord)
+            offsetCoord = coord.offset(offDir, offLen)
+            match.first.set(self.refCoordKey, offsetCoord)
         itemList = (afwMath.MEDIAN, afwMath.MEANCLIP, afwMath.IQRANGE)
         itemMask = reduce(lambda a, b: a | b, itemList)
         distStats = measAstrom.makeMatchStatisticsInRadians(self.wcs, self.matchList, itemMask)

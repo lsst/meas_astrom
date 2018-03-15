@@ -138,7 +138,7 @@ class TestMatchOptimisticB(unittest.TestCase):
         for refObj, source, distRad in matches:
             sourceCoord = source.get(srcCoordKey)
             refCoord = refObj.get(refCoordKey)
-            predDist = sourceCoord.angularSeparation(refCoord)
+            predDist = sourceCoord.separation(refCoord)
             distErr = abs(predDist - distRad*afwGeom.radians)
             maxDistErr = max(distErr, maxDistErr)
 

@@ -9,8 +9,7 @@ from matplotlib.patches import Ellipse
 import numpy as np
 import pylab as plt
 
-import lsst.afw.geom.geomLib as afwGeom
-import lsst.afw.coord.coordLib as afwCoord
+import lsst.afw.geom as afwGeom
 
 # These only exist in recent Astrometry.net versions...
 #from astrometry.libkd import spherematch

@@ -22,7 +22,6 @@
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 
-#include "lsst/afw/coord/Coord.h"
 #include "lsst/afw/geom/AffineTransform.h"
 #include "lsst/afw/geom/SkyWcs.h"
 #include "lsst/meas/astrom/SipTransform.h"

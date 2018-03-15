@@ -7,8 +7,7 @@ from lsst.pipe.base import Task, Struct
 from lsst.meas.algorithms import (LoadIndexedReferenceObjectsTask, ScienceSourceSelectorTask,
                                   ReferenceSourceSelectorTask)
 import lsst.afw.table as afwTable
-import lsst.afw.coord as afwCoord
-from lsst.afw.geom import arcseconds
+from lsst.afw.geom import arcseconds, averageSpherePoint
 
 
 class DirectMatchConfigWithoutLoader(Config):
@@ -126,9 +125,9 @@ class DirectMatchTask(Task):
         """!Calculate a circle enclosing the catalog
 
         @param[in] catalog  Catalog we will encircle (lsst.afw.table.SourceCatalog)
-        @return Struct with center (lsst.afw.coord.Coord) and radius (lsst.afw.geom.Angle)
+        @return Struct with ICRS center (lsst.afw.geom.SpherePoint) and radius (lsst.afw.geom.Angle)
         """
         coordList = [src.getCoord() for src in catalog]
-        center = afwCoord.averageCoord(coordList)
-        radius = max(center.angularSeparation(coord) for coord in coordList)
+        center = averageSpherePoint(coordList)
+        radius = max(center.separation(coord) for coord in coordList)
         return Struct(center=center, radius=radius + self.config.matchRadius*arcseconds)

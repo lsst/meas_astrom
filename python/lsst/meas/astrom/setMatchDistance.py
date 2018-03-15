@@ -43,4 +43,4 @@ def setMatchDistance(matches):
     for match in matches:
         sourceCoord = match.first.get(sourceCoordKey)
         refObjCoord = match.second.get(refObjCoordKey)
-        match.distance = refObjCoord.angularSeparation(sourceCoord).asRadians()
+        match.distance = refObjCoord.separation(sourceCoord).asRadians()

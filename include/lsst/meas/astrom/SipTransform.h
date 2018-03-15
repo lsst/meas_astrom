@@ -28,18 +28,11 @@
 #include "lsst/afw/geom/AffineTransform.h"
 #include "lsst/afw/geom/Box.h"
 #include "lsst/afw/geom/Angle.h"
+#include "lsst/afw/geom/SpherePoint.h"
 #include "lsst/afw/geom/SkyWcs.h"
 #include "lsst/meas/astrom/PolynomialTransform.h"
 
 namespace lsst {
-namespace afw {
-namespace coord {
-
-class IcrsCoord;
-
-} // namespace coord
-} // namespace afw
-
 namespace meas { namespace astrom {
 
 /**
@@ -366,7 +359,7 @@ private:
  *                             world coordinates.
  *  @param[in]   sipReverse    Mapping from intermediate world coordinates to
  *                             pixel coordinates.
- *  @param[in]   skyOrigin     Position of the gnomonic projection that maps
+ *  @param[in]   skyOrigin     ICRS position of the gnomonic projection that maps
  *                             sky coordinates to intermediate world coordinates
  *                             (CRVAL).
  *
@@ -376,7 +369,7 @@ private:
 std::shared_ptr<afw::geom::SkyWcs> makeWcs(
     SipForwardTransform const & sipForward,
     SipReverseTransform const & sipReverse,
-    afw::coord::IcrsCoord const & skyOrigin
+    afw::geom::SpherePoint const & skyOrigin
 );
 
 /**

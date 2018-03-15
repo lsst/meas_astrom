@@ -37,7 +37,6 @@ import unittest
 import numpy as np
 
 import lsst.utils.tests
-from lsst.afw.coord import IcrsCoord
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 from lsst.meas.algorithms import LoadReferenceObjectsTask
@@ -63,7 +62,7 @@ class BaseTestCase(unittest.TestCase):
     MatchClass = None
 
     def setUp(self):
-        crval = IcrsCoord(afwGeom.PointD(44., 45.))
+        crval = afwGeom.SpherePoint(44, 45, afwGeom.degrees)
         crpix = afwGeom.PointD(0, 0)
 
         scale = 1 * afwGeom.arcseconds
@@ -125,7 +124,7 @@ class BaseTestCase(unittest.TestCase):
         for refObj, source, distRad in self.matches:
             sourceCoord = source.get(self.srcCoordKey)
             refCoord = refObj.get(self.refCoordKey)
-            predDist = sourceCoord.angularSeparation(refCoord)
+            predDist = sourceCoord.separation(refCoord)
             distErr = abs(predDist - distRad*afwGeom.radians)
             maxDistErr = max(distErr, maxDistErr)
 
