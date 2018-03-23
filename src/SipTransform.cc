@@ -24,7 +24,6 @@
 
 #include <sstream>
 
-#include "lsst/afw/coord/Coord.h"
 #include "lsst/afw/geom/SkyWcs.h"
 #include "lsst/afw/geom/transformFactory.h"
 #include "lsst/meas/astrom/SipTransform.h"
@@ -175,7 +174,7 @@ afw::geom::Point2D SipReverseTransform::operator()(afw::geom::Point2D const & xy
 std::shared_ptr<afw::geom::SkyWcs> makeWcs(
     SipForwardTransform const & sipForward,
     SipReverseTransform const & sipReverse,
-    afw::coord::IcrsCoord const & skyOrigin
+    afw::geom::SpherePoint const & skyOrigin
 ) {
     if (!sipForward.getPixelOrigin().asEigen().isApprox(sipReverse.getPixelOrigin().asEigen())) {
         std::ostringstream oss;

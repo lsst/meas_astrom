@@ -312,9 +312,9 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
             sipMetadata.get("CRPIX1") - 1,
             sipMetadata.get("CRPIX2") - 1,
         )
-        crval = lsst.afw.coord.IcrsCoord(
-            sipMetadata.get("CRVAL1") * lsst.afw.geom.degrees,
-            sipMetadata.get("CRVAL2") * lsst.afw.geom.degrees,
+        crval = lsst.afw.geom.SpherePoint(
+            sipMetadata.get("CRVAL1"),
+            sipMetadata.get("CRVAL2"), lsst.afw.geom.degrees,
         )
         cdLinearTransform = lsst.afw.geom.LinearTransform(getCdMatrixFromMetadata(sipMetadata))
         aArr = getSipMatrixFromMetadata(sipMetadata, "A")
@@ -368,16 +368,16 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         wcs1 = lsst.afw.geom.makeSkyWcs(readMetadata(filename))
         s = makeRandomAffineTransform()
         wcs2 = transformWcsPixels(wcs1, s)
-        crval = wcs1.getSkyOrigin().getPosition(lsst.afw.geom.degrees)
+        crvalDeg = wcs1.getSkyOrigin().getPosition(lsst.afw.geom.degrees)
 
         def t1a(p):
-            sky = lsst.afw.coord.IcrsCoord(crval + lsst.afw.geom.Extent2D(p),
-                                           lsst.afw.geom.degrees)
+            raDeg, decDeg = crvalDeg + lsst.afw.geom.Extent2D(p)
+            sky = lsst.afw.geom.SpherePoint(raDeg, decDeg, lsst.afw.geom.degrees)
             return s(wcs1.skyToPixel(sky))
 
         def t2a(p):
-            sky = lsst.afw.coord.IcrsCoord(crval + lsst.afw.geom.Extent2D(p),
-                                           lsst.afw.geom.degrees)
+            raDeg, decDeg = crvalDeg + lsst.afw.geom.Extent2D(p)
+            sky = lsst.afw.geom.SpherePoint(raDeg, decDeg, lsst.afw.geom.degrees)
             return wcs2.skyToPixel(sky)
 
         self.assertTransformsAlmostEqual(t1a, t2a)
@@ -497,15 +497,13 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
         # Setup artifical matches that correspond to a known (random) PolynomialTransform.
         order = 3
         truePoly = makeRandomPolynomialTransform(order)
-        crval = lsst.afw.coord.IcrsCoord(lsst.afw.geom.Point2D(35.0, 10.0), lsst.afw.geom.degrees)
+        crval = lsst.afw.geom.SpherePoint(35.0, 10.0, lsst.afw.geom.degrees)
         crpix = lsst.afw.geom.Point2D(50, 50)
         cd = lsst.afw.geom.LinearTransform.makeScaling((0.2*lsst.afw.geom.arcseconds).asDegrees()).getMatrix()
         initialWcs = lsst.afw.geom.makeSkyWcs(crpix=crpix, crval=crval, cdMatrix=cd)
         bbox = lsst.afw.geom.Box2D(
-            (lsst.afw.geom.Point2D(crval.getPosition(lsst.afw.geom.arcseconds)) -
-                lsst.afw.geom.Extent2D(20, 20)),
-            (lsst.afw.geom.Point2D(crval.getPosition(lsst.afw.geom.arcseconds)) +
-                lsst.afw.geom.Extent2D(20, 20))
+            crval.getPosition(lsst.afw.geom.arcseconds) - lsst.afw.geom.Extent2D(20, 20),
+            crval.getPosition(lsst.afw.geom.arcseconds) + lsst.afw.geom.Extent2D(20, 20),
         )
         srcSchema = lsst.afw.table.SourceTable.makeMinimalSchema()
         srcPosKey = lsst.afw.table.Point2DKey.addFields(srcSchema, "pos", "source position", "pix")
@@ -525,11 +523,11 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
         initialIwcToSky = lsst.afw.geom.getIntermediateWorldCoordsToSky(initialWcs)
         for i in range(nPoints):
             refRec = ref.addNew()
-            skyPos = lsst.afw.geom.Point2D(
+            raDeg, decDeg = (
                 np.random.uniform(low=bbox.getMinX(), high=bbox.getMaxX()),
-                np.random.uniform(low=bbox.getMinY(), high=bbox.getMaxY())
+                np.random.uniform(low=bbox.getMinY(), high=bbox.getMaxY()),
             )
-            skyCoord = lsst.afw.coord.IcrsCoord(skyPos, lsst.afw.geom.arcseconds)
+            skyCoord = lsst.afw.geom.SpherePoint(raDeg, decDeg, lsst.afw.geom.arcseconds)
             refRec.set(refCoordKey, skyCoord)
             trueRec = trueSrc.addNew()
             truePos = truePoly(initialIwcToSky.applyInverse(skyCoord))

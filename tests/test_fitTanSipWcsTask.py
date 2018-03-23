@@ -39,7 +39,6 @@ import numpy as np
 
 import lsst.pipe.base
 import lsst.utils.tests
-import lsst.afw.coord as afwCoord
 import lsst.afw.geom as afwGeom
 from lsst.afw.geom.wcsUtils import makeTanSipMetadata
 import lsst.afw.table as afwTable
@@ -62,7 +61,7 @@ class BaseTestCase(object):
     MatchClass = None
 
     def setUp(self):
-        crval = afwCoord.IcrsCoord(afwGeom.PointD(44., 45.))
+        crval = afwGeom.SpherePoint(44, 45, afwGeom.degrees)
         crpix = afwGeom.Point2D(15000, 4000)
 
         scale = 1 * afwGeom.arcseconds
@@ -146,7 +145,7 @@ class BaseTestCase(object):
                 refPixPos = tanSipWcs.skyToPixel(refCoord)
                 srcCoord = tanSipWcs.pixelToSky(srcPixPos)
 
-            angSep = refCoord.angularSeparation(srcCoord)
+            angSep = refCoord.separation(srcCoord)
             dist = distRad*afwGeom.radians
             distErr = abs(dist - angSep)
             maxDistErr = max(maxDistErr, distErr)

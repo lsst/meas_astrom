@@ -7,7 +7,6 @@ from builtins import range
 import lsst.pipe.base
 import lsst.afw.image
 import lsst.afw.geom
-import lsst.afw.coord
 import lsst.afw.display
 
 from .scaledPolynomialTransformFitter import ScaledPolynomialTransformFitter, OutlierRejectionControl
@@ -430,11 +429,11 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
         crval = lsst.afw.geom.Extent3D(0, 0, 0)
         for mm in matches:
             crpix += lsst.afw.geom.Extent2D(mm.second.getCentroid())
-            crval += lsst.afw.geom.Extent3D(mm.first.getCoord().toIcrs().getVector())
+            crval += lsst.afw.geom.Extent3D(mm.first.getCoord().getVector())
         crpix /= len(matches)
         crval /= len(matches)
         cd = wcs.getCdMatrix()
         newWcs = lsst.afw.geom.makeSkyWcs(crpix=lsst.afw.geom.Point2D(crpix),
-                                          crval=lsst.afw.coord.IcrsCoord(lsst.afw.geom.Point3D(crval)),
+                                          crval=lsst.afw.geom.SpherePoint(lsst.afw.geom.Point3D(crval)),
                                           cdMatrix=cd)
         return newWcs

@@ -536,7 +536,7 @@ class MatchPessimisticBTask(pipeBase.Task):
                 # We compute the true distance along and sphere instead
                 # and store it in units of arcseconds. The previous
                 # distances we used were approximate.
-                match.distance = match.first.getCoord().angularSeparation(
+                match.distance = match.first.getCoord().separation(
                     match.second.getCoord()).asArcseconds()
                 matches.append(match)
 

@@ -549,13 +549,13 @@ namespace astrom {
 
         afw::geom::Extent3D refCenter(0, 0, 0);
         for (auto iter = posRefCat.begin(); iter != posRefCat.end(); ++iter) {
-            refCenter += afw::geom::Extent3D(iter->getCoord().toIcrs().getVector());
+            refCenter += afw::geom::Extent3D(iter->getCoord().getVector());
         }
         refCenter /= posRefCat.size();
 
         auto tanWcs = afw::geom::makeSkyWcs(
             afw::geom::Point2D(srcCenter),
-            afw::coord::IcrsCoord(afw::geom::Point3D(refCenter)).getPosition(),
+            afw::geom::SpherePoint(afw::geom::Point3D(refCenter)),
             wcs.getCdMatrix()
         );
 

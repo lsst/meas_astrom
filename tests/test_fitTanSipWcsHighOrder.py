@@ -25,7 +25,6 @@ import unittest
 import numpy as np
 
 import lsst.utils.tests
-import lsst.daf.base as dafBase
 import lsst.afw.geom as afwGeom
 from lsst.meas.astrom import approximateWcs
 
@@ -39,25 +38,14 @@ class ApproximateWcsTestCase(lsst.utils.tests.TestCase):
     """
 
     def setUp(self):
-        metadata = dafBase.PropertySet()
-
         self.crPix = afwGeom.Point2D(15000, 4000)
         dimd = afwGeom.Extent2D(4000, 4000)
         bboxd = afwGeom.Box2D(self.crPix - dimd/2, dimd)
         self.bbox = afwGeom.Box2I(bboxd)
-        metadata.set("RADECSYS", 'ICRS')
-        metadata.set("EQUINOX", 2000.0)
-        metadata.setDouble("CRVAL1", 215.60)
-        metadata.setDouble("CRVAL2", 53.16)
-        metadata.setDouble("CRPIX1", self.crPix[0])
-        metadata.setDouble("CRPIX2", self.crPix[1])
-        metadata.set("CTYPE1", "RA---TAN")
-        metadata.set("CTYPE2", "DEC--TAN")
-        metadata.setDouble("CD1_1", 5.10808596133527E-05)
-        metadata.setDouble("CD1_2", 1.85579539217196E-07)
-        metadata.setDouble("CD2_2", -5.10281493481982E-05)
-        metadata.setDouble("CD2_1", -8.27440751733828E-07)
-        self.tanWcs = afwGeom.makeSkyWcs(metadata)
+        self.tanWcs = afwGeom.makeSkyWcs(crpix=self.crPix,
+                                         crval=afwGeom.SpherePoint(215.5, 53.0, afwGeom.degrees),
+                                         cdMatrix= np.array([[5.10808596133527E-05, 1.85579539217196E-07],
+                                                            [-8.27440751733828E-07, -5.10281493481982E-05]]))
 
     def tearDown(self):
         del self.tanWcs

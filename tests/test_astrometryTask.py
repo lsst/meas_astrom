@@ -28,7 +28,6 @@ import unittest
 import numpy as np
 
 import lsst.utils.tests
-import lsst.daf.base as dafBase
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
@@ -44,23 +43,10 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         refCatDir = os.path.join(os.path.dirname(__file__), "data", "sdssrefcat")
 
         self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(3001, 3001))
-        self.ctrPix = afwGeom.Point2I(1500, 1500)
-        metadata = dafBase.PropertySet()
-        metadata.set("RADECSYS", "FK5")
-        metadata.set("EQUINOX", 2000.0)
-        metadata.set("CTYPE1", "RA---TAN")
-        metadata.set("CTYPE2", "DEC--TAN")
-        metadata.set("CUNIT1", "deg")
-        metadata.set("CUNIT2", "deg")
-        metadata.set("CRVAL1", 215.5)
-        metadata.set("CRVAL2", 53.0)
-        metadata.set("CRPIX1", self.ctrPix[0] + 1)
-        metadata.set("CRPIX2", self.ctrPix[1] + 1)
-        metadata.set("CD1_1", 5.1e-05)
-        metadata.set("CD1_2", 0.0)
-        metadata.set("CD2_2", -5.1e-05)
-        metadata.set("CD2_1", 0.0)
-        self.tanWcs = afwGeom.makeSkyWcs(metadata)
+        crpix = afwGeom.Box2D(self.bbox).getCenter()
+        self.tanWcs = afwGeom.makeSkyWcs(crpix=crpix,
+                                         crval=afwGeom.SpherePoint(215.5, 53.0, afwGeom.degrees),
+                                         cdMatrix=afwGeom.makeCdMatrix(scale=5.1e-5*afwGeom.degrees))
         self.exposure = afwImage.ExposureF(self.bbox)
         self.exposure.setWcs(self.tanWcs)
         self.exposure.setFilter(afwImage.Filter("r", True))
@@ -68,7 +54,6 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         self.refObjLoader = LoadIndexedReferenceObjectsTask(butler=butler)
 
     def tearDown(self):
-        del self.ctrPix
         del self.tanWcs
         del self.exposure
         del self.refObjLoader
@@ -155,7 +140,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
             srcCoord = src.get(srcCoordKey)
             srcPixPos = src.getCentroid()
 
-            angSep = refCoord.angularSeparation(srcCoord)
+            angSep = refCoord.separation(srcCoord)
             maxAngSep = max(maxAngSep, angSep)
 
             pixSep = math.hypot(*(srcPixPos-refPixPos))

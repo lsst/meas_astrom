@@ -27,7 +27,6 @@ import math
 import numpy as np
 
 import lsst.utils.tests
-from lsst.daf.base import PropertySet
 import lsst.afw.geom as afwGeom
 import lsst.afw.math as afwMath
 import lsst.afw.table as afwTable
@@ -41,23 +40,9 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
     def setUp(self):
         # make a nominal match list where the distances are 0; test can then modify
         # source centroid, reference coord or distance field for each match, as desired
-        ctrPix = afwGeom.Point2I(1500, 1500)
-        metadata = PropertySet()
-        metadata.set("RADECSYS", "FK5")
-        metadata.set("EQUINOX", 2000.0)
-        metadata.set("CTYPE1", "RA---TAN")
-        metadata.set("CTYPE2", "DEC--TAN")
-        metadata.set("CUNIT1", "deg")
-        metadata.set("CUNIT2", "deg")
-        metadata.set("CRVAL1", 215.5)
-        metadata.set("CRVAL2", 53.0)
-        metadata.set("CRPIX1", ctrPix[0] + 1)
-        metadata.set("CRPIX2", ctrPix[1] + 1)
-        metadata.set("CD1_1", 5.1e-05)
-        metadata.set("CD1_2", 0.0)
-        metadata.set("CD2_2", -5.1e-05)
-        metadata.set("CD2_1", 0.0)
-        self.wcs = afwGeom.makeSkyWcs(metadata)
+        self.wcs = afwGeom.makeSkyWcs(crpix=afwGeom.Point2D(1500, 1500),
+                                      crval=afwGeom.SpherePoint(215.5, 53.0, afwGeom.degrees),
+                                      cdMatrix=afwGeom.makeCdMatrix(scale=5.1e-5*afwGeom.degrees))
         self.bboxD = afwGeom.Box2D(afwGeom.Point2D(10, 100), afwGeom.Extent2D(1000, 1500))
         self.numMatches = 25
 
@@ -117,8 +102,8 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         offDirList = [val*afwGeom.radians for val in np.random.random_sample([self.numMatches])*math.pi*2]
         for offLen, offDir, match in zip(offLenList, offDirList, self.matchList):
             coord = match.first.get(self.refCoordKey)
-            coord.offset(offDir, offLen)  # an in-place operation
-            match.first.set(self.refCoordKey, coord)
+            offsetCoord = coord.offset(offDir, offLen)
+            match.first.set(self.refCoordKey, offsetCoord)
         itemList = (afwMath.MEDIAN, afwMath.MEANCLIP, afwMath.IQRANGE)
         itemMask = reduce(lambda a, b: a | b, itemList)
         distStats = measAstrom.makeMatchStatisticsInRadians(self.wcs, self.matchList, itemMask)

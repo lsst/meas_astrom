@@ -45,7 +45,7 @@ class DirectMatchTestCase(lsst.utils.tests.TestCase):
         np.random.seed(12345)
         self.butler = Butler(RefCatDir)
         refObjLoader = LoadIndexedReferenceObjectsTask(butler=self.butler)
-        center = lsst.afw.coord.IcrsCoord(215.5*lsst.afw.geom.degrees, 53.0*lsst.afw.geom.degrees)
+        center = lsst.afw.geom.SpherePoint(215.5, 53.0, lsst.afw.geom.degrees)
         radius = 0.5*lsst.afw.geom.degrees
         self.filter = "r"
         self.references = refObjLoader.loadSkyCircle(center, radius, self.filter).refCat

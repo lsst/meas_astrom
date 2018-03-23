@@ -45,7 +45,6 @@ namespace astrom {
 namespace sip {
 
 namespace except   = lsst::pex::exceptions;
-namespace afwCoord = lsst::afw::coord;
 namespace afwGeom  = lsst::afw::geom;
 namespace afwImg   = lsst::afw::image;
 namespace afwDet   = lsst::afw::detection;
@@ -222,7 +221,7 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
         afwTable::ReferenceMatch const & match = *ptr;
 
         // iwc: intermediate world coordinate positions of catalogue objects
-        afwCoord::IcrsCoord c = match.first->getCoord();
+        auto c = match.first->getCoord();
         afwGeom::Point2D p = linearIwcToSky->applyInverse(c);
         iwc1[i] = p[0];
         iwc2[i] = p[1];

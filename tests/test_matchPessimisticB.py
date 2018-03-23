@@ -26,7 +26,6 @@ import math
 import os
 import unittest
 
-import lsst.daf.base as dafBase
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.utils.tests
@@ -44,22 +43,9 @@ class TestMatchPessimisticB(unittest.TestCase):
         self.MatchPessimisticB = measAstrom.MatchPessimisticBTask(
             config=self.config)
 
-        metadata = dafBase.PropertySet()
-        metadata.set("RADECSYS", "FK5")
-        metadata.set("EQUINOX", 2000.0)
-        metadata.set("CTYPE1", "RA---TAN")
-        metadata.set("CTYPE2", "DEC--TAN")
-        metadata.set("CUNIT1", "deg")
-        metadata.set("CUNIT2", "deg")
-        metadata.set("CRVAL1", 36.930640)
-        metadata.set("CRVAL2", -4.939560)
-        metadata.set("CRPIX1", 792.4)
-        metadata.set("CRPIX2", 560.7)
-        metadata.set("CD1_1", -5.17e-05)
-        metadata.set("CD1_2", 0.0)
-        metadata.set("CD2_2", 5.17e-05)
-        metadata.set("CD2_1", 0.0)
-        self.wcs = afwGeom.makeSkyWcs(metadata)
+        self.wcs = afwGeom.makeSkyWcs(crpix=afwGeom.Point2D(791.4, 559.7),
+                                      crval=afwGeom.SpherePoint(36.930640, -4.939560, afwGeom.degrees),
+                                      cdMatrix=afwGeom.makeCdMatrix(scale=5.17e-5*afwGeom.degrees))
         self.distortedWcs = self.wcs
 
         self.filename = os.path.join(os.path.dirname(__file__), "cat.xy.fits")
@@ -146,7 +132,7 @@ class TestMatchPessimisticB(unittest.TestCase):
         for refObj, source, distRad in matches:
             sourceCoord = source.get(srcCoordKey)
             refCoord = refObj.get(refCoordKey)
-            predDist = sourceCoord.angularSeparation(refCoord)
+            predDist = sourceCoord.separation(refCoord)
             distErr = abs(predDist - distRad*afwGeom.radians)
             maxDistErr = max(distErr, maxDistErr)
 
