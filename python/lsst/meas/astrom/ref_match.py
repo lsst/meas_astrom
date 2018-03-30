@@ -22,7 +22,10 @@
 
 __all__ = ['RefMatchConfig', 'RefMatchTask']
 
+import astropy.time
+
 import lsst.geom
+from lsst.daf.base import DateTime
 import lsst.afw.math as afwMath
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
@@ -180,14 +183,22 @@ class RefMatchTask(pipeBase.Task):
         - wcs: WCS (an lsst.afw.geom.Wcs)
         - calib calibration (an lsst.afw.image.Calib), or None if unknown
         - filterName: name of filter, or None if unknown
+        - epoch: date of exposure (an astropy.time.Time), or None
         """
         exposureInfo = exposure.getInfo()
         filterName = exposureInfo.getFilter().getName() or None
         if filterName == "_unknown_":
             filterName = None
+        epoch = None
+        if exposure.getInfo().hasVisitInfo():
+            epochTaiMjd = exposure.getInfo().getVisitInfo().getDate().get(system=DateTime.MJD,
+                                                                          scale=DateTime.TAI)
+            epoch = astropy.time.Time(epochTaiMjd, scale="tai", format="mjd")
+
         return pipeBase.Struct(
             bbox=exposure.getBBox(),
             wcs=exposureInfo.getWcs(),
             calib=exposureInfo.getCalib() if exposureInfo.hasCalib() else None,
             filterName=filterName,
+            epoch=epoch,
         )
