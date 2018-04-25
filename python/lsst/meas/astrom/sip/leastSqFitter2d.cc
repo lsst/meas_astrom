@@ -24,7 +24,6 @@
 
 #include <string>
 
-#include "numpy/arrayobject.h"
 #include "ndarray/pybind11.h"
 
 #include "lsst/meas/astrom/sip/LeastSqFitter2d.h"
@@ -59,12 +58,6 @@ static void declareLeastSqFitter2d(py::module &mod, std::string const &name) {
 
 PYBIND11_PLUGIN(leastSqFitter2d) {
     py::module mod("leastSqFitter2d");
-
-    // Need to import numpy for ndarray and eigen conversions
-    if (_import_array() < 0) {
-        PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import");
-        return nullptr;
-    }
 
     declareLeastSqFitter2d<afw::math::PolynomialFunction1<double>>(mod, "LeastSqFitter2dPoly");
 
