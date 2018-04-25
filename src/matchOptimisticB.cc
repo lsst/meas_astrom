@@ -14,6 +14,7 @@
 
 #include "gsl/gsl_linalg.h"
 
+#include "lsst/sphgeom/Vector3d.h"
 #include "lsst/pex/exceptions.h"
 #include "lsst/afw/geom/SkyWcs.h"
 #include "lsst/afw/geom/Angle.h"
@@ -547,15 +548,15 @@ namespace astrom {
         }
         srcCenter /= sourceCat.size();
 
-        afw::geom::Extent3D refCenter(0, 0, 0);
+        sphgeom::Vector3d refCenter(0, 0, 0);
         for (auto iter = posRefCat.begin(); iter != posRefCat.end(); ++iter) {
-            refCenter += afw::geom::Extent3D(iter->getCoord().getVector());
+            refCenter += iter->getCoord().getVector();
         }
         refCenter /= posRefCat.size();
 
         auto tanWcs = afw::geom::makeSkyWcs(
             afw::geom::Point2D(srcCenter),
-            afw::geom::SpherePoint(afw::geom::Point3D(refCenter)),
+            afw::geom::SpherePoint(refCenter),
             wcs.getCdMatrix()
         );
 

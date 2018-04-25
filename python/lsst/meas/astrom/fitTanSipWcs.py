@@ -7,6 +7,7 @@ from builtins import range
 
 import numpy as np
 
+import lsst.sphgeom
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.pex.config as pexConfig
@@ -201,14 +202,14 @@ class FitTanSipWcsTask(pipeBase.Task):
         from the input Wcs.
         """
         crpix = afwGeom.Extent2D(0, 0)
-        crval = afwGeom.Extent3D(0, 0, 0)
+        crval = lsst.sphgeom.Vector3d(0, 0, 0)
         for mm in matches:
             crpix += afwGeom.Extent2D(mm.second.getCentroid())
-            crval += afwGeom.Extent3D(mm.first.getCoord().getVector())
+            crval += mm.first.getCoord().getVector()
         crpix /= len(matches)
         crval /= len(matches)
         newWcs = afwGeom.makeSkyWcs(crpix=afwGeom.Point2D(crpix),
-                                    crval=afwGeom.SpherePoint(afwGeom.Point3D(crval)),
+                                    crval=afwGeom.SpherePoint(crval),
                                     cdMatrix=wcs.getCdMatrix())
         return newWcs
 

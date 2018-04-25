@@ -1,3 +1,4 @@
+setupRequired(sphgeom)
 setupRequired(afw)
 setupRequired(log)
 setupRequired(meas_algorithms)
