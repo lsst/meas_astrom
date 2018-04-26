@@ -19,7 +19,6 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
-from __future__ import absolute_import, division, print_function
 import unittest
 
 import numpy as np
@@ -44,7 +43,7 @@ class ApproximateWcsTestCase(lsst.utils.tests.TestCase):
         self.bbox = afwGeom.Box2I(bboxd)
         self.tanWcs = afwGeom.makeSkyWcs(crpix=self.crPix,
                                          crval=afwGeom.SpherePoint(215.5, 53.0, afwGeom.degrees),
-                                         cdMatrix= np.array([[5.10808596133527E-05, 1.85579539217196E-07],
+                                         cdMatrix=np.array([[5.10808596133527E-05, 1.85579539217196E-07],
                                                             [-8.27440751733828E-07, -5.10281493481982E-05]]))
 
     def tearDown(self):

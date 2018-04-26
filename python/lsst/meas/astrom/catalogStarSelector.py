@@ -19,12 +19,9 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
-from __future__ import absolute_import, division, print_function
 
 __all__ = ["CatalogStarSelectorConfig", "CatalogStarSelectorTask"]
 
-from builtins import input
-from builtins import object
 
 from lsst.afw.table import SourceCatalog
 from lsst.meas.algorithms import BaseStarSelectorTask, starSelectorRegistry
@@ -56,7 +53,7 @@ class CatalogStarSelectorConfig(BaseStarSelectorTask.ConfigClass):
         ]
 
 
-class CheckSource(object):
+class CheckSource:
     """A functor to check whether a source has any flags set that should cause it to be labeled bad."""
 
     def __init__(self, table, fluxLim, fluxMax, badFlags):
@@ -83,7 +80,7 @@ class CheckSource(object):
 # \}
 
 
-class CatalogStarSelectorTask(object):
+class CatalogStarSelectorTask:
     """!Select stars based on a reference catalog
 
     @anchor CatalogStarSelectorTask_

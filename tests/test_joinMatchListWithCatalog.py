@@ -20,9 +20,7 @@
 # the GNU General Public License along with this program.  If not,
 # see <https://www.lsstcorp.org/LegalNotices/>.
 #
-from __future__ import absolute_import, division, print_function
 
-from builtins import range
 import os
 import unittest
 
@@ -36,7 +34,7 @@ from lsst.meas.astrom import AstrometryTask
 from lsst.log import Log
 
 
-class joinMatchListWithCatalogTestCase(unittest.TestCase):
+class JoinMatchListWithCatalogTestCase(unittest.TestCase):
 
     def setUp(self):
         # Load sample input from disk

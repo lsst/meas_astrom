@@ -7,7 +7,6 @@ The new files are FITS binary tables that can be loaded into afw.table.SourceCat
 objects, and contain roughly equivalent fields that mimic those produced by common
 measurement algorithms in meas/alg.
 """
-from __future__ import print_function
 
 import lsst.afw.table
 
@@ -89,6 +88,7 @@ def main(inputName, outputName):
                     else:
                         record.set(newName, True)
     outputCat.writeFits(outputName)
+
 
 if __name__ == "__main__":
     import sys

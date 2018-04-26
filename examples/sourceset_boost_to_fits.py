@@ -1,4 +1,3 @@
-from __future__ import print_function
 import sys
 from optparse import OptionParser
 
@@ -7,14 +6,7 @@ import lsst.daf.persistence as dafPersist
 import lsst.daf.base as dafBase
 import lsst.afw.detection as afwDet
 
-from lsst.afw.detection import Source
-from lsst.afw.detection import SourceSet
-from lsst.afw.detection import PersistableSourceVector
-from lsst.afw.detection import *
-
-import lsst.meas.algorithms
-
-from astrometry.util.pyfits_utils import *
+from astrometry.util.fits import tabledata
 import numpy as np
 
 

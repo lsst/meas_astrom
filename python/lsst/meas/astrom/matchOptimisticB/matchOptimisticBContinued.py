@@ -1,15 +1,9 @@
-from __future__ import absolute_import, division, print_function
 
 __all__ = ["matchOptimisticB", "MatchOptimisticBTask", "MatchOptimisticBConfig",
            "MatchTolerance"]
 
-from builtins import range
-from builtins import object
 import math
 
-import numpy as np
-
-from lsst.afw.table import Point2DKey
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from lsst.meas.algorithms.sourceSelector import sourceSelectorRegistry
@@ -18,7 +12,7 @@ from ..setMatchDistance import setMatchDistance
 from . import matchOptimisticB, MatchOptimisticBControl
 
 
-class MatchTolerance(object):
+class MatchTolerance:
     """ Stores match tolerances for use in AstrometryTask and later
     iterations of the matcher.
 

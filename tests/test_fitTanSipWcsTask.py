@@ -29,9 +29,6 @@
 # both the testing class and the implementation class allowing test
 # discovery to only run tests found in the subclasses.
 
-from __future__ import absolute_import, division, print_function
-from builtins import range
-from builtins import object
 import math
 import unittest
 
@@ -48,7 +45,7 @@ from lsst.meas.astrom import FitTanSipWcsTask, setMatchDistance
 from lsst.meas.astrom.sip import makeCreateWcsWithSip
 
 
-class BaseTestCase(object):
+class BaseTestCase:
 
     """A test case for CreateWcsWithSip
 
@@ -192,13 +189,13 @@ class BaseTestCase(object):
         if doPrint:
             print("TAN-SIP metadata fit over bbox=", bbox)
             metadata = makeTanSipMetadata(
-                crpix = tanSipWcs.getPixelOrigin(),
-                crval = tanSipWcs.getSkyOrigin(),
-                cdMatrix = tanSipWcs.getCdMatrix(),
-                sipA = sipObject.getSipA(),
-                sipB = sipObject.getSipB(),
-                sipAp = sipObject.getSipAp(),
-                sipBp = sipObject.getSipBp(),
+                crpix=tanSipWcs.getPixelOrigin(),
+                crval=tanSipWcs.getSkyOrigin(),
+                cdMatrix=tanSipWcs.getCdMatrix(),
+                sipA=sipObject.getSipA(),
+                sipB=sipObject.getSipB(),
+                sipAp=sipObject.getSipAp(),
+                sipBp=sipObject.getSipBp(),
             )
             print(metadata.toString())
 
@@ -306,7 +303,7 @@ class BaseTestCase(object):
         pnum += 1
 
 
-class SideLoadTestCases(object):
+class SideLoadTestCases:
 
     """Base class implementations of testing methods.
 

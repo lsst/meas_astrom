@@ -19,11 +19,9 @@
 # the GNU General Public License along with this program.  If not,
 # see <https://www.lsstcorp.org/LegalNotices/>.
 #
-from __future__ import absolute_import, division, print_function
 
 __all__ = ["AstrometryConfig", "AstrometryTask"]
 
-from builtins import range
 
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
@@ -278,7 +276,7 @@ class AstrometryTask(RefMatchTask):
             "Matched and fit WCS in %d iterations; "
             "found %d matches with scatter = %0.3f +- %0.3f arcsec" %
             (iterNum, len(tryRes.matches), tryMatchDist.distMean.asArcseconds(),
-                tryMatchDist.distStdDev.asArcseconds())) 
+                tryMatchDist.distStdDev.asArcseconds()))
         for m in res.matches:
             if self.usedKey:
                 m.second.set(self.usedKey, True)

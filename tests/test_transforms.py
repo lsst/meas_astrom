@@ -19,8 +19,6 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
-from __future__ import absolute_import, division, print_function
-from builtins import range
 
 import os
 import unittest
@@ -96,7 +94,7 @@ def makeRandomSipReverseTransform(order):
     return SipReverseTransform(origin, cd, poly)
 
 
-class TransformTestMixin(object):
+class TransformTestMixin:
 
     def makeRandom(self):
         """Create an instance of the transform being tested with random testing.

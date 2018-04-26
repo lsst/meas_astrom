@@ -1,5 +1,3 @@
-from __future__ import print_function
-from builtins import range
 #
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
@@ -258,7 +256,7 @@ def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF
             else:
                 try:
                     data = imageFactory(filename + "_img.fits")
-                except:
+                except Exception:
                     data = imageFactory(filename)
 
                 ampImage = ccdImage.Factory(ccdImage, ampBBox[a])

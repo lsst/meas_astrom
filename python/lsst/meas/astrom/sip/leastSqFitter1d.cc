@@ -24,7 +24,6 @@
 
 #include <string>
 
-#include "numpy/arrayobject.h"
 #include "ndarray/pybind11.h"
 
 #include "lsst/meas/astrom/sip/LeastSqFitter1d.h"
@@ -60,12 +59,6 @@ static void declareLeastSqFitter1d(py::module &mod, std::string const &name) {
 
 PYBIND11_PLUGIN(leastSqFitter1d) {
     py::module mod("leastSqFitter1d");
-
-    // Need to import numpy for ndarray and eigen conversions
-    if (_import_array() < 0) {
-        PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import");
-        return nullptr;
-    }
 
     declareLeastSqFitter1d<afw::math::PolynomialFunction1<double>>(mod, "LeastSqFitter1dPoly");
 

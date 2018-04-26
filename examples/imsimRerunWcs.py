@@ -1,15 +1,8 @@
-from __future__ import print_function
 import os
-import sys
 from optparse import OptionParser
 
-#import lsst.ip.pipeline as ipPipe
 from lsst.datarel import runStage
 import lsst.meas.pipeline as measPipe
-from stageCtrl import *
-
-from lsst.obs.lsstSim import LsstSimMapper
-import lsst.daf.persistence as dafPersist
 
 import imsimUtils
 
@@ -73,6 +66,7 @@ def main():
         import multiprocessing
         p = multiprocessing.Pool(opt.threads)
         p.map(process, [(k, inButler, outButler) for k in allkeys])
+
 
 if __name__ == '__main__':
     main()

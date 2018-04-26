@@ -24,7 +24,6 @@
 
 #include <memory>
 
-#include "numpy/arrayobject.h"
 #include "ndarray/pybind11.h"
 
 #include "lsst/afw/geom/AffineTransform.h"
@@ -99,11 +98,6 @@ static void declareScaledPolynomialTransform(py::module &mod) {
 
 PYBIND11_PLUGIN(polynomialTransform) {
     py::module mod("polynomialTransform");
-
-    if (_import_array() < 0) {
-        PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import");
-        return nullptr;
-    };
 
     declarePolynomialTransform(mod);
     declareScaledPolynomialTransform(mod);

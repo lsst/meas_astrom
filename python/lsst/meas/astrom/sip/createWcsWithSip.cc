@@ -25,7 +25,6 @@
 #include <memory>
 #include <vector>
 
-#include "numpy/arrayobject.h"
 #include "ndarray/pybind11.h"
 
 #include "lsst/afw/geom/Box.h"
@@ -71,12 +70,6 @@ static void declareCreateWcsWithSip(py::module &mod, std::string const &name) {
 
 PYBIND11_PLUGIN(createWcsWithSip) {
     py::module mod("createWcsWithSip");
-
-    // Need to import numpy for ndarray and eigen conversions
-    if (_import_array() < 0) {
-        PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import");
-        return nullptr;
-    }
 
     declareCreateWcsWithSip<afw::table::ReferenceMatch>(mod, "CreateWcsWithSipReferenceMatch");
     declareCreateWcsWithSip<afw::table::SourceMatch>(mod, "CreateWcsWithSipSourceMatch");

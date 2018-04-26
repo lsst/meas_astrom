@@ -19,12 +19,9 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
-from __future__ import absolute_import, division, print_function
 
 __all__ = ["approximateWcs"]
 
-from builtins import range
-from builtins import object
 import numpy as np
 
 import lsst.afw.table as afwTable
@@ -34,7 +31,7 @@ from lsst.meas.astrom.sip import makeCreateWcsWithSip
 from lsst.afw.geom.utils import assertWcsAlmostEqualOverBBox
 
 
-class _MockTestCase(object):
+class _MockTestCase:
     """A fake unit test case class that will enable us to call
     assertWcsAlmostEqualOverBBox from the method approximateWcs"""
 
