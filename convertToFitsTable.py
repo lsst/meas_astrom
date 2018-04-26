@@ -89,6 +89,7 @@ def main(inputName, outputName):
                         record.set(newName, True)
     outputCat.writeFits(outputName)
 
+
 if __name__ == "__main__":
     import sys
     main(*sys.argv[1:])

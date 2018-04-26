@@ -58,11 +58,10 @@ def plotsForField(inButler, keys, fixup, plots=None, prefix=''):
     print('Filters:', filters)
     filterName = filters[0]
 
-    psources = inButler.get('icSrc', **keys)
-    # since the butler does lazy evaluation, we don't know if it fails until...
     try:
+        psources = inButler.get('icSrc', **keys)
         print('Got sources', psources)
-    except:
+    except Exception:
         print('"icSrc" not found.  Trying "src" instead.')
         psources = inButler.get('src', **keys)
         print('Got sources', psources)

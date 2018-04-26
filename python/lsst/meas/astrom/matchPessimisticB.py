@@ -437,7 +437,7 @@ class MatchPessimisticBTask(pipeBase.Task):
         for soften_pattern in range(self.config.matcherIterations):
             for soften_dist in range(self.config.matcherIterations):
                 if soften_pattern == 0 and soften_dist == 0 and \
-                    match_tolerance.lastMatchedPattern is not None:
+                        match_tolerance.lastMatchedPattern is not None:
                     # If we are on the first, most stringent tolerance,
                     # and have already found a match, the matcher should behave
                     # like an optimistic pattern matcher. Exiting at the first

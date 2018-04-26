@@ -256,7 +256,7 @@ def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF
             else:
                 try:
                     data = imageFactory(filename + "_img.fits")
-                except:
+                except Exception:
                     data = imageFactory(filename)
 
                 ampImage = ccdImage.Factory(ccdImage, ampBBox[a])

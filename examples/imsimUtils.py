@@ -32,7 +32,6 @@ def getAllKeys(opt, inButler):
     if not len(opt.visit):
         # Grab all available visits.
         print('Grabbing all available visits...')
-        #visits = inButler.queryMetadata('visitim', 'visit')
         visits = inButler.queryMetadata('raw', 'visit')
         print('Got visits', visits)
         opt.visit = visits

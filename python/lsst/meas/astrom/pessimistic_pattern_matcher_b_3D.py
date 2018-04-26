@@ -325,8 +325,8 @@ class PessimisticPatternMatcherB(object):
             # match our source pattern into the reference objects.
             construct_return_struct = \
                 self._construct_pattern_and_shift_rot_matrix(
-                     pattern, n_match, max_cos_shift, max_cos_rot_sq,
-                     max_dist_rad)
+                    pattern, n_match, max_cos_shift, max_cos_rot_sq,
+                    max_dist_rad)
 
             # Our struct is None if we could not match the pattern.
             if construct_return_struct.ref_candidates is None or \
@@ -354,7 +354,7 @@ class PessimisticPatternMatcherB(object):
                 tmp_rot_vect_list.append(np.dot(shift_rot_matrix, test_vect))
             # Since our test point are in the source frame, we can test if
             # their lengths are mostly preserved under the transform.
-            if not self._test_pattern_lengths(np.array(tmp_rot_vect_list), 
+            if not self._test_pattern_lengths(np.array(tmp_rot_vect_list),
                                               max_dist_rad):
                 continue
 
@@ -368,7 +368,7 @@ class PessimisticPatternMatcherB(object):
                 continue
 
             # Perform final verify.
-            match_sources_struct = self._match_sources(source_array[:, :3], 
+            match_sources_struct = self._match_sources(source_array[:, :3],
                                                        shift_rot_matrix)
 
             n_matched = len(match_sources_struct.match_ids[
@@ -1122,10 +1122,8 @@ class PessimisticPatternMatcherB(object):
             fit_shift_rot_matrix = least_squares(
                 _rotation_matrix_chi_sq,
                 x0=shift_rot_matrix.flatten(),
-                args=(src_pattern,
-                      ref_pattern,
-                      max_dist_rad,)
-                ).x.reshape((3, 3))
+                args=(src_pattern, ref_pattern, max_dist_rad)
+            ).x.reshape((3, 3))
             # Do another verify in case the fits have wondered off.
             if self._intermediate_verify_comparison(
                     src_pattern, ref_pattern, fit_shift_rot_matrix,

@@ -51,7 +51,8 @@ if __name__ == '__main__':
                             imgfn, W, H, thumbfn)
                         print('Running:', cmd, file=sys.stderr)
                         os.system(cmd)
-                    print('        <td><a href="%s"><img width="%i" height="%i" border="0" src="%s"></a></td>' % (imgfn, W, H, thumbfn))
+                    print('        <td><a href="%s"><img width="%i" height="%i" '
+                          'border="0" src="%s"></a></td>' % (imgfn, W, H, thumbfn))
                 print('      </tr>')
             print('    </table></td>')
         print('  </tr>')

@@ -1,15 +1,10 @@
 #! /usr/bin/env python
 
-import sys
 from optparse import OptionParser
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # noqa F402
     import matplotlib
     matplotlib.use('Agg')
-
-import lsst.pex.policy as policy
-import lsst.meas.astrom as measAstrom
-import lsst.afw.image as afwImage
 
 import imsimUtils
 

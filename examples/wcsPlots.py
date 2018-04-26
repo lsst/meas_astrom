@@ -1,17 +1,14 @@
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use('Agg')  # noqa E402
 from matplotlib.font_manager import FontProperties
 from matplotlib.patches import Ellipse
 import numpy as np
 import pylab as plt
 
-import lsst.afw.geom as afwGeom
+from astrometry.libkd import spherematch
+from astrometry.util.plotshift import plotshift
 
-# These only exist in recent Astrometry.net versions...
-#from astrometry.libkd import spherematch
-#from astrometry.util.plotshift import plotshift
-# dstn copied a version into this dir until we uprev...
-#from plotshift import plotshift
+import lsst.afw.geom as afwGeom
 
 
 def _getplotdata(format='png'):
@@ -38,13 +35,13 @@ def plotMatches(imgsources, refsources, matches, wcs, W, H, prefix,
     ix = np.array([s.getXAstrom() for s in imgsources])
     iy = np.array([s.getYAstrom() for s in imgsources])
     iflux = np.array([s.getPsfFlux() for s in imgsources])
-    I = np.argsort(-iflux)
+    fluxes = np.argsort(-iflux)
     # First 200: red dots
-    II = I[:200]
-    p1 = plt.plot(ix[II], iy[II], 'r.', zorder=10)
+    someFluxes = fluxes[:200]
+    p1 = plt.plot(ix[someFluxes], iy[someFluxes], 'r.', zorder=10)
     # Rest: tiny dots
-    II = I[200:]
-    p2 = plt.plot(ix[II], iy[II], 'r.', markersize=1, zorder=9)
+    someFluxes = fluxes[200:]
+    p2 = plt.plot(ix[someFluxes], iy[someFluxes], 'r.', markersize=1, zorder=9)
 
     # Ref sources:
     # Only getRa() (not getRaAstrom(), getRaObject()) is non-zero.
@@ -63,14 +60,14 @@ def plotMatches(imgsources, refsources, matches, wcs, W, H, prefix,
     for m in matches:
         x0, x1 = m.first.getXAstrom(), m.second.getXAstrom()
         y0, y1 = m.first.getYAstrom(), m.second.getYAstrom()
-        #plt.plot([x0, x1], [y0, y1], 'g.-')
+        # plt.plot([x0, x1], [y0, y1], 'g.-')
         x.append(x0)
         y.append(y0)
         dx.append(x1-x0)
         dy.append(y1-y0)
-    #plt.plot(x, y, 's', mec='g', mfc='none', markersize=5)
+    # plt.plot(x, y, 's', mec='g', mfc='none', markersize=5)
     p4 = plt.plot(x, y, 'o', mec='g', mfc='g', alpha=0.5, markersize=8, zorder=5)
-    p5 = plt.quiver(x, y, dx, dy, angles='xy', scale=30., zorder=30)
+    plt.quiver(x, y, dx, dy, angles='xy', scale=30., zorder=30)
     plt.axis('scaled')
     plt.axis([0, W, 0, H])
     # print p1, p2, p3, p4, p5
@@ -115,7 +112,8 @@ def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
         try:
             i = refsources.index(m.first)
         except ValueError:
-            print('Match list reference source ID', m.first.getSourceId(), 'was not in the list of reference stars')
+            print('Match list reference source ID', m.first.getSourceId(),
+                  'was not in the list of reference stars')
             continue
         try:
             j = imgsources.index(m.second)
@@ -155,22 +153,6 @@ def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
     okflux = (uimgflux > 1)
     uimgmag = flux2mag(uimgflux[okflux])
     urefmag = refmag[UR]
-
-    if False:
-        unmatched = [imgsources[i] for i in np.flatnonzero(uimg)]
-        uflux = np.array([s.getPsfFlux() for s in unmatched])
-        I = np.argsort(-uflux)
-        print('Unmatched image sources, by psf flux:')
-        print('# FLUX, X, Y, RA, DEC')
-        for i in I:
-            u = unmatched[i]
-            print(u.getPsfFlux(), u.getXAstrom(), u.getYAstrom(), u.getRa(), u.getDec())
-
-        print('Matched image sources, by psf flux:')
-        print('# FLUX, X, Y, RA, DEC')
-        for i in mimgi:
-            m = imgsources[i]
-            print(m.getPsfFlux(), m.getXAstrom(), m.getYAstrom(), m.getRa(), m.getDec())
 
     # Legend entries:
     pp = []
@@ -292,7 +274,7 @@ def plotPhotometry(imgsources, refsources, matches, prefix, band=None,
                 plt.figtext(0.5, 0.96, title, ha='center', va='top', fontsize='large')
                 title = None
 
-            ax2 = plt.twiny()
+            plt.twiny()
 
             # Red tick marks show unmatched img sources
             if zp is not None:
@@ -471,8 +453,8 @@ def plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix):
             matchdx = ix[ii] - matchx
             matchdy = iy[ii] - matchy
             ok = (matchdx >= -dcell) * (matchdx <= dcell) * (matchdy >= -dcell) * (matchdy <= dcell)
-            #matchx = matchx[ok]
-            #matchy = matchy[ok]
+            # matchx = matchx[ok]
+            # matchy = matchy[ok]
             matchdx = matchdx[ok]
             matchdy = matchdy[ok]
             # print 'Cut to %i within %g x %g square' % (sum(ok), dcell*2, dcell*2)
@@ -484,8 +466,8 @@ def plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix):
             plt.plot(matchdx, matchdy, 'ro', mec='r', mfc='none', ms=5, alpha=0.2)
             plt.axhline(0, color='k', alpha=0.5)
             plt.axvline(0, color='k', alpha=0.5)
-            xticks([], [])
-            yticks([], [])
+            plt.xticks([], [])
+            plt.yticks([], [])
             plt.axis('scaled')
             plt.axis([-dcell, dcell, -dcell, dcell])
 
@@ -534,7 +516,7 @@ Source.getRa(), getDec()
                        saveplot=(plotdata is None), format=plotformat)
     if plotdata is not None:
         plotdata.update(D)
-    #plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix)
+    # plotCorrespondences(imgsources, refsources, matches, wcs, W, H, prefix)
     D = plotCorrespondences2(imgsources, refsources, matches, wcs, W, H, prefix,
                              saveplot=(plotdata is None), format=plotformat)
     if plotdata is not None:

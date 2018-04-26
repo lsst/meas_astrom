@@ -189,13 +189,13 @@ class BaseTestCase(object):
         if doPrint:
             print("TAN-SIP metadata fit over bbox=", bbox)
             metadata = makeTanSipMetadata(
-                crpix = tanSipWcs.getPixelOrigin(),
-                crval = tanSipWcs.getSkyOrigin(),
-                cdMatrix = tanSipWcs.getCdMatrix(),
-                sipA = sipObject.getSipA(),
-                sipB = sipObject.getSipB(),
-                sipAp = sipObject.getSipAp(),
-                sipBp = sipObject.getSipBp(),
+                crpix=tanSipWcs.getPixelOrigin(),
+                crval=tanSipWcs.getSkyOrigin(),
+                cdMatrix=tanSipWcs.getCdMatrix(),
+                sipA=sipObject.getSipA(),
+                sipB=sipObject.getSipB(),
+                sipAp=sipObject.getSipAp(),
+                sipBp=sipObject.getSipBp(),
             )
             print(metadata.toString())
 

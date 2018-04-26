@@ -4,9 +4,6 @@ __all__ = ["matchOptimisticB", "MatchOptimisticBTask", "MatchOptimisticBConfig",
 
 import math
 
-import numpy as np
-
-from lsst.afw.table import Point2DKey
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from lsst.meas.algorithms.sourceSelector import sourceSelectorRegistry

@@ -34,7 +34,7 @@ from lsst.meas.astrom import AstrometryTask
 from lsst.log import Log
 
 
-class joinMatchListWithCatalogTestCase(unittest.TestCase):
+class JoinMatchListWithCatalogTestCase(unittest.TestCase):
 
     def setUp(self):
         # Load sample input from disk
