@@ -53,7 +53,7 @@ class CatalogStarSelectorConfig(BaseStarSelectorTask.ConfigClass):
         ]
 
 
-class CheckSource(object):
+class CheckSource:
     """A functor to check whether a source has any flags set that should cause it to be labeled bad."""
 
     def __init__(self, table, fluxLim, fluxMax, badFlags):
@@ -80,7 +80,7 @@ class CheckSource(object):
 # \}
 
 
-class CatalogStarSelectorTask(object):
+class CatalogStarSelectorTask:
     """!Select stars based on a reference catalog
 
     @anchor CatalogStarSelectorTask_

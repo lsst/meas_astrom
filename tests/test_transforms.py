@@ -94,7 +94,7 @@ def makeRandomSipReverseTransform(order):
     return SipReverseTransform(origin, cd, poly)
 
 
-class TransformTestMixin(object):
+class TransformTestMixin:
 
     def makeRandom(self):
         """Create an instance of the transform being tested with random testing.

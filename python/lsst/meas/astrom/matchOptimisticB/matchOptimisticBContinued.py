@@ -12,7 +12,7 @@ from ..setMatchDistance import setMatchDistance
 from . import matchOptimisticB, MatchOptimisticBControl
 
 
-class MatchTolerance(object):
+class MatchTolerance:
     """ Stores match tolerances for use in AstrometryTask and later
     iterations of the matcher.
 

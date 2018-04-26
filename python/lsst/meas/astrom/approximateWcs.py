@@ -31,7 +31,7 @@ from lsst.meas.astrom.sip import makeCreateWcsWithSip
 from lsst.afw.geom.utils import assertWcsAlmostEqualOverBBox
 
 
-class _MockTestCase(object):
+class _MockTestCase:
     """A fake unit test case class that will enable us to call
     assertWcsAlmostEqualOverBBox from the method approximateWcs"""
 

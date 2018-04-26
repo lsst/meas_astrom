@@ -45,7 +45,7 @@ from lsst.meas.astrom import FitTanSipWcsTask, setMatchDistance
 from lsst.meas.astrom.sip import makeCreateWcsWithSip
 
 
-class BaseTestCase(object):
+class BaseTestCase:
 
     """A test case for CreateWcsWithSip
 
@@ -303,7 +303,7 @@ class BaseTestCase(object):
         pnum += 1
 
 
-class SideLoadTestCases(object):
+class SideLoadTestCases:
 
     """Base class implementations of testing methods.
 

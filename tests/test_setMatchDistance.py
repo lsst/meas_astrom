@@ -129,7 +129,7 @@ class BaseTestCase(unittest.TestCase):
         self.assertLess(maxDistErr.asArcseconds(), 1e-7)
 
 
-class SideLoadTestCases(object):
+class SideLoadTestCases:
 
     """Base class implementations of testing methods.
 

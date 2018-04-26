@@ -57,7 +57,7 @@ def _rotation_matrix_chi_sq(flattened_rot_matrix,
          diff_pattern_b_to_a.flatten() / max_dist_rad))
 
 
-class PessimisticPatternMatcherB(object):
+class PessimisticPatternMatcherB:
     """ Class implementing a pessimistic version of Optimistic Pattern Matcher
     B (OPMb) from Tabur 2007. The class loads and stores the reference object
     in a convenient data structure for matching any set of source objects that
