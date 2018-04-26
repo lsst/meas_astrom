@@ -1,7 +1,3 @@
-from __future__ import print_function
-from future import standard_library
-standard_library.install_aliases()
-from builtins import range
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib.font_manager import FontProperties

@@ -1,4 +1,3 @@
-from __future__ import print_function
 from lsst.obs.lsstSim import LsstSimMapper
 import lsst.daf.persistence as dafPersist
 

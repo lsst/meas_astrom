@@ -19,12 +19,9 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
-from __future__ import absolute_import, division, print_function
 
 __all__ = ["CatalogStarSelectorConfig", "CatalogStarSelectorTask"]
 
-from builtins import input
-from builtins import object
 
 from lsst.afw.table import SourceCatalog
 from lsst.meas.algorithms import BaseStarSelectorTask, starSelectorRegistry

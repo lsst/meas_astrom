@@ -29,9 +29,7 @@
 # from unittest.TestCase. The actual test classes then inherit from
 # both the testing class and the implementation class allowing test
 # discovery to only run tests found in the subclasses.
-from __future__ import absolute_import, division, print_function
 
-from builtins import object
 import unittest
 
 import numpy as np

@@ -8,7 +8,6 @@ setupRequired(utils)
 
 setupRequired(astrometry_net)
 setupRequired(numpy)
-setupRequired(python_future)
 
 setupOptional(matplotlib)
 

@@ -1,8 +1,6 @@
-from __future__ import absolute_import, division, print_function
 
 __all__ = ["FitSipDistortionTask", "FitSipDistortionConfig"]
 
-from builtins import range
 
 import lsst.sphgeom
 import lsst.pipe.base
