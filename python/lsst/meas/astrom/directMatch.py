@@ -102,13 +102,13 @@ class DirectMatchTask(Task):
         circle = self.calculateCircle(catalog)
         matchMeta = self.refObjLoader.getMetadataCircle(circle.center, circle.radius, filterName)
         emptyResult = Struct(matches=[], matchMeta=matchMeta)
-        sourceSelection = self.sourceSelection.selectSources(catalog)
+        sourceSelection = self.sourceSelection.run(catalog)
         if len(sourceSelection.sourceCat) == 0:
             self.log.warn("No objects selected from %d objects in source catalog", len(catalog))
             return emptyResult
         refData = self.refObjLoader.loadSkyCircle(circle.center, circle.radius, filterName)
         refCat = refData.refCat
-        refSelection = self.referenceSelection.selectSources(refCat)
+        refSelection = self.referenceSelection.run(refCat)
         if len(refSelection.sourceCat) == 0:
             self.log.warn("No objects selected from %d objects in reference catalog", len(refCat))
             return emptyResult

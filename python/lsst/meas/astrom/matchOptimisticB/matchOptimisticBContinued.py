@@ -228,7 +228,7 @@ class MatchOptimisticBTask(pipeBase.Task):
 
         # usableSourceCat: sources that are good but may be saturated
         numSources = len(sourceCat)
-        selectedSources = self.sourceSelector.selectSources(sourceCat)
+        selectedSources = self.sourceSelector.run(sourceCat)
         usableSourceCat = selectedSources.sourceCat
         numUsableSources = len(usableSourceCat)
         self.log.info("Purged %d unusable sources, leaving %d usable sources" %
