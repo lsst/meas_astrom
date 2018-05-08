@@ -87,6 +87,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         # schema must be passed to the solver task constructor
         solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=sourceSchema)
         sourceCat = afwTable.SourceCatalog(sourceSchema)
+        sourceCat.reserve(len(refCat))
         sourceCentroidKey = afwTable.Point2DKey(sourceSchema["slot_Centroid"])
         sourceFluxKey = sourceSchema["slot_ApFlux_flux"].asKey()
         sourceFluxSigmaKey = sourceSchema["slot_ApFlux_fluxSigma"].asKey()
