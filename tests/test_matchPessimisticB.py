@@ -154,6 +154,7 @@ class TestMatchPessimisticB(unittest.TestCase):
             addFluxSigma=True,
         )
         refCat = afwTable.SimpleCatalog(minimalPosRefSchema)
+        refCat.reserve(len(sourceCat))
         for source in sourceCat:
             refObj = refCat.addNew()
             refObj.setCoord(source.getCoord())

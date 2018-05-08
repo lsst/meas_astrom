@@ -225,6 +225,7 @@ def distortList(srcList, function):
     """
 
     out = afwTable.SourceCatalog(srcList.table)
+    out.reserve(len(srcList))
 
     for src in srcList:
         out.append(function(src))
