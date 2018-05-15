@@ -100,7 +100,7 @@ class RefMatchTask(pipeBase.Task):
 
         expMd = self._getExposureMetadata(exposure)
 
-        sourceSelection = self.sourceSelection.selectSources(sourceCat)
+        sourceSelection = self.sourceSelection.run(sourceCat)
 
         loadRes = self.refObjLoader.loadPixelBox(
             bbox=expMd.bbox,
@@ -109,7 +109,7 @@ class RefMatchTask(pipeBase.Task):
             calib=expMd.calib,
         )
 
-        refSelection = self.referenceSelection.selectSources(loadRes.refCat)
+        refSelection = self.referenceSelection.run(loadRes.refCat)
 
         matchMeta = self.refObjLoader.getMetadataBox(
             bbox=expMd.bbox,
