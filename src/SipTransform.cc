@@ -199,8 +199,8 @@ std::shared_ptr<afw::geom::SkyWcs> makeWcs(
     Eigen::MatrixXd sipAP(sipReverse.getPoly().getXCoeffs().asEigen());
     Eigen::MatrixXd sipBP(sipReverse.getPoly().getYCoeffs().asEigen());
 
-    return makeTanSipWcs(sipForward.getPixelOrigin(), skyOrigin, sipForward.getCdMatrix().getMatrix(), sipA,
-                         sipB, sipAP, sipBP);
+    return afw::geom::makeTanSipWcs(sipForward.getPixelOrigin(), skyOrigin,
+                                    sipForward.getCdMatrix().getMatrix(), sipA, sipB, sipAP, sipBP);
 }
 
 std::shared_ptr<afw::geom::SkyWcs> transformWcsPixels(
