@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "lsst/pex/config.h"
+#include "lsst/afw/geom/Point.h"
 #include "lsst/afw/table/Source.h"
 #include "lsst/afw/table/Match.h"
 
