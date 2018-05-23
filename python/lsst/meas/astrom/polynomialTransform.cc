@@ -26,7 +26,7 @@
 
 #include "ndarray/pybind11.h"
 
-#include "lsst/afw/geom/AffineTransform.h"
+#include "lsst/geom/AffineTransform.h"
 #include "lsst/meas/astrom/SipTransform.h"
 #include "lsst/meas/astrom/PolynomialTransform.h"
 
@@ -69,8 +69,8 @@ static void declareScaledPolynomialTransform(py::module &mod) {
     py::class_<ScaledPolynomialTransform, std::shared_ptr<ScaledPolynomialTransform>> cls(
             mod, "ScaledPolynomialTransform");
 
-    cls.def(py::init<PolynomialTransform const &, afw::geom::AffineTransform const &,
-                     afw::geom::AffineTransform const &>(),
+    cls.def(py::init<PolynomialTransform const &, geom::AffineTransform const &,
+                     geom::AffineTransform const &>(),
             "poly"_a, "inputScaling"_a, "outputScalingInverse"_a);
     cls.def(py::init<ScaledPolynomialTransform const &>(), "other"_a);
 
@@ -103,11 +103,11 @@ PYBIND11_PLUGIN(polynomialTransform) {
     declareScaledPolynomialTransform(mod);
 
     mod.def("compose",
-            (PolynomialTransform(*)(afw::geom::AffineTransform const &, PolynomialTransform const &)) &
+            (PolynomialTransform(*)(geom::AffineTransform const &, PolynomialTransform const &)) &
                     compose,
             "t1"_a, "t2"_a);
     mod.def("compose",
-            (PolynomialTransform(*)(PolynomialTransform const &, afw::geom::AffineTransform const &)) &
+            (PolynomialTransform(*)(PolynomialTransform const &, geom::AffineTransform const &)) &
                     compose,
             "t1"_a, "t2"_a);
 

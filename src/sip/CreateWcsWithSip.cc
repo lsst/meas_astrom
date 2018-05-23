@@ -29,7 +29,8 @@
 
 #include "lsst/pex/exceptions/Runtime.h"
 #include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
-#include "lsst/afw/geom/Angle.h"
+#include "lsst/geom/Angle.h"
+#include "lsst/geom/Box.h"
 #include "lsst/afw/math/Statistics.h"
 #include "lsst/afw/geom/SkyWcs.h"
 #include "lsst/log/Log.h"
@@ -113,7 +114,7 @@ CreateWcsWithSip<MatchT>::CreateWcsWithSip(
     std::vector<MatchT> const & matches,
     afw::geom::SkyWcs const& linearWcs,
     int const order,
-    afwGeom::Box2I const& bbox,
+    geom::Box2I const& bbox,
     int const ngrid
 ):
     _matches(matches),
@@ -164,17 +165,17 @@ CreateWcsWithSip<MatchT>::CreateWcsWithSip(
             ++ptr
         ) {
             afwTable::SourceRecord const & src = *ptr->second;
-            _bbox.include(afwGeom::PointI(src.getX(), src.getY()));
+            _bbox.include(geom::PointI(src.getX(), src.getY()));
         }
         float const borderFrac = 1/::sqrt(_matches.size()); // fractional border to add to exact BBox
-        afwGeom::Extent2I border(borderFrac*_bbox.getWidth(), borderFrac*_bbox.getHeight());
+        geom::Extent2I border(borderFrac*_bbox.getWidth(), borderFrac*_bbox.getHeight());
 
         _bbox.grow(border);
     }
 
     // If crpix is too far from the center of the fit bbox, move it to the center to improve the fit
     auto const initialCrpix = _linearWcs->getPixelOrigin();
-    auto const bboxCenter = afw::geom::Box2D(_bbox).getCenter();
+    auto const bboxCenter = geom::Box2D(_bbox).getCenter();
     if (std::hypot(initialCrpix[0] - bboxCenter[0], initialCrpix[1] - bboxCenter[1]) >
         MAX_DISTANCE_CRPIX_TO_BBOXCTR) {
         LOGL_DEBUG(_log,
@@ -205,7 +206,7 @@ void
 CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
 {
     // Assumes FITS (1-indexed) coordinates.
-    afwGeom::Point2D crpix = _linearWcs->getPixelOrigin();
+    geom::Point2D crpix = _linearWcs->getPixelOrigin();
 
     // Calculate u, v and intermediate world coordinates
     int const nPoints = _matches.size();
@@ -222,7 +223,7 @@ CreateWcsWithSip<MatchT>::_calculateForwardMatrices()
 
         // iwc: intermediate world coordinate positions of catalogue objects
         auto c = match.first->getCoord();
-        afwGeom::Point2D p = linearIwcToSky->applyInverse(c);
+        geom::Point2D p = linearIwcToSky->applyInverse(c);
         iwc1[i] = p[0];
         iwc2[i] = p[1];
         // u and v are intermediate pixel coordinates of observed (distorted) positions
@@ -308,7 +309,7 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
     double const dy = _bbox.getHeight()/(double)(_ngrid - 1);
 
     // wcs->getPixelOrigin() returns LSST-style (0-indexed) pixel coords.
-    afwGeom::Point2D crpix = _newWcs->getPixelOrigin();
+    geom::Point2D crpix = _newWcs->getPixelOrigin();
 
     LOGL_DEBUG(_log, "_calcReverseMatrices: x0,y0 %i,%i, W,H %i,%i, ngrid %i, dx,dy %g,%g, CRPIX %g,%g",
                x0, y0, _bbox.getWidth(), _bbox.getHeight(), _ngrid, dx, dy, crpix[0], crpix[1]);
@@ -318,11 +319,11 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
     int k = 0;
     for (int i = 0; i < _ngrid; ++i) {
         double const y = y0 + i*dy;
-        std::vector<afwGeom::Point2D> beforeSipABPoints;
+        std::vector<geom::Point2D> beforeSipABPoints;
         beforeSipABPoints.reserve(_ngrid);
         for (int j = 0; j < _ngrid; ++j) {
             double const x = x0 + j*dx;
-            beforeSipABPoints.emplace_back(afwGeom::Point2D(x, y));
+            beforeSipABPoints.emplace_back(geom::Point2D(x, y));
         }
         auto const afterSipABPoints = applySipAB->applyForward(beforeSipABPoints);
         for (int j = 0; j < _ngrid; ++j, ++k) {
@@ -333,7 +334,7 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
             v = y - crpix[1];
 
             // U and V are the result of applying the "forward" (A,B) SIP coefficients
-            afwGeom::Point2D const xy = afterSipABPoints[j];
+            geom::Point2D const xy = afterSipABPoints[j];
             U[k] = xy[0] - crpix[0];
             V[k] = xy[1] - crpix[1];
 
@@ -383,17 +384,17 @@ double CreateWcsWithSip<MatchT>::getLinearScatterInPixels() const {
 }
 
 template<class MatchT>
-afwGeom::Angle CreateWcsWithSip<MatchT>::getScatterOnSky() const {
+geom::Angle CreateWcsWithSip<MatchT>::getScatterOnSky() const {
     assert(_newWcs.get());
     return makeMatchStatisticsInRadians(
-        *_newWcs, _matches, afw::math::MEDIAN).getValue()*afw::geom::radians;
+        *_newWcs, _matches, afw::math::MEDIAN).getValue()*geom::radians;
 }
 
 template<class MatchT>
-afwGeom::Angle CreateWcsWithSip<MatchT>::getLinearScatterOnSky() const {
+geom::Angle CreateWcsWithSip<MatchT>::getLinearScatterOnSky() const {
     assert(_linearWcs.get());
     return makeMatchStatisticsInRadians(
-        *_linearWcs, _matches, afw::math::MEDIAN).getValue()*afw::geom::radians;
+        *_linearWcs, _matches, afw::math::MEDIAN).getValue()*geom::radians;
 }
 
 

@@ -25,7 +25,8 @@
 #define LSST_MEAS_ASTROM_PolynomialTransform_INCLUDED
 
 #include "ndarray/eigen.h"
-#include "lsst/afw/geom/AffineTransform.h"
+#include "lsst/geom/Point.h"
+#include "lsst/geom/AffineTransform.h"
 
 namespace lsst { namespace meas { namespace astrom {
 
@@ -125,19 +126,19 @@ public:
     /**
      * Return an approximate affine transform at the given point.
      */
-    afw::geom::AffineTransform linearize(afw::geom::Point2D const & in) const;
+    geom::AffineTransform linearize(geom::Point2D const & in) const;
 
     /**
      * Apply the transform to a point.
      */
-    afw::geom::Point2D operator()(afw::geom::Point2D const & in) const;
+    geom::Point2D operator()(geom::Point2D const & in) const;
 
 private:
 
     PolynomialTransform(int order);
 
-    friend PolynomialTransform compose(afw::geom::AffineTransform const & t1, PolynomialTransform const & t2);
-    friend PolynomialTransform compose(PolynomialTransform const & t1, afw::geom::AffineTransform const & t2);
+    friend PolynomialTransform compose(geom::AffineTransform const & t1, PolynomialTransform const & t2);
+    friend PolynomialTransform compose(PolynomialTransform const & t1, geom::AffineTransform const & t2);
     friend class ScaledPolynomialTransformFitter;
     friend class SipForwardTransform;
     friend class SipReverseTransform;
@@ -196,8 +197,8 @@ public:
      */
     ScaledPolynomialTransform(
         PolynomialTransform const & poly,
-        afw::geom::AffineTransform const & inputScaling,
-        afw::geom::AffineTransform const & outputScalingInverse
+        geom::AffineTransform const & inputScaling,
+        geom::AffineTransform const & outputScalingInverse
     );
 
     ScaledPolynomialTransform(ScaledPolynomialTransform const & other) = default;
@@ -214,26 +215,26 @@ public:
     PolynomialTransform const & getPoly() const { return _poly; }
 
     /// Return the first affine transform applied to input points.
-    afw::geom::AffineTransform const & getInputScaling() const { return _inputScaling; }
+    geom::AffineTransform const & getInputScaling() const { return _inputScaling; }
 
     /// Return the affine transform applied to points after the polynomial transform.
-    afw::geom::AffineTransform const & getOutputScalingInverse() const { return _outputScalingInverse; }
+    geom::AffineTransform const & getOutputScalingInverse() const { return _outputScalingInverse; }
 
     /**
      * Return an approximate affine transform at the given point.
      */
-    afw::geom::AffineTransform linearize(afw::geom::Point2D const & in) const;
+    geom::AffineTransform linearize(geom::Point2D const & in) const;
 
     /**
      * Apply the transform to a point.
      */
-    afw::geom::Point2D operator()(afw::geom::Point2D const & in) const;
+    geom::Point2D operator()(geom::Point2D const & in) const;
 
 private:
     friend class ScaledPolynomialTransformFitter;
     PolynomialTransform _poly;
-    afw::geom::AffineTransform _inputScaling;
-    afw::geom::AffineTransform _outputScalingInverse;
+    geom::AffineTransform _inputScaling;
+    geom::AffineTransform _outputScalingInverse;
 };
 
 /**
@@ -242,7 +243,7 @@ private:
  *  The returned composition would be exact in ideal arithmetic, but may suffer from
  *  significant round-off error for high-order polynomials.
  */
-PolynomialTransform compose(afw::geom::AffineTransform const & t1, PolynomialTransform const & t2);
+PolynomialTransform compose(geom::AffineTransform const & t1, PolynomialTransform const & t2);
 
 /**
  *  Return a PolynomialTransform that is equivalent to the composition t1(t2())
@@ -250,7 +251,7 @@ PolynomialTransform compose(afw::geom::AffineTransform const & t1, PolynomialTra
  *  The returned composition would be exact in ideal arithmetic, but may suffer from
  *  significant round-off error for high-order polynomials.
  */
-PolynomialTransform compose(PolynomialTransform const & t1, afw::geom::AffineTransform const & t2);
+PolynomialTransform compose(PolynomialTransform const & t1, geom::AffineTransform const & t2);
 
 }}} // namespace lsst::meas::astrom
 

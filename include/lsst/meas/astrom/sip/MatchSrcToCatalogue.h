@@ -31,8 +31,8 @@
 
 #include "lsst/base.h"
 #include "lsst/pex/exceptions/Runtime.h"
+#include "lsst/geom/Angle.h"
 #include "lsst/afw/table/Match.h"
-#include "lsst/afw/geom/Angle.h"
 
 namespace lsst {
     namespace afw {
@@ -64,11 +64,11 @@ public:
     MatchSrcToCatalogue(afw::table::SimpleCatalog const& catSet,
                         afw::table::SourceCatalog const& imgSet,       
                         CONST_PTR(afw::geom::SkyWcs) wcs,   
-                        afw::geom::Angle dist
+                        geom::Angle dist
                        );
 
     //Mutators
-    void setDist(afw::geom::Angle dist);
+    void setDist(geom::Angle dist);
     void setWcs(CONST_PTR(afw::geom::SkyWcs) wcs);
     void setCatSrcSet(afw::table::SimpleCatalog const & catSet);
     void setImgSrcSet(afw::table::SourceCatalog const & srcSet);
@@ -84,7 +84,7 @@ private:
     afw::table::SourceCatalog _imgSet;       ///< Copy of input catalog
     afw::table::ReferenceMatchVector _match;    ///List of tuples of matching indices
     CONST_PTR(lsst::afw::geom::SkyWcs) _wcs;
-    lsst::afw::geom::Angle _dist;              ///< How close must two objects be to match 
+    lsst::geom::Angle _dist;              ///< How close must two objects be to match 
 
     void _removeOneToMany();
     void _removeManyToOne();

@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "lsst/pex/config.h"
-#include "lsst/afw/geom/Point.h"
+#include "lsst/geom/Point.h"
 #include "lsst/afw/table/Source.h"
 #include "lsst/afw/table/Match.h"
 
@@ -21,7 +21,7 @@ namespace astrom {
     */
     struct RecordProxy {
         PTR(lsst::afw::table::SimpleRecord) record;
-        lsst::afw::geom::Point2D position;
+        lsst::geom::Point2D position;
         mutable bool used;  // set true if this star object has already been used for a match
             // mutable to allow freezing the fundamental object data using const
             // while keeping track of which objects have been used in each search
@@ -45,7 +45,7 @@ namespace astrom {
         */
         RecordProxy(
             PTR(lsst::afw::table::SimpleRecord) record,
-            lsst::afw::geom::Point2D const & position
+            lsst::geom::Point2D const & position
         ) : record(record), position(position) {}
 
         explicit RecordProxy() {}  // default constructor needed so we can call ProxyVector::resize()

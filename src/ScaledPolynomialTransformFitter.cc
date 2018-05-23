@@ -28,6 +28,8 @@
 
 #include "boost/math/tools/minima.hpp"
 
+#include "lsst/geom/Box.h"
+#include "lsst/geom/AffineTransform.h"
 #include "lsst/meas/astrom/ScaledPolynomialTransformFitter.h"
 #include "lsst/meas/astrom/detail/polynomialUtils.h"
 #include "lsst/afw/table/aggregates.h"
@@ -142,17 +144,17 @@ private:
 namespace {
 
 // Return the AffineTransforms that maps the given (x,y) coordinates to lie within (-1, 1)x(-1, 1)
-afw::geom::AffineTransform computeScaling(
+geom::AffineTransform computeScaling(
     afw::table::BaseCatalog const & data,
     afw::table::Point2DKey const & key
 ) {
-    afw::geom::Box2D bbox;
+    geom::Box2D bbox;
     for (auto const & record : data) {
-        bbox.include(afw::geom::Point2D(record.get(key)));
+        bbox.include(geom::Point2D(record.get(key)));
     };
-    return afw::geom::AffineTransform(
-        afw::geom::LinearTransform::makeScaling(0.5*bbox.getWidth(), 0.5*bbox.getHeight())
-    ).invert() * afw::geom::AffineTransform(-afw::geom::Extent2D(bbox.getCenter()));
+    return geom::AffineTransform(
+        geom::LinearTransform::makeScaling(0.5*bbox.getWidth(), 0.5*bbox.getHeight())
+    ).invert() * geom::AffineTransform(-geom::Extent2D(bbox.getCenter()));
 }
 
 } // anonymous
@@ -190,18 +192,18 @@ ScaledPolynomialTransformFitter ScaledPolynomialTransformFitter::fromMatches(
 
 ScaledPolynomialTransformFitter ScaledPolynomialTransformFitter::fromGrid(
     int maxOrder,
-    afw::geom::Box2D const & bbox,
+    geom::Box2D const & bbox,
     int nGridX, int nGridY,
     ScaledPolynomialTransform const & toInvert
 ) {
     Keys const & keys = Keys::forGrid();
     afw::table::BaseCatalog catalog(keys.schema);
     catalog.reserve(nGridX*nGridY);
-    afw::geom::Extent2D dx(bbox.getWidth()/nGridX, 0.0);
-    afw::geom::Extent2D dy(0.0, bbox.getHeight()/nGridY);
+    geom::Extent2D dx(bbox.getWidth()/nGridX, 0.0);
+    geom::Extent2D dy(0.0, bbox.getHeight()/nGridY);
     for (int iy = 0; iy < nGridY; ++iy) {
         for (int ix = 0; ix < nGridX; ++ix) {
-            afw::geom::Point2D point = bbox.getMin() + dx*ix + dy*iy;
+            geom::Point2D point = bbox.getMin() + dx*ix + dy*iy;
             auto record = catalog.addNew();
             record->set(keys.output, point);
             record->set(keys.input, toInvert(point));
@@ -222,8 +224,8 @@ ScaledPolynomialTransformFitter::ScaledPolynomialTransformFitter(
     Keys const & keys,
     int maxOrder,
     double intrinsicScatter,
-    afw::geom::AffineTransform const & inputScaling,
-    afw::geom::AffineTransform const & outputScaling
+    geom::AffineTransform const & inputScaling,
+    geom::AffineTransform const & outputScaling
 ) :
     _keys(keys),
     _intrinsicScatter(intrinsicScatter),
@@ -239,7 +241,7 @@ ScaledPolynomialTransformFitter::ScaledPolynomialTransformFitter(
     // Create a matrix that evaluates the max-order polynomials of all the (scaled) input positions;
     // we'll extract subsets of this later when fitting to a subset of the matches and a lower order.
     for (std::size_t i = 0; i < data.size(); ++i) {
-        afw::geom::Point2D input = getInputScaling()(_data[i].get(_keys.input));
+        geom::Point2D input = getInputScaling()(_data[i].get(_keys.input));
         // x[k] == pow(x, k), y[k] == pow(y, k)
         detail::computePowers(_transform._poly._u, input.getX());
         detail::computePowers(_transform._poly._v, input.getY());
@@ -296,7 +298,7 @@ void ScaledPolynomialTransformFitter::fit(int order) {
         // check that the 'rejected' field (== 'not outlier-rejected') is both
         // present in the schema and not rejected.
         if (!_keys.rejected.isValid() || !_data[i1].get(_keys.rejected)) {
-            afw::geom::Point2D output = _outputScaling(_data[i1].get(_keys.output));
+            geom::Point2D output = _outputScaling(_data[i1].get(_keys.output));
             vx[i2] = output.getX();
             vy[i2] = output.getY();
             m.row(i2) = _vandermonde.row(i1).head(packedSize);

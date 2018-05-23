@@ -22,6 +22,9 @@
  * see <http://www.lsstcorp.org/LegalNotices/>.
  */
 
+#include "lsst/geom/Extent.h"
+#include "lsst/geom/Point.h"
+#include "lsst/geom/AffineTransform.h"
 #include "lsst/meas/astrom/PolynomialTransform.h"
 #include "lsst/meas/astrom/SipTransform.h"
 #include "lsst/meas/astrom/detail/polynomialUtils.h"
@@ -46,7 +49,7 @@ PolynomialTransform PolynomialTransform::convert(SipForwardTransform const & oth
         other.getCdMatrix(),
         compose(
             poly,
-            afw::geom::AffineTransform(afw::geom::Point2D() - other.getPixelOrigin())
+            geom::AffineTransform(geom::Point2D() - other.getPixelOrigin())
         )
     );
 }
@@ -58,7 +61,7 @@ PolynomialTransform PolynomialTransform::convert(SipReverseTransform const & oth
     poly._xCoeffs(1, 0) += 1;
     poly._yCoeffs(0, 1) += 1;
     return compose(
-        afw::geom::AffineTransform(afw::geom::Extent2D(other.getPixelOrigin())),
+        geom::AffineTransform(geom::Extent2D(other.getPixelOrigin())),
         compose(
             poly,
             other._cdInverse
@@ -156,7 +159,7 @@ void PolynomialTransform::swap(PolynomialTransform & other) {
     _v.swap(other._v);
 }
 
-afw::geom::AffineTransform PolynomialTransform::linearize(afw::geom::Point2D const & in) const {
+geom::AffineTransform PolynomialTransform::linearize(geom::Point2D const & in) const {
     double xu = 0.0, xv = 0.0, yu = 0.0, yv = 0.0, x = 0.0, y = 0.0;
     int const order = getOrder();
     detail::computePowers(_u, in.getX());
@@ -175,16 +178,16 @@ afw::geom::AffineTransform PolynomialTransform::linearize(afw::geom::Point2D con
             y += _yCoeffs(p, q) * _u[p] * _v[q];
         }
     }
-    afw::geom::LinearTransform linear;
+    geom::LinearTransform linear;
     linear.getMatrix()(0, 0) = xu;
     linear.getMatrix()(0, 1) = xv;
     linear.getMatrix()(1, 0) = yu;
     linear.getMatrix()(1, 1) = yv;
-    afw::geom::Point2D origin(x, y);
-    return afw::geom::AffineTransform(linear, origin - linear(in));
+    geom::Point2D origin(x, y);
+    return geom::AffineTransform(linear, origin - linear(in));
 }
 
-afw::geom::Point2D PolynomialTransform::operator()(afw::geom::Point2D const & in) const {
+geom::Point2D PolynomialTransform::operator()(geom::Point2D const & in) const {
     int const order = getOrder();
     detail::computePowers(_u, in.getX());
     detail::computePowers(_v, in.getY());
@@ -196,18 +199,18 @@ afw::geom::Point2D PolynomialTransform::operator()(afw::geom::Point2D const & in
             y += _yCoeffs(p, q) * _u[p] * _v[q];
         }
     }
-    return afw::geom::Point2D(x, y);
+    return geom::Point2D(x, y);
 }
 
 ScaledPolynomialTransform ScaledPolynomialTransform::convert(PolynomialTransform const & poly) {
-    return ScaledPolynomialTransform(poly, afw::geom::AffineTransform(), afw::geom::AffineTransform());
+    return ScaledPolynomialTransform(poly, geom::AffineTransform(), geom::AffineTransform());
 }
 
 ScaledPolynomialTransform ScaledPolynomialTransform::convert(SipForwardTransform const & sipForward) {
     ScaledPolynomialTransform result(
         sipForward.getPoly(),
-        afw::geom::AffineTransform(afw::geom::Point2D(0, 0) - sipForward.getPixelOrigin()),
-        afw::geom::AffineTransform(sipForward.getCdMatrix())
+        geom::AffineTransform(geom::Point2D(0, 0) - sipForward.getPixelOrigin()),
+        geom::AffineTransform(sipForward.getCdMatrix())
     );
     // Account for the terms outside the sum in the SIP definition (see comment
     // earlier in the file for more explanation).
@@ -219,8 +222,8 @@ ScaledPolynomialTransform ScaledPolynomialTransform::convert(SipForwardTransform
 ScaledPolynomialTransform ScaledPolynomialTransform::convert(SipReverseTransform const & sipReverse) {
     ScaledPolynomialTransform result(
         sipReverse.getPoly(),
-        afw::geom::AffineTransform(sipReverse._cdInverse),
-        afw::geom::AffineTransform(afw::geom::Extent2D(sipReverse.getPixelOrigin()))
+        geom::AffineTransform(sipReverse._cdInverse),
+        geom::AffineTransform(geom::Extent2D(sipReverse.getPixelOrigin()))
     );
     result._poly._xCoeffs(1, 0) += 1;
     result._poly._yCoeffs(0, 1) += 1;
@@ -229,8 +232,8 @@ ScaledPolynomialTransform ScaledPolynomialTransform::convert(SipReverseTransform
 
 ScaledPolynomialTransform::ScaledPolynomialTransform(
     PolynomialTransform const & poly,
-    afw::geom::AffineTransform const & inputScaling,
-    afw::geom::AffineTransform const & outputScalingInverse
+    geom::AffineTransform const & inputScaling,
+    geom::AffineTransform const & outputScalingInverse
 ) :
     _poly(poly),
     _inputScaling(inputScaling),
@@ -243,16 +246,16 @@ void ScaledPolynomialTransform::swap(ScaledPolynomialTransform & other) {
     std::swap(_outputScalingInverse, other._outputScalingInverse);
 }
 
-afw::geom::AffineTransform ScaledPolynomialTransform::linearize(afw::geom::Point2D const & in) const {
+geom::AffineTransform ScaledPolynomialTransform::linearize(geom::Point2D const & in) const {
     return _outputScalingInverse*_poly.linearize(_inputScaling(in))*_inputScaling;
 }
 
-afw::geom::Point2D ScaledPolynomialTransform::operator()(afw::geom::Point2D const & in) const {
+geom::Point2D ScaledPolynomialTransform::operator()(geom::Point2D const & in) const {
     return _outputScalingInverse(_poly(_inputScaling(in)));
 }
 
-PolynomialTransform compose(afw::geom::AffineTransform const & t1, PolynomialTransform const & t2) {
-    typedef afw::geom::AffineTransform AT;
+PolynomialTransform compose(geom::AffineTransform const & t1, PolynomialTransform const & t2) {
+    typedef geom::AffineTransform AT;
     PolynomialTransform result(t2.getOrder());
     result._xCoeffs = t2._xCoeffs*t1[AT::XX] + t2._yCoeffs*t1[AT::XY];
     result._yCoeffs = t2._xCoeffs*t1[AT::YX] + t2._yCoeffs*t1[AT::YY];
@@ -261,8 +264,8 @@ PolynomialTransform compose(afw::geom::AffineTransform const & t1, PolynomialTra
     return result;
 }
 
-PolynomialTransform compose(PolynomialTransform const & t1, afw::geom::AffineTransform const & t2) {
-    typedef afw::geom::AffineTransform AT;
+PolynomialTransform compose(PolynomialTransform const & t1, geom::AffineTransform const & t2) {
+    typedef geom::AffineTransform AT;
     int const order = t1.getOrder();
     if (order < 1) {
         PolynomialTransform t1a(1);

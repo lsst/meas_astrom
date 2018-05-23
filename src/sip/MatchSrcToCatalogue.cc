@@ -23,6 +23,7 @@
  */
  
 #include "lsst/meas/astrom/sip/MatchSrcToCatalogue.h"
+#include "lsst/geom/Angle.h"
 #include "lsst/afw/geom/SkyWcs.h"
 
 namespace lsst { namespace meas { namespace astrom { namespace sip {
@@ -45,7 +46,7 @@ namespace lsst { namespace meas { namespace astrom { namespace sip {
 MatchSrcToCatalogue::MatchSrcToCatalogue(afw::table::SimpleCatalog const& catSet,  
                                          afw::table::SourceCatalog const& imgSet, 
                                          CONST_PTR(lsst::afw::geom::SkyWcs) wcs, 
-                                         afw::geom::Angle dist)
+                                         geom::Angle dist)
 {
     setImgSrcSet(imgSet);
     setCatSrcSet(catSet);
@@ -54,7 +55,7 @@ MatchSrcToCatalogue::MatchSrcToCatalogue(afw::table::SimpleCatalog const& catSet
 }    
 
 /// Set a new value for the maximum allowed distance between two matching objects (in ra/dec space) 
-void MatchSrcToCatalogue::setDist(afw::geom::Angle dist) {
+void MatchSrcToCatalogue::setDist(geom::Angle dist) {
     if (dist <= 0) {
         throw LSST_EXCEPT(pex::exceptions::InvalidParameterError, "Distance must be > 0");
     }

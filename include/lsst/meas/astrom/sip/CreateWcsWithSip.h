@@ -33,9 +33,8 @@
 #include "Eigen/Core"
 
 #include "lsst/afw/table/Match.h"
-#include "lsst/afw/geom/Box.h"
-#include "lsst/afw/geom/Point.h"
-#include "lsst/afw/geom/Angle.h"
+#include "lsst/geom/Angle.h"
+#include "lsst/geom/Box.h"
 
 namespace lsst { 
 namespace meas { 
@@ -100,7 +99,7 @@ public:
         std::vector<MatchT> const & matches,
         afw::geom::SkyWcs const & linearWcs,
         int const order,
-        afw::geom::Box2I const& bbox = afw::geom::Box2I(),
+        geom::Box2I const& bbox = geom::Box2I(),
         int const ngrid=0
     );
 
@@ -120,7 +119,7 @@ public:
      For each match, project the source centroid to RA,Dec using the fit TAN-SIP WCS,
      and measure the on-sky angular separation to the reference source coord.
      */
-    afw::geom::Angle getScatterOnSky() const;
+    geom::Angle getScatterOnSky() const;
 
     /**
      Compute the median radial separation between items in this object's match list
@@ -136,7 +135,7 @@ public:
      For each match, project the source centroid to RA,Dec using the initial "linearWcs" WCS,
      and measure the on-sky angular separation to the reference source coord.
      */
-    afw::geom::Angle getLinearScatterOnSky() const;
+    geom::Angle getLinearScatterOnSky() const;
 
     /// Return the number of terms in the SIP matrix
     int getOrder() const { return  _sipA.rows(); }
@@ -157,7 +156,7 @@ public:
 private:
 
     std::vector<MatchT> const _matches;
-    afw::geom::Box2I mutable _bbox;
+    geom::Box2I mutable _bbox;
     int _ngrid;                         // grid size to calculate inverse SIP coefficients (1-D)
     std::shared_ptr<const afw::geom::SkyWcs> _linearWcs;
     // _sipOrder is polynomial order for forward transform.
@@ -179,7 +178,7 @@ CreateWcsWithSip<MatchT> makeCreateWcsWithSip(
     std::vector<MatchT> const & matches,
     afw::geom::SkyWcs const& linearWcs,
     int const order,
-    afw::geom::Box2I const& bbox = afw::geom::Box2I(),
+    geom::Box2I const& bbox = geom::Box2I(),
     int const ngrid=0
 ) {
     return CreateWcsWithSip<MatchT>(matches, linearWcs, order, bbox, ngrid);

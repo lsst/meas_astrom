@@ -24,11 +24,11 @@
 #ifndef LSST_MEAS_ASTROM_SipTransform_INCLUDED
 #define LSST_MEAS_ASTROM_SipTransform_INCLUDED
 
-#include "lsst/afw/geom/LinearTransform.h"
-#include "lsst/afw/geom/AffineTransform.h"
-#include "lsst/afw/geom/Box.h"
-#include "lsst/afw/geom/Angle.h"
-#include "lsst/afw/geom/SpherePoint.h"
+#include "lsst/geom/Extent.h"
+#include "lsst/geom/Point.h"
+#include "lsst/geom/SpherePoint.h"
+#include "lsst/geom/AffineTransform.h"
+#include "lsst/geom/LinearTransform.h"
 #include "lsst/afw/geom/SkyWcs.h"
 #include "lsst/meas/astrom/PolynomialTransform.h"
 
@@ -48,12 +48,12 @@ public:
     /**
      *  Return the pixel origin (CRPIX, but zero-indexed) of the transform.
      */
-    afw::geom::Point2D const & getPixelOrigin() const { return _pixelOrigin; }
+    geom::Point2D const & getPixelOrigin() const { return _pixelOrigin; }
 
     /**
      *  Return the CD matrix of the transform.
      */
-    afw::geom::LinearTransform const & getCdMatrix() const { return _cdMatrix; }
+    geom::LinearTransform const & getCdMatrix() const { return _cdMatrix; }
 
     /**
      *  Return the polynomial component of the transform (A,B) or (AP,BP).
@@ -75,8 +75,8 @@ protected:
      *                              class).
      */
     SipTransformBase(
-        afw::geom::Point2D const & pixelOrigin,
-        afw::geom::LinearTransform const & cdMatrix,
+        geom::Point2D const & pixelOrigin,
+        geom::LinearTransform const & cdMatrix,
         PolynomialTransform const & poly
     ) : _pixelOrigin(pixelOrigin),
         _cdMatrix(cdMatrix),
@@ -94,10 +94,10 @@ protected:
         _poly.swap(other._poly);
     }
 
-    void transformPixelsInPlace(afw::geom::AffineTransform const & s);
+    void transformPixelsInPlace(geom::AffineTransform const & s);
 
-    afw::geom::Point2D _pixelOrigin;
-    afw::geom::LinearTransform _cdMatrix;
+    geom::Point2D _pixelOrigin;
+    geom::LinearTransform _cdMatrix;
     PolynomialTransform _poly;
 };
 
@@ -152,8 +152,8 @@ public:
      */
     static SipForwardTransform convert(
         PolynomialTransform const & poly,
-        afw::geom::Point2D const & pixelOrigin,
-        afw::geom::LinearTransform const & cdMatrix
+        geom::Point2D const & pixelOrigin,
+        geom::LinearTransform const & cdMatrix
     );
 
     /**
@@ -165,8 +165,8 @@ public:
      */
     static SipForwardTransform convert(
         ScaledPolynomialTransform const & scaled,
-        afw::geom::Point2D const & pixelOrigin,
-        afw::geom::LinearTransform const & cdMatrix
+        geom::Point2D const & pixelOrigin,
+        geom::LinearTransform const & cdMatrix
     );
 
     /**
@@ -186,8 +186,8 @@ public:
      *  @param[in]   forwardSipPoly Polynomial transform @f$(A,B)@f$
      */
     SipForwardTransform(
-        afw::geom::Point2D const & pixelOrigin,
-        afw::geom::LinearTransform const & cdMatrix,
+        geom::Point2D const & pixelOrigin,
+        geom::LinearTransform const & cdMatrix,
         PolynomialTransform const & forwardSipPoly
     ) :
         SipTransformBase(pixelOrigin, cdMatrix, forwardSipPoly)
@@ -208,18 +208,18 @@ public:
     /**
      * Return an approximate affine transform at the given point.
      */
-    afw::geom::AffineTransform linearize(afw::geom::Point2D const & in) const;
+    geom::AffineTransform linearize(geom::Point2D const & in) const;
 
     /**
      * Apply the transform to a point.
      */
-    afw::geom::Point2D operator()(afw::geom::Point2D const & uv) const;
+    geom::Point2D operator()(geom::Point2D const & uv) const;
 
     /**
      * Return a new forward SIP transform that includes a transformation of
      * the pixel coordinate system by the given affine transform.
      */
-    SipForwardTransform transformPixels(afw::geom::AffineTransform const & s) const;
+    SipForwardTransform transformPixels(geom::AffineTransform const & s) const;
 
 };
 
@@ -276,8 +276,8 @@ public:
      */
     static SipReverseTransform convert(
         PolynomialTransform const & poly,
-        afw::geom::Point2D const & pixelOrigin,
-        afw::geom::LinearTransform const & cdMatrix
+        geom::Point2D const & pixelOrigin,
+        geom::LinearTransform const & cdMatrix
     );
 
     /**
@@ -289,8 +289,8 @@ public:
      */
     static SipReverseTransform convert(
         ScaledPolynomialTransform const & scaled,
-        afw::geom::Point2D const & pixelOrigin,
-        afw::geom::LinearTransform const & cdMatrix
+        geom::Point2D const & pixelOrigin,
+        geom::LinearTransform const & cdMatrix
     );
 
     /**
@@ -310,8 +310,8 @@ public:
      *  @param[in]   reverseSipPoly Polynomial transform @f$(AP,BP)@f$
      */
     SipReverseTransform(
-        afw::geom::Point2D const & pixelOrigin,
-        afw::geom::LinearTransform const & cdMatrix,
+        geom::Point2D const & pixelOrigin,
+        geom::LinearTransform const & cdMatrix,
         PolynomialTransform const & reverseSipPoly
     ) : SipTransformBase(pixelOrigin, cdMatrix, reverseSipPoly),
         _cdInverse(cdMatrix.invert())
@@ -333,23 +333,23 @@ public:
     /**
      * Return an approximate affine transform at the given point.
      */
-    afw::geom::AffineTransform linearize(afw::geom::Point2D const & in) const;
+    geom::AffineTransform linearize(geom::Point2D const & in) const;
 
     /**
      * Apply the transform to a point.
      */
-    afw::geom::Point2D operator()(afw::geom::Point2D const & xy) const;
+    geom::Point2D operator()(geom::Point2D const & xy) const;
 
     /**
      * Return a new reverse SIP transform that includes a transformation of
      * the pixel coordinate system by the given affine transform.
      */
-    SipReverseTransform transformPixels(afw::geom::AffineTransform const & s) const;
+    SipReverseTransform transformPixels(geom::AffineTransform const & s) const;
 
 private:
     friend class PolynomialTransform;
     friend class ScaledPolynomialTransform;
-    afw::geom::LinearTransform _cdInverse;
+    geom::LinearTransform _cdInverse;
 };
 
 /**
@@ -369,7 +369,7 @@ private:
 std::shared_ptr<afw::geom::SkyWcs> makeWcs(
     SipForwardTransform const & sipForward,
     SipReverseTransform const & sipReverse,
-    afw::geom::SpherePoint const & skyOrigin
+    geom::SpherePoint const & skyOrigin
 );
 
 /**
@@ -390,7 +390,7 @@ std::shared_ptr<afw::geom::SkyWcs> makeWcs(
  */
 std::shared_ptr<afw::geom::SkyWcs> transformWcsPixels(
     afw::geom::SkyWcs const & wcs,
-    afw::geom::AffineTransform const & s
+    geom::AffineTransform const & s
 );
 
 /**
@@ -404,7 +404,7 @@ std::shared_ptr<afw::geom::SkyWcs> transformWcsPixels(
 std::shared_ptr<afw::geom::SkyWcs> rotateWcsPixelsBy90(
     afw::geom::SkyWcs const & wcs,
     int nQuarter,
-    afw::geom::Extent2I const & dimensions
+    geom::Extent2I const & dimensions
 );
 
 

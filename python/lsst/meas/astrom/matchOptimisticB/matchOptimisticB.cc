@@ -24,6 +24,8 @@
 
 #include <memory>
 
+#include "lsst/geom/Point.h"
+#include "lsst/afw/geom/SkyWcs.h"
 #include "lsst/pex/config/python.h"  // defines LSST_DECLARE_CONTROL_FIELD
 #include "lsst/meas/astrom/matchOptimisticB.h"
 
@@ -42,7 +44,7 @@ static void declareRecordProxy(py::module &mod) {
     cls.def_readwrite("position", &RecordProxy::position);
     cls.def_readwrite("used", &RecordProxy::used);
 
-    cls.def(py::init<std::shared_ptr<afw::table::SimpleRecord>, afw::geom::Point2D const &>(), "record"_a,
+    cls.def(py::init<std::shared_ptr<afw::table::SimpleRecord>, geom::Point2D const &>(), "record"_a,
             "position"_a);
 
     // TO DO: decide if we need to wrap operator PTR(lsst::afw::table::SimpleRecord)()

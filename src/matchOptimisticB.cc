@@ -16,11 +16,11 @@
 
 #include "lsst/sphgeom/Vector3d.h"
 #include "lsst/pex/exceptions.h"
+#include "lsst/geom/Angle.h"
+#include "lsst/geom/Extent.h"
+#include "lsst/geom/Point.h"
+#include "lsst/geom/SpherePoint.h"
 #include "lsst/afw/geom/SkyWcs.h"
-#include "lsst/afw/geom/Angle.h"
-#include "lsst/afw/geom/Extent.h"
-#include "lsst/afw/geom/Point.h"
-#include "lsst/afw/geom/SpherePoint.h"
 #include "lsst/meas/astrom/matchOptimisticB.h"
 
 namespace pexExcept = lsst::pex::exceptions;
@@ -541,13 +541,13 @@ namespace astrom {
         if (static_cast<size_t>(posRefBegInd) >= posRefCat.size()) {
             throw LSST_EXCEPT(pexExcept::InvalidParameterError, "posRefBegInd too big");
         }
-        double const maxRotationRad = afw::geom::degToRad(control.maxRotationDeg);
+        double const maxRotationRad = geom::degToRad(control.maxRotationDeg);
 
         // Create an undistorted Wcs to project everything with
         // We'll anchor it at the center of the area.
-        afw::geom::Extent2D srcCenter(0, 0);
+        geom::Extent2D srcCenter(0, 0);
         for (auto iter = sourceCat.begin(); iter != sourceCat.end(); ++iter) {
-            srcCenter += afw::geom::Extent2D(iter->getCentroid());
+            srcCenter += geom::Extent2D(iter->getCentroid());
         }
         srcCenter /= sourceCat.size();
 
@@ -558,8 +558,8 @@ namespace astrom {
         refCenter /= posRefCat.size();
 
         auto tanWcs = afw::geom::makeSkyWcs(
-            afw::geom::Point2D(srcCenter),
-            afw::geom::SpherePoint(refCenter),
+            geom::Point2D(srcCenter),
+            geom::SpherePoint(refCenter),
             wcs.getCdMatrix()
         );
 
@@ -701,9 +701,8 @@ namespace astrom {
                         double b = coeff[2];
                         double c = coeff[4];
                         double d = coeff[5];
-                        afw::geom::Angle const theta(std::acos((a*b+c*d)/
-                                                               (std::sqrt(a*a+c*c)*std::sqrt(b*b+d*d))),
-                                                     afw::geom::radians);
+                        geom::Angle const theta(std::acos((a*b+c*d)/(std::sqrt(a*a+c*c)*std::sqrt(b*b+d*d))),
+                                                     geom::radians);
                         if (verbose) {
                             std::cout << "Linear fit from match:" << std::endl;
                             std::cout << coeff[0] << " " << coeff[1] << " " << coeff[2] << std::endl;

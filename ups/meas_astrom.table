@@ -1,3 +1,4 @@
+setupRequired(geom)
 setupRequired(sphgeom)
 setupRequired(afw)
 setupRequired(log)

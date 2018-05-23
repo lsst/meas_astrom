@@ -27,7 +27,7 @@
 
 #include "ndarray/pybind11.h"
 
-#include "lsst/afw/geom/Box.h"
+#include "lsst/geom/Box.h"
 #include "lsst/afw/geom/SkyWcs.h"
 #include "lsst/afw/table/Match.h"
 #include "lsst/meas/astrom/sip/CreateWcsWithSip.h"
@@ -46,8 +46,8 @@ static void declareCreateWcsWithSip(py::module &mod, std::string const &name) {
     py::class_<CreateWcsWithSip<MatchT>, std::shared_ptr<CreateWcsWithSip<MatchT>>> cls(mod, name.c_str());
 
     cls.def(py::init<std::vector<MatchT> const &, afw::geom::SkyWcs const &, int const,
-                     afw::geom::Box2I const &, int const>(),
-            "matches"_a, "linearWcs"_a, "order"_a, "bbox"_a = afw::geom::Box2I(), "ngrid"_a = 0);
+                     geom::Box2I const &, int const>(),
+            "matches"_a, "linearWcs"_a, "order"_a, "bbox"_a = geom::Box2I(), "ngrid"_a = 0);
 
     cls.def("getNewWcs", &CreateWcsWithSip<MatchT>::getNewWcs);
     cls.def("getScatterInPixels", &CreateWcsWithSip<MatchT>::getScatterInPixels);
@@ -63,7 +63,7 @@ static void declareCreateWcsWithSip(py::module &mod, std::string const &name) {
     cls.def("getSipBp", &CreateWcsWithSip<MatchT>::getSipBp, py::return_value_policy::copy);
 
     mod.def("makeCreateWcsWithSip", &makeCreateWcsWithSip<MatchT>, "matches"_a, "linearWcs"_a, "order"_a,
-            "bbox"_a = afw::geom::Box2I(), "ngrid"_a = 0);
+            "bbox"_a = geom::Box2I(), "ngrid"_a = 0);
 }
 
 }  // namespace lsst::meas::astrom::sip::<anonymous>

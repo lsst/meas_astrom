@@ -25,7 +25,8 @@
 #define LSST_MEAS_ASTROM_TanSipFitter_INCLUDED
 
 #include "lsst/pex/config.h"
-#include "lsst/afw/geom/LinearTransform.h"
+#include "lsst/geom/Box.h"
+#include "lsst/geom/AffineTransform.h"
 #include "lsst/afw/geom/SkyWcs.h"
 #include "lsst/afw/table/Catalog.h"
 #include "lsst/afw/table/BaseRecord.h"
@@ -175,7 +176,7 @@ public:
      */
     static ScaledPolynomialTransformFitter fromGrid(
         int maxOrder,
-        afw::geom::Box2D const & bbox,
+        geom::Box2D const & bbox,
         int nGridX, int nGridY,
         ScaledPolynomialTransform const & toInvert
     );
@@ -277,12 +278,12 @@ public:
     /**
      *  Return the input scaling transform that maps input data points to [-1, 1].
      */
-    afw::geom::AffineTransform const & getInputScaling() const { return _transform.getInputScaling(); }
+    geom::AffineTransform const & getInputScaling() const { return _transform.getInputScaling(); }
 
     /**
      *  Return the output scaling transform that maps output data points to [-1, 1].
      */
-    afw::geom::AffineTransform const & getOutputScaling() const { return _outputScaling; }
+    geom::AffineTransform const & getOutputScaling() const { return _outputScaling; }
 
 private:
 
@@ -293,8 +294,8 @@ private:
         Keys const & keys,
         int maxOrder,
         double intrinsicScatter,
-        afw::geom::AffineTransform const & inputScaling,
-        afw::geom::AffineTransform const & outputScaling
+        geom::AffineTransform const & inputScaling,
+        geom::AffineTransform const & outputScaling
     );
 
     double computeIntrinsicScatter() const;
@@ -306,7 +307,7 @@ private:
     Keys const & _keys;
     double _intrinsicScatter;
     afw::table::BaseCatalog _data;
-    afw::geom::AffineTransform _outputScaling;
+    geom::AffineTransform _outputScaling;
     ScaledPolynomialTransform _transform;
     // 2-d generalization of the Vandermonde matrix: evaluates polynomial at
     // all data points when multiplied by a vector of packed polynomial
