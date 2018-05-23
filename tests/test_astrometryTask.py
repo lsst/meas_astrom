@@ -27,6 +27,7 @@ import unittest
 import numpy as np
 
 import lsst.utils.tests
+import lsst.geom
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
@@ -41,11 +42,11 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
     def setUp(self):
         refCatDir = os.path.join(os.path.dirname(__file__), "data", "sdssrefcat")
 
-        self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(3001, 3001))
-        crpix = afwGeom.Box2D(self.bbox).getCenter()
+        self.bbox = lsst.geom.Box2I(lsst.geom.Point2I(0, 0), lsst.geom.Extent2I(3001, 3001))
+        crpix = lsst.geom.Box2D(self.bbox).getCenter()
         self.tanWcs = afwGeom.makeSkyWcs(crpix=crpix,
-                                         crval=afwGeom.SpherePoint(215.5, 53.0, afwGeom.degrees),
-                                         cdMatrix=afwGeom.makeCdMatrix(scale=5.1e-5*afwGeom.degrees))
+                                         crval=lsst.geom.SpherePoint(215.5, 53.0, lsst.geom.degrees),
+                                         cdMatrix=afwGeom.makeCdMatrix(scale=5.1e-5*lsst.geom.degrees))
         self.exposure = afwImage.ExposureF(self.bbox)
         self.exposure.setWcs(self.tanWcs)
         self.exposure.setFilter(afwImage.Filter("r", True))
@@ -127,12 +128,12 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         fitWcs = self.exposure.getWcs()
         self.assertRaises(Exception, self.assertWcsAlmostEqualOverBBox, fitWcs, distortedWcs)
         self.assertWcsAlmostEqualOverBBox(distortedWcs, fitWcs, self.bbox,
-                                          maxDiffSky=0.01*afwGeom.arcseconds, maxDiffPix=0.02)
+                                          maxDiffSky=0.01*lsst.geom.arcseconds, maxDiffPix=0.02)
 
         srcCoordKey = afwTable.CoordKey(sourceCat.schema["coord"])
         refCoordKey = afwTable.CoordKey(results.refCat.schema["coord"])
         refCentroidKey = afwTable.Point2DKey(results.refCat.schema["centroid"])
-        maxAngSep = afwGeom.Angle(0)
+        maxAngSep = 0*lsst.geom.radians
         maxPixSep = 0
         for refObj, src, d in results.matches:
             refCoord = refObj.get(refCoordKey)

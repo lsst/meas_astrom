@@ -25,6 +25,7 @@ import os
 import sys
 import lsst.utils
 import lsst.pex.policy as policy
+import lsst.geom
 import lsst.afw.detection as afwDetection
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
@@ -230,7 +231,7 @@ def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF
 
     for what in ("header", "data"):
         if what == "header":
-            bbox = afwGeom.Box2I()
+            bbox = lsst.geom.Box2I()
             ampBBox = {}
             wcs = {}
         else:
@@ -246,12 +247,12 @@ def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF
 
             if what == "header":
                 md = readMetadata(filename + "_img.fits")
-                xy0 = afwGeom.Point2I(md.get("CRVAL1A"), md.get("CRVAL2A"))
-                xy1 = xy0 + afwGeom.Extent2I(md.get("NAXIS1") - 1, md.get("NAXIS2") - 1)
+                xy0 = lsst.geom.Point2I(md.get("CRVAL1A"), md.get("CRVAL2A"))
+                xy1 = xy0 + lsst.geom.Extent2I(md.get("NAXIS1") - 1, md.get("NAXIS2") - 1)
                 bbox.grow(xy0)
                 bbox.grow(xy1)
 
-                ampBBox[a] = afwGeom.Box2I(xy0, xy1)
+                ampBBox[a] = lsst.geom.Box2I(xy0, xy1)
                 wcs[a] = afwGeom.makeSkyWcs(md)
             else:
                 try:

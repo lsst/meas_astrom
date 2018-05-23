@@ -24,6 +24,7 @@ __all__ = ["approximateWcs"]
 
 import numpy as np
 
+import lsst.geom
 import lsst.afw.table as afwTable
 import lsst.afw.geom as afwGeom
 from lsst.meas.base import SingleFrameMeasurementTask
@@ -40,7 +41,7 @@ class _MockTestCase:
 
 
 def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3,
-                   skyTolerance=0.001*afwGeom.arcseconds, pixelTolerance=0.02, useTanWcs=False):
+                   skyTolerance=0.001*lsst.geom.arcseconds, pixelTolerance=0.02, useTanWcs=False):
     """Approximate an existing WCS as a TAN-SIP WCS
 
     The fit is performed by evaluating the WCS at a uniform grid of points within a bounding box.
@@ -80,10 +81,10 @@ def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3,
 
     matchList = []
 
-    bboxd = afwGeom.Box2D(bbox)
+    bboxd = lsst.geom.Box2D(bbox)
     for x in np.linspace(bboxd.getMinX(), bboxd.getMaxX(), nx):
         for y in np.linspace(bboxd.getMinY(), bboxd.getMaxY(), ny):
-            pixelPos = afwGeom.Point2D(x, y)
+            pixelPos = lsst.geom.Point2D(x, y)
             skyCoord = wcs.pixelToSky(pixelPos)
 
             refObj = refCat.addNew()

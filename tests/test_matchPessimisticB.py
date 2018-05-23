@@ -25,6 +25,7 @@ import math
 import os
 import unittest
 
+import lsst.geom
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.utils.tests
@@ -42,9 +43,9 @@ class TestMatchPessimisticB(unittest.TestCase):
         self.MatchPessimisticB = measAstrom.MatchPessimisticBTask(
             config=self.config)
 
-        self.wcs = afwGeom.makeSkyWcs(crpix=afwGeom.Point2D(791.4, 559.7),
-                                      crval=afwGeom.SpherePoint(36.930640, -4.939560, afwGeom.degrees),
-                                      cdMatrix=afwGeom.makeCdMatrix(scale=5.17e-5*afwGeom.degrees))
+        self.wcs = afwGeom.makeSkyWcs(crpix=lsst.geom.Point2D(791.4, 559.7),
+                                      crval=lsst.geom.SpherePoint(36.930640, -4.939560, lsst.geom.degrees),
+                                      cdMatrix=afwGeom.makeCdMatrix(scale=5.17e-5*lsst.geom.degrees))
         self.distortedWcs = self.wcs
 
         self.filename = os.path.join(os.path.dirname(__file__), "cat.xy.fits")
@@ -126,13 +127,13 @@ class TestMatchPessimisticB(unittest.TestCase):
         refCoordKey = afwTable.CoordKey(refCat.schema["coord"])
         srcCoordKey = afwTable.CoordKey(sourceCat.schema["coord"])
         refCentroidKey = afwTable.Point2DKey(refCat.getSchema()["centroid"])
-        maxDistErr = afwGeom.Angle(0)
+        maxDistErr = 0*lsst.geom.radians
 
         for refObj, source, distRad in matches:
             sourceCoord = source.get(srcCoordKey)
             refCoord = refObj.get(refCoordKey)
             predDist = sourceCoord.separation(refCoord)
-            distErr = abs(predDist - distRad*afwGeom.radians)
+            distErr = abs(predDist - distRad*lsst.geom.radians)
             maxDistErr = max(distErr, maxDistErr)
 
             if refObj.getId() != source.getId():
@@ -180,7 +181,7 @@ class TestMatchPessimisticB(unittest.TestCase):
         # Source x,y positions are ~ (500,1500) x (500,1500)
         centroidKey = sourceCat.table.getCentroidKey()
         for src in sourceCat:
-            adjCentroid = src.get(centroidKey) - afwGeom.Extent2D(500, 500)
+            adjCentroid = src.get(centroidKey) - lsst.geom.Extent2D(500, 500)
             src.set(centroidKey, adjCentroid)
             src.set(fluxKey, 1000)
             src.set(fluxSigmaKey, 1)

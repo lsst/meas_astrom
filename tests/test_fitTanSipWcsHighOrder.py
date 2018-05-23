@@ -24,6 +24,7 @@ import unittest
 import numpy as np
 
 import lsst.utils.tests
+import lsst.geom
 import lsst.afw.geom as afwGeom
 from lsst.meas.astrom import approximateWcs
 
@@ -37,12 +38,12 @@ class ApproximateWcsTestCase(lsst.utils.tests.TestCase):
     """
 
     def setUp(self):
-        self.crPix = afwGeom.Point2D(15000, 4000)
-        dimd = afwGeom.Extent2D(4000, 4000)
-        bboxd = afwGeom.Box2D(self.crPix - dimd/2, dimd)
-        self.bbox = afwGeom.Box2I(bboxd)
+        self.crPix = lsst.geom.Point2D(15000, 4000)
+        dimd = lsst.geom.Extent2D(4000, 4000)
+        bboxd = lsst.geom.Box2D(self.crPix - dimd/2, dimd)
+        self.bbox = lsst.geom.Box2I(bboxd)
         self.tanWcs = afwGeom.makeSkyWcs(crpix=self.crPix,
-                                         crval=afwGeom.SpherePoint(215.5, 53.0, afwGeom.degrees),
+                                         crval=lsst.geom.SpherePoint(215.5, 53.0, lsst.geom.degrees),
                                          cdMatrix=np.array([[5.10808596133527E-05, 1.85579539217196E-07],
                                                             [-8.27440751733828E-07, -5.10281493481982E-05]]))
 
@@ -89,11 +90,11 @@ class ApproximateWcsTestCase(lsst.utils.tests.TestCase):
 
         msg = "ERROR: %s failed with order %s" % (name, order)
         self.assertWcsAlmostEqualOverBBox(wcs, fitWcs, self.bbox,
-                                          maxDiffSky=0.001*afwGeom.arcseconds, maxDiffPix=0.02, msg=msg)
+                                          maxDiffSky=0.001*lsst.geom.arcseconds, maxDiffPix=0.02, msg=msg)
 
     def plotWcs(self, wcs0, wcs1, bbox, transform):
         import matplotlib.pyplot as plt
-        bboxd = afwGeom.Box2D(bbox)
+        bboxd = lsst.geom.Box2D(bbox)
         x0Arr = []
         y0Arr = []
         x1Arr = []
@@ -102,7 +103,7 @@ class ApproximateWcsTestCase(lsst.utils.tests.TestCase):
         y2Arr = []
         for x in np.linspace(bboxd.getMinX(), bboxd.getMaxX(), 10):
             for y in np.linspace(bboxd.getMinY(), bboxd.getMaxY(), 10):
-                pixelPos0 = afwGeom.Point2D(x, y)
+                pixelPos0 = lsst.geom.Point2D(x, y)
                 skyCoord = wcs0.pixelToSky(pixelPos0)
                 pixelPos1 = wcs1.skyToPixel(skyCoord)
                 distortedPos = transform.applyForward(pixelPos0)

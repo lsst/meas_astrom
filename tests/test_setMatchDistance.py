@@ -35,6 +35,7 @@ import unittest
 import numpy as np
 
 import lsst.utils.tests
+import lsst.geom
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 from lsst.meas.algorithms import LoadReferenceObjectsTask
@@ -60,10 +61,10 @@ class BaseTestCase(unittest.TestCase):
     MatchClass = None
 
     def setUp(self):
-        crval = afwGeom.SpherePoint(44, 45, afwGeom.degrees)
-        crpix = afwGeom.PointD(0, 0)
+        crval = lsst.geom.SpherePoint(44, 45, lsst.geom.degrees)
+        crpix = lsst.geom.PointD(0, 0)
 
-        scale = 1 * afwGeom.arcseconds
+        scale = 1 * lsst.geom.arcseconds
         self.tanWcs = afwGeom.makeSkyWcs(crpix=crpix, crval=crval,
                                          cdMatrix=afwGeom.makeCdMatrix(scale=scale))
 
@@ -93,9 +94,9 @@ class BaseTestCase(unittest.TestCase):
                 src = self.sourceCat.addNew()
                 refObj = self.refCat.addNew()
 
-                src.set(self.srcCentroidKey, afwGeom.Point2D(i, j))
+                src.set(self.srcCentroidKey, lsst.geom.Point2D(i, j))
 
-                c = self.tanWcs.pixelToSky(afwGeom.Point2D(i, j))
+                c = self.tanWcs.pixelToSky(lsst.geom.Point2D(i, j))
                 refObj.setCoord(c)
 
                 self.matches.append(self.MatchClass(refObj, src, 0.0))
@@ -113,17 +114,17 @@ class BaseTestCase(unittest.TestCase):
         for refObj, src, d in self.matches:
             origPos = src.get(self.srcCentroidKey)
             x, y = func(*origPos)
-            distortedPos = afwGeom.Point2D(*func(*origPos))
+            distortedPos = lsst.geom.Point2D(*func(*origPos))
             src.set(self.srcCentroidKey, distortedPos)
             src.set(self.srcCoordKey, self.tanWcs.pixelToSky(distortedPos))
 
         setMatchDistance(self.matches)
-        maxDistErr = afwGeom.Angle(0)
+        maxDistErr = 0*lsst.geom.radians
         for refObj, source, distRad in self.matches:
             sourceCoord = source.get(self.srcCoordKey)
             refCoord = refObj.get(self.refCoordKey)
             predDist = sourceCoord.separation(refCoord)
-            distErr = abs(predDist - distRad*afwGeom.radians)
+            distErr = abs(predDist - distRad*lsst.geom.radians)
             maxDistErr = max(distErr, maxDistErr)
 
         self.assertLess(maxDistErr.asArcseconds(), 1e-7)
@@ -148,7 +149,7 @@ class SideLoadTestCases:
         radialTransform = afwGeom.makeRadialTransform([0, 1.02, 1e-6])
 
         def radialDistortion(x, y):
-            x, y = radialTransform.applyForward(afwGeom.Point2D(x, y))
+            x, y = radialTransform.applyForward(lsst.geom.Point2D(x, y))
             return (x, y)
         self.doTest("testRadial", radialDistortion)
 
