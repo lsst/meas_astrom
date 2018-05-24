@@ -22,15 +22,15 @@
 
 __all__ = ["CatalogStarSelectorConfig", "CatalogStarSelectorTask"]
 
+import numpy as np
 
-from lsst.afw.table import SourceCatalog
-from lsst.meas.algorithms import BaseStarSelectorTask, starSelectorRegistry
+from lsst.meas.algorithms import BaseSourceSelectorTask, sourceSelectorRegistry
 from lsst.pipe.base import Struct
 import lsst.pex.config as pexConfig
 import lsst.afw.display.ds9 as ds9
 
 
-class CatalogStarSelectorConfig(BaseStarSelectorTask.ConfigClass):
+class CatalogStarSelectorConfig(BaseSourceSelectorTask.ConfigClass):
     fluxLim = pexConfig.RangeField(
         doc="specify the minimum psfFlux for good Psf Candidates",
         dtype=float,
@@ -43,14 +43,15 @@ class CatalogStarSelectorConfig(BaseStarSelectorTask.ConfigClass):
         default=0.0,
         min=0.0,
     )
-
-    def setDefaults(self):
-        BaseStarSelectorTask.ConfigClass.setDefaults(self)
-        self.badFlags = [
+    badFlags = pexConfig.ListField(
+        doc="List of flags which cause a source to be rejected as bad",
+        dtype=str,
+        default=[
             "base_PixelFlags_flag_edge",
             "base_PixelFlags_flag_interpolatedCenter",
             "base_PixelFlags_flag_saturatedCenter",
-        ]
+        ],
+    )
 
 
 class CheckSource:
@@ -80,6 +81,7 @@ class CheckSource:
 # \}
 
 
+@pexConfig.registerConfigurable("catalog", sourceSelectorRegistry)
 class CatalogStarSelectorTask:
     """!Select stars based on a reference catalog
 
@@ -141,18 +143,27 @@ class CatalogStarSelectorTask:
     ConfigClass = CatalogStarSelectorConfig
     usesMatches = True  # `run` and `selectStars` require the `matches` argument
 
-    def selectStars(self, exposure, sourceCat, matches=None):
-        """!Return a list of PSF candidates that represent likely stars
+    def selectSources(self, sourceCat, matches=None, exposure=None):
+        """Return a selection of sources based on reference catalog matches.
 
-        A list of PSF candidates may be used by a PSF fitter to construct a PSF.
+        Parameters
+        ----------
+        sourceCat : `lsst.afw.table.SourceCatalog`
+            Catalog of sources to select from.
+            This catalog must be contiguous in memory.
+        matches : `list` of `lsst.afw.table.ReferenceMatch`
+            A match vector as produced by meas_astrom; required.
+        exposure : `lsst.afw.image.Exposure` or None
+            The exposure the catalog was built from; used for debug display.
 
-        @param[in] exposure  the exposure containing the sources
-        @param[in] sourceCat  catalog of sources that may be stars (an lsst.afw.table.SourceCatalog)
-        @param[in] matches  a match vector as produced by meas_astrom; required
-                            (defaults to None to match the StarSelector API and improve error handling)
+        Return
+        ------
+        struct : `lsst.pipe.base.Struct`
+            The struct contains the following data:
 
-        @return an lsst.pipe.base.Struct containing:
-        - starCat  catalog of selected stars (a subset of sourceCat)
+            - selected : `numpy.ndarray` of `bool``
+                Boolean array of sources that were selected, same length as
+                sourceCat.
         """
         import lsstDebug
         debugInfo = lsstDebug.Info(__name__)
@@ -169,15 +180,14 @@ class CatalogStarSelectorTask:
             ds9.mtv(mi, frame=frame, title="PSF candidates")
 
         isGoodSource = CheckSource(sourceCat, self.config.fluxLim, self.config.fluxMax, self.config.badFlags)
+        good = np.array([isGoodSource(record) for record in sourceCat])
 
-        starCat = SourceCatalog(sourceCat.schema)
         with ds9.Buffering():
             for ref, source, d in matches:
                 if not ref.get("resolved"):
                     if not isGoodSource(source):
                         symb, ctype = "+", ds9.RED
                     else:
-                        starCat.append(source)
                         symb, ctype = "+", ds9.GREEN
 
                         if display:
@@ -187,9 +197,4 @@ class CatalogStarSelectorTask:
         if display and pauseAtEnd:
             input("Continue? y[es] p[db] ")
 
-        return Struct(
-            starCat=starCat,
-        )
-
-
-starSelectorRegistry.register("catalog", CatalogStarSelectorTask)
+        return Struct(selected=good)
