@@ -47,14 +47,14 @@ static void declareSipForwardTransform(py::module &mod) {
     py::class_<SipForwardTransform, std::shared_ptr<SipForwardTransform>, SipTransformBase> cls(
             mod, "SipForwardTransform");
 
-    cls.def(py::init<geom::Point2D const &, geom::LinearTransform const &,
-                     PolynomialTransform const &>(),
+    cls.def(py::init<geom::Point2D const &, geom::LinearTransform const &, PolynomialTransform const &>(),
             "pixelOrigin"_a, "cdMatrix"_a, "forwardSipPoly"_a);
     cls.def(py::init<SipForwardTransform const &>(), "other"_a);
 
-    cls.def_static("convert", (SipForwardTransform(*)(PolynomialTransform const &, geom::Point2D const &,
-                                                      geom::LinearTransform const &)) &
-                                      SipForwardTransform::convert,
+    cls.def_static("convert",
+                   (SipForwardTransform(*)(PolynomialTransform const &, geom::Point2D const &,
+                                           geom::LinearTransform const &)) &
+                           SipForwardTransform::convert,
                    "poly"_a, "pixelOrigin"_a, "cdMatrix"_a);
     cls.def_static("convert",
                    (SipForwardTransform(*)(ScaledPolynomialTransform const &, geom::Point2D const &,
@@ -75,14 +75,14 @@ static void declareSipReverseTransform(py::module &mod) {
     py::class_<SipReverseTransform, std::shared_ptr<SipReverseTransform>, SipTransformBase> cls(
             mod, "SipReverseTransform");
 
-    cls.def(py::init<geom::Point2D const &, geom::LinearTransform const &,
-                     PolynomialTransform const &>(),
+    cls.def(py::init<geom::Point2D const &, geom::LinearTransform const &, PolynomialTransform const &>(),
             "pixelOrigin"_a, "cdMatrix"_a, "reverseSipPoly"_a);
     cls.def(py::init<SipReverseTransform const &>(), "other"_a);
 
-    cls.def_static("convert", (SipReverseTransform(*)(PolynomialTransform const &, geom::Point2D const &,
-                                                      geom::LinearTransform const &)) &
-                                      SipReverseTransform::convert,
+    cls.def_static("convert",
+                   (SipReverseTransform(*)(PolynomialTransform const &, geom::Point2D const &,
+                                           geom::LinearTransform const &)) &
+                           SipReverseTransform::convert,
                    "poly"_a, "pixelOrigin"_a, "cdMatrix"_a);
     cls.def_static("convert",
                    (SipReverseTransform(*)(ScaledPolynomialTransform const &, geom::Point2D const &,
@@ -99,7 +99,7 @@ static void declareSipReverseTransform(py::module &mod) {
     cls.def("linearize", &SipReverseTransform::linearize);
 }
 
-}  // namespace lsst::meas::astrom::<anonymous>
+}  // namespace
 
 PYBIND11_PLUGIN(sipTransform) {
     py::module mod("sipTransform");
@@ -114,6 +114,6 @@ PYBIND11_PLUGIN(sipTransform) {
 
     return mod.ptr();
 }
-}
-}
-}  // namespace lsst::meas::astrom
+}  // namespace astrom
+}  // namespace meas
+}  // namespace lsst

@@ -45,8 +45,8 @@ template <typename MatchT>
 static void declareCreateWcsWithSip(py::module &mod, std::string const &name) {
     py::class_<CreateWcsWithSip<MatchT>, std::shared_ptr<CreateWcsWithSip<MatchT>>> cls(mod, name.c_str());
 
-    cls.def(py::init<std::vector<MatchT> const &, afw::geom::SkyWcs const &, int const,
-                     geom::Box2I const &, int const>(),
+    cls.def(py::init<std::vector<MatchT> const &, afw::geom::SkyWcs const &, int const, geom::Box2I const &,
+                     int const>(),
             "matches"_a, "linearWcs"_a, "order"_a, "bbox"_a = geom::Box2I(), "ngrid"_a = 0);
 
     cls.def("getNewWcs", &CreateWcsWithSip<MatchT>::getNewWcs);
@@ -66,7 +66,7 @@ static void declareCreateWcsWithSip(py::module &mod, std::string const &name) {
             "bbox"_a = geom::Box2I(), "ngrid"_a = 0);
 }
 
-}  // namespace lsst::meas::astrom::sip::<anonymous>
+}  // namespace
 
 PYBIND11_PLUGIN(createWcsWithSip) {
     py::module mod("createWcsWithSip");
@@ -76,7 +76,7 @@ PYBIND11_PLUGIN(createWcsWithSip) {
 
     return mod.ptr();
 }
-}
-}
-}
-}  // namespace lsst::meas::astrom::sip
+}  // namespace sip
+}  // namespace astrom
+}  // namespace meas
+}  // namespace lsst

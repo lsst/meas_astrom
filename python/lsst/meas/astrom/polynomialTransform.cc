@@ -74,15 +74,18 @@ static void declareScaledPolynomialTransform(py::module &mod) {
             "poly"_a, "inputScaling"_a, "outputScalingInverse"_a);
     cls.def(py::init<ScaledPolynomialTransform const &>(), "other"_a);
 
-    cls.def_static("convert", (ScaledPolynomialTransform(*)(PolynomialTransform const &)) &
-                                      ScaledPolynomialTransform::convert,
-                   "other"_a);
-    cls.def_static("convert", (ScaledPolynomialTransform(*)(SipForwardTransform const &)) &
-                                      ScaledPolynomialTransform::convert,
-                   "other"_a);
-    cls.def_static("convert", (ScaledPolynomialTransform(*)(SipReverseTransform const &)) &
-                                      ScaledPolynomialTransform::convert,
-                   "other"_a);
+    cls.def_static(
+            "convert",
+            (ScaledPolynomialTransform(*)(PolynomialTransform const &)) & ScaledPolynomialTransform::convert,
+            "other"_a);
+    cls.def_static(
+            "convert",
+            (ScaledPolynomialTransform(*)(SipForwardTransform const &)) & ScaledPolynomialTransform::convert,
+            "other"_a);
+    cls.def_static(
+            "convert",
+            (ScaledPolynomialTransform(*)(SipReverseTransform const &)) & ScaledPolynomialTransform::convert,
+            "other"_a);
 
     cls.def("__call__", &ScaledPolynomialTransform::operator(), "in"_a);
 
@@ -94,7 +97,7 @@ static void declareScaledPolynomialTransform(py::module &mod) {
     cls.def("linearize", &ScaledPolynomialTransform::linearize);
 }
 
-}  // namespace lsst::meas::astrom::<anonymous>
+}  // namespace
 
 PYBIND11_PLUGIN(polynomialTransform) {
     py::module mod("polynomialTransform");
@@ -103,16 +106,14 @@ PYBIND11_PLUGIN(polynomialTransform) {
     declareScaledPolynomialTransform(mod);
 
     mod.def("compose",
-            (PolynomialTransform(*)(geom::AffineTransform const &, PolynomialTransform const &)) &
-                    compose,
+            (PolynomialTransform(*)(geom::AffineTransform const &, PolynomialTransform const &)) & compose,
             "t1"_a, "t2"_a);
     mod.def("compose",
-            (PolynomialTransform(*)(PolynomialTransform const &, geom::AffineTransform const &)) &
-                    compose,
+            (PolynomialTransform(*)(PolynomialTransform const &, geom::AffineTransform const &)) & compose,
             "t1"_a, "t2"_a);
 
     return mod.ptr();
 }
-}
-}
-}  // namespace lsst::meas::astrom
+}  // namespace astrom
+}  // namespace meas
+}  // namespace lsst

@@ -1,9 +1,9 @@
 // -*- LSST-C++ -*-
 
-/* 
+/*
  * LSST Data Management System
  * Copyright 2008, 2009, 2010 LSST Corporation.
- * 
+ *
  * This product includes software developed by the
  * LSST Project (http://www.lsst.org/).
  *
@@ -11,17 +11,16 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
- * You should have received a copy of the LSST License Statement and 
- * the GNU General Public License along with this program.  If not, 
+ *
+ * You should have received a copy of the LSST License Statement and
+ * the GNU General Public License along with this program.  If not,
  * see <http://www.lsstcorp.org/LegalNotices/>.
  */
- 
 
 #ifndef CREATE_WCS_WITH_SIP
 #define CREATE_WCS_WITH_SIP
@@ -36,14 +35,13 @@
 #include "lsst/geom/Angle.h"
 #include "lsst/geom/Box.h"
 
-namespace lsst { 
-namespace meas { 
-namespace astrom { 
+namespace lsst {
+namespace meas {
+namespace astrom {
 namespace sip {
 
-
 /**
- \brief Measure the distortions in an image plane and express them a SIP polynomials 
+ \brief Measure the distortions in an image plane and express them a SIP polynomials
 
  Given a list of matching sources between a catalogue and an image,
  and a linear Wcs that describes the mapping from pixel space in the image
@@ -54,15 +52,15 @@ namespace sip {
 
  Note that the SIP standard insists (although it is only mentioned obliquly
  between Eqns 3 and 4) that the lowest three terms in the distortion
- polynomials be zero (A00, A10, A01, B00, etc.). To achieve this, we need to 
- adjust the values of CD and CRPIX from the input wcs. This may not be the 
+ polynomials be zero (A00, A10, A01, B00, etc.). To achieve this, we need to
+ adjust the values of CD and CRPIX from the input wcs. This may not be the
  behaviour you expect.
 
- A Wcs may be created in a variety of ways (e.g. lsst::meas::astrom::net::GlobalAstrometrySolution ), 
+ A Wcs may be created in a variety of ways (e.g. lsst::meas::astrom::net::GlobalAstrometrySolution ),
  and the list of matched sources (matches) can be generated with the matchRaDec function.
 
  \code
- #Example usage 
+ #Example usage
  matches = matchRaDec(catSet, srcSet, 1.0*afwGeom.arcseconds, true)
  wcs = getWcsFromSomewhere()
 
@@ -74,10 +72,9 @@ namespace sip {
 
  Note that the matches must be one-to-one; this is ensured by passing closest=true to matchRaDec.
  */
-template<class MatchT>
+template <class MatchT>
 class CreateWcsWithSip {
 public:
-
     typedef std::shared_ptr<CreateWcsWithSip> Ptr;
     typedef std::shared_ptr<CreateWcsWithSip const> ConstPtr;
 
@@ -95,13 +92,8 @@ public:
      \param[in] ngrid  number of points along x or y for the grid of points on which
                          the reverse SIP transform is computed
      */
-    CreateWcsWithSip(
-        std::vector<MatchT> const & matches,
-        afw::geom::SkyWcs const & linearWcs,
-        int const order,
-        geom::Box2I const& bbox = geom::Box2I(),
-        int const ngrid=0
-    );
+    CreateWcsWithSip(std::vector<MatchT> const& matches, afw::geom::SkyWcs const& linearWcs, int const order,
+                     geom::Box2I const& bbox = geom::Box2I(), int const ngrid = 0);
 
     std::shared_ptr<afw::geom::SkyWcs> getNewWcs() { return _newWcs; }
 
@@ -138,7 +130,7 @@ public:
     geom::Angle getLinearScatterOnSky() const;
 
     /// Return the number of terms in the SIP matrix
-    int getOrder() const { return  _sipA.rows(); }
+    int getOrder() const { return _sipA.rows(); }
     /// Return the number of points in the catalogue
     int getNPoints() const { return _matches.size(); }
     /// Return the number of grid points (on each axis) used in inverse SIP transform
@@ -154,14 +146,13 @@ public:
     Eigen::MatrixXd const getSipBp() { return _sipBp; }
 
 private:
-
     std::vector<MatchT> const _matches;
     geom::Box2I mutable _bbox;
-    int _ngrid;                         // grid size to calculate inverse SIP coefficients (1-D)
+    int _ngrid;  // grid size to calculate inverse SIP coefficients (1-D)
     std::shared_ptr<const afw::geom::SkyWcs> _linearWcs;
     // _sipOrder is polynomial order for forward transform.
     // _reverseSipOrder is order for reverse transform, not necessarily the same.
-    int const _sipOrder, _reverseSipOrder;      
+    int const _sipOrder, _reverseSipOrder;
 
     Eigen::MatrixXd _sipA, _sipB;
     Eigen::MatrixXd _sipAp, _sipBp;
@@ -170,20 +161,19 @@ private:
 
     void _calculateForwardMatrices();
     void _calculateReverseMatrices();
-};    
+};
 
 /// Factory function for CreateWcsWithSip
-template<class MatchT>
-CreateWcsWithSip<MatchT> makeCreateWcsWithSip(
-    std::vector<MatchT> const & matches,
-    afw::geom::SkyWcs const& linearWcs,
-    int const order,
-    geom::Box2I const& bbox = geom::Box2I(),
-    int const ngrid=0
-) {
+template <class MatchT>
+CreateWcsWithSip<MatchT> makeCreateWcsWithSip(std::vector<MatchT> const& matches,
+                                              afw::geom::SkyWcs const& linearWcs, int const order,
+                                              geom::Box2I const& bbox = geom::Box2I(), int const ngrid = 0) {
     return CreateWcsWithSip<MatchT>(matches, linearWcs, order, bbox, ngrid);
 }
 
-}}}}
+}  // namespace sip
+}  // namespace astrom
+}  // namespace meas
+}  // namespace lsst
 
 #endif

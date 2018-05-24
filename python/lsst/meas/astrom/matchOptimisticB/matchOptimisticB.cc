@@ -86,7 +86,7 @@ static void declareMatchOptimisticBControl(py::module &mod) {
     cls.def("validate", &MatchOptimisticBControl::validate);
 }
 
-}  // namespace lsst::meas::astrom::<anonymous>
+}  // namespace
 
 PYBIND11_PLUGIN(matchOptimisticB) {
     py::module mod("matchOptimisticB");
@@ -95,9 +95,10 @@ PYBIND11_PLUGIN(matchOptimisticB) {
     declareProxyPair(mod);
     declareMatchOptimisticBControl(mod);
 
-    mod.def("makeProxies", (ProxyVector(*)(afw::table::SourceCatalog const &, afw::geom::SkyWcs const &,
-                                           afw::geom::SkyWcs const &)) &
-                                   makeProxies,
+    mod.def("makeProxies",
+            (ProxyVector(*)(afw::table::SourceCatalog const &, afw::geom::SkyWcs const &,
+                            afw::geom::SkyWcs const &)) &
+                    makeProxies,
             "sourceCat"_a, "distortedWcs"_a, "tanWcs"_a);
     mod.def("makeProxies",
             (ProxyVector(*)(afw::table::SimpleCatalog const &, afw::geom::SkyWcs const &)) & makeProxies,
@@ -108,6 +109,6 @@ PYBIND11_PLUGIN(matchOptimisticB) {
 
     return mod.ptr();
 }
-}
-}
-}  // namespace lsst::meas::astrom
+}  // namespace astrom
+}  // namespace meas
+}  // namespace lsst

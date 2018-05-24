@@ -29,115 +29,82 @@
 #include "lsst/meas/astrom/SipTransform.h"
 #include "lsst/meas/astrom/detail/polynomialUtils.h"
 
-namespace lsst { namespace meas { namespace astrom {
+namespace lsst {
+namespace meas {
+namespace astrom {
 
-PolynomialTransform PolynomialTransform::convert(ScaledPolynomialTransform const & scaled) {
-    return compose(
-        scaled.getOutputScalingInverse(),
-        compose(scaled.getPoly(), scaled.getInputScaling())
-    );
+PolynomialTransform PolynomialTransform::convert(ScaledPolynomialTransform const& scaled) {
+    return compose(scaled.getOutputScalingInverse(), compose(scaled.getPoly(), scaled.getInputScaling()));
 }
 
-PolynomialTransform PolynomialTransform::convert(SipForwardTransform const & other) {
+PolynomialTransform PolynomialTransform::convert(SipForwardTransform const& other) {
     PolynomialTransform poly = other.getPoly();
     // Adding 1 here accounts for the extra terms outside the sum in the SIP
     // transform definition (see SipForwardTransform docs) - note that you can
     // fold those terms into the sum by adding 1 from the A_10 and B_01 terms.
     poly._xCoeffs(1, 0) += 1;
     poly._yCoeffs(0, 1) += 1;
-    return compose(
-        other.getCdMatrix(),
-        compose(
-            poly,
-            geom::AffineTransform(geom::Point2D() - other.getPixelOrigin())
-        )
-    );
+    return compose(other.getCdMatrix(),
+                   compose(poly, geom::AffineTransform(geom::Point2D() - other.getPixelOrigin())));
 }
 
-PolynomialTransform PolynomialTransform::convert(SipReverseTransform const & other) {
+PolynomialTransform PolynomialTransform::convert(SipReverseTransform const& other) {
     PolynomialTransform poly = other.getPoly();
     // Account for the terms outside the sum in the SIP definition (see comment
     // earlier in the file for more explanation).
     poly._xCoeffs(1, 0) += 1;
     poly._yCoeffs(0, 1) += 1;
-    return compose(
-        geom::AffineTransform(geom::Extent2D(other.getPixelOrigin())),
-        compose(
-            poly,
-            other._cdInverse
-        )
-    );
+    return compose(geom::AffineTransform(geom::Extent2D(other.getPixelOrigin())),
+                   compose(poly, other._cdInverse));
 }
 
-PolynomialTransform::PolynomialTransform(int order) :
-    _xCoeffs(),
-    _yCoeffs(),
-    _u(),
-    _v()
-{
+PolynomialTransform::PolynomialTransform(int order) : _xCoeffs(), _yCoeffs(), _u(), _v() {
     if (order < 0) {
-        throw LSST_EXCEPT(
-            pex::exceptions::LengthError,
-            "PolynomialTransform order must be >= 0"
-        );
+        throw LSST_EXCEPT(pex::exceptions::LengthError, "PolynomialTransform order must be >= 0");
     }
     // Delay allocation until after error checking.
-    _xCoeffs.reset(ndarray::Array<double,2,2>(ndarray::allocate(order + 1, order + 1)));
-    _yCoeffs.reset(ndarray::Array<double,2,2>(ndarray::allocate(order + 1, order + 1)));
+    _xCoeffs.reset(ndarray::Array<double, 2, 2>(ndarray::allocate(order + 1, order + 1)));
+    _yCoeffs.reset(ndarray::Array<double, 2, 2>(ndarray::allocate(order + 1, order + 1)));
     _xCoeffs.setZero();
     _yCoeffs.setZero();
     _u = Eigen::VectorXd(order + 1);
     _v = Eigen::VectorXd(order + 1);
 }
 
-PolynomialTransform::PolynomialTransform(
-    ndarray::Array<double const,2,0> const & xCoeffs,
-    ndarray::Array<double const,2,0> const & yCoeffs
-) : _xCoeffs(ndarray::copy(xCoeffs)),
-    _yCoeffs(ndarray::copy(yCoeffs)),
-    _u(_xCoeffs.rows()),
-    _v(_xCoeffs.rows())
-{
+PolynomialTransform::PolynomialTransform(ndarray::Array<double const, 2, 0> const& xCoeffs,
+                                         ndarray::Array<double const, 2, 0> const& yCoeffs)
+        : _xCoeffs(ndarray::copy(xCoeffs)),
+          _yCoeffs(ndarray::copy(yCoeffs)),
+          _u(_xCoeffs.rows()),
+          _v(_xCoeffs.rows()) {
     if (xCoeffs.getShape() != yCoeffs.getShape()) {
         throw LSST_EXCEPT(
-            pex::exceptions::LengthError,
-            (boost::format(
-                "X and Y coefficient matrices must have the same shape: "
-                " (%d,%d) != (%d,%d)"
-                ) % xCoeffs.getSize<0>() % xCoeffs.getSize<1>()
-                  % yCoeffs.getSize<0>() % yCoeffs.getSize<1>()
-            ).str()
-        );
+                pex::exceptions::LengthError,
+                (boost::format("X and Y coefficient matrices must have the same shape: "
+                               " (%d,%d) != (%d,%d)") %
+                 xCoeffs.getSize<0>() % xCoeffs.getSize<1>() % yCoeffs.getSize<0>() % yCoeffs.getSize<1>())
+                        .str());
     }
     if (_xCoeffs.cols() != _xCoeffs.rows()) {
-        throw LSST_EXCEPT(
-            pex::exceptions::LengthError,
-            (boost::format(
-                "Coefficient matrices must be triangular, not trapezoidal: "
-                " %d != %d "
-                ) % _xCoeffs.rows() % _xCoeffs.cols()
-            ).str()
-        );
+        throw LSST_EXCEPT(pex::exceptions::LengthError,
+                          (boost::format("Coefficient matrices must be triangular, not trapezoidal: "
+                                         " %d != %d ") %
+                           _xCoeffs.rows() % _xCoeffs.cols())
+                                  .str());
     }
 }
 
-PolynomialTransform::PolynomialTransform(PolynomialTransform const & other) :
-    _xCoeffs(ndarray::copy(other.getXCoeffs())),
-    _yCoeffs(ndarray::copy(other.getYCoeffs())),
-    _u(other._u.size()),
-    _v(other._v.size())
-{}
+PolynomialTransform::PolynomialTransform(PolynomialTransform const& other)
+        : _xCoeffs(ndarray::copy(other.getXCoeffs())),
+          _yCoeffs(ndarray::copy(other.getYCoeffs())),
+          _u(other._u.size()),
+          _v(other._v.size()) {}
 
-PolynomialTransform::PolynomialTransform(PolynomialTransform && other) :
-    _xCoeffs(),
-    _yCoeffs(),
-    _u(),
-    _v()
-{
+PolynomialTransform::PolynomialTransform(PolynomialTransform&& other) : _xCoeffs(), _yCoeffs(), _u(), _v() {
     this->swap(other);
 }
 
-PolynomialTransform & PolynomialTransform::operator=(PolynomialTransform const & other) {
+PolynomialTransform& PolynomialTransform::operator=(PolynomialTransform const& other) {
     if (&other != this) {
         PolynomialTransform tmp(other);
         tmp.swap(*this);
@@ -145,21 +112,21 @@ PolynomialTransform & PolynomialTransform::operator=(PolynomialTransform const &
     return *this;
 }
 
-PolynomialTransform & PolynomialTransform::operator=(PolynomialTransform && other) {
+PolynomialTransform& PolynomialTransform::operator=(PolynomialTransform&& other) {
     if (&other != this) {
         other.swap(*this);
     }
     return *this;
 }
 
-void PolynomialTransform::swap(PolynomialTransform & other) {
+void PolynomialTransform::swap(PolynomialTransform& other) {
     _xCoeffs.swap(other._xCoeffs);
     _yCoeffs.swap(other._yCoeffs);
     _u.swap(other._u);
     _v.swap(other._v);
 }
 
-geom::AffineTransform PolynomialTransform::linearize(geom::Point2D const & in) const {
+geom::AffineTransform PolynomialTransform::linearize(geom::Point2D const& in) const {
     double xu = 0.0, xv = 0.0, yu = 0.0, yv = 0.0, x = 0.0, y = 0.0;
     int const order = getOrder();
     detail::computePowers(_u, in.getX());
@@ -187,7 +154,7 @@ geom::AffineTransform PolynomialTransform::linearize(geom::Point2D const & in) c
     return geom::AffineTransform(linear, origin - linear(in));
 }
 
-geom::Point2D PolynomialTransform::operator()(geom::Point2D const & in) const {
+geom::Point2D PolynomialTransform::operator()(geom::Point2D const& in) const {
     int const order = getOrder();
     detail::computePowers(_u, in.getX());
     detail::computePowers(_v, in.getY());
@@ -202,16 +169,14 @@ geom::Point2D PolynomialTransform::operator()(geom::Point2D const & in) const {
     return geom::Point2D(x, y);
 }
 
-ScaledPolynomialTransform ScaledPolynomialTransform::convert(PolynomialTransform const & poly) {
+ScaledPolynomialTransform ScaledPolynomialTransform::convert(PolynomialTransform const& poly) {
     return ScaledPolynomialTransform(poly, geom::AffineTransform(), geom::AffineTransform());
 }
 
-ScaledPolynomialTransform ScaledPolynomialTransform::convert(SipForwardTransform const & sipForward) {
-    ScaledPolynomialTransform result(
-        sipForward.getPoly(),
-        geom::AffineTransform(geom::Point2D(0, 0) - sipForward.getPixelOrigin()),
-        geom::AffineTransform(sipForward.getCdMatrix())
-    );
+ScaledPolynomialTransform ScaledPolynomialTransform::convert(SipForwardTransform const& sipForward) {
+    ScaledPolynomialTransform result(sipForward.getPoly(),
+                                     geom::AffineTransform(geom::Point2D(0, 0) - sipForward.getPixelOrigin()),
+                                     geom::AffineTransform(sipForward.getCdMatrix()));
     // Account for the terms outside the sum in the SIP definition (see comment
     // earlier in the file for more explanation).
     result._poly._xCoeffs(1, 0) += 1;
@@ -219,52 +184,44 @@ ScaledPolynomialTransform ScaledPolynomialTransform::convert(SipForwardTransform
     return result;
 }
 
-ScaledPolynomialTransform ScaledPolynomialTransform::convert(SipReverseTransform const & sipReverse) {
-    ScaledPolynomialTransform result(
-        sipReverse.getPoly(),
-        geom::AffineTransform(sipReverse._cdInverse),
-        geom::AffineTransform(geom::Extent2D(sipReverse.getPixelOrigin()))
-    );
+ScaledPolynomialTransform ScaledPolynomialTransform::convert(SipReverseTransform const& sipReverse) {
+    ScaledPolynomialTransform result(sipReverse.getPoly(), geom::AffineTransform(sipReverse._cdInverse),
+                                     geom::AffineTransform(geom::Extent2D(sipReverse.getPixelOrigin())));
     result._poly._xCoeffs(1, 0) += 1;
     result._poly._yCoeffs(0, 1) += 1;
     return result;
 }
 
-ScaledPolynomialTransform::ScaledPolynomialTransform(
-    PolynomialTransform const & poly,
-    geom::AffineTransform const & inputScaling,
-    geom::AffineTransform const & outputScalingInverse
-) :
-    _poly(poly),
-    _inputScaling(inputScaling),
-    _outputScalingInverse(outputScalingInverse)
-{}
+ScaledPolynomialTransform::ScaledPolynomialTransform(PolynomialTransform const& poly,
+                                                     geom::AffineTransform const& inputScaling,
+                                                     geom::AffineTransform const& outputScalingInverse)
+        : _poly(poly), _inputScaling(inputScaling), _outputScalingInverse(outputScalingInverse) {}
 
-void ScaledPolynomialTransform::swap(ScaledPolynomialTransform & other) {
+void ScaledPolynomialTransform::swap(ScaledPolynomialTransform& other) {
     _poly.swap(other._poly);
     std::swap(_inputScaling, other._inputScaling);
     std::swap(_outputScalingInverse, other._outputScalingInverse);
 }
 
-geom::AffineTransform ScaledPolynomialTransform::linearize(geom::Point2D const & in) const {
-    return _outputScalingInverse*_poly.linearize(_inputScaling(in))*_inputScaling;
+geom::AffineTransform ScaledPolynomialTransform::linearize(geom::Point2D const& in) const {
+    return _outputScalingInverse * _poly.linearize(_inputScaling(in)) * _inputScaling;
 }
 
-geom::Point2D ScaledPolynomialTransform::operator()(geom::Point2D const & in) const {
+geom::Point2D ScaledPolynomialTransform::operator()(geom::Point2D const& in) const {
     return _outputScalingInverse(_poly(_inputScaling(in)));
 }
 
-PolynomialTransform compose(geom::AffineTransform const & t1, PolynomialTransform const & t2) {
+PolynomialTransform compose(geom::AffineTransform const& t1, PolynomialTransform const& t2) {
     typedef geom::AffineTransform AT;
     PolynomialTransform result(t2.getOrder());
-    result._xCoeffs = t2._xCoeffs*t1[AT::XX] + t2._yCoeffs*t1[AT::XY];
-    result._yCoeffs = t2._xCoeffs*t1[AT::YX] + t2._yCoeffs*t1[AT::YY];
+    result._xCoeffs = t2._xCoeffs * t1[AT::XX] + t2._yCoeffs * t1[AT::XY];
+    result._yCoeffs = t2._xCoeffs * t1[AT::YX] + t2._yCoeffs * t1[AT::YY];
     result._xCoeffs(0, 0) += t1[AT::X];
     result._yCoeffs(0, 0) += t1[AT::Y];
     return result;
 }
 
-PolynomialTransform compose(PolynomialTransform const & t1, geom::AffineTransform const & t2) {
+PolynomialTransform compose(PolynomialTransform const& t1, geom::AffineTransform const& t2) {
     typedef geom::AffineTransform AT;
     int const order = t1.getOrder();
     if (order < 1) {
@@ -288,17 +245,19 @@ PolynomialTransform compose(PolynomialTransform const & t1, geom::AffineTransfor
                 for (int q = 0; p + q <= order; ++q) {
                     for (int n = 0; n <= q; ++n) {
                         for (int k = 0; k <= n; ++k) {
-                            double z = binomial(p,m) * t2u[p-m] * binomial(m,j) * t2uu[j] * t2uv[m-j] *
-                                       binomial(q,n) * t2v[q-n] * binomial(n,k) * t2vu[k] * t2vv[n-k];
+                            double z = binomial(p, m) * t2u[p - m] * binomial(m, j) * t2uu[j] * t2uv[m - j] *
+                                       binomial(q, n) * t2v[q - n] * binomial(n, k) * t2vu[k] * t2vv[n - k];
                             result._xCoeffs(j + k, m + n - j - k) += t1._xCoeffs(p, q) * z;
                             result._yCoeffs(j + k, m + n - j - k) += t1._yCoeffs(p, q) * z;
-                        } // k
-                    } // n
-                } // q
-            } // j
-        } // m
-    } // p
+                        }  // k
+                    }      // n
+                }          // q
+            }              // j
+        }                  // m
+    }                      // p
     return result;
 }
 
-}}} // namespace lsst::meas::astrom
+}  // namespace astrom
+}  // namespace meas
+}  // namespace lsst

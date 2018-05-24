@@ -33,8 +33,9 @@
 #include "lsst/meas/astrom/PolynomialTransform.h"
 #include "lsst/meas/astrom/SipTransform.h"
 
-namespace lsst { namespace meas { namespace astrom {
-
+namespace lsst {
+namespace meas {
+namespace astrom {
 
 /**
  *  Control object for outlier rejection in ScaledPolynomialTransformFitter.
@@ -43,19 +44,14 @@ namespace lsst { namespace meas { namespace astrom {
  */
 class OutlierRejectionControl {
 public:
-
-    OutlierRejectionControl() :
-        nSigma(3), nClipMin(1), nClipMax(5)
-    {}
+    OutlierRejectionControl() : nSigma(3), nClipMin(1), nClipMax(5) {}
 
     LSST_CONTROL_FIELD(nSigma, double, "Number of sigma to clip at.");
 
     LSST_CONTROL_FIELD(nClipMin, int, "Always clip at least this many matches.");
 
     LSST_CONTROL_FIELD(nClipMax, int, "Never clip more than this many matches.");
-
 };
-
 
 /**
  *  A fitter class for scaled polynomial transforms
@@ -104,7 +100,6 @@ public:
  */
 class ScaledPolynomialTransformFitter {
 public:
-
     /**
      *  Initialize a fit from intermediate world coordinates to pixels using
      *  source/reference matches.
@@ -139,12 +134,10 @@ public:
      *   - rejected            Flag that is set for objects that have been
      *                         rejected as outliers.
      */
-    static ScaledPolynomialTransformFitter fromMatches(
-        int maxOrder,
-        afw::table::ReferenceMatchVector const & matches,
-        afw::geom::SkyWcs const & initialWcs,
-        double intrinsicScatter
-    );
+    static ScaledPolynomialTransformFitter fromMatches(int maxOrder,
+                                                       afw::table::ReferenceMatchVector const& matches,
+                                                       afw::geom::SkyWcs const& initialWcs,
+                                                       double intrinsicScatter);
 
     /**
      *  Initialize a fit that inverts an existing transform by evaluating and
@@ -174,12 +167,8 @@ public:
      *  The updateIntrinsicScatter and rejectOutliers methods cannot be used
      *  on fitters initialized using this method.
      */
-    static ScaledPolynomialTransformFitter fromGrid(
-        int maxOrder,
-        geom::Box2D const & bbox,
-        int nGridX, int nGridY,
-        ScaledPolynomialTransform const & toInvert
-    );
+    static ScaledPolynomialTransformFitter fromGrid(int maxOrder, geom::Box2D const& bbox, int nGridX,
+                                                    int nGridY, ScaledPolynomialTransform const& toInvert);
 
     /**
      *  Perform a linear least-squares fit of the polynomial coefficients.
@@ -193,7 +182,7 @@ public:
      *  data catalog for diagnostics.  Calling fit() alone is sufficient if
      *  the user is only interested in getting the model transform itself.
      */
-    void fit(int order=-1);
+    void fit(int order = -1);
 
     /**
      *  Update the 'model' field in the data catalog using the current best-
@@ -247,7 +236,7 @@ public:
      *  Should be called after updateIntrinsicScatter() and before fit() if
      *  the fitter is being used in an outlier rejection loop.
      */
-    std::pair<double,size_t> rejectOutliers(OutlierRejectionControl const & ctrl);
+    std::pair<double, size_t> rejectOutliers(OutlierRejectionControl const& ctrl);
 
     /**
      *  Return a catalog of data points and model values for diagnostic purposes.
@@ -257,7 +246,7 @@ public:
      *  For information about the schema, either introspect it programmatically
      *  or see fromMatches and fromGrid.
      */
-    afw::table::BaseCatalog const & getData() const { return _data; }
+    afw::table::BaseCatalog const& getData() const { return _data; }
 
     /**
      *  Return the best-fit transform
@@ -268,35 +257,29 @@ public:
      *  f.getTransform()(p) == f.getOutputScaling().invert()(f.getPoly()(f.getInputScaling()(p)))
      *  @endcode
      */
-    ScaledPolynomialTransform const & getTransform() const { return _transform; }
+    ScaledPolynomialTransform const& getTransform() const { return _transform; }
 
     /**
      *  Return the polynomial part of the best-fit transform.
      */
-    PolynomialTransform const & getPoly() const { return _transform.getPoly(); }
+    PolynomialTransform const& getPoly() const { return _transform.getPoly(); }
 
     /**
      *  Return the input scaling transform that maps input data points to [-1, 1].
      */
-    geom::AffineTransform const & getInputScaling() const { return _transform.getInputScaling(); }
+    geom::AffineTransform const& getInputScaling() const { return _transform.getInputScaling(); }
 
     /**
      *  Return the output scaling transform that maps output data points to [-1, 1].
      */
-    geom::AffineTransform const & getOutputScaling() const { return _outputScaling; }
+    geom::AffineTransform const& getOutputScaling() const { return _outputScaling; }
 
 private:
-
     class Keys;
 
-    ScaledPolynomialTransformFitter(
-        afw::table::BaseCatalog const & data,
-        Keys const & keys,
-        int maxOrder,
-        double intrinsicScatter,
-        geom::AffineTransform const & inputScaling,
-        geom::AffineTransform const & outputScaling
-    );
+    ScaledPolynomialTransformFitter(afw::table::BaseCatalog const& data, Keys const& keys, int maxOrder,
+                                    double intrinsicScatter, geom::AffineTransform const& inputScaling,
+                                    geom::AffineTransform const& outputScaling);
 
     double computeIntrinsicScatter() const;
 
@@ -304,7 +287,7 @@ private:
     // class holding it can't control when the referenced object gets
     // destroyed, but this points to one of two singletons (which never get
     // destroyed).
-    Keys const & _keys;
+    Keys const& _keys;
     double _intrinsicScatter;
     afw::table::BaseCatalog _data;
     geom::AffineTransform _outputScaling;
@@ -315,6 +298,8 @@ private:
     Eigen::MatrixXd _vandermonde;
 };
 
-}}} // namespace lsst::meas::astrom
+}  // namespace astrom
+}  // namespace meas
+}  // namespace lsst
 
-#endif // !LSST_MEAS_ASTROM_TanSipFitter_INCLUDEDtr
+#endif  // !LSST_MEAS_ASTROM_TanSipFitter_INCLUDEDtr

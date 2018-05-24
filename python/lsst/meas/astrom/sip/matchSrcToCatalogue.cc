@@ -56,7 +56,7 @@ PYBIND11_PLUGIN(matchSrcToCatalogue) {
 
     return mod.ptr();
 }
-}
-}
-}
-}  // namespace lsst::meas::astrom::sip
+}  // namespace sip
+}  // namespace astrom
+}  // namespace meas
+}  // namespace lsst

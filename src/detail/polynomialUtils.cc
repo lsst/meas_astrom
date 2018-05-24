@@ -25,9 +25,12 @@
 #include <mutex>
 #include "lsst/meas/astrom/detail/polynomialUtils.h"
 
-namespace lsst { namespace meas { namespace astrom { namespace detail {
+namespace lsst {
+namespace meas {
+namespace astrom {
+namespace detail {
 
-void computePowers(Eigen::VectorXd & r, double x) {
+void computePowers(Eigen::VectorXd& r, double x) {
     r[0] = 1.0;
     for (int i = 1; i < r.size(); ++i) {
         r[i] = r[i - 1] * x;
@@ -42,7 +45,7 @@ Eigen::VectorXd computePowers(double x, int n) {
 
 void BinomialMatrix::extend(int const n) {
     static std::mutex mutex;
-    auto & old = getMatrix();
+    auto& old = getMatrix();
     int const m = old.rows() - 1;
     if (n <= m) return;
     Eigen::MatrixXd updated = Eigen::MatrixXd::Zero(n + 1, n + 1);
@@ -51,17 +54,19 @@ void BinomialMatrix::extend(int const n) {
         updated(i, 0) = 1.0;
         updated(i, i) = 1.0;
         for (int j = 1; j < i; ++j) {
-            updated(i, j) = updated(i - 1, j - 1) *
-                (static_cast<double>(i) / static_cast<double>(j));
+            updated(i, j) = updated(i - 1, j - 1) * (static_cast<double>(i) / static_cast<double>(j));
         }
     }
     std::unique_lock<std::mutex> lock(mutex);
     old.swap(updated);
 }
 
-Eigen::MatrixXd & BinomialMatrix::getMatrix() {
+Eigen::MatrixXd& BinomialMatrix::getMatrix() {
     static Eigen::MatrixXd it = Eigen::MatrixXd::Constant(2, 2, 1.0);
     return it;
 }
 
-}}}} // namespace lsst::meas::astrom::detail
+}  // namespace detail
+}  // namespace astrom
+}  // namespace meas
+}  // namespace lsst
