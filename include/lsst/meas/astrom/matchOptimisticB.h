@@ -20,8 +20,8 @@ A wrapper around a SimpleRecord or SourceRecord that allows us to record a pixel
 in a way that is independent of the record type.
 */
 struct RecordProxy {
-    PTR(lsst::afw::table::SimpleRecord) record;
-    lsst::geom::Point2D position;
+    PTR(afw::table::SimpleRecord) record;
+    geom::Point2D position;
     mutable bool used;  // set true if this star object has already been used for a match
                         // mutable to allow freezing the fundamental object data using const
                         // while keeping track of which objects have been used in each search
@@ -32,7 +32,7 @@ struct RecordProxy {
     /**
     Support implicit conversion to SimpleRecord (discarding the pixel position)
     */
-    operator PTR(lsst::afw::table::SimpleRecord)() const { return record; }
+    operator PTR(afw::table::SimpleRecord)() const { return record; }
 
     bool operator==(RecordProxy const& other) const { return record == other.record; }
     bool operator!=(RecordProxy const& other) const { return record != other.record; }
@@ -43,7 +43,7 @@ struct RecordProxy {
     @param[in] record  the record to wrap
     @param[in] position  pixel position; this is likely to be an initial guess while fitting a WCS
     */
-    RecordProxy(PTR(lsst::afw::table::SimpleRecord) record, lsst::geom::Point2D const& position)
+    RecordProxy(PTR(afw::table::SimpleRecord) record, geom::Point2D const& position)
             : record(record), position(position) {}
 
     explicit RecordProxy() {}  // default constructor needed so we can call ProxyVector::resize()
@@ -51,10 +51,10 @@ struct RecordProxy {
 
 typedef std::vector<RecordProxy> ProxyVector;
 
-ProxyVector makeProxies(lsst::afw::table::SourceCatalog const& sourceCat,
-                        afw::geom::SkyWcs const& distortedWcs, afw::geom::SkyWcs const& tanWcs);
+ProxyVector makeProxies(afw::table::SourceCatalog const& sourceCat, afw::geom::SkyWcs const& distortedWcs,
+                        afw::geom::SkyWcs const& tanWcs);
 
-ProxyVector makeProxies(lsst::afw::table::SimpleCatalog const& posRefCat, afw::geom::SkyWcs const& tanWcs);
+ProxyVector makeProxies(afw::table::SimpleCatalog const& posRefCat, afw::geom::SkyWcs const& tanWcs);
 
 struct ProxyPair {
     RecordProxy first;
@@ -123,11 +123,11 @@ Optimistic Pattern Matching is described in V. Tabur 2007, PASA, 24, 189-198
 @param[in] verbose  true to print diagnostic information to std::cout
 @return a list of matches; the d field may be set, but you should not rely on it
 */
-lsst::afw::table::ReferenceMatchVector matchOptimisticB(lsst::afw::table::SimpleCatalog const& posRefCat,
-                                                        lsst::afw::table::SourceCatalog const& sourceCat,
-                                                        MatchOptimisticBControl const& control,
-                                                        afw::geom::SkyWcs const& wcs, int posRefBegInd = 0,
-                                                        bool verbose = false);
+afw::table::ReferenceMatchVector matchOptimisticB(afw::table::SimpleCatalog const& posRefCat,
+                                                  afw::table::SourceCatalog const& sourceCat,
+                                                  MatchOptimisticBControl const& control,
+                                                  afw::geom::SkyWcs const& wcs, int posRefBegInd = 0,
+                                                  bool verbose = false);
 
 }  // namespace astrom
 }  // namespace meas

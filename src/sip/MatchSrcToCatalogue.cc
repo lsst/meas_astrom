@@ -48,7 +48,7 @@ namespace sip {
 ///
 MatchSrcToCatalogue::MatchSrcToCatalogue(afw::table::SimpleCatalog const& catSet,
                                          afw::table::SourceCatalog const& imgSet,
-                                         CONST_PTR(lsst::afw::geom::SkyWcs) wcs, geom::Angle dist) {
+                                         CONST_PTR(afw::geom::SkyWcs) wcs, geom::Angle dist) {
     setImgSrcSet(imgSet);
     setCatSrcSet(catSet);
     setDist(dist);
@@ -64,7 +64,7 @@ void MatchSrcToCatalogue::setDist(geom::Angle dist) {
 }
 
 /// Set a different Wcs solution
-void MatchSrcToCatalogue::setWcs(CONST_PTR(lsst::afw::geom::SkyWcs) wcs) { _wcs = wcs; }
+void MatchSrcToCatalogue::setWcs(CONST_PTR(afw::geom::SkyWcs) wcs) { _wcs = wcs; }
 
 /// sourceSet is a vector of pointers to Sources.
 void MatchSrcToCatalogue::setImgSrcSet(afw::table::SourceCatalog const& srcSet) { _imgSet = srcSet; }

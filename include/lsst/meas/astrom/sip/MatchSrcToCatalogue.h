@@ -77,8 +77,8 @@ private:
     afw::table::SimpleCatalog _catSet;        ///< Copy of input catalog
     afw::table::SourceCatalog _imgSet;        ///< Copy of input catalog
     afw::table::ReferenceMatchVector _match;  /// List of tuples of matching indices
-    CONST_PTR(lsst::afw::geom::SkyWcs) _wcs;
-    lsst::geom::Angle _dist;  ///< How close must two objects be to match
+    CONST_PTR(afw::geom::SkyWcs) _wcs;
+    geom::Angle _dist;  ///< How close must two objects be to match
 
     void _removeOneToMany();
     void _removeManyToOne();

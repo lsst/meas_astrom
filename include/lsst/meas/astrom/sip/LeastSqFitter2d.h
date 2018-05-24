@@ -35,8 +35,6 @@
 #include "lsst/pex/exceptions/Runtime.h"
 #include "lsst/afw/math/FunctionLibrary.h"
 
-namespace except = lsst::pex::exceptions;
-
 namespace lsst {
 namespace meas {
 namespace astrom {
@@ -97,8 +95,6 @@ private:
 };
 
 // The .cc part
-namespace sip = lsst::meas::astrom::sip;
-namespace math = lsst::afw::math;
 
 /// Fit a 2d polynomial to a set of data points z(x, y)
 ///
@@ -123,24 +119,24 @@ LeastSqFitter2d<FittingFunc>::LeastSqFitter2d(const std::vector<double> &x, cons
     // Check input vectors are the same size
     _nData = _x.size();
     if (_nData != static_cast<int>(_y.size())) {
-        throw LSST_EXCEPT(except::RuntimeError, "x and y vectors of different lengths");
+        throw LSST_EXCEPT(pex::exceptions::RuntimeError, "x and y vectors of different lengths");
     }
     if (_nData != static_cast<int>(_s.size())) {
-        throw LSST_EXCEPT(except::RuntimeError, "x and s vectors of different lengths");
+        throw LSST_EXCEPT(pex::exceptions::RuntimeError, "x and s vectors of different lengths");
     }
     if (_nData != static_cast<int>(_z.size())) {
-        throw LSST_EXCEPT(except::RuntimeError, "x and z vectors of different lengths");
+        throw LSST_EXCEPT(pex::exceptions::RuntimeError, "x and z vectors of different lengths");
     }
 
     for (int i = 0; i < _nData; ++i) {
         if (_s[i] == 0.0) {
             std::string msg = "Illegal zero value for fit weight encountered.";
-            throw LSST_EXCEPT(except::RuntimeError, msg);
+            throw LSST_EXCEPT(pex::exceptions::RuntimeError, msg);
         }
     }
 
     if (_nData < _order) {
-        throw LSST_EXCEPT(except::RuntimeError, "Fewer data points than parameters");
+        throw LSST_EXCEPT(pex::exceptions::RuntimeError, "Fewer data points than parameters");
     }
 
     initFunctions();

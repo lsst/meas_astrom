@@ -35,8 +35,6 @@
 #include "lsst/pex/exceptions/Runtime.h"
 #include "lsst/afw/math/FunctionLibrary.h"
 
-namespace except = lsst::pex::exceptions;
-
 namespace lsst {
 namespace meas {
 namespace astrom {
@@ -107,19 +105,19 @@ LeastSqFitter1d<FittingFunc>::LeastSqFitter1d(const std::vector<double> &x, cons
                                               const std::vector<double> &s, int order)
         : _x(x), _y(y), _s(s), _order(order) {
     if (order == 0) {
-        throw LSST_EXCEPT(except::RuntimeError, "Fit order must be >= 1");
+        throw LSST_EXCEPT(pex::exceptions::RuntimeError, "Fit order must be >= 1");
     }
 
     _nData = _x.size();
     if (_nData != static_cast<int>(_y.size())) {
-        throw LSST_EXCEPT(except::RuntimeError, "x and y vectors of different lengths");
+        throw LSST_EXCEPT(pex::exceptions::RuntimeError, "x and y vectors of different lengths");
     }
     if (_nData != static_cast<int>(_s.size())) {
-        throw LSST_EXCEPT(except::RuntimeError, "x and s vectors of different lengths");
+        throw LSST_EXCEPT(pex::exceptions::RuntimeError, "x and s vectors of different lengths");
     }
 
     if (_nData < _order) {
-        throw LSST_EXCEPT(except::RuntimeError, "Fewer data points than parameters");
+        throw LSST_EXCEPT(pex::exceptions::RuntimeError, "Fewer data points than parameters");
     }
 
     initFunctions();

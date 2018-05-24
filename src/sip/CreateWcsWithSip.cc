@@ -45,13 +45,6 @@ namespace meas {
 namespace astrom {
 namespace sip {
 
-namespace except = lsst::pex::exceptions;
-namespace afwGeom = lsst::afw::geom;
-namespace afwImg = lsst::afw::image;
-namespace afwDet = lsst::afw::detection;
-namespace afwMath = lsst::afw::math;
-namespace afwTable = lsst::afw::table;
-
 namespace {
 
 double const MAX_DISTANCE_CRPIX_TO_BBOXCTR = 1000;
@@ -121,21 +114,21 @@ CreateWcsWithSip<MatchT>::CreateWcsWithSip(std::vector<MatchT> const& matches,
           _sipBp(Eigen::MatrixXd::Zero(_reverseSipOrder, _reverseSipOrder)),
           _newWcs() {
     if (order < 2) {
-        throw LSST_EXCEPT(except::OutOfRangeError, "SIP must be at least 2nd order");
+        throw LSST_EXCEPT(pex::exceptions::OutOfRangeError, "SIP must be at least 2nd order");
     }
     if (_sipOrder > 9) {
         throw LSST_EXCEPT(
-                except::OutOfRangeError,
+                pex::exceptions::OutOfRangeError,
                 str(boost::format("SIP forward order %d exceeds the convention limit of 9") % _sipOrder));
     }
     if (_reverseSipOrder > 9) {
-        throw LSST_EXCEPT(except::OutOfRangeError,
+        throw LSST_EXCEPT(pex::exceptions::OutOfRangeError,
                           str(boost::format("SIP reverse order %d exceeds the convention limit of 9") %
                               _reverseSipOrder));
     }
 
     if (_matches.size() < std::size_t(_sipOrder)) {
-        throw LSST_EXCEPT(except::LengthError, "Number of matches less than requested sip order");
+        throw LSST_EXCEPT(pex::exceptions::LengthError, "Number of matches less than requested sip order");
     }
 
     if (_ngrid <= 0) {
@@ -152,7 +145,7 @@ CreateWcsWithSip<MatchT>::CreateWcsWithSip(std::vector<MatchT> const& matches,
     if (_bbox.isEmpty() && !_matches.empty() > 0) {
         for (typename std::vector<MatchT>::const_iterator ptr = _matches.begin(); ptr != _matches.end();
              ++ptr) {
-            afwTable::SourceRecord const& src = *ptr->second;
+            afw::table::SourceRecord const& src = *ptr->second;
             _bbox.include(geom::PointI(src.getX(), src.getY()));
         }
         float const borderFrac = 1 / ::sqrt(_matches.size());  // fractional border to add to exact BBox
@@ -202,7 +195,7 @@ void CreateWcsWithSip<MatchT>::_calculateForwardMatrices() {
     auto linearIwcToSky = getIntermediateWorldCoordsToSky(*_linearWcs);
     for (typename std::vector<MatchT>::const_iterator ptr = _matches.begin(); ptr != _matches.end();
          ++ptr, ++i) {
-        afwTable::ReferenceMatch const& match = *ptr;
+        afw::table::ReferenceMatch const& match = *ptr;
 
         // iwc: intermediate world coordinate positions of catalogue objects
         auto c = match.first->getCoord();
@@ -298,7 +291,7 @@ void CreateWcsWithSip<MatchT>::_calculateReverseMatrices() {
                y0, _bbox.getWidth(), _bbox.getHeight(), _ngrid, dx, dy, crpix[0], crpix[1]);
 
     auto tanWcs = _newWcs->getTanWcs(_newWcs->getPixelOrigin());
-    auto applySipAB = afwGeom::makeWcsPairTransform(*_newWcs, *tanWcs);
+    auto applySipAB = afw::geom::makeWcsPairTransform(*_newWcs, *tanWcs);
     int k = 0;
     for (int i = 0; i < _ngrid; ++i) {
         double const y = y0 + i * dy;
@@ -381,8 +374,8 @@ geom::Angle CreateWcsWithSip<MatchT>::getLinearScatterOnSky() const {
 
 #define INSTANTIATE(MATCH) template class CreateWcsWithSip<MATCH>;
 
-INSTANTIATE(afwTable::ReferenceMatch);
-INSTANTIATE(afwTable::SourceMatch);
+INSTANTIATE(afw::table::ReferenceMatch);
+INSTANTIATE(afw::table::SourceMatch);
 
 }  // namespace sip
 }  // namespace astrom
