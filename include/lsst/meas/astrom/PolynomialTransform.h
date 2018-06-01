@@ -25,9 +25,12 @@
 #define LSST_MEAS_ASTROM_PolynomialTransform_INCLUDED
 
 #include "ndarray/eigen.h"
-#include "lsst/afw/geom/AffineTransform.h"
+#include "lsst/geom/Point.h"
+#include "lsst/geom/AffineTransform.h"
 
-namespace lsst { namespace meas { namespace astrom {
+namespace lsst {
+namespace meas {
+namespace astrom {
 
 class SipForwardTransform;
 class SipReverseTransform;
@@ -41,21 +44,20 @@ class ScaledPolynomialTransform;
  */
 class PolynomialTransform {
 public:
-
     /**
      *  Convert a ScaledPolynomialTransform to an equivalent PolynomialTransform.
      */
-    static PolynomialTransform convert(ScaledPolynomialTransform const & other);
+    static PolynomialTransform convert(ScaledPolynomialTransform const& other);
 
     /**
      *  Convert a SipForwardTransform to an equivalent PolynomialTransform.
      */
-    static PolynomialTransform convert(SipForwardTransform const & other);
+    static PolynomialTransform convert(SipForwardTransform const& other);
 
     /**
      *  Convert a SipReverseTransform to an equivalent PolynomialTransform.
      */
-    static PolynomialTransform convert(SipReverseTransform const & other);
+    static PolynomialTransform convert(SipReverseTransform const& other);
 
     /**
      *  Construct a new transform from existing coefficient arrays.
@@ -67,41 +69,39 @@ public:
      *  order of the transform, both arrays should be (N+1)x(N+1), and
      *  elements with p + q > N should be zero.
      */
-    PolynomialTransform(
-        ndarray::Array<double const,2,0> const & xCoeffs,
-        ndarray::Array<double const,2,0> const & yCoeffs
-    );
+    PolynomialTransform(ndarray::Array<double const, 2, 0> const& xCoeffs,
+                        ndarray::Array<double const, 2, 0> const& yCoeffs);
 
     /**
      *  Copy constructor.
      *
      *  Coefficient arrays are deep-copied.
      */
-    PolynomialTransform(PolynomialTransform const & other);
+    PolynomialTransform(PolynomialTransform const& other);
 
     /**
      *  Move constructor.
      *
      *  Coefficient arrays are moved.
      */
-    PolynomialTransform(PolynomialTransform && other);
+    PolynomialTransform(PolynomialTransform&& other);
 
     /**
      *  Copy assignment.
      *
      *  Coefficient arrays are deep-copied.
      */
-    PolynomialTransform & operator=(PolynomialTransform const & other);
+    PolynomialTransform& operator=(PolynomialTransform const& other);
 
     /**
      *  Move constructor.
      *
      *  Coefficient arrays are moved.
      */
-    PolynomialTransform & operator=(PolynomialTransform && other);
+    PolynomialTransform& operator=(PolynomialTransform&& other);
 
     /// Lightweight swap.
-    void swap(PolynomialTransform & other);
+    void swap(PolynomialTransform& other);
 
     /// Return the order of the polynomials.
     int getOrder() const { return _xCoeffs.rows() - 1; }
@@ -112,7 +112,7 @@ public:
      * Indexing the result by [p][q] gives the coefficient of
      * @f$x_{\mathrm{in}}^p\,y_{\mathrm{in}}^q@f$.
      */
-    ndarray::Array<double const,2,2> getXCoeffs() const { return _xCoeffs.shallow(); }
+    ndarray::Array<double const, 2, 2> getXCoeffs() const { return _xCoeffs.shallow(); }
 
     /**
      * 2-D polynomial coefficients that compute the output x coordinate.
@@ -120,32 +120,31 @@ public:
      * Indexing the result by [p][q] gives the coefficient of
      * @f$x_{\mathrm{in}}^p\,y_{\mathrm{in}}^q@f$.
      */
-    ndarray::Array<double const,2,2> getYCoeffs() const { return _yCoeffs.shallow(); }
+    ndarray::Array<double const, 2, 2> getYCoeffs() const { return _yCoeffs.shallow(); }
 
     /**
      * Return an approximate affine transform at the given point.
      */
-    afw::geom::AffineTransform linearize(afw::geom::Point2D const & in) const;
+    geom::AffineTransform linearize(geom::Point2D const& in) const;
 
     /**
      * Apply the transform to a point.
      */
-    afw::geom::Point2D operator()(afw::geom::Point2D const & in) const;
+    geom::Point2D operator()(geom::Point2D const& in) const;
 
 private:
-
     PolynomialTransform(int order);
 
-    friend PolynomialTransform compose(afw::geom::AffineTransform const & t1, PolynomialTransform const & t2);
-    friend PolynomialTransform compose(PolynomialTransform const & t1, afw::geom::AffineTransform const & t2);
+    friend PolynomialTransform compose(geom::AffineTransform const& t1, PolynomialTransform const& t2);
+    friend PolynomialTransform compose(PolynomialTransform const& t1, geom::AffineTransform const& t2);
     friend class ScaledPolynomialTransformFitter;
     friend class SipForwardTransform;
     friend class SipReverseTransform;
     friend class ScaledPolynomialTransform;
 
-    ndarray::EigenView<double,2,2> _xCoeffs;
-    ndarray::EigenView<double,2,2> _yCoeffs;
-    mutable Eigen::VectorXd _u; // workspace for operator() and linearize
+    ndarray::EigenView<double, 2, 2> _xCoeffs;
+    ndarray::EigenView<double, 2, 2> _yCoeffs;
+    mutable Eigen::VectorXd _u;  // workspace for operator() and linearize
     mutable Eigen::VectorXd _v;
 };
 
@@ -157,14 +156,13 @@ private:
  */
 class ScaledPolynomialTransform {
 public:
-
     /**
      *  Convert a PolynomialTransform to an equivalent ScaledPolynomialTransform.
      *
      *  This simply inserts identity AffineTransforms before and after applying
      *  the given PolynomialTransform.
      */
-    static ScaledPolynomialTransform convert(PolynomialTransform const & poly);
+    static ScaledPolynomialTransform convert(PolynomialTransform const& poly);
 
     /**
      *  Convert a SipForwardTransform to an equivalent ScaledPolynomialTransform.
@@ -173,7 +171,7 @@ public:
      *  the input and output affine transforms, respectively, leaving the polynomial
      *  coefficients unmodified.
      */
-    static ScaledPolynomialTransform convert(SipForwardTransform const & sipForward);
+    static ScaledPolynomialTransform convert(SipForwardTransform const& sipForward);
 
     /**
      *  Convert a SipForwardTransform to an equivalent ScaledPolynomialTransform.
@@ -182,7 +180,7 @@ public:
      *  the input and output affine transforms, respectively, leaving the polynomial
      *  coefficients unmodified.
      */
-    static ScaledPolynomialTransform convert(SipReverseTransform const & sipReverse);
+    static ScaledPolynomialTransform convert(SipReverseTransform const& sipReverse);
 
     /**
      *  Construct a new ScaledPolynomialTransform from its constituents.
@@ -194,46 +192,43 @@ public:
      *  @param[in]  outputScalingInverse  An AffineTransform to be applied to points
      *                                    after the PolynomialTransform.
      */
-    ScaledPolynomialTransform(
-        PolynomialTransform const & poly,
-        afw::geom::AffineTransform const & inputScaling,
-        afw::geom::AffineTransform const & outputScalingInverse
-    );
+    ScaledPolynomialTransform(PolynomialTransform const& poly, geom::AffineTransform const& inputScaling,
+                              geom::AffineTransform const& outputScalingInverse);
 
-    ScaledPolynomialTransform(ScaledPolynomialTransform const & other) = default;
+    ScaledPolynomialTransform(ScaledPolynomialTransform const& other) = default;
 
-    ScaledPolynomialTransform(ScaledPolynomialTransform && other) = default;
+    ScaledPolynomialTransform(ScaledPolynomialTransform&& other) = default;
 
-    ScaledPolynomialTransform & operator=(ScaledPolynomialTransform const & other) = default;
+    ScaledPolynomialTransform& operator=(ScaledPolynomialTransform const& other) = default;
 
-    ScaledPolynomialTransform & operator=(ScaledPolynomialTransform && other) = default;
+    ScaledPolynomialTransform& operator=(ScaledPolynomialTransform&& other) = default;
 
-    void swap(ScaledPolynomialTransform & other);
+    void swap(ScaledPolynomialTransform& other);
 
     /// Return the polynomial transform applied after the input scaling.
-    PolynomialTransform const & getPoly() const { return _poly; }
+    PolynomialTransform const& getPoly() const { return _poly; }
 
     /// Return the first affine transform applied to input points.
-    afw::geom::AffineTransform const & getInputScaling() const { return _inputScaling; }
+    geom::AffineTransform const& getInputScaling() const { return _inputScaling; }
 
     /// Return the affine transform applied to points after the polynomial transform.
-    afw::geom::AffineTransform const & getOutputScalingInverse() const { return _outputScalingInverse; }
+    geom::AffineTransform const& getOutputScalingInverse() const { return _outputScalingInverse; }
 
     /**
      * Return an approximate affine transform at the given point.
      */
-    afw::geom::AffineTransform linearize(afw::geom::Point2D const & in) const;
+    geom::AffineTransform linearize(geom::Point2D const& in) const;
 
     /**
      * Apply the transform to a point.
      */
-    afw::geom::Point2D operator()(afw::geom::Point2D const & in) const;
+    geom::Point2D operator()(geom::Point2D const& in) const;
 
 private:
     friend class ScaledPolynomialTransformFitter;
     PolynomialTransform _poly;
-    afw::geom::AffineTransform _inputScaling;
-    afw::geom::AffineTransform _outputScalingInverse;
+    geom::AffineTransform _inputScaling;
+    geom::AffineTransform _outputScalingInverse;
 };
 
 /**
@@ -242,7 +237,7 @@ private:
  *  The returned composition would be exact in ideal arithmetic, but may suffer from
  *  significant round-off error for high-order polynomials.
  */
-PolynomialTransform compose(afw::geom::AffineTransform const & t1, PolynomialTransform const & t2);
+PolynomialTransform compose(geom::AffineTransform const& t1, PolynomialTransform const& t2);
 
 /**
  *  Return a PolynomialTransform that is equivalent to the composition t1(t2())
@@ -250,8 +245,10 @@ PolynomialTransform compose(afw::geom::AffineTransform const & t1, PolynomialTra
  *  The returned composition would be exact in ideal arithmetic, but may suffer from
  *  significant round-off error for high-order polynomials.
  */
-PolynomialTransform compose(PolynomialTransform const & t1, afw::geom::AffineTransform const & t2);
+PolynomialTransform compose(PolynomialTransform const& t1, geom::AffineTransform const& t2);
 
-}}} // namespace lsst::meas::astrom
+}  // namespace astrom
+}  // namespace meas
+}  // namespace lsst
 
-#endif // !LSST_MEAS_ASTROM_PolynomialTransform_INCLUDED
+#endif  // !LSST_MEAS_ASTROM_PolynomialTransform_INCLUDED

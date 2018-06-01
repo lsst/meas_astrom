@@ -25,6 +25,8 @@
 #include <memory>
 #include <vector>
 
+#include "lsst/geom/Angle.h"
+#include "lsst/afw/geom/SkyWcs.h"
 #include "lsst/afw/table/fwd.h"
 #include "lsst/meas/astrom/sip/MatchSrcToCatalogue.h"
 
@@ -42,7 +44,7 @@ PYBIND11_PLUGIN(matchSrcToCatalogue) {
     py::class_<MatchSrcToCatalogue> cls(mod, "MatchSrcToCatalogue");
 
     cls.def(py::init<afw::table::SimpleCatalog const &, afw::table::SourceCatalog const &,
-                     std::shared_ptr<afw::geom::SkyWcs const>, afw::geom::Angle>(),
+                     std::shared_ptr<afw::geom::SkyWcs const>, geom::Angle>(),
             "catSet"_a, "imgSet"_a, "wcs"_a, "dist"_a);
 
     cls.def("setDist", &MatchSrcToCatalogue::setDist, "dist"_a);
@@ -54,7 +56,7 @@ PYBIND11_PLUGIN(matchSrcToCatalogue) {
 
     return mod.ptr();
 }
-}
-}
-}
-}  // namespace lsst::meas::astrom::sip
+}  // namespace sip
+}  // namespace astrom
+}  // namespace meas
+}  // namespace lsst

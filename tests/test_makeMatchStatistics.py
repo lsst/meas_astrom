@@ -25,6 +25,7 @@ import math
 import numpy as np
 
 import lsst.utils.tests
+import lsst.geom
 import lsst.afw.geom as afwGeom
 import lsst.afw.math as afwMath
 import lsst.afw.table as afwTable
@@ -38,10 +39,10 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
     def setUp(self):
         # make a nominal match list where the distances are 0; test can then modify
         # source centroid, reference coord or distance field for each match, as desired
-        self.wcs = afwGeom.makeSkyWcs(crpix=afwGeom.Point2D(1500, 1500),
-                                      crval=afwGeom.SpherePoint(215.5, 53.0, afwGeom.degrees),
-                                      cdMatrix=afwGeom.makeCdMatrix(scale=5.1e-5*afwGeom.degrees))
-        self.bboxD = afwGeom.Box2D(afwGeom.Point2D(10, 100), afwGeom.Extent2D(1000, 1500))
+        self.wcs = afwGeom.makeSkyWcs(crpix=lsst.geom.Point2D(1500, 1500),
+                                      crval=lsst.geom.SpherePoint(215.5, 53.0, lsst.geom.degrees),
+                                      cdMatrix=afwGeom.makeCdMatrix(scale=5.1e-5*lsst.geom.degrees))
+        self.bboxD = lsst.geom.Box2D(lsst.geom.Point2D(10, 100), lsst.geom.Extent2D(1000, 1500))
         self.numMatches = 25
 
         sourceSchema = afwTable.SourceTable.makeMinimalSchema()
@@ -57,7 +58,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         self.matchList = []
 
         np.random.seed(5)
-        pixPointList = [afwGeom.Point2D(pos) for pos in
+        pixPointList = [lsst.geom.Point2D(pos) for pos in
                         np.random.random_sample([self.numMatches, 2])*self.bboxD.getDimensions() +
                         self.bboxD.getMin()]
         for pixPoint in pixPointList:
@@ -96,8 +97,8 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         """Test makeMatchStatisticsInRadians
         """
         np.random.seed(164)
-        offLenList = [val*afwGeom.radians for val in np.random.random_sample([self.numMatches])]
-        offDirList = [val*afwGeom.radians for val in np.random.random_sample([self.numMatches])*math.pi*2]
+        offLenList = [val*lsst.geom.radians for val in np.random.random_sample([self.numMatches])]
+        offDirList = [val*lsst.geom.radians for val in np.random.random_sample([self.numMatches])*math.pi*2]
         for offLen, offDir, match in zip(offLenList, offDirList, self.matchList):
             coord = match.first.get(self.refCoordKey)
             offsetCoord = coord.offset(offDir, offLen)
@@ -114,7 +115,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         """Test testMakeMatchStatisticsInPixels
         """
         np.random.seed(164)
-        offList = [afwGeom.Extent2D(val) for val in (np.random.random_sample([self.numMatches, 2])-0.5)*10]
+        offList = [lsst.geom.Extent2D(val) for val in (np.random.random_sample([self.numMatches, 2])-0.5)*10]
         for off, match in zip(offList, self.matchList):
             centroid = match.second.get(self.sourceCentroidKey)
             offCentroid = centroid + off

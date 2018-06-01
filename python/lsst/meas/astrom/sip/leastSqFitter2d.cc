@@ -54,7 +54,7 @@ static void declareLeastSqFitter2d(py::module &mod, std::string const &name) {
     cls.def("getReducedChiSq", &LeastSqFitter2d<FittingFunc>::getReducedChiSq);
 }
 
-}  // namespace lsst::meas::astrom::sip::<anonymous>
+}  // namespace
 
 PYBIND11_PLUGIN(leastSqFitter2d) {
     py::module mod("leastSqFitter2d");
@@ -63,7 +63,7 @@ PYBIND11_PLUGIN(leastSqFitter2d) {
 
     return mod.ptr();
 }
-}
-}
-}
-}  // namespace lsst::meas::astrom::sip
+}  // namespace sip
+}  // namespace astrom
+}  // namespace meas
+}  // namespace lsst

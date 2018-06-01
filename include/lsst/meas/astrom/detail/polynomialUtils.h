@@ -27,7 +27,10 @@
 
 #include "Eigen/Core"
 
-namespace lsst { namespace meas { namespace astrom { namespace detail {
+namespace lsst {
+namespace meas {
+namespace astrom {
+namespace detail {
 
 /**
  *  Compute the index of the first coefficient with the given order in
@@ -39,16 +42,12 @@ namespace lsst { namespace meas { namespace astrom { namespace detail {
  *  @endcode
  *  (or the same with indices swapped).
  */
-inline int computePackedOffset(int order) {
-    return (order*(order + 1))/2;
-}
+inline int computePackedOffset(int order) { return (order * (order + 1)) / 2; }
 
 /**
  *  Compute this size of a packed 2-d polynomial coefficient array.
  */
-inline int computePackedSize(int order) {
-    return computePackedOffset(order + 1);
-}
+inline int computePackedSize(int order) { return computePackedOffset(order + 1); }
 
 /**
  *  Fill an array with integer powers of x, so @f$$r[n] == r^n@f$.
@@ -56,7 +55,7 @@ inline int computePackedSize(int order) {
  *  When multiple powers are needed, this should be signficantly faster than
  *  repeated calls to std::pow().
  */
-void computePowers(Eigen::VectorXd & r, double x);
+void computePowers(Eigen::VectorXd& r, double x);
 
 /**
  *  Return an array with integer powers of x, so @f$$r[n] == r^n@f$.
@@ -65,7 +64,6 @@ void computePowers(Eigen::VectorXd & r, double x);
  *  repeated calls to std::pow().
  */
 Eigen::VectorXd computePowers(double x, int n);
-
 
 /**
  *  A class that computes binomial coefficients up to a certain power.
@@ -85,7 +83,6 @@ Eigen::VectorXd computePowers(double x, int n);
  */
 class BinomialMatrix {
 public:
-
     /**
      *  Construct an object that can compute binomial coefficients with @f$n@f$
      *  up to and including the given value.
@@ -101,19 +98,17 @@ public:
      *  n <= nMax && k <= n && n >=0 && k >= 0
      *  @endcode
      */
-    double operator()(int n, int k) const {
-        return getMatrix()(n, k);
-    }
+    double operator()(int n, int k) const { return getMatrix()(n, k); }
 
 private:
-
     static void extend(int const n);
 
-    static Eigen::MatrixXd & getMatrix();
-
+    static Eigen::MatrixXd& getMatrix();
 };
 
+}  // namespace detail
+}  // namespace astrom
+}  // namespace meas
+}  // namespace lsst
 
-}}}} // namespace lsst::meas::astrom::detail
-
-#endif // !LSST_MEAS_ASTROM_DETAIL_polynomialUtils_h_INCLUDED
+#endif  // !LSST_MEAS_ASTROM_DETAIL_polynomialUtils_h_INCLUDED

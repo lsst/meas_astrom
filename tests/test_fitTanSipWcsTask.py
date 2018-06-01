@@ -36,6 +36,7 @@ import numpy as np
 
 import lsst.pipe.base
 import lsst.utils.tests
+import lsst.geom
 import lsst.afw.geom as afwGeom
 from lsst.afw.geom.wcsUtils import makeTanSipMetadata
 import lsst.afw.table as afwTable
@@ -58,10 +59,10 @@ class BaseTestCase:
     MatchClass = None
 
     def setUp(self):
-        crval = afwGeom.SpherePoint(44, 45, afwGeom.degrees)
-        crpix = afwGeom.Point2D(15000, 4000)
+        crval = lsst.geom.SpherePoint(44, 45, lsst.geom.degrees)
+        crpix = lsst.geom.Point2D(15000, 4000)
 
-        scale = 1 * afwGeom.arcseconds
+        scale = 1 * lsst.geom.arcseconds
         cdMatrix = afwGeom.makeCdMatrix(scale=scale, flipX=True)
         self.tanWcs = afwGeom.makeSkyWcs(crpix=crpix, crval=crval, cdMatrix=cdMatrix)
         self.loadData()
@@ -96,7 +97,7 @@ class BaseTestCase:
                 src = self.sourceCat.addNew()
                 refObj = self.refCat.addNew()
 
-                src.set(self.srcCentroidKey, afwGeom.Point2D(i, j))
+                src.set(self.srcCentroidKey, lsst.geom.Point2D(i, j))
                 src.set(self.srcCentroidKey_xSigma, 0.1)
                 src.set(self.srcCentroidKey_ySigma, 0.1)
 
@@ -126,12 +127,12 @@ class BaseTestCase:
         """
         self.assertLess(fitRes.scatterOnSky.asArcseconds(), 0.001)
         tanSipWcs = fitRes.wcs
-        maxAngSep = afwGeom.Angle(0)
+        maxAngSep = 0*lsst.geom.radians
         maxPixSep = 0
         refCoordKey = afwTable.CoordKey(self.refCat.schema["coord"])
         if catsUpdated:
             refCentroidKey = afwTable.Point2DKey(self.refCat.schema["centroid"])
-        maxDistErr = afwGeom.Angle(0)
+        maxDistErr = 0*lsst.geom.radians
         for refObj, src, distRad in self.matches:
             srcPixPos = src.get(self.srcCentroidKey)
             refCoord = refObj.get(refCoordKey)
@@ -143,7 +144,7 @@ class BaseTestCase:
                 srcCoord = tanSipWcs.pixelToSky(srcPixPos)
 
             angSep = refCoord.separation(srcCoord)
-            dist = distRad*afwGeom.radians
+            dist = distRad*lsst.geom.radians
             distErr = abs(dist - angSep)
             maxDistErr = max(maxDistErr, distErr)
             maxAngSep = max(maxAngSep, angSep)
@@ -165,13 +166,13 @@ class BaseTestCase:
     def doTest(self, name, func, order=3, numIter=4, specifyBBox=False, doPlot=False, doPrint=False):
         """Apply func(x, y) to each source in self.sourceCat, then fit and check the resulting WCS
         """
-        bbox = afwGeom.Box2I()
+        bbox = lsst.geom.Box2I()
         for refObj, src, d in self.matches:
             origPos = src.get(self.srcCentroidKey)
             x, y = func(*origPos)
-            distortedPos = afwGeom.Point2D(*func(*origPos))
+            distortedPos = lsst.geom.Point2D(*func(*origPos))
             src.set(self.srcCentroidKey, distortedPos)
-            bbox.include(afwGeom.Point2I(afwGeom.Point2I(distortedPos)))
+            bbox.include(lsst.geom.Point2I(lsst.geom.Point2I(distortedPos)))
 
         tanSipWcs = self.tanWcs
         for i in range(numIter):
@@ -343,7 +344,7 @@ class SideLoadTestCases:
         radialTransform = afwGeom.makeRadialTransform([0, 1.01, 1e-8])
 
         def radialDistortion(x, y):
-            x, y = radialTransform.applyForward(afwGeom.Point2D(x, y))
+            x, y = radialTransform.applyForward(lsst.geom.Point2D(x, y))
             return (x, y)
         for order in (4, 5, 6):
             doPrint = order == 5

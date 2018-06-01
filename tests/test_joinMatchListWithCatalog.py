@@ -24,7 +24,7 @@
 import os
 import unittest
 
-import lsst.afw.geom as afwGeom
+import lsst.geom
 from lsst.afw.image import ExposureF
 from lsst.afw.table import packMatches, SourceCatalog
 import lsst.utils.tests
@@ -42,7 +42,7 @@ class JoinMatchListWithCatalogTestCase(unittest.TestCase):
 
         self.srcSet = SourceCatalog.readFits(os.path.join(testDir, "v695833-e0-c000.xy.fits"))
 
-        self.bbox = afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(2048, 4612))  # approximate
+        self.bbox = lsst.geom.Box2I(lsst.geom.Point2I(0, 0), lsst.geom.Extent2I(2048, 4612))  # approximate
         # create an exposure with the right metadata; the closest thing we have is
         # apparently v695833-e0-c000-a00.sci.fits, which is much too small
         smallExposure = ExposureF(os.path.join(testDir, "v695833-e0-c000-a00.sci.fits"))

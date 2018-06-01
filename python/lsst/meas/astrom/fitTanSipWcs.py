@@ -4,6 +4,7 @@ __all__ = ["FitTanSipWcsTask", "FitTanSipWcsConfig"]
 
 import numpy as np
 
+import lsst.geom
 import lsst.sphgeom
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
@@ -131,7 +132,7 @@ class FitTanSipWcsTask(pipeBase.Task):
             as an lsst.afw.geom.Angle
         """
         if bbox is None:
-            bbox = afwGeom.Box2I()
+            bbox = lsst.geom.Box2I()
 
         import lsstDebug
         debug = lsstDebug.Info(__name__)
@@ -198,15 +199,15 @@ class FitTanSipWcsTask(pipeBase.Task):
         We're using the best of each: positions from the matches, and scale
         from the input Wcs.
         """
-        crpix = afwGeom.Extent2D(0, 0)
+        crpix = lsst.geom.Extent2D(0, 0)
         crval = lsst.sphgeom.Vector3d(0, 0, 0)
         for mm in matches:
-            crpix += afwGeom.Extent2D(mm.second.getCentroid())
+            crpix += lsst.geom.Extent2D(mm.second.getCentroid())
             crval += mm.first.getCoord().getVector()
         crpix /= len(matches)
         crval /= len(matches)
-        newWcs = afwGeom.makeSkyWcs(crpix=afwGeom.Point2D(crpix),
-                                    crval=afwGeom.SpherePoint(crval),
+        newWcs = afwGeom.makeSkyWcs(crpix=lsst.geom.Point2D(crpix),
+                                    crval=lsst.geom.SpherePoint(crval),
                                     cdMatrix=wcs.getCdMatrix())
         return newWcs
 

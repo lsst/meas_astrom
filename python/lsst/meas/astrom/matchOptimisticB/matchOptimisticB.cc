@@ -24,6 +24,8 @@
 
 #include <memory>
 
+#include "lsst/geom/Point.h"
+#include "lsst/afw/geom/SkyWcs.h"
 #include "lsst/pex/config/python.h"  // defines LSST_DECLARE_CONTROL_FIELD
 #include "lsst/meas/astrom/matchOptimisticB.h"
 
@@ -42,7 +44,7 @@ static void declareRecordProxy(py::module &mod) {
     cls.def_readwrite("position", &RecordProxy::position);
     cls.def_readwrite("used", &RecordProxy::used);
 
-    cls.def(py::init<std::shared_ptr<afw::table::SimpleRecord>, afw::geom::Point2D const &>(), "record"_a,
+    cls.def(py::init<std::shared_ptr<afw::table::SimpleRecord>, geom::Point2D const &>(), "record"_a,
             "position"_a);
 
     // TO DO: decide if we need to wrap operator PTR(lsst::afw::table::SimpleRecord)()
@@ -84,7 +86,7 @@ static void declareMatchOptimisticBControl(py::module &mod) {
     cls.def("validate", &MatchOptimisticBControl::validate);
 }
 
-}  // namespace lsst::meas::astrom::<anonymous>
+}  // namespace
 
 PYBIND11_PLUGIN(matchOptimisticB) {
     py::module mod("matchOptimisticB");
@@ -93,9 +95,10 @@ PYBIND11_PLUGIN(matchOptimisticB) {
     declareProxyPair(mod);
     declareMatchOptimisticBControl(mod);
 
-    mod.def("makeProxies", (ProxyVector(*)(afw::table::SourceCatalog const &, afw::geom::SkyWcs const &,
-                                           afw::geom::SkyWcs const &)) &
-                                   makeProxies,
+    mod.def("makeProxies",
+            (ProxyVector(*)(afw::table::SourceCatalog const &, afw::geom::SkyWcs const &,
+                            afw::geom::SkyWcs const &)) &
+                    makeProxies,
             "sourceCat"_a, "distortedWcs"_a, "tanWcs"_a);
     mod.def("makeProxies",
             (ProxyVector(*)(afw::table::SimpleCatalog const &, afw::geom::SkyWcs const &)) & makeProxies,
@@ -106,6 +109,6 @@ PYBIND11_PLUGIN(matchOptimisticB) {
 
     return mod.ptr();
 }
-}
-}
-}  // namespace lsst::meas::astrom
+}  // namespace astrom
+}  // namespace meas
+}  // namespace lsst

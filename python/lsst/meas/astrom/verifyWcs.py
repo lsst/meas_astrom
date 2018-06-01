@@ -25,8 +25,8 @@ __all__ = ["checkMatches"]
 
 import numpy as np
 
+import lsst.geom
 import lsst.afw.detection as afwDetection
-import lsst.afw.geom as afwGeom
 import lsst.afw.math as afwMath
 import lsst.meas.algorithms as measAlg
 from lsst.log import Log
@@ -55,7 +55,7 @@ def checkMatches(srcMatchSet, exposure, log=None):
         h += 1
 
     cellSet = afwMath.SpatialCellSet(
-        afwGeom.Box2I(afwGeom.Point2I(0, 0), afwGeom.Extent2I(width, height)), w, h)
+        lsst.geom.Box2I(lsst.geom.Point2I(0, 0), lsst.geom.Extent2I(width, height)), w, h)
     #
     # Populate cellSet
     #

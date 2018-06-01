@@ -66,7 +66,7 @@ static void declareScaledPolynomialTransformFitter(py::module& mod) {
             py::return_value_policy::copy);
 }
 
-}  // namespace lsst::meas::astrom::<anonymous>
+}  // namespace
 
 PYBIND11_PLUGIN(scaledPolynomialTransformFitter) {
     py::module mod("scaledPolynomialTransformFitter");
@@ -76,6 +76,6 @@ PYBIND11_PLUGIN(scaledPolynomialTransformFitter) {
 
     return mod.ptr();
 }
-}
-}
-}  // namespace lsst::meas::astrom
+}  // namespace astrom
+}  // namespace meas
+}  // namespace lsst

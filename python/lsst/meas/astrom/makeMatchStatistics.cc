@@ -42,7 +42,7 @@ static void declareMakeMatchStatistics(py::module& mod) {
             "flags"_a, "sctrl"_a = afw::math::StatisticsControl());
 }
 
-}  // namespace lsst::meas::astrom::<anonymous>
+}  // namespace
 
 PYBIND11_PLUGIN(makeMatchStatistics) {
     py::module::import("lsst.afw.math");
@@ -54,6 +54,6 @@ PYBIND11_PLUGIN(makeMatchStatistics) {
 
     return mod.ptr();
 }
-}
-}
-}  // namespace lsst::meas::astrom
+}  // namespace astrom
+}  // namespace meas
+}  // namespace lsst

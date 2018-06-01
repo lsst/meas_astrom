@@ -22,7 +22,7 @@
 
 __all__ = ['RefMatchConfig', 'RefMatchTask']
 
-import lsst.afw.geom as afwGeom
+import lsst.geom
 import lsst.afw.math as afwMath
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
@@ -164,8 +164,8 @@ class RefMatchTask(pipeBase.Task):
         - maxMatchDist  distMean + self.config.matchDistanceSigma*distStdDev
         """
         distStatsInRadians = makeMatchStatistics(matchList, afwMath.MEANCLIP | afwMath.STDEVCLIP)
-        distMean = distStatsInRadians.getValue(afwMath.MEANCLIP)*afwGeom.radians
-        distStdDev = distStatsInRadians.getValue(afwMath.STDEVCLIP)*afwGeom.radians
+        distMean = distStatsInRadians.getValue(afwMath.MEANCLIP)*lsst.geom.radians
+        distStdDev = distStatsInRadians.getValue(afwMath.STDEVCLIP)*lsst.geom.radians
         return pipeBase.Struct(
             distMean=distMean,
             distStdDev=distStdDev,
