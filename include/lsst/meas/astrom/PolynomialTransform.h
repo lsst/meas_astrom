@@ -104,7 +104,7 @@ public:
     void swap(PolynomialTransform& other);
 
     /// Return the order of the polynomials.
-    int getOrder() const { return _xCoeffs.rows() - 1; }
+    int getOrder() const { return _xCoeffs.getSize<0>() - 1; }
 
     /**
      * 2-D polynomial coefficients that compute the output x coordinate.
@@ -142,8 +142,8 @@ private:
     friend class SipReverseTransform;
     friend class ScaledPolynomialTransform;
 
-    ndarray::EigenView<double, 2, 2> _xCoeffs;
-    ndarray::EigenView<double, 2, 2> _yCoeffs;
+    ndarray::Array<double, 2, 2> _xCoeffs;
+    ndarray::Array<double, 2, 2> _yCoeffs;
     mutable Eigen::VectorXd _u;  // workspace for operator() and linearize
     mutable Eigen::VectorXd _v;
 };

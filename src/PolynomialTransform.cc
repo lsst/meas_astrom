@@ -63,10 +63,10 @@ PolynomialTransform::PolynomialTransform(int order) : _xCoeffs(), _yCoeffs(), _u
         throw LSST_EXCEPT(pex::exceptions::LengthError, "PolynomialTransform order must be >= 0");
     }
     // Delay allocation until after error checking.
-    _xCoeffs.reset(ndarray::Array<double, 2, 2>(ndarray::allocate(order + 1, order + 1)));
-    _yCoeffs.reset(ndarray::Array<double, 2, 2>(ndarray::allocate(order + 1, order + 1)));
-    _xCoeffs.setZero();
-    _yCoeffs.setZero();
+    _xCoeffs = ndarray::allocate(order + 1, order + 1);
+    _yCoeffs = ndarray::allocate(order + 1, order + 1);
+    _xCoeffs.deep() = 0;
+    _yCoeffs.deep() = 0;
     _u = Eigen::VectorXd(order + 1);
     _v = Eigen::VectorXd(order + 1);
 }
@@ -75,8 +75,8 @@ PolynomialTransform::PolynomialTransform(ndarray::Array<double const, 2, 0> cons
                                          ndarray::Array<double const, 2, 0> const& yCoeffs)
         : _xCoeffs(ndarray::copy(xCoeffs)),
           _yCoeffs(ndarray::copy(yCoeffs)),
-          _u(_xCoeffs.rows()),
-          _v(_xCoeffs.rows()) {
+          _u(_xCoeffs.getSize<0>()),
+          _v(_xCoeffs.getSize<0>()) {
     if (xCoeffs.getShape() != yCoeffs.getShape()) {
         throw LSST_EXCEPT(
                 pex::exceptions::LengthError,
@@ -85,11 +85,11 @@ PolynomialTransform::PolynomialTransform(ndarray::Array<double const, 2, 0> cons
                  xCoeffs.getSize<0>() % xCoeffs.getSize<1>() % yCoeffs.getSize<0>() % yCoeffs.getSize<1>())
                         .str());
     }
-    if (_xCoeffs.cols() != _xCoeffs.rows()) {
+    if (_xCoeffs.getSize<1>() != _xCoeffs.getSize<0>()) {
         throw LSST_EXCEPT(pex::exceptions::LengthError,
                           (boost::format("Coefficient matrices must be triangular, not trapezoidal: "
                                          " %d != %d ") %
-                           _xCoeffs.rows() % _xCoeffs.cols())
+                           _xCoeffs.getSize<0>() % _xCoeffs.getSize<1>())
                                   .str());
     }
 }
@@ -214,8 +214,9 @@ geom::Point2D ScaledPolynomialTransform::operator()(geom::Point2D const& in) con
 PolynomialTransform compose(geom::AffineTransform const& t1, PolynomialTransform const& t2) {
     typedef geom::AffineTransform AT;
     PolynomialTransform result(t2.getOrder());
-    result._xCoeffs = t2._xCoeffs * t1[AT::XX] + t2._yCoeffs * t1[AT::XY];
-    result._yCoeffs = t2._xCoeffs * t1[AT::YX] + t2._yCoeffs * t1[AT::YY];
+
+    result._xCoeffs.deep() = t2._xCoeffs * t1[AT::XX] + t2._yCoeffs * t1[AT::XY];
+    result._yCoeffs.deep() = t2._xCoeffs * t1[AT::YX] + t2._yCoeffs * t1[AT::YY];
     result._xCoeffs(0, 0) += t1[AT::X];
     result._yCoeffs(0, 0) += t1[AT::Y];
     return result;
