@@ -6,6 +6,7 @@
 _build.*
 .cache
 .pytest_cache
+.coverage
 .sconf_temp/
 .sconsign.dblite
 config.log
