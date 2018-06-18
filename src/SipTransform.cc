@@ -161,10 +161,10 @@ std::shared_ptr<afw::geom::SkyWcs> makeWcs(SipForwardTransform const& sipForward
             << sipReverse.getCdMatrix();
         throw LSST_EXCEPT(pex::exceptions::InvalidParameterError, oss.str());
     }
-    Eigen::MatrixXd sipA(sipForward.getPoly().getXCoeffs().asEigen());
-    Eigen::MatrixXd sipB(sipForward.getPoly().getYCoeffs().asEigen());
-    Eigen::MatrixXd sipAP(sipReverse.getPoly().getXCoeffs().asEigen());
-    Eigen::MatrixXd sipBP(sipReverse.getPoly().getYCoeffs().asEigen());
+    Eigen::MatrixXd sipA(ndarray::asEigenMatrix(sipForward.getPoly().getXCoeffs()));
+    Eigen::MatrixXd sipB(ndarray::asEigenMatrix(sipForward.getPoly().getYCoeffs()));
+    Eigen::MatrixXd sipAP(ndarray::asEigenMatrix(sipReverse.getPoly().getXCoeffs()));
+    Eigen::MatrixXd sipBP(ndarray::asEigenMatrix(sipReverse.getPoly().getYCoeffs()));
 
     return afw::geom::makeTanSipWcs(sipForward.getPixelOrigin(), skyOrigin,
                                     sipForward.getCdMatrix().getMatrix(), sipA, sipB, sipAP, sipBP);
