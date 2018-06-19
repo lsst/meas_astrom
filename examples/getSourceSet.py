@@ -247,8 +247,8 @@ def makeCcdMosaic(dir, basename, e, c, aList, imageFactory=afwImage.MaskedImageF
 
             if what == "header":
                 md = readMetadata(filename + "_img.fits")
-                xy0 = lsst.geom.Point2I(md.get("CRVAL1A"), md.get("CRVAL2A"))
-                xy1 = xy0 + lsst.geom.Extent2I(md.get("NAXIS1") - 1, md.get("NAXIS2") - 1)
+                xy0 = lsst.geom.Point2I(md.getScalar("CRVAL1A"), md.getScalar("CRVAL2A"))
+                xy1 = xy0 + lsst.geom.Extent2I(md.getScalar("NAXIS1") - 1, md.getScalar("NAXIS2") - 1)
                 bbox.grow(xy0)
                 bbox.grow(xy1)
 

@@ -307,12 +307,12 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         # so ignore the RADESYS in metadata (which is missing anyway, falling back to FK5)
         sipMetadata.set("RADESYS", "ICRS")
         crpix = lsst.afw.geom.Point2D(
-            sipMetadata.get("CRPIX1") - 1,
-            sipMetadata.get("CRPIX2") - 1,
+            sipMetadata.getScalar("CRPIX1") - 1,
+            sipMetadata.getScalar("CRPIX2") - 1,
         )
         crval = lsst.afw.geom.SpherePoint(
-            sipMetadata.get("CRVAL1"),
-            sipMetadata.get("CRVAL2"), lsst.afw.geom.degrees,
+            sipMetadata.getScalar("CRVAL1"),
+            sipMetadata.getScalar("CRVAL2"), lsst.afw.geom.degrees,
         )
         cdLinearTransform = lsst.afw.geom.LinearTransform(getCdMatrixFromMetadata(sipMetadata))
         aArr = getSipMatrixFromMetadata(sipMetadata, "A")
