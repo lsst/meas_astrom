@@ -47,14 +47,12 @@ def _rotation_matrix_chi_sq(flattened_rot_matrix,
     diff_pattern_a_to_b = rot_pattern_a - pattern_b
     # Compute the matrix inverse and compare the opposite transform to better
     # constrain the matrix.
-    rot_pattern_b = np.dot(np.linalg.inv(rot_matrix),
-                           pattern_b.transpose()).transpose()
-    diff_pattern_b_to_a = rot_pattern_b - pattern_a
+    # rot_pattern_b = np.dot(np.linalg.inv(rot_matrix),
+    #                        pattern_b.transpose()).transpose()
+    # diff_pattern_b_to_a = rot_pattern_b - pattern_a
     # Return the flattened differences and length tolerances for use in a least
     # squares fitter.
-    return np.concatenate(
-        (diff_pattern_a_to_b.flatten() / max_dist_rad,
-         diff_pattern_b_to_a.flatten() / max_dist_rad))
+    return diff_pattern_a_to_b.flatten() / max_dist_rad
 
 
 class PessimisticPatternMatcherB:
@@ -853,11 +851,10 @@ class PessimisticPatternMatcherB:
 
             # Test if the small angle approximation will still hold. This is
             # defined as when sin(theta) ~= theta to within 0.1% of each
-            # other. This also implicitly sets a minimum spoke length that we
-            # can use.
+            # other. If the implied opening angle is too large we set it to
+            # the 0.1% threshold.
             if src_sin_tol > 0.0447:
-                n_fail += 1
-                continue
+                src_sin_tol = 0.0447
 
             # Plane project the candidate source spoke and compute the cosine
             # and sine of the opening angle.

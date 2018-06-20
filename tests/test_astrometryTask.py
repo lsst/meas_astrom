@@ -148,8 +148,8 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
             maxPixSep = max(maxPixSep, pixSep)
         print("max angular separation = %0.4f arcsec" % (maxAngSep.asArcseconds(),))
         print("max pixel separation = %0.3f" % (maxPixSep,))
-        self.assertLess(maxAngSep.asArcseconds(), 0.0026)
-        self.assertLess(maxPixSep, 0.015)
+        self.assertLess(maxAngSep.asArcseconds(), 0.0038)
+        self.assertLess(maxPixSep, 0.021)
 
         # try again, but without fitting the WCS
         config.forceKnownWcs = True

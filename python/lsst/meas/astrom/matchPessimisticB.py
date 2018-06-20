@@ -405,8 +405,8 @@ class MatchPessimisticBTask(pipeBase.Task):
         numConsensus = self.config.numPatternConsensus
         minObjectsForConsensus = \
             self.config.numBrightStars + self.config.numPointsForShapeAttempt
-        if ref_array.shape[0] < minObjectsForConsensus or \
-           src_array.shape[0] < minObjectsForConsensus:
+        if len(refCat) < minObjectsForConsensus or \
+           len(sourceCat) < minObjectsForConsensus:
             numConsensus = 1
 
         self.log.debug("Current tol maxDist: %.4f arcsec" %
