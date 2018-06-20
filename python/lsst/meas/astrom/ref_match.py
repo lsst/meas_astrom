@@ -30,14 +30,14 @@ import lsst.afw.math as afwMath
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from lsst.meas.algorithms import ScienceSourceSelectorTask, ReferenceSourceSelectorTask
-from .matchOptimisticB import MatchOptimisticBTask
+from .directMatch import DirectMatchTask
 from .display import displayAstrometry
 from . import makeMatchStatistics
 
 
 class RefMatchConfig(pexConfig.Config):
     matcher = pexConfig.ConfigurableField(
-        target=MatchOptimisticBTask,
+        target=directMatch,
         doc="reference object/source matcher",
     )
     matchDistanceSigma = pexConfig.RangeField(
