@@ -37,7 +37,7 @@ from . import makeMatchStatistics
 
 class RefMatchConfig(pexConfig.Config):
     matcher = pexConfig.ConfigurableField(
-        target=directMatch,
+        target=DirectMatchTask,
         doc="reference object/source matcher",
     )
     matchDistanceSigma = pexConfig.RangeField(

@@ -44,11 +44,39 @@ class MatchTolerancePessimistic(MatchTolerance):
 
     def __init__(self, maxMatchDist=None, autoMaxMatchDist=None,
                  maxShift=None, lastMatchedPattern=None,
-                 failedPatternList=None):
+                 failedPatternList=None, PPMbObj=None):
+        """Construct a MatchPessimisticTolerance
+
+        MatchPessimisticBTask relies on several state variables to be
+        preserved over different iterations in the
+        AstrometryTask.matchAndFitWcs loop of AstrometryTask.
+
+        Parameters
+        ----------
+        maxMatchDist : `lsst.afw.geom.Angle`
+            Current 2 sigma scatter from the previous matched wcs (if it
+            exists. It is None if this is the first iteration.)
+        autoMatxMatchDist : `lsst.afw.geom.Angle`
+            Result of the automated match tolerance generation.
+        maxShift  : `lsst.afw.geom.Angle`
+            None for the first iteration or is the magnitude of the previous
+            iteration's wcs shift.
+        lastMatchedPattern : `int`
+            Reference to the position in the magnitude sorted source array
+            where a successful pattern match was found.
+        failedPatternList : `list` of `int`s
+            List of ints specifying indicies in the magnitude sourced source
+            array to skip. These are skipped are previous iterations that are
+            likely false positives due to the code having to soften after a
+            pattern is matched.
+        PPMbObj : `lsst.meas.astrom.PessimisticPatternMatcherB`
+            Pessimistic initialized pattern matcher object.
+        """
         self.maxMatchDist = maxMatchDist
         self.autoMaxMatchDist = autoMaxMatchDist
         self.maxShift = maxShift
         self.lastMatchedPattern = lastMatchedPattern
+        self.PPMbObj = PPMbObj
         if failedPatternList is None:
             self.failedPatternList = []
 
@@ -310,14 +338,6 @@ class MatchPessimisticBTask(pipeBase.Task):
         # objects contiguous in memory. We need to do these slightly
         # differently for the reference and source cats as they are
         # different catalog objects with different fields.
-        ref_array = np.empty((len(refCat), 4), dtype=np.float64)
-        for ref_idx, refObj in enumerate(refCat):
-            theta = np.pi / 2 - refObj.getDec().asRadians()
-            phi = refObj.getRa().asRadians()
-            flux = refObj[refFluxField]
-            ref_array[ref_idx, :] = \
-                self._latlong_flux_to_xyz_mag(theta, phi, flux)
-
         src_array = np.empty((len(sourceCat), 4), dtype=np.float64)
         for src_idx, srcObj in enumerate(sourceCat):
             coord = wcs.pixelToSky(srcObj.getCentroid())
@@ -326,6 +346,32 @@ class MatchPessimisticBTask(pipeBase.Task):
             flux = srcObj.getPsfInstFlux()
             src_array[src_idx, :] = \
                 self._latlong_flux_to_xyz_mag(theta, phi, flux)
+
+        if match_tolerance.PPMbObj is None or \
+           match_tolerance.autoMaxDist is None:
+            # The reference catalog is fixed per AstrometryTask so we only
+            # create the data needed if this is the first step in the match
+            # fit cycle.
+            ref_array = np.empty((len(refCat), 4), dtype=np.float64)
+            for ref_idx, refObj in enumerate(refCat):
+                theta = np.pi / 2 - refObj.getDec().asRadians()
+                phi = refObj.getRa().asRadians()
+                flux = refObj[refFluxField]
+                ref_array[ref_idx, :] = \
+                    self._latlong_flux_to_xyz_mag(theta, phi, flux)
+            # Create our matcher object.
+            match_tolerance.PPMbObj = PessimisticPatternMatcherB(
+                ref_array[:, :3], self.log)
+            self.log.debug("Computing source statistics...")
+            maxMatchDistArcSecSrc = self._get_pair_pattern_statistics(
+                src_array)
+            self.log.debug("Computing reference statistics...")
+            maxMatchDistArcSecRef = self._get_pair_pattern_statistics(
+                ref_array)
+            maxMatchDistArcSec = np.min((maxMatchDistArcSecSrc,
+                                         maxMatchDistArcSecRef))
+            match_tolerance.autoMaxDist = afwgeom.Angle(maxMatchDistArcSec,
+                                                        afwgeom.arcseconds)
 
         # Set configurable defaults when we encounter None type or set
         # state based on previous run of AstrometryTask._matchAndFitWcs.
@@ -345,16 +391,7 @@ class MatchPessimisticBTask(pipeBase.Task):
         # create on both the source and reference catalog. We use the smaller
         # of the two.
         if match_tolerance.maxMatchDist is None:
-            self.log.debug("Computing source statistics...")
-            maxMatchDistArcSecSrc = self._get_pair_pattern_statistics(
-                src_array)
-            self.log.debug("Computing reference statistics...")
-            maxMatchDistArcSecRef = self._get_pair_pattern_statistics(
-                ref_array)
-            maxMatchDistArcSec = np.min((maxMatchDistArcSecSrc,
-                                         maxMatchDistArcSecRef))
-            match_tolerance.autoMaxDist = afwgeom.Angle(maxMatchDistArcSec,
-                                                        afwgeom.arcseconds)
+            match_tolerance.maxMatchDist = match_tolerance.autoMaxDist
         else:
             maxMatchDistArcSec = np.max(
                 (self.config.minMatchDistPixels *
@@ -377,9 +414,6 @@ class MatchPessimisticBTask(pipeBase.Task):
         self.log.debug("Current shift: %.4f arcsec" %
                        maxShiftArcseconds)
 
-        # Create our matcher object.
-        pyPPMb = PessimisticPatternMatcherB(ref_array[:, :3], self.log)
-
         match_found = False
         # Start the iteration over our tolerances.
         for soften_pattern in range(self.config.matcherIterations):
@@ -397,7 +431,7 @@ class MatchPessimisticBTask(pipeBase.Task):
                     run_n_consent = numConsensus
                 # We double the match dist tolerance each round and add 1 to the
                 # to the number of candidate spokes to check.
-                matcher_struct = pyPPMb.match(
+                matcher_struct = match_tolerance.PPMbObj.match(
                     source_array=src_array,
                     n_check=self.config.numPointsForShapeAttempt + soften_pattern,
                     n_match=self.config.numPointsForShape,
