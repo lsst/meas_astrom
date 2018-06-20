@@ -28,7 +28,6 @@ import lsst.pipe.base as pipeBase
 from .ref_match import RefMatchTask, RefMatchConfig
 from .fitTanSipWcs import FitTanSipWcsTask
 from .display import displayAstrometry
-from .matchPessimisticB import MatchPessimisticBTask
 
 
 class AstrometryConfig(RefMatchConfig):
@@ -58,9 +57,6 @@ class AstrometryConfig(RefMatchConfig):
         default=0.001,
         min=0,
     )
-
-    def setDefaults(self):
-        self.matcher = MatchPessimisticBTask
 
 
 class AstrometryTask(RefMatchTask):
