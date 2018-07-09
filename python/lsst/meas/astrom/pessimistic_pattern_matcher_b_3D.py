@@ -758,9 +758,13 @@ class PessimisticPatternMatcherB:
         # Now that we have our shift we apply it to the src delta vector
         # and check the rotation.
         rot_src_delta = np.dot(shift_matrix, src_delta)
-        cos_rot_sq = (np.dot(rot_src_delta, ref_delta) ** 2 /
-                      (np.dot(rot_src_delta, rot_src_delta) *
-                       np.dot(ref_delta, ref_delta)))
+        proj_src_delta = (rot_src_delta -
+                          np.dot(rot_src_delta, ref_center) * ref_center)
+        proj_ref_delta = (ref_delta -
+                          np.dot(ref_delta, ref_center) * ref_center)
+        cos_rot_sq = (np.dot(proj_src_delta, proj_ref_delta) ** 2 /
+                      (np.dot(proj_src_delta, proj_src_delta) *
+                       np.dot(proj_ref_delta, proj_ref_delta)))
         # If the rotation isn't in tolerance return None.
         if cos_rot_sq < max_cos_rot_sq:
             return pipeBase.Struct(
