@@ -975,11 +975,20 @@ class PessimisticPatternMatcherB:
 
         # Precompute all of the source only cross and dot products so we don't
         # have to do it for each iteration in the reference loop.
-        cos_theta_src = (np.dot(src_delta, src_ctr_delta) /
-                         (src_dist * src_ctr_dist))
-        cross_src = (np.cross(src_delta, src_ctr_delta) /
-                     (src_dist * src_ctr_dist))
+        proj_src_delta = src_delta - np.dot(src_delta, src_ctr) * src_ctr
+        proj_src_ctr_delta = (src_ctr_delta -
+                              np.dot(src_ctr_delta, src_ctr) * src_ctr)
+        src_geom_dist = np.sqrt(
+            np.dot(proj_src_delta, proj_src_delta) *
+            np.dot(proj_src_ctr_delta, proj_src_ctr_delta))
+        cos_theta_src = (np.dot(proj_src_delta, proj_src_ctr_delta) /
+                         src_geom_dist)
+        cross_src = (np.cross(proj_src_delta, proj_src_ctr_delta) /
+                     src_geom_dist)
         dot_cross_src = np.dot(cross_src, src_ctr)
+
+        proj_ref_ctr_delta = ref_delta - np.dot(ref_delta, ref_ctr) * ref_ctr
+        proj_ref_ctr_dist_sq = np.dot(proj_ref_ctr_delta, proj_ref_ctr_delta)
 
         # Loop over our candidate reference objects.
         for ref_dist_idx in ref_dist_idx_array:
@@ -990,9 +999,14 @@ class PessimisticPatternMatcherB:
 
             # Compute the cos between our "center" reference vector and the
             # current reference candidate.
+            proj_ref_delta = \
+                ref_delta_array[ref_dist_idx] - \
+                np.dot(ref_delta_array[ref_dist_idx], ref_ctr) * ref_ctr
+            ref_geom_dist = np.sqrt(proj_ref_ctr_dist_sq *
+                                    np.dot(proj_ref_delta, proj_ref_delta))
             cos_theta_ref = ref_sign * (
-                np.dot(ref_delta_array[ref_dist_idx], ref_delta) /
-                (ref_dist_array[ref_dist_idx] * ref_dist))
+                np.dot(proj_ref_delta, proj_ref_ctr_delta) /
+                ref_geom_dist)
 
             # Make sure we can safely make the comparison in case
             # our "center" and candidate vectors are mostly aligned.
@@ -1012,8 +1026,8 @@ class PessimisticPatternMatcherB:
             # its direction. To do that we need to know the sine as well.
             # This cross product calculation does that.
             cross_ref = ref_sign * (
-                np.cross(ref_delta_array[ref_dist_idx], ref_delta) /
-                (ref_dist_array[ref_dist_idx] * ref_dist))
+                np.cross(proj_ref_delta, proj_ref_ctr_delta) /
+                ref_geom_dist)
             dot_cross_ref = np.dot(cross_ref, ref_ctr)
 
             # Check the value of the cos again to make sure that it is not
