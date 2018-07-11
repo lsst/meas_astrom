@@ -27,6 +27,5 @@ from .leastSqFitter2d import *
 from .createWcsWithSip import *
 from .matchSrcToCatalogue import *
 
-from .cleanBadPoints import *
 from .genDistortedImage import *
 from .sourceMatchStatistics import *
