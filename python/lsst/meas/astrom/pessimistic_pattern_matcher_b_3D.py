@@ -586,7 +586,7 @@ class PessimisticPatternMatcherB:
                 # pattern center, we mask our future search to only those
                 # pairs that contain our candidate reference center.
                 tmp_ref_delta_array = self._pair_delta_array[ref_id]
-                tmp_ref_dist_arary = self._pair_dist_array[ref_id]
+                tmp_ref_dist_array = self._pair_dist_array[ref_id]
                 tmp_ref_id_array = self._pair_id_array[ref_id]
 
                 # Now we feed this sub data to match the spokes of
@@ -594,7 +594,7 @@ class PessimisticPatternMatcherB:
                 pattern_spoke_struct = self._create_pattern_spokes(
                     src_pattern_array[0], src_delta_array, src_dist_array,
                     self._reference_array[ref_id], ref_id, proj_ref_ctr_delta,
-                    tmp_ref_delta_array, tmp_ref_dist_arary,
+                    tmp_ref_delta_array, tmp_ref_dist_array,
                     tmp_ref_id_array, max_dist_rad, n_match)
 
                 # If we don't find enough candidates we can continue to the
@@ -831,9 +831,10 @@ class PessimisticPatternMatcherB:
         ref_ctr_id : int
             id of the ref_ctr in the master reference array
         proj_ref_ctr_delta : `float` array-like
-            Plane projected 3 vector of the first candidate pair of the pinwheel.
-            This is the candidate pair that was matched in the main
-            _construct_pattern_and_shift_rot_matrix loop
+            Plane projected 3 vector formed from the center point of the
+            candidate pin-wheel and the second point in the pattern to create
+            the first spoke pair. This is the candidate pair that was matched
+            in the main _construct_pattern_and_shift_rot_matrix loop
         ref_delta_array : float array
             Array of 3 vector deltas that are have the current candidate
             reference center as part of the pair
@@ -901,15 +902,15 @@ class PessimisticPatternMatcherB:
             proj_src_delta = (
                 src_delta_array[src_idx] -
                 np.dot(src_delta_array[src_idx], src_ctr) * src_ctr)
-            src_geom_dist = np.sqrt(
+            geom_dist_src = np.sqrt(
                 np.dot(proj_src_delta, proj_src_delta) *
                 proj_src_ctr_dist_sq)
 
             # Compute cosine and sine of the delta vector opening angle.
             cos_theta_src = (np.dot(proj_src_delta, proj_src_ctr_delta) /
-                             src_geom_dist)
+                             geom_dist_src)
             cross_src = (np.cross(proj_src_delta, proj_src_ctr_delta) /
-                         src_geom_dist)
+                         geom_dist_src)
             sin_theta_src = np.dot(cross_src, src_ctr)
 
             # Find the reference pairs that include our candidate pattern
@@ -1006,14 +1007,14 @@ class PessimisticPatternMatcherB:
 
             # Compute the cos between our "center" reference vector and the
             # current reference candidate.
-            proj_ref_delta = \
-                ref_delta_array[ref_dist_idx] - \
-                np.dot(ref_delta_array[ref_dist_idx], ref_ctr) * ref_ctr
-            ref_geom_dist = np.sqrt(proj_ref_ctr_dist_sq *
+            proj_ref_delta = (
+                ref_delta_array[ref_dist_idx] -
+                np.dot(ref_delta_array[ref_dist_idx], ref_ctr) * ref_ctr)
+            geom_dist_ref = np.sqrt(proj_ref_ctr_dist_sq *
                                     np.dot(proj_ref_delta, proj_ref_delta))
             cos_theta_ref = ref_sign * (
                 np.dot(proj_ref_delta, proj_ref_ctr_delta) /
-                ref_geom_dist)
+                geom_dist_ref)
 
             # Make sure we can safely make the comparison in case
             # our "center" and candidate vectors are mostly aligned.
@@ -1034,7 +1035,7 @@ class PessimisticPatternMatcherB:
             # This cross product calculation does that.
             cross_ref = ref_sign * (
                 np.cross(proj_ref_delta, proj_ref_ctr_delta) /
-                ref_geom_dist)
+                geom_dist_ref)
             sin_theta_ref = np.dot(cross_ref, ref_ctr)
 
             # Check the value of the cos again to make sure that it is not
