@@ -57,13 +57,10 @@ static void declareLeastSqFitter2d(py::module &mod, std::string const &name) {
 
 }  // namespace
 
-PYBIND11_PLUGIN(leastSqFitter2d) {
-    py::module mod("leastSqFitter2d");
-
+PYBIND11_MODULE(leastSqFitter2d, mod) {
     declareLeastSqFitter2d<afw::math::PolynomialFunction1<double>>(mod, "LeastSqFitter2dPoly");
-
-    return mod.ptr();
 }
+
 }  // namespace sip
 }  // namespace astrom
 }  // namespace meas

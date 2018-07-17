@@ -99,9 +99,7 @@ static void declareScaledPolynomialTransform(py::module &mod) {
 
 }  // namespace
 
-PYBIND11_PLUGIN(polynomialTransform) {
-    py::module mod("polynomialTransform");
-
+PYBIND11_MODULE(polynomialTransform, mod) {
     declarePolynomialTransform(mod);
     declareScaledPolynomialTransform(mod);
 
@@ -111,9 +109,8 @@ PYBIND11_PLUGIN(polynomialTransform) {
     mod.def("compose",
             (PolynomialTransform(*)(PolynomialTransform const &, geom::AffineTransform const &)) & compose,
             "t1"_a, "t2"_a);
-
-    return mod.ptr();
 }
+
 }  // namespace astrom
 }  // namespace meas
 }  // namespace lsst
