@@ -573,29 +573,29 @@ class PessimisticPatternMatcherB:
                     src_pattern_array[0], ref_center, src_delta_array[0],
                     ref_delta, cos_shift, max_cos_rot_sq)
                 if test_rot_struct.cos_rot_sq is None or \
+                   test_rot_struct.proj_ref_ctr_delta is None or \
                    test_rot_struct.shift_matrix is None:
                     continue
 
                 # Get the data from the return struct.
                 cos_rot_sq = test_rot_struct.cos_rot_sq
+                proj_ref_ctr_delta = test_rot_struct.proj_ref_ctr_delta
                 shift_matrix = test_rot_struct.shift_matrix
 
                 # Now that we have a candidate first spoke and reference
                 # pattern center, we mask our future search to only those
                 # pairs that contain our candidate reference center.
-                ref_dist = self._dist_array[ref_dist_idx]
                 tmp_ref_delta_array = self._pair_delta_array[ref_id]
-                tmp_ref_dist_arary = self._pair_dist_array[ref_id]
+                tmp_ref_dist_array = self._pair_dist_array[ref_id]
                 tmp_ref_id_array = self._pair_id_array[ref_id]
 
                 # Now we feed this sub data to match the spokes of
                 # our pattern.
                 pattern_spoke_struct = self._create_pattern_spokes(
                     src_pattern_array[0], src_delta_array, src_dist_array,
-                    self._reference_array[ref_id], ref_id, ref_delta,
-                    ref_dist, tmp_ref_delta_array, tmp_ref_dist_arary,
-                    tmp_ref_id_array, max_dist_rad,
-                    n_match)
+                    self._reference_array[ref_id], ref_id, proj_ref_ctr_delta,
+                    tmp_ref_delta_array, tmp_ref_dist_array,
+                    tmp_ref_id_array, max_dist_rad, n_match)
 
                 # If we don't find enough candidates we can continue to the
                 # next reference center pair.
@@ -758,16 +758,24 @@ class PessimisticPatternMatcherB:
         # Now that we have our shift we apply it to the src delta vector
         # and check the rotation.
         rot_src_delta = np.dot(shift_matrix, src_delta)
-        cos_rot_sq = (np.dot(rot_src_delta, ref_delta) ** 2 /
-                      (np.dot(rot_src_delta, rot_src_delta) *
-                       np.dot(ref_delta, ref_delta)))
+        proj_src_delta = (rot_src_delta -
+                          np.dot(rot_src_delta, ref_center) * ref_center)
+        proj_ref_delta = (ref_delta -
+                          np.dot(ref_delta, ref_center) * ref_center)
+        cos_rot_sq = (np.dot(proj_src_delta, proj_ref_delta) ** 2 /
+                      (np.dot(proj_src_delta, proj_src_delta) *
+                       np.dot(proj_ref_delta, proj_ref_delta)))
         # If the rotation isn't in tolerance return None.
         if cos_rot_sq < max_cos_rot_sq:
             return pipeBase.Struct(
                 cos_rot_sq=None,
+                proj_ref_ctr_delta=None,
                 shift_matrix=None,)
+        # Return the rotation angle, the plane projected reference vector,
+        # and the first half of the full shift and rotation matrix.
         return pipeBase.Struct(
             cos_rot_sq=cos_rot_sq,
+            proj_ref_ctr_delta=proj_ref_delta,
             shift_matrix=shift_matrix,)
 
     def _create_spherical_rotation_matrix(self, rot_axis, cos_rotation,
@@ -801,7 +809,7 @@ class PessimisticPatternMatcherB:
         return shift_matrix
 
     def _create_pattern_spokes(self, src_ctr, src_delta_array, src_dist_array,
-                               ref_ctr, ref_ctr_id, ref_delta, ref_dist,
+                               ref_ctr, ref_ctr_id, proj_ref_ctr_delta,
                                ref_delta_array, ref_dist_array,
                                ref_id_array, max_dist_rad, n_match):
         """ Create the individual spokes that make up the pattern now that the
@@ -822,12 +830,11 @@ class PessimisticPatternMatcherB:
             3 vector of the candidate reference center
         ref_ctr_id : int
             id of the ref_ctr in the master reference array
-        ref_delta : float array
-            3 vector of the first candidate pair of the pinwheel. This is
-            the candidate pair that was matched in the
-            main _construct_pattern_and_shift_rot_matrix loop
-        ref_dist : float
-            Radian distance of the first candidate reference pair
+        proj_ref_ctr_delta : `float` array-like
+            Plane projected 3 vector formed from the center point of the
+            candidate pin-wheel and the second point in the pattern to create
+            the first spoke pair. This is the candidate pair that was matched
+            in the main _construct_pattern_and_shift_rot_matrix loop
         ref_delta_array : float array
             Array of 3 vector deltas that are have the current candidate
             reference center as part of the pair
@@ -862,6 +869,16 @@ class PessimisticPatternMatcherB:
         n_fail = 0
         ref_spoke_list = []
         src_spoke_list = []
+
+        # Plane project the center/first spoke of the source pattern using
+        # the center vector of the pattern as normal.
+        proj_src_ctr_delta = (src_delta_array[0] -
+                              np.dot(src_delta_array[0], src_ctr) * src_ctr)
+        proj_src_ctr_dist_sq = np.dot(proj_src_ctr_delta, proj_src_ctr_delta)
+
+        # Pre-compute the squared length of the projected reference vector.
+        proj_ref_ctr_dist_sq = np.dot(proj_ref_ctr_delta, proj_ref_ctr_delta)
+
         # Loop over the source pairs.
         for src_idx in range(1, len(src_dist_array)):
             if n_fail > len(src_dist_array) - (n_match - 1):
@@ -871,6 +888,7 @@ class PessimisticPatternMatcherB:
             # on the angle between our spoke.
             src_sin_tol = (max_dist_rad /
                            (src_dist_array[src_idx] + max_dist_rad))
+
             # Test if the small angle approximation will still hold. This is
             # defined as when sin(theta) ~= theta to within 0.1% of each
             # other. This also implicitly sets a minimum spoke length that we
@@ -878,6 +896,22 @@ class PessimisticPatternMatcherB:
             if src_sin_tol > 0.0447:
                 n_fail += 1
                 continue
+
+            # Plane project the candidate source spoke and compute the cosine
+            # and sine of the opening angle.
+            proj_src_delta = (
+                src_delta_array[src_idx] -
+                np.dot(src_delta_array[src_idx], src_ctr) * src_ctr)
+            geom_dist_src = np.sqrt(
+                np.dot(proj_src_delta, proj_src_delta) *
+                proj_src_ctr_dist_sq)
+
+            # Compute cosine and sine of the delta vector opening angle.
+            cos_theta_src = (np.dot(proj_src_delta, proj_src_ctr_delta) /
+                             geom_dist_src)
+            cross_src = (np.cross(proj_src_delta, proj_src_ctr_delta) /
+                         geom_dist_src)
+            sin_theta_src = np.dot(cross_src, src_ctr)
 
             # Find the reference pairs that include our candidate pattern
             # center and sort them in increasing delta
@@ -887,11 +921,16 @@ class PessimisticPatternMatcherB:
             # Test the spokes and return the id of the reference object.
             # Return None if no match is found.
             ref_id = self._test_spoke(
-                src_ctr, src_delta_array[src_idx], src_dist_array[src_idx],
-                src_delta_array[0], src_dist_array[0], ref_ctr, ref_ctr_id,
-                ref_delta, ref_dist, ref_dist_idx_array, ref_delta_array,
-                ref_dist_array,
-                ref_id_array, src_sin_tol)
+                cos_theta_src,
+                sin_theta_src,
+                ref_ctr,
+                ref_ctr_id,
+                proj_ref_ctr_delta,
+                proj_ref_ctr_dist_sq,
+                ref_dist_idx_array,
+                ref_delta_array,
+                ref_id_array,
+                src_sin_tol)
             if ref_id is None:
                 n_fail += 1
                 continue
@@ -911,9 +950,9 @@ class PessimisticPatternMatcherB:
 
         return output_spokes
 
-    def _test_spoke(self, src_ctr, src_delta, src_dist, src_ctr_delta,
-                    src_ctr_dist, ref_ctr, ref_ctr_id, ref_delta, ref_dist,
-                    ref_dist_idx_array, ref_delta_array, ref_dist_array,
+    def _test_spoke(self, cos_theta_src, sin_theta_src, ref_ctr, ref_ctr_id,
+                    proj_ref_ctr_delta, proj_ref_ctr_dist_sq,
+                    ref_dist_idx_array, ref_delta_array,
                     ref_id_array, src_sin_tol):
         """Test the opening angle between the first spoke of our pattern
         for the source object against the reference object.
@@ -923,29 +962,21 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        src_ctr : float array
-            3 vector of the source pinwheel center
-        src_delta : float array
-            3 vector delta from the source center and the source object that
-            makes up the current spoke of the pinwheel we are testing.
-        src_dist : float array
-            Distance of the current spoke we are testing
-        src_ctr_delta : float array
-            3 vector delta between the center of the pattern and the first
-            spoke of the pattern. Used to test compute the opening angle
-            between the current spoke and the first spoke.
-        src_ctr_dist : float
-            Distance between the pairs that make up src_ctr_delta
+        cos_theta_src : `float`
+            Cosine of the angle between the current candidate source spoke and
+            the first spoke.
+        sin_theta_src : `float`
+            Sine of the angle between the current candidate source spoke and
+            the first spoke.
         ref_ctr : float array
             3 vector of the candidate reference center
         ref_ctr_id : int
             id lookup of the ref_ctr into the master reference array
-        ref_delta : float array
-            3 vector of the first candidate pair of the pinwheel. That is
-            the candidate pair that was matched in the
-            main _construct_pattern_and_shift_rot_matrix loop
-        ref_dist : float
-            Radian distance of the first candidate reference pair
+        proj_ref_ctr_delta : `float`
+            Plane projected first spoke in the reference pattern using the
+            pattern center as normal.
+        proj_ref_ctr_dist_sq : `float`
+            Squared length of the projected vector.
         ref_dist_idx_array : int array
             Indices sorted by the delta distance between the source
             spoke we are trying to test and the candidate reference
@@ -953,8 +984,6 @@ class PessimisticPatternMatcherB:
         ref_delta_array : float array
             Array of 3 vector deltas that are have the current candidate
             reference center as part of the pair
-        ref_dist_array : float array
-            Array of vector distances for each of the reference pairs
         ref_id_array : int array
             Array of id lookups into the master reference array that our
             center id object is paired with.
@@ -969,14 +998,6 @@ class PessimisticPatternMatcherB:
             return an int id into the master reference array.
         """
 
-        # Precompute all of the source only cross and dot products so we don't
-        # have to do it for each iteration in the reference loop.
-        cos_theta_src = (np.dot(src_delta, src_ctr_delta) /
-                         (src_dist * src_ctr_dist))
-        cross_src = (np.cross(src_delta, src_ctr_delta) /
-                     (src_dist * src_ctr_dist))
-        dot_cross_src = np.dot(cross_src, src_ctr)
-
         # Loop over our candidate reference objects.
         for ref_dist_idx in ref_dist_idx_array:
             # Check the direction of the delta vector.
@@ -986,9 +1007,14 @@ class PessimisticPatternMatcherB:
 
             # Compute the cos between our "center" reference vector and the
             # current reference candidate.
+            proj_ref_delta = (
+                ref_delta_array[ref_dist_idx] -
+                np.dot(ref_delta_array[ref_dist_idx], ref_ctr) * ref_ctr)
+            geom_dist_ref = np.sqrt(proj_ref_ctr_dist_sq *
+                                    np.dot(proj_ref_delta, proj_ref_delta))
             cos_theta_ref = ref_sign * (
-                np.dot(ref_delta_array[ref_dist_idx], ref_delta) /
-                (ref_dist_array[ref_dist_idx] * ref_dist))
+                np.dot(proj_ref_delta, proj_ref_ctr_delta) /
+                geom_dist_ref)
 
             # Make sure we can safely make the comparison in case
             # our "center" and candidate vectors are mostly aligned.
@@ -1008,17 +1034,17 @@ class PessimisticPatternMatcherB:
             # its direction. To do that we need to know the sine as well.
             # This cross product calculation does that.
             cross_ref = ref_sign * (
-                np.cross(ref_delta_array[ref_dist_idx], ref_delta) /
-                (ref_dist_array[ref_dist_idx] * ref_dist))
-            dot_cross_ref = np.dot(cross_ref, ref_ctr)
+                np.cross(proj_ref_delta, proj_ref_ctr_delta) /
+                geom_dist_ref)
+            sin_theta_ref = np.dot(cross_ref, ref_ctr)
 
             # Check the value of the cos again to make sure that it is not
             # near zero.
             if abs(cos_theta_src) < src_sin_tol:
-                sin_comparison = (dot_cross_src - dot_cross_ref) / src_sin_tol
+                sin_comparison = (sin_theta_src - sin_theta_ref) / src_sin_tol
             else:
                 sin_comparison = \
-                    (dot_cross_src - dot_cross_ref) / cos_theta_ref
+                    (sin_theta_src - sin_theta_ref) / cos_theta_ref
 
             if abs(sin_comparison) > src_sin_tol:
                 continue
