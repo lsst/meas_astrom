@@ -68,14 +68,11 @@ static void declareScaledPolynomialTransformFitter(py::module& mod) {
 
 }  // namespace
 
-PYBIND11_PLUGIN(scaledPolynomialTransformFitter) {
-    py::module mod("scaledPolynomialTransformFitter");
-
+PYBIND11_MODULE(scaledPolynomialTransformFitter, mod) {
     declareOutlierRejectionControl(mod);
     declareScaledPolynomialTransformFitter(mod);
-
-    return mod.ptr();
 }
+
 }  // namespace astrom
 }  // namespace meas
 }  // namespace lsst

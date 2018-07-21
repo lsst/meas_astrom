@@ -88,9 +88,7 @@ static void declareMatchOptimisticBControl(py::module &mod) {
 
 }  // namespace
 
-PYBIND11_PLUGIN(matchOptimisticB) {
-    py::module mod("matchOptimisticB");
-
+PYBIND11_MODULE(matchOptimisticB, mod) {
     declareRecordProxy(mod);
     declareProxyPair(mod);
     declareMatchOptimisticBControl(mod);
@@ -106,9 +104,8 @@ PYBIND11_PLUGIN(matchOptimisticB) {
 
     mod.def("matchOptimisticB", &matchOptimisticB, "posRefCat"_a, "sourceCat"_a, "control"_a, "wcs"_a,
             "posRefBegInd"_a = 0, "verbose"_a = false);
-
-    return mod.ptr();
 }
+
 }  // namespace astrom
 }  // namespace meas
 }  // namespace lsst

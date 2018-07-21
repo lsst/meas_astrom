@@ -101,9 +101,7 @@ static void declareSipReverseTransform(py::module &mod) {
 
 }  // namespace
 
-PYBIND11_PLUGIN(sipTransform) {
-    py::module mod("sipTransform");
-
+PYBIND11_MODULE(sipTransform, mod) {
     declareSipTransformBase(mod);
     declareSipForwardTransform(mod);
     declareSipReverseTransform(mod);
@@ -111,9 +109,8 @@ PYBIND11_PLUGIN(sipTransform) {
     mod.def("makeWcs", makeWcs, "sipForward"_a, "sipReverse"_a, "skyOrigin"_a);
     mod.def("transformWcsPixels", transformWcsPixels, "wcs"_a, "s"_a);
     mod.def("rotateWcsPixelsBy90", rotateWcsPixelsBy90, "wcs"_a, "nQuarter"_a, "dimensions"_a);
-
-    return mod.ptr();
 }
+
 }  // namespace astrom
 }  // namespace meas
 }  // namespace lsst

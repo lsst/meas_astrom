@@ -69,14 +69,11 @@ static void declareCreateWcsWithSip(py::module &mod, std::string const &name) {
 
 }  // namespace
 
-PYBIND11_PLUGIN(createWcsWithSip) {
-    py::module mod("createWcsWithSip");
-
+PYBIND11_MODULE(createWcsWithSip, mod) {
     declareCreateWcsWithSip<afw::table::ReferenceMatch>(mod, "CreateWcsWithSipReferenceMatch");
     declareCreateWcsWithSip<afw::table::SourceMatch>(mod, "CreateWcsWithSipSourceMatch");
-
-    return mod.ptr();
 }
+
 }  // namespace sip
 }  // namespace astrom
 }  // namespace meas

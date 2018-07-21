@@ -44,16 +44,14 @@ static void declareMakeMatchStatistics(py::module& mod) {
 
 }  // namespace
 
-PYBIND11_PLUGIN(makeMatchStatistics) {
+PYBIND11_MODULE(makeMatchStatistics, mod) {
     py::module::import("lsst.afw.math");
 
-    py::module mod("makeMatchStatistics");
 
     declareMakeMatchStatistics<afw::table::ReferenceMatch>(mod);
     declareMakeMatchStatistics<afw::table::SourceMatch>(mod);
-
-    return mod.ptr();
 }
+
 }  // namespace astrom
 }  // namespace meas
 }  // namespace lsst

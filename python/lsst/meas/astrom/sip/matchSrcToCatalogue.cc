@@ -38,9 +38,7 @@ namespace meas {
 namespace astrom {
 namespace sip {
 
-PYBIND11_PLUGIN(matchSrcToCatalogue) {
-    py::module mod("matchSrcToCatalogue");
-
+PYBIND11_MODULE(matchSrcToCatalogue, mod) {
     py::class_<MatchSrcToCatalogue> cls(mod, "MatchSrcToCatalogue");
 
     cls.def(py::init<afw::table::SimpleCatalog const &, afw::table::SourceCatalog const &,
@@ -53,9 +51,8 @@ PYBIND11_PLUGIN(matchSrcToCatalogue) {
     cls.def("setImgSrcSet", &MatchSrcToCatalogue::setImgSrcSet, "srcSet"_a);
     cls.def("findMatches", &MatchSrcToCatalogue::findMatches);
     cls.def("getMatches", &MatchSrcToCatalogue::getMatches);
-
-    return mod.ptr();
 }
+
 }  // namespace sip
 }  // namespace astrom
 }  // namespace meas
