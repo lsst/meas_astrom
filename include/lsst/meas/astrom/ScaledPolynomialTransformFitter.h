@@ -123,7 +123,7 @@ public:
      *   - ref_id:             reference object ID
      *   - src_id:             source ID from the match
      *   - src_{x,y}:          source position in pixels
-     *   - src_{xSigma,ySigma,x_y_Cov}:  uncertainty on source positions,
+     *   - src_{xErr,yErr,x_y_Cov}:  uncertainty on source positions,
      *                         including measurement errors and the inferred
      *                         intrinsic scatter.
      *   - intermediate_{x,y}: reference positions in intermediate world
