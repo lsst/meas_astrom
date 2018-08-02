@@ -42,7 +42,8 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         self.wcs = afwGeom.makeSkyWcs(crpix=lsst.geom.Point2D(1500, 1500),
                                       crval=lsst.geom.SpherePoint(215.5, 53.0, lsst.geom.degrees),
                                       cdMatrix=afwGeom.makeCdMatrix(scale=5.1e-5*lsst.geom.degrees))
-        self.bboxD = lsst.geom.Box2D(lsst.geom.Point2D(10, 100), lsst.geom.Extent2D(1000, 1500))
+        self.bboxD = lsst.geom.Box2D(lsst.geom.Point2D(10, 100), lsst.geom.Extent2D(1000, 1500),
+                                     invert=False)
         self.numMatches = 25
 
         sourceSchema = afwTable.SourceTable.makeMinimalSchema()

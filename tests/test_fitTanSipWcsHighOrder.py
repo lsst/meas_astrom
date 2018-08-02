@@ -40,7 +40,7 @@ class ApproximateWcsTestCase(lsst.utils.tests.TestCase):
     def setUp(self):
         self.crPix = lsst.geom.Point2D(15000, 4000)
         dimd = lsst.geom.Extent2D(4000, 4000)
-        bboxd = lsst.geom.Box2D(self.crPix - dimd/2, dimd)
+        bboxd = lsst.geom.Box2D(self.crPix - dimd/2, dimd, invert=False)
         self.bbox = lsst.geom.Box2I(bboxd)
         self.tanWcs = afwGeom.makeSkyWcs(crpix=self.crPix,
                                          crval=lsst.geom.SpherePoint(215.5, 53.0, lsst.geom.degrees),

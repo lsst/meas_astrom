@@ -357,7 +357,8 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
 
         # Check a WCS constructed from SipForwardTransform, SipReverseTransform
         # against one constructed directly from the metadata
-        bbox = lsst.afw.geom.Box2D(lsst.afw.geom.Point2D(0, 0), lsst.afw.geom.Extent2D(2000, 2000))
+        bbox = lsst.afw.geom.Box2D(lsst.afw.geom.Point2D(0, 0), lsst.afw.geom.Extent2D(2000, 2000),
+                                   invert=False)
         self.assertWcsAlmostEqualOverBBox(wcsFromMakeWcs, wcsFromMetadata, bbox)
 
     def testTransformWcsPixels(self):
@@ -502,6 +503,7 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
         bbox = lsst.afw.geom.Box2D(
             crval.getPosition(lsst.afw.geom.arcseconds) - lsst.afw.geom.Extent2D(20, 20),
             crval.getPosition(lsst.afw.geom.arcseconds) + lsst.afw.geom.Extent2D(20, 20),
+            invert=False,
         )
         srcSchema = lsst.afw.table.SourceTable.makeMinimalSchema()
         srcPosKey = lsst.afw.table.Point2DKey.addFields(srcSchema, "pos", "source position", "pix")
@@ -600,7 +602,8 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
         outOrder = 8
         inOrder = 2
         toInvert = makeRandomScaledPolynomialTransform(inOrder)
-        bbox = lsst.afw.geom.Box2D(lsst.afw.geom.Point2D(432, -671), lsst.afw.geom.Point2D(527, -463))
+        bbox = lsst.afw.geom.Box2D(lsst.afw.geom.Point2D(432, -671), lsst.afw.geom.Point2D(527, -463),
+                                   invert=False)
         fitter = ScaledPolynomialTransformFitter.fromGrid(outOrder, bbox, 50, 50, toInvert)
         fitter.fit(outOrder)
         fitter.updateModel()

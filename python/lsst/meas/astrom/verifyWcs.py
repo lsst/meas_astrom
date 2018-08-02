@@ -55,7 +55,7 @@ def checkMatches(srcMatchSet, exposure, log=None):
         h += 1
 
     cellSet = afwMath.SpatialCellSet(
-        lsst.geom.Box2I(lsst.geom.Point2I(0, 0), lsst.geom.Extent2I(width, height)), w, h)
+        lsst.geom.Box2I(lsst.geom.Point2I(0, 0), lsst.geom.Extent2I(width, height), invert=False), w, h)
     #
     # Populate cellSet
     #

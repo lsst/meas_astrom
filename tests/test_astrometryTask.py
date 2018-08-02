@@ -42,7 +42,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
     def setUp(self):
         refCatDir = os.path.join(os.path.dirname(__file__), "data", "sdssrefcat")
 
-        self.bbox = lsst.geom.Box2I(lsst.geom.Point2I(0, 0), lsst.geom.Extent2I(3001, 3001))
+        self.bbox = lsst.geom.Box2I(lsst.geom.Point2I(0, 0), lsst.geom.Extent2I(3001, 3001), invert=False)
         crpix = lsst.geom.Box2D(self.bbox).getCenter()
         self.tanWcs = afwGeom.makeSkyWcs(crpix=crpix,
                                          crval=lsst.geom.SpherePoint(215.5, 53.0, lsst.geom.degrees),
