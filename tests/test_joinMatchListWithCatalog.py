@@ -95,7 +95,7 @@ class JoinMatchListWithCatalogTestCase(unittest.TestCase):
             self.assertEqual(matches2[i].first.get("i_flux"), matches[i].first.get("i_flux"))
 
     def testJoinAllFluxes(self):
-        """Test that we can read all the fluxes back from an a.n.d catalogue"""
+        """Test that we can read all the fluxes from a reference catalog"""
         res = self.getAstrometrySolution()
 
         matches = res.matches
@@ -108,10 +108,10 @@ class JoinMatchListWithCatalogTestCase(unittest.TestCase):
         self.assertGreater(len(matches2), 0)
         ref = matches2[0][0]
 
-        names = ref.getSchema().getNames()
+        refSchema = ref.getSchema()
         for b in ("u", "g", "r", "i", "z"):
-            self.assertIn("%s_flux" % (b,), names)
-            self.assertIn("%s_fluxSigma" % (b,), names)
+            self.assertIn("%s_flux" % (b,), refSchema)
+            self.assertIn("%s_fluxErr" % (b,), refSchema)
 
 
 class MemoryTester(lsst.utils.tests.MemoryTestCase):

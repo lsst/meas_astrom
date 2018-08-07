@@ -224,7 +224,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
             If provided then coords are updated with the new WCS;
             otherwise only the coords for sources in matches are updated.
             Required input fields are "slot_Centroid_x", "slot_Centroid_y",
-            "slot_Centroid_xSigma", "slot_Centroid_ySigma", and optionally
+            "slot_Centroid_xErr", "slot_Centroid_yErr", and optionally
             "slot_Centroid_x_y_Cov".  The "coord_ra" and "coord_dec" fields
             will be updated but are not used as input.
         exposure : :cpp:class:`lsst::afw::image::Exposure`

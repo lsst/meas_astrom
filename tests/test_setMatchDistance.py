@@ -73,7 +73,7 @@ class BaseTestCase(unittest.TestCase):
 
         if self.MatchClass == afwTable.ReferenceMatch:
             refSchema = LoadReferenceObjectsTask.makeMinimalSchema(
-                filterNameList=["r"], addFluxSigma=True, addIsPhotometric=True)
+                filterNameList=["r"], addFluxErr=True, addIsPhotometric=True)
             self.refCat = afwTable.SimpleCatalog(refSchema)
         elif self.MatchClass == afwTable.SourceMatch:
             refSchema = afwTable.SourceTable.makeMinimalSchema()

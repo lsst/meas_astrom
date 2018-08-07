@@ -75,7 +75,7 @@ class BaseTestCase:
         """
         if self.MatchClass == afwTable.ReferenceMatch:
             refSchema = LoadReferenceObjectsTask.makeMinimalSchema(
-                filterNameList=["r"], addFluxSigma=True, addIsPhotometric=True)
+                filterNameList=["r"], addFluxErr=True, addIsPhotometric=True)
             self.refCat = afwTable.SimpleCatalog(refSchema)
         elif self.MatchClass == afwTable.SourceMatch:
             refSchema = afwTable.SourceTable.makeMinimalSchema()
@@ -86,8 +86,8 @@ class BaseTestCase:
         SingleFrameMeasurementTask(schema=srcSchema)
         self.srcCoordKey = afwTable.CoordKey(srcSchema["coord"])
         self.srcCentroidKey = afwTable.Point2DKey(srcSchema["slot_Centroid"])
-        self.srcCentroidKey_xSigma = srcSchema["slot_Centroid_xSigma"].asKey()
-        self.srcCentroidKey_ySigma = srcSchema["slot_Centroid_ySigma"].asKey()
+        self.srcCentroidKey_xErr = srcSchema["slot_Centroid_xErr"].asKey()
+        self.srcCentroidKey_yErr = srcSchema["slot_Centroid_yErr"].asKey()
         self.sourceCat = afwTable.SourceCatalog(srcSchema)
 
         self.matches = []
@@ -98,8 +98,8 @@ class BaseTestCase:
                 refObj = self.refCat.addNew()
 
                 src.set(self.srcCentroidKey, lsst.geom.Point2D(i, j))
-                src.set(self.srcCentroidKey_xSigma, 0.1)
-                src.set(self.srcCentroidKey_ySigma, 0.1)
+                src.set(self.srcCentroidKey_xErr, 0.1)
+                src.set(self.srcCentroidKey_yErr, 0.1)
 
                 c = self.tanWcs.pixelToSky(i, j)
                 refObj.setCoord(c)

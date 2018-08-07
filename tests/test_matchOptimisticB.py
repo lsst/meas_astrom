@@ -141,7 +141,7 @@ class TestMatchOptimisticB(unittest.TestCase):
         """
         minimalPosRefSchema = LoadReferenceObjectsTask.makeMinimalSchema(
             filterNameList=["r"],
-            addFluxSigma=True,
+            addFluxErr=True,
         )
         refCat = afwTable.SimpleCatalog(minimalPosRefSchema)
         for source in sourceCat:
@@ -151,7 +151,7 @@ class TestMatchOptimisticB(unittest.TestCase):
             refObj.set("centroid_y", source.getY())
             refObj.set("hasCentroid", True)
             refObj.set("r_flux", source.get("slot_ApFlux_flux"))
-            refObj.set("r_fluxSigma", source.get("slot_ApFlux_fluxSigma"))
+            refObj.set("r_fluxErr", source.get("slot_ApFlux_fluxErr"))
             refObj.setId(source.getId())
         return refCat
 
@@ -162,7 +162,7 @@ class TestMatchOptimisticB(unittest.TestCase):
         aliasMap = sourceCat.schema.getAliasMap()
         aliasMap.set("slot_ApFlux", "base_PsfFlux")
         fluxKey = sourceCat.schema["slot_ApFlux_flux"].asKey()
-        fluxSigmaKey = sourceCat.schema["slot_ApFlux_fluxSigma"].asKey()
+        fluxErrKey = sourceCat.schema["slot_ApFlux_fluxErr"].asKey()
 
         # print("schema=", sourceCat.schema)
 
@@ -172,7 +172,7 @@ class TestMatchOptimisticB(unittest.TestCase):
             adjCentroid = src.get(centroidKey) - lsst.geom.Extent2D(500, 500)
             src.set(centroidKey, adjCentroid)
             src.set(fluxKey, 1000)
-            src.set(fluxSigmaKey, 1)
+            src.set(fluxErrKey, 1)
 
         # Set catalog coord
         for src in sourceCat:
