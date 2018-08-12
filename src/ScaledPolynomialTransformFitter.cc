@@ -122,7 +122,7 @@ geom::AffineTransform computeScaling(afw::table::BaseCatalog const &data, afw::t
     };
     return geom::AffineTransform(
                    geom::LinearTransform::makeScaling(0.5 * bbox.getWidth(), 0.5 * bbox.getHeight()))
-                   .invert() *
+                   .inverted() *
            geom::AffineTransform(-geom::Extent2D(bbox.getCenter()));
 }
 
@@ -180,7 +180,7 @@ ScaledPolynomialTransformFitter::ScaledPolynomialTransformFitter(afw::table::Bas
           _intrinsicScatter(intrinsicScatter),
           _data(data),
           _outputScaling(outputScaling),
-          _transform(PolynomialTransform(maxOrder), inputScaling, outputScaling.invert()),
+          _transform(PolynomialTransform(maxOrder), inputScaling, outputScaling.inverted()),
           _vandermonde(data.size(), detail::computePackedSize(maxOrder)) {
     // Create a matrix that evaluates the max-order polynomials of all the (scaled) input positions;
     // we'll extract subsets of this later when fitting to a subset of the matches and a lower order.

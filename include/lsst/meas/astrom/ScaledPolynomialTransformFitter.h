@@ -254,7 +254,7 @@ public:
      *  If f is an instance of this class, then for an
      *  arbitrary point p:
      *  @code
-     *  f.getTransform()(p) == f.getOutputScaling().invert()(f.getPoly()(f.getInputScaling()(p)))
+     *  f.getTransform()(p) == f.getOutputScaling().inverted()(f.getPoly()(f.getInputScaling()(p)))
      *  @endcode
      */
     ScaledPolynomialTransform const& getTransform() const { return _transform; }

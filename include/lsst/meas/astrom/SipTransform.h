@@ -284,7 +284,7 @@ public:
      */
     SipReverseTransform(geom::Point2D const& pixelOrigin, geom::LinearTransform const& cdMatrix,
                         PolynomialTransform const& reverseSipPoly)
-            : SipTransformBase(pixelOrigin, cdMatrix, reverseSipPoly), _cdInverse(cdMatrix.invert()) {}
+            : SipTransformBase(pixelOrigin, cdMatrix, reverseSipPoly), _cdInverse(cdMatrix.inverted()) {}
 
     SipReverseTransform(SipReverseTransform const& other) = default;
 
@@ -351,7 +351,7 @@ std::shared_ptr<afw::geom::SkyWcs> makeWcs(SipForwardTransform const& sipForward
  *  @code
  *  newWcs = transformWcsPixels(wcs, s);
  *  assert(newWcs.skyToPixel(sky), s(wcs.skyToPixel(sky)));
- *  assert(newWcs.pixelToSky(pixel), wcs.pixelToSky(s.invert()(pixel)));
+ *  assert(newWcs.pixelToSky(pixel), wcs.pixelToSky(s.inverted()(pixel)));
  *  @endcode
  *  for all sky coordinates @c sky and pixel coordinates @c pixel.
  */

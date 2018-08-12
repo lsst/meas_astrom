@@ -294,7 +294,7 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         affine = makeRandomAffineTransform()
         self.assertTransformsAlmostEqual(
             sip.transformPixels(affine),
-            lambda p: sip(affine.invert()(p))
+            lambda p: sip(affine.inverted()(p))
         )
 
     def testMakeWcs(self):
@@ -381,7 +381,7 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         self.assertTransformsAlmostEqual(t1a, t2a)
 
         def t1b(p):
-            sky = wcs1.pixelToSky(s.invert()(p))
+            sky = wcs1.pixelToSky(s.inverted()(p))
             return sky.getPosition(lsst.afw.geom.degrees)
 
         def t2b(p):
@@ -452,7 +452,7 @@ class SipReverseTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         crpix = lsst.afw.geom.Point2D(*np.random.randn(2))
         sip = SipReverseTransform(crpix, cd, poly)
         offset = lsst.afw.geom.Extent2D(crpix)
-        cdInverse = cd.invert()
+        cdInverse = cd.inverted()
         self.assertTransformsAlmostEqual(
             sip,
             lambda p: offset + lsst.afw.geom.Extent2D(cdInverse(p)) + poly(cdInverse(p))
@@ -546,7 +546,7 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
         fitter = ScaledPolynomialTransformFitter.fromMatches(order, matches, initialWcs, 0.0)
         expected = lsst.meas.astrom.compose(
             fitter.getOutputScaling(),
-            lsst.meas.astrom.compose(truePoly, fitter.getInputScaling().invert())
+            lsst.meas.astrom.compose(truePoly, fitter.getInputScaling().inverted())
         )
         data = fitter.getData()
         dataOutKey = lsst.afw.table.Point2DKey(data.schema["src"])

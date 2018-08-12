@@ -43,7 +43,7 @@ void SipTransformBase::transformPixelsInPlace(geom::AffineTransform const& s) {
     // the pixel origin and CD matrix, which are the same in both cases, but
     // it wasn't obvious to me until I did the math that the polynomial
     // transforms are composed with the affine transform the same way.
-    auto sInv = s.invert();
+    auto sInv = s.inverted();
     _pixelOrigin = s.getLinear()(_pixelOrigin - sInv.getTranslation());
     _cdMatrix = _cdMatrix * sInv.getLinear();
     _poly = compose(s.getLinear(), compose(getPoly(), sInv.getLinear()));
@@ -52,7 +52,7 @@ void SipTransformBase::transformPixelsInPlace(geom::AffineTransform const& s) {
 SipForwardTransform SipForwardTransform::convert(PolynomialTransform const& poly,
                                                  geom::Point2D const& pixelOrigin,
                                                  geom::LinearTransform const& cdMatrix) {
-    auto forwardSipPoly = compose(geom::AffineTransform(cdMatrix.invert()),
+    auto forwardSipPoly = compose(geom::AffineTransform(cdMatrix.inverted()),
                                   compose(poly, geom::AffineTransform(geom::Extent2D(pixelOrigin))));
     // Subtracting 1 here accounts for the extra terms outside the sum in the
     // transform definition (see class docs) - note that you can fold those
@@ -66,7 +66,7 @@ SipForwardTransform SipForwardTransform::convert(ScaledPolynomialTransform const
                                                  geom::Point2D const& pixelOrigin,
                                                  geom::LinearTransform const& cdMatrix) {
     auto forwardSipPoly =
-            compose(geom::AffineTransform(cdMatrix.invert()) * scaled.getOutputScalingInverse(),
+            compose(geom::AffineTransform(cdMatrix.inverted()) * scaled.getOutputScalingInverse(),
                     compose(scaled.getPoly(),
                             scaled.getInputScaling() * geom::AffineTransform(geom::Extent2D(pixelOrigin))));
     // Account for the terms outside the sum in the definition (see comment
@@ -78,7 +78,7 @@ SipForwardTransform SipForwardTransform::convert(ScaledPolynomialTransform const
 
 SipForwardTransform SipForwardTransform::convert(ScaledPolynomialTransform const& scaled) {
     geom::Point2D pixelOrigin(-scaled.getOutputScalingInverse().getTranslation());
-    geom::LinearTransform cdMatrix(scaled.getInputScaling().getLinear().invert());
+    geom::LinearTransform cdMatrix(scaled.getInputScaling().getLinear().inverted());
     return convert(scaled, pixelOrigin, cdMatrix);
 }
 
@@ -131,7 +131,7 @@ SipReverseTransform SipReverseTransform::convert(ScaledPolynomialTransform const
 SipReverseTransform SipReverseTransform::transformPixels(geom::AffineTransform const& s) const {
     SipReverseTransform result(*this);
     result.transformPixelsInPlace(s);
-    result._cdInverse = result._cdMatrix.invert();
+    result._cdInverse = result._cdMatrix.inverted();
     return result;
 }
 
@@ -173,7 +173,7 @@ std::shared_ptr<afw::geom::SkyWcs> makeWcs(SipForwardTransform const& sipForward
 std::shared_ptr<afw::geom::SkyWcs> transformWcsPixels(afw::geom::SkyWcs const& wcs,
                                                       geom::AffineTransform const& s) {
     auto affineTransform22 = afw::geom::makeTransform(s);
-    return afw::geom::makeModifiedWcs(*affineTransform22->getInverse(), wcs, true);
+    return afw::geom::makeModifiedWcs(*affineTransform22->inverted(), wcs, true);
 }
 
 std::shared_ptr<afw::geom::SkyWcs> rotateWcsPixelsBy90(afw::geom::SkyWcs const& wcs, int nQuarter,
