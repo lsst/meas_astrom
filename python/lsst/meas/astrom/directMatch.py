@@ -108,6 +108,12 @@ class DirectMatchTask(Task):
             return emptyResult
         refData = self.refObjLoader.loadSkyCircle(circle.center, circle.radius, filterName)
         refCat = refData.refCat
+        refFluxField = refData.fluxField
+        self.referenceSelection.config.signalToNoise.fluxField = refFluxField
+        self.referenceSelection.config.signalToNoise.errField = refFluxField + 'Err'
+        self.referenceSelection.config.magLimit.fluxField = refFluxField
+        # magErrLimit cannot be configured automagically because we do not know
+        # the magnitude error field (if there is one)
         refSelection = self.referenceSelection.run(refCat)
         if len(refSelection.sourceCat) == 0:
             self.log.warn("No objects selected from %d objects in reference catalog", len(refCat))
