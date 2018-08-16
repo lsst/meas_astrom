@@ -1,6 +1,8 @@
 
 __all__ = ["DirectMatchConfig", "DirectMatchTask", "DirectMatchConfigWithoutLoader"]
 
+import copy
+
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import Task, Struct
 from lsst.meas.algorithms import (LoadIndexedReferenceObjectsTask, ScienceSourceSelectorTask,
@@ -89,7 +91,7 @@ class DirectMatchTask(Task):
         else:
             self.refObjLoader = refObjLoader
         self.makeSubtask("sourceSelection")
-        self.makeSubtask("referenceSelection")
+        # self.makeSubtask("referenceSelection")
 
     def run(self, catalog, filterName=None):
         """!Load reference objects and match to them
@@ -109,12 +111,14 @@ class DirectMatchTask(Task):
         refData = self.refObjLoader.loadSkyCircle(circle.center, circle.radius, filterName)
         refCat = refData.refCat
         refFluxField = refData.fluxField
-        self.referenceSelection.config.signalToNoise.fluxField = refFluxField
-        self.referenceSelection.config.signalToNoise.errField = refFluxField + 'Err'
-        self.referenceSelection.config.magLimit.fluxField = refFluxField
+        referenceSelectionConfig = copy.copy(self.config.referenceSelection.value)
+        referenceSelectionConfig.signalToNoise.fluxField = refFluxField
+        referenceSelectionConfig.signalToNoise.errField = refFluxField + 'Err'
+        referenceSelectionConfig.magLimit.fluxField = refFluxField
         # magErrLimit cannot be configured automagically because we do not know
         # the magnitude error field (if there is one)
-        refSelection = self.referenceSelection.run(refCat)
+        refTask = self.config.referenceSelection.target(config=referenceSelectionConfig)
+        refSelection = refTask.run(refCat)
         if len(refSelection.sourceCat) == 0:
             self.log.warn("No objects selected from %d objects in reference catalog", len(refCat))
             return emptyResult
