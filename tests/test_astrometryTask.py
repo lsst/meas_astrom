@@ -106,7 +106,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         # check that the used flag is set the right number of times
         count = 0
         for source in sourceCat:
-            if source.get('calib_astrometryUsed'):
+            if source.get('calib_astrometry_used'):
                 count += 1
         self.assertEqual(count, len(results.matches))
 
