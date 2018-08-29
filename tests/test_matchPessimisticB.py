@@ -162,8 +162,8 @@ class TestMatchPessimisticB(unittest.TestCase):
             refObj.set("centroid_x", source.getX())
             refObj.set("centroid_y", source.getY())
             refObj.set("hasCentroid", True)
-            refObj.set("r_flux", source.get("slot_ApFlux_flux"))
-            refObj.set("r_fluxErr", source.get("slot_ApFlux_fluxErr"))
+            refObj.set("r_flux", source.get("slot_ApFlux_instFlux"))
+            refObj.set("r_fluxErr", source.get("slot_ApFlux_instFluxErr"))
             refObj.setId(source.getId())
         return refCat
 
@@ -175,16 +175,16 @@ class TestMatchPessimisticB(unittest.TestCase):
         sourceCat = afwTable.SourceCatalog.readFits(filename)
         aliasMap = sourceCat.schema.getAliasMap()
         aliasMap.set("slot_ApFlux", "base_PsfFlux")
-        fluxKey = sourceCat.schema["slot_ApFlux_flux"].asKey()
-        fluxErrKey = sourceCat.schema["slot_ApFlux_fluxErr"].asKey()
+        instFluxKey = sourceCat.schema["slot_ApFlux_instFlux"].asKey()
+        instFluxErrKey = sourceCat.schema["slot_ApFlux_instFluxErr"].asKey()
 
         # Source x,y positions are ~ (500,1500) x (500,1500)
         centroidKey = sourceCat.table.getCentroidKey()
         for src in sourceCat:
             adjCentroid = src.get(centroidKey) - lsst.geom.Extent2D(500, 500)
             src.set(centroidKey, adjCentroid)
-            src.set(fluxKey, 1000)
-            src.set(fluxErrKey, 1)
+            src.set(instFluxKey, 1000)
+            src.set(instFluxErrKey, 1)
 
         # Set catalog coord
         for src in sourceCat:

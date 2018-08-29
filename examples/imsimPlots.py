@@ -99,7 +99,7 @@ def plotsForField(inButler, keys, fixup, plots=None, prefix=''):
     starflag = int(fdict["STAR"])
     stargal = [bool((r.getFlagForDetection() & starflag) > 0)
                for r in ref]
-    referrs = [float(r.getPsfFluxErr() / r.getPsfFlux() * 2.5 / -np.log(10))
+    referrs = [float(r.getPsfInstFluxErr() / r.getPsfInstFlux() * 2.5 / -np.log(10))
                for r in ref]
     nstars = sum([1 for s in stargal if s])
     print('Number of sources with STAR set:', nstars)
