@@ -210,12 +210,14 @@ class AstrometryTask(RefMatchTask):
             wcs=expMd.wcs,
             filterName=expMd.filterName,
             calib=expMd.calib,
+            epoch=expMd.epoch,
         )
         matchMeta = self.refObjLoader.getMetadataBox(
             bbox=expMd.bbox,
             wcs=expMd.wcs,
             filterName=expMd.filterName,
             calib=expMd.calib,
+            epoch=expMd.epoch,
         )
 
         if debug.display:

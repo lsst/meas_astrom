@@ -91,22 +91,24 @@ class DirectMatchTask(Task):
         self.makeSubtask("sourceSelection")
         self.makeSubtask("referenceSelection")
 
-    def run(self, catalog, filterName=None):
+    def run(self, catalog, filterName=None, epoch=None):
         """!Load reference objects and match to them
 
         @param[in] catalog  Catalog to match to (lsst.afw.table.SourceCatalog)
         @param[in] filterName  Name of filter, for loading fluxes (str)
+        @param[in] epoch  Epoch for proper motion and parallax correction
+                          (an astropy.time.Time), or None
         @return Struct with matches (lsst.afw.table.SourceMatchVector) and
             matchMeta (lsst.meas.astrom.MatchMetadata)
         """
         circle = self.calculateCircle(catalog)
-        matchMeta = self.refObjLoader.getMetadataCircle(circle.center, circle.radius, filterName)
+        matchMeta = self.refObjLoader.getMetadataCircle(circle.center, circle.radius, filterName, epoch=epoch)
         emptyResult = Struct(matches=[], matchMeta=matchMeta)
         sourceSelection = self.sourceSelection.run(catalog)
         if len(sourceSelection.sourceCat) == 0:
             self.log.warn("No objects selected from %d objects in source catalog", len(catalog))
             return emptyResult
-        refData = self.refObjLoader.loadSkyCircle(circle.center, circle.radius, filterName)
+        refData = self.refObjLoader.loadSkyCircle(circle.center, circle.radius, filterName, epoch=epoch)
         refCat = refData.refCat
         refSelection = self.referenceSelection.run(refCat)
         if len(refSelection.sourceCat) == 0:
