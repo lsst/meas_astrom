@@ -110,8 +110,8 @@ class JoinMatchListWithCatalogTestCase(unittest.TestCase):
 
         refSchema = ref.getSchema()
         for b in ("u", "g", "r", "i", "z"):
-            self.assertIn("%s_flux" % (b,), refSchema)
-            self.assertIn("%s_fluxErr" % (b,), refSchema)
+            self.assertIn("%s_instFlux" % (b,), refSchema)
+            self.assertIn("%s_instFluxErr" % (b,), refSchema)
 
 
 class MemoryTester(lsst.utils.tests.MemoryTestCase):

@@ -90,14 +90,14 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         sourceCat = afwTable.SourceCatalog(sourceSchema)
         sourceCat.reserve(len(refCat))
         sourceCentroidKey = afwTable.Point2DKey(sourceSchema["slot_Centroid"])
-        sourceFluxKey = sourceSchema["slot_ApFlux_flux"].asKey()
-        sourceFluxErrKey = sourceSchema["slot_ApFlux_fluxErr"].asKey()
+        sourceInstFluxKey = sourceSchema["slot_ApFlux_instFlux"].asKey()
+        sourceInstFluxErrKey = sourceSchema["slot_ApFlux_instFluxErr"].asKey()
 
         for refObj in refCat:
             src = sourceCat.addNew()
             src.set(sourceCentroidKey, refObj.get(refCentroidKey))
-            src.set(sourceFluxKey, refObj.get(refFluxRKey))
-            src.set(sourceFluxErrKey, refObj.get(refFluxRKey)/100)
+            src.set(sourceInstFluxKey, refObj.get(refFluxRKey))
+            src.set(sourceInstFluxErrKey, refObj.get(refFluxRKey)/100)
 
         results = solver.run(
             sourceCat=sourceCat,
@@ -180,15 +180,15 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         measBase.SingleFrameMeasurementTask(schema=sourceSchema)  # expand the schema
         sourceCat = afwTable.SourceCatalog(sourceSchema)
         sourceCentroidKey = afwTable.Point2DKey(sourceSchema["slot_Centroid"])
-        sourceFluxKey = sourceSchema["slot_ApFlux_flux"].asKey()
-        sourceFluxErrKey = sourceSchema["slot_ApFlux_fluxErr"].asKey()
+        sourceInstFluxKey = sourceSchema["slot_ApFlux_instFlux"].asKey()
+        sourceInstFluxErrKey = sourceSchema["slot_ApFlux_instFluxErr"].asKey()
 
         sourceCat.reserve(len(refCat))
         for refObj in refCat:
             src = sourceCat.addNew()
             src.set(sourceCentroidKey, refObj.get(refCentroidKey))
-            src.set(sourceFluxKey, refObj.get(refFluxRKey))
-            src.set(sourceFluxErrKey, refObj.get(refFluxRKey)/100)
+            src.set(sourceInstFluxKey, refObj.get(refFluxRKey))
+            src.set(sourceInstFluxErrKey, refObj.get(refFluxRKey)/100)
         return sourceCat
 
 

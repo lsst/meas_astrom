@@ -174,7 +174,7 @@ def detectSources(exposure, threshold, psf=None):
         if display:
             xc, yc = source.getXAstrom() - mi.getX0(), source.getYAstrom() - mi.getY0()
             if False:
-                ds9.dot("%.1f %d" % (source.getPsfFlux(), source.getId()), xc, yc+1)
+                ds9.dot("%.1f %d" % (source.getPsfInstFlux(), source.getId()), xc, yc+1)
 
             ds9.dot("+", xc, yc, size=1)
 
@@ -315,7 +315,7 @@ def showStandards(standardStarSet, exp, frame, countsMin=None, flagMask=None, rm
         if x < 0 or x >= width or y < 0 or y >= height:
             continue
 
-        counts = s.getPsfFlux()
+        counts = s.getPsfInstFlux()
 
         if counts < countsMin and countsMin is not None:
             continue
@@ -350,7 +350,7 @@ def writeSourceSet(sourceSet, outfile="-"):
 
     for s in sourceSet:
         print(s.getId(), s.getXAstrom(), s.getYAstrom(), s.getRa(), s.getDec(),
-              s.getPsfFlux(), s.getFlagForDetection(), file=fd)
+              s.getPsfInstFlux(), s.getFlagForDetection(), file=fd)
 
 
 def readSourceSet(fileName):

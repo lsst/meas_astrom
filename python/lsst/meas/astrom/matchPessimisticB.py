@@ -375,7 +375,7 @@ class MatchPessimisticBTask(pipeBase.Task):
             coord = wcs.pixelToSky(srcObj.getCentroid())
             theta = np.pi / 2 - coord.getLatitude().asRadians()
             phi = coord.getLongitude().asRadians()
-            flux = srcObj.getPsfFlux()
+            flux = srcObj.getPsfInstFlux()
             src_array[src_idx, :] = \
                 self._latlong_flux_to_xyz_mag(theta, phi, flux)
 
