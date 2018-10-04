@@ -21,7 +21,7 @@
 
 __all__ = ["denormalizeMatches"]
 
-import lsst.afw.table
+import lsst.afw.table as afwTable
 
 
 def denormalizeMatches(matches, matchMeta=None):
@@ -37,8 +37,8 @@ def denormalizeMatches(matches, matchMeta=None):
     This function generates a Catalog containing all the information in the
     matches. The reference catalog entries are in columns with "ref_"
     prepended, while the source catalog entries are in columns with "src_"
-    prepended. The distance between the matches is in a column named
-    "distance".
+    prepended (including any alias mappings). The distance between the
+    matches is in a column named "distance".
 
     Parameters
     ----------
@@ -62,11 +62,15 @@ def denormalizeMatches(matches, matchMeta=None):
     refSchema = matches[0].first.getSchema()
     srcSchema = matches[0].second.getSchema()
 
-    refMapper, srcMapper = lsst.afw.table.SchemaMapper.join([refSchema, srcSchema], ["ref_", "src_"])
+    refMapper, srcMapper = afwTable.SchemaMapper.join([refSchema, srcSchema], ["ref_", "src_"])
     schema = refMapper.editOutputSchema()
+
+    schema = afwTable.catalogMatches.copyAliasMapWithPrefix(srcSchema, schema, prefix="src_")
+    schema = afwTable.catalogMatches.copyAliasMapWithPrefix(refSchema, schema, prefix="ref_")
+
     distKey = schema.addField("distance", type=float, doc="Distance between ref and src")
 
-    catalog = lsst.afw.table.BaseCatalog(schema)
+    catalog = afwTable.BaseCatalog(schema)
     catalog.reserve(len(matches))
     for mm in matches:
         row = catalog.addNew()
