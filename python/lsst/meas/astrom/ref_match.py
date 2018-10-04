@@ -72,7 +72,7 @@ class RefMatchTask(pipeBase.Task):
     schema :
         ignored; available for compatibility with an older astrometry task
     kwargs :
-        additional keyword arguments for pipe_base Task.\_\_init\_\_
+        additional keyword arguments for pipe_base `lsst.pipe.base.Task`
     """
     ConfigClass = RefMatchConfig
     _DefaultName = "calibrationBaseClass"

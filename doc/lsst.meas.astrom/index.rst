@@ -1,8 +1,8 @@
 .. _lsst.pipe.tasks:
 
-###############
+################
 lsst.meas.astrom
-###############
+################
 
 .. Paragraph that describes what this Python module does and links to related modules and frameworks.
 

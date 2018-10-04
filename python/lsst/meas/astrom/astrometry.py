@@ -74,7 +74,7 @@ class AstrometryTask(RefMatchTask):
     #     ignored; available for compatibility with an older astrometry task
     # kwargs :
     #     additional keyword arguments for pipe_base Task.\_\_init\_\_
-    """!Match an input source catalog with objects from a reference catalog and solve for the WCS
+    r"""!Match an input source catalog with objects from a reference catalog and solve for the WCS
 
     @anchor AstrometryTask_
 

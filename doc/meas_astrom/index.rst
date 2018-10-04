@@ -2,9 +2,9 @@
 
 .. Title is the EUPS package name
 
-##########
+###########
 meas_astrom
-##########
+###########
 
 .. Sentence/short paragraph describing what the package is for.
 
