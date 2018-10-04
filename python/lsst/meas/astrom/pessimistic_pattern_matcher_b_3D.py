@@ -59,16 +59,10 @@ def _rotation_matrix_chi_sq(flattened_rot_matrix,
 
 class PessimisticPatternMatcherB:
     """ Class implementing a pessimistic version of Optimistic Pattern Matcher
-    B (OPMb) from Tabur 2007. The class loads and stores the reference object
-    in a convenient data structure for matching any set of source objects that
-    are assumed to contain each other. The pessimistic nature of the algorithm
-    comes from requiring that it discovers at least two patterns that agree on
-    the correct shift and rotation for matching before exiting. The original
-    behavior of OPMb can be recovered simply. Patterns matched between the
-    input datasets are n-spoked pinwheels created from n+1 points. Refer to
-    DMTN #031 for more details. http://github.com/lsst-dm/dmtn-031
-    --------------------------------------------------------------------------
-    Attributes:
+    B (OPMb) from Tabur 2007.
+
+    Parameters
+    ----------
         reference_array : float array
             spherical points x, y, z of to use as reference objects for
             pattern matching.
@@ -93,17 +87,20 @@ class PessimisticPatternMatcherB:
         delta_array : float array
            Array of 3 vector deltas for each pair in the reference array
            sorted on pair distance.
+
+    Notes
+    -----
+    The class loads and stores the reference object
+    in a convenient data structure for matching any set of source objects that
+    are assumed to contain each other. The pessimistic nature of the algorithm
+    comes from requiring that it discovers at least two patterns that agree on
+    the correct shift and rotation for matching before exiting. The original
+    behavior of OPMb can be recovered simply. Patterns matched between the
+    input datasets are n-spoked pinwheels created from n+1 points. Refer to
+    DMTN #031 for more details. http://github.com/lsst-dm/dmtn-031
     """
 
     def __init__(self, reference_array, log):
-        """
-        Arguments
-        ---------
-        reference_array : float array
-            Array of spherical points x, y, z to use as reference objects.
-        log : lsst.log
-            logger object for reporting warnings and failures.
-        """
         self._reference_array = reference_array
         self._n_reference = len(self._reference_array)
         self.log = log

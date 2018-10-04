@@ -33,7 +33,31 @@ from lsst.afw.table import Point2DKey
 
 def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bbox=None, exposure=None,
                       matches=None, frame=1, title="", pause=True):
-    """Show an astrometry debug image
+    """Show an astrometry debug image.
+
+    Parameters
+    ----------
+    refCat :
+        reference object catalog; must have fields "centroid_x" and "centroid_y"
+    sourceCat :
+        source catalog; must have field "slot_Centroid_x" and "slot_Centroid_y"
+    distortedCentroidKey :
+        key for sourceCat with field to use for distorted positions, or None
+    exposure :
+        exposure to display, or None for a blank exposure
+    bbox :
+        bounding box of exposure; used if exposure is None for a blank image
+    matches :
+        a list of lsst.afw.table.ReferenceMatch, or None
+    frame :
+        frame number for ds9 display
+    title :
+        title for ds9 display
+    pause :
+        pause for inspection of display? This is done by dropping into pdb.
+
+    Notes
+    -----
 
     - reference objects in refCat are shown as red X
     - sources in sourceCat are shown as green +
@@ -42,15 +66,6 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
         connecting the reference object and source
     - if both exposure and bbox are None, no image is displayed
 
-    @param[in] refCat  reference object catalog; must have fields "centroid_x" and "centroid_y"
-    @param[in] sourceCat  source catalog; must have field "slot_Centroid_x" and "slot_Centroid_y"
-    @param[in] distortedCentroidKey  key for sourceCat with field to use for distorted positions, or None
-    @param[in] exposure  exposure to display, or None for a blank exposure
-    @param[in] bbox  bounding box of exposure; used if exposure is None for a blank image
-    @param[in] matches  a list of lsst.afw.table.ReferenceMatch, or None
-    @param[in] frame  frame number for ds9 display
-    @param[in] title  title for ds9 display
-    @param[in] pause  pause for inspection of display? This is done by dropping into pdb.
     """
     disp = afwDisplay.getDisplay(frame)
 
@@ -110,21 +125,35 @@ def plotAstrometry(
 ):
     """Plot reference objects, sources and matches
 
+    Parameters
+    ----------
+    matches :
+        list of matches
+    refCat :
+        reference object catalog, or None to not plot reference objects
+    sourceCat :
+        source catalog, or None to not plot sources
+    refMarker :
+        pyplot marker for reference objects
+    refColor :
+        pyplot color for reference objects
+    sourceMarker :
+        pyplot marker for sources
+    sourceColor :
+        pyplot color for sources
+    matchColor :
+        color for matches; can be a constant
+        or a function taking one match and returning a string
+
+    Notes
+    -----
     By default:
+
     - reference objects in refCat are shown as red X
     - sources in sourceCat are shown as green +
     - matches are shown as a yellow circle around the source and a line
         connecting the reference object to the source
 
-    @param[in] matches  list of matches
-    @param[in] refCat  reference object catalog, or None to not plot reference objects
-    @param[in] sourceCat  source catalog, or None to not plot sources
-    @param[in] refMarker  pyplot marker for reference objects
-    @param[in] refColor  pyplot color for reference objects
-    @param[in] sourceMarker  pyplot marker for sources
-    @param[in] sourceColor  pyplot color for sources
-    @param[in] matchColor  color for matches; can be a constant
-        or a function taking one match and returning a string
     """
     # delay importing plt to give users a chance to set the backend before calling this function
     import matplotlib.pyplot as plt
@@ -146,6 +175,8 @@ def plotAstrometry(
 
         This is used to draw line segements between ref and src positions in the specified color
 
+        Notes
+        -----
         The returned data has the format:
          [(refX0, srcX0), (refY0, srcY0), color0, (refX1, srcX1), (refY1, srcY1), color1,...]
         """

@@ -28,11 +28,15 @@ import lsst.afw.table as afwTable
 def setMatchDistance(matches):
     """Set the distance field of the matches in a match list to the distance in radians on the sky
 
-    @warning the coord field of the source in each match must be correct
-
-    @param[in,out] matches  a list of matches, an instance of lsst.afw.table.ReferenceMatch
+    Parameters
+    ----------
+    matches :
+        a list of matches, an instance of lsst.afw.table.ReferenceMatch
         reads the coord field of the source and reference object of each match
         writes the distance field of each match
+    Notes
+    -----
+    WARNING : the coord field of the source in each match must be correct
     """
     if len(matches) < 1:
         return

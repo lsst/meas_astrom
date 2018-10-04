@@ -79,6 +79,9 @@ class FitSipDistortionConfig(lsst.pex.config.Config):
 class FitSipDistortionTask(lsst.pipe.base.Task):
     """Fit a TAN-SIP WCS given a list of reference object/source matches
 
+
+    Notes
+    -----
     FitSipDistortionTask is a drop-in replacement for
     :py:class:`lsst.meas.astrom.FitTanSipWcsTask`.  It is built on fundamentally
     stronger fitting algorithms, but has received significantly less testing.
@@ -93,8 +96,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
        from lsst.meas.astrom import FitSipDistortionTask
        config.(...).astometry.wcsFitter.retarget(FitSipDistortionTask)
 
-    Algorithm
-    ---------
+    Algorithm:
 
     The algorithm used by FitSipDistortionTask involves three steps:
 
@@ -129,8 +131,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
        when the fit is complete.
 
 
-    Debugging
-    ---------
+    Debugging:
 
     Enabling DEBUG-level logging on this task will report the number of
     outliers rejected and the current estimate of intrinsic scatter at each
@@ -175,9 +176,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
     Cyan Ellipse
         Same as Green Ellipse, but for matches that were rejected as outliers.
 
-
-    Parameters
-    ----------
+    Reference to parameters:
     See :py:class:`lsst.pipe.base.Task`; FitSipDistortionTask does not add any
     additional constructor parameters.
 
@@ -203,12 +202,14 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
         matches : list of :cpp:class:`lsst::afw::table::ReferenceMatch`
             A sequence of reference object/source matches.
             The following fields are read:
+
             - match.first (reference object) coord
             - match.second (source) centroid
             The following fields are written:
             - match.first (reference object) centroid,
             - match.second (source) centroid
             - match.distance (on sky separation, in radians)
+
         initWcs : :cpp:class:`lsst::afw::geom::SkyWcs`
             An initial WCS whose CD matrix is used as the final CD matrix.
         bbox : :cpp:class:`lsst::afw::geom::Box2I`
@@ -413,8 +414,10 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
         matches : list of :cpp:class:`lsst::afw::table::ReferenceMatch`
             A sequence of reference object/source matches.
             The following fields are read:
+
             - match.first (reference object) coord
             - match.second (source) centroid
+
         wcs : :cpp:class:`lsst::afw::geom::SkyWcs`
             An initial WCS whose CD matrix is used as the CD matrix of the
             result.

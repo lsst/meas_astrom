@@ -21,7 +21,7 @@ class MatchTolerancePessimistic(MatchTolerance):
     """Stores match tolerances for use in AstrometryTask and later
     iterations of the matcher.
 
-    Attributes
+    Parameters
     ----------
     maxMatchDist : lsst.afw.geom.Angle
     autoMaxMatchDist : lsst.afw.geom.Angle
@@ -253,29 +253,43 @@ class MatchPessimisticBTask(pipeBase.Task):
     @pipeBase.timeMethod
     def matchObjectsToSources(self, refCat, sourceCat, wcs, refFluxField,
                               match_tolerance=None):
-        """!Match sources to position reference stars
+        """Match sources to position reference stars
 
-        @param[in] refCat  catalog of reference objects that overlap the
-        exposure; reads fields for:
+        refCat :
+            catalog of reference objects that overlap the
+            exposure; reads fields for:
+
             - coord
             - the specified flux field
-        @param[in] sourceCat  catalog of sources found on an exposure;
+
+        sourceCat :
+            catalog of sources found on an exposure;
             Please check the required fields of your specified source selector
             that the correct flags are present.
-        @param[in] wcs  estimated WCS
-        @param[in] refFluxField  field of refCat to use for flux
-        @param[in] match_tolerance is a MatchTolerance class object or None.
+        wcs :
+            estimated WCS
+        refFluxField :
+            field of refCat to use for flux
+        match_tolerance :
+            is a MatchTolerance class object or None.
             This this class is used to communicate state between AstrometryTask
             and MatcherTask. AstrometryTask will also set the MatchTolerance
             class variable maxMatchDist based on the scatter AstrometryTask has
             found after fitting for the wcs.
-        @return an lsst.pipe.base.Struct with fields:
-        - matches  a list of matches, each instance of
-            lsst.afw.table.ReferenceMatch
-        - usableSourcCat  a catalog of sources potentially usable for
-            matching.
-        - match_tolerance a MatchTolerance object containing the resulting
-            state variables from the match.
+
+        Returns
+        -------
+        result : `lsst.pipe.base.Struct`
+        with fields:
+            - matches :
+                a list of matches, each instance of
+                lsst.afw.table.ReferenceMatch
+            - usableSourcCat :
+                a catalog of sources potentially usable for
+                matching.
+            - match_tolerance :
+                a MatchTolerance object containing the resulting
+                state variables from the match.
         """
         import lsstDebug
         debug = lsstDebug.Info(__name__)
@@ -333,26 +347,40 @@ class MatchPessimisticBTask(pipeBase.Task):
     @pipeBase.timeMethod
     def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numUsableSources,
                  minMatchedPairs, match_tolerance, sourceFluxField, verbose):
-        """!Implementation of matching sources to position reference stars
+        """Implementation of matching sources to position reference stars
 
         Unlike matchObjectsToSources, this method does not check if the sources
         are suitable.
 
-        @param[in] refCat  catalog of position reference stars that overlap an
+        Parameters
+        ----------
+        refCat :
+            catalog of position reference stars that overlap an
             exposure
-        @param[in] sourceCat  catalog of sources found on the exposure
-        @param[in] wcs  estimated WCS of exposure
-        @param[in] refFluxField  field of refCat to use for flux
-        @param[in] numUsableSources  number of usable sources (sources with
+        sourceCat :
+            catalog of sources found on the exposure
+        wcs :
+            estimated WCS of exposure
+        refFluxField :
+            field of refCat to use for flux
+        numUsableSources :
+            number of usable sources (sources with
             known centroid that are not near the edge, but may be saturated)
-        @param[in] minMatchedPairs  minimum number of matches
-        @param[in] match_tolerance a MatchTolerance object containing
+        minMatchedPairs :
+            minimum number of matches
+        match_tolerance :
+            a MatchTolerance object containing
             variables specifying matcher tolerances and state from possible
             previous runs.
-        @param[in] sourceInfo  SourceInfo for the sourceCat
-        @param[in] verbose  true to print diagnostic information to std::cout
+        sourceInfo :
+            SourceInfo for the sourceCat
+        verbose :
+            true to print diagnostic information to std::cout
 
-        @return a list of matches, an instance of
+        Returns
+        -------
+        result :
+            a list of matches, an instance of
             lsst.afw.table.ReferenceMatch, a MatchTolerance object
         """
 

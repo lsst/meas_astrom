@@ -71,14 +71,19 @@ class DirectMatchTask(Task):
     _DefaultName = "directMatch"
 
     def __init__(self, butler=None, refObjLoader=None, **kwargs):
-        """!Ctor
+        """Ctor
 
         Either a 'butler' or 'refObjLoader' is required.
 
-        @param butler  Data butler, or None
-        @param refObjLoader  For loading reference objects (lsst.meas.algorithms.LoadReferenceObjectsTask), or
+        Parameters
+        ----------
+        butler :
+            Data butler, or None
+        refObjLoader :
+            For loading reference objects (lsst.meas.algorithms.LoadReferenceObjectsTask), or
             None
-        @param kwargs  Other keyword arguments required for instantiating a Task (e.g., 'config')
+        kwargs :
+            Other keyword arguments required for instantiating a Task (e.g., 'config')
         """
         Task.__init__(self, **kwargs)
         if not refObjLoader:
@@ -92,13 +97,22 @@ class DirectMatchTask(Task):
         self.makeSubtask("referenceSelection")
 
     def run(self, catalog, filterName=None, epoch=None):
-        """!Load reference objects and match to them
+        """Load reference objects and match to them
 
-        @param[in] catalog  Catalog to match to (lsst.afw.table.SourceCatalog)
-        @param[in] filterName  Name of filter, for loading fluxes (str)
-        @param[in] epoch  Epoch for proper motion and parallax correction
-                          (an astropy.time.Time), or None
-        @return Struct with matches (lsst.afw.table.SourceMatchVector) and
+        Parameters
+        ----------
+        catalog :
+            Catalog to match to (lsst.afw.table.SourceCatalog)
+        filterName :
+            Name of filter, for loading fluxes (str)
+        epoch :
+            Epoch for proper motion and parallax correction
+            (an astropy.time.Time), or None
+
+        Returns
+        -------
+        result : `lsst.afw.table.SourceMatchVector`
+            Struct with matches (lsst.afw.table.SourceMatchVector) and
             matchMeta (lsst.meas.astrom.MatchMetadata)
         """
         circle = self.calculateCircle(catalog)
@@ -123,10 +137,17 @@ class DirectMatchTask(Task):
                       refSelection=refSelection)
 
     def calculateCircle(self, catalog):
-        """!Calculate a circle enclosing the catalog
+        """Calculate a circle enclosing the catalog
 
-        @param[in] catalog  Catalog we will encircle (lsst.afw.table.SourceCatalog)
-        @return Struct with ICRS center (lsst.afw.geom.SpherePoint) and radius (lsst.afw.geom.Angle)
+        Parameters
+        ----------
+        catalog :
+            Catalog we will encircle (lsst.afw.table.SourceCatalog)
+
+        Returns
+        -------
+        result :
+            Struct with ICRS center (lsst.afw.geom.SpherePoint) and radius (lsst.afw.geom.Angle)
         """
         coordList = [src.getCoord() for src in catalog]
         center = averageSpherePoint(coordList)

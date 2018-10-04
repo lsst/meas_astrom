@@ -46,19 +46,34 @@ def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3,
 
     The fit is performed by evaluating the WCS at a uniform grid of points within a bounding box.
 
-    @param[in] wcs  wcs to approximate
-    @param[in] bbox  the region over which the WCS will be fit
-    @param[in] order  order of SIP fit
-    @param[in] nx  number of grid points along x
-    @param[in] ny  number of grid points along y
-    @param[in] iterations number of times to iterate over fitting
-    @param[in] skyTolerance maximum allowed difference in world coordinates between
-               input wcs and approximate wcs (default is 0.001 arcsec)
-    @param[in] pixelTolerance maximum allowed difference in pixel coordinates between
-               input wcs and approximate wcs (default is 0.02 pixels)
-    @param[in] useTanWcs  send a TAN version of wcs to the fitter? It is documented to require that,
+    Parameters
+    ----------
+    wcs :
+        wcs to approximate
+    bbox :
+        the region over which the WCS will be fit
+    order :
+        order of SIP fit
+    nx :
+        number of grid points along x
+    ny :
+            number of grid points along y
+    iterations :
+        number of times to iterate over fitting
+    skyTolerance :
+        maximum allowed difference in world coordinates between
+        input wcs and approximate wcs (default is 0.001 arcsec)
+    pixelTolerance :
+        maximum allowed difference in pixel coordinates between
+        input wcs and approximate wcs (default is 0.02 pixels)
+    useTanWcs :
+        send a TAN version of wcs to the fitter? It is documented to require that,
         but I don't think the fitter actually cares
-    @return the fit TAN-SIP WCS
+
+    Returns
+    -------
+    fitWcs :
+        the fit TAN-SIP WCS
     """
     if useTanWcs:
         crpix = wcs.getPixelOrigin()

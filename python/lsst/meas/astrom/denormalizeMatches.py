@@ -27,6 +27,20 @@ import lsst.afw.table as afwTable
 def denormalizeMatches(matches, matchMeta=None):
     """Generate a denormalized Catalog of matches
 
+    Parameters
+    ----------
+    matches : `list` of `lsst.afw.table.ReferenceMatch`
+        List of matches between reference catalog and source catalog.
+    matchMeta : `lsst.daf.base.PropertyList`
+        Matching metadata to write in catalog.
+
+    Returns
+    -------
+    catalog : `lsst.afw.table.BaseCatalog`
+        Catalog containing matchlist entries.
+
+    Notes
+    -----
     This is intended for writing matches in a convenient way.
     Normally we write matches in a 'normalized' form: recording only the join
     table (reference ID, source ID) to minimise space (the reference and source
@@ -40,21 +54,7 @@ def denormalizeMatches(matches, matchMeta=None):
     prepended (including any alias mappings). The distance between the
     matches is in a column named "distance".
 
-    Parameters
-    ----------
-    matches : `list` of `lsst.afw.table.ReferenceMatch`
-        List of matches between reference catalog and source catalog.
-    matchMeta : `lsst.daf.base.PropertyList`
-        Matching metadata to write in catalog.
-
-    Returns
-    -------
-    catalog : `lsst.afw.table.BaseCatalog`
-        Catalog containing matchlist entries.
-
-    See also
-    --------
-    `lsst.afw.table.packMatches`
+    See also `lsst.afw.table.packMatches`
     """
     if len(matches) == 0:
         raise RuntimeError("No matches provided.")

@@ -103,33 +103,46 @@ class FitTanSipWcsTask(pipeBase.Task):
 
     @pipeBase.timeMethod
     def fitWcs(self, matches, initWcs, bbox=None, refCat=None, sourceCat=None, exposure=None):
-        """!Fit a TAN-SIP WCS from a list of reference object/source matches
+        """Fit a TAN-SIP WCS from a list of reference object/source matches
 
-        @param[in,out] matches  a list of lsst::afw::table::ReferenceMatch
+        Parameters
+        ----------
+        matches : a list of lsst::afw::table::ReferenceMatch
             The following fields are read:
+
             - match.first (reference object) coord
             - match.second (source) centroid
             The following fields are written:
             - match.first (reference object) centroid,
             - match.second (source) centroid
             - match.distance (on sky separation, in radians)
-        @param[in] initWcs  initial WCS
-        @param[in] bbox  the region over which the WCS will be valid (an lsst:afw::geom::Box2I);
+
+        initWcs :
+            initial WCS
+        bbox :
+            the region over which the WCS will be valid (an lsst:afw::geom::Box2I);
             if None or an empty box then computed from matches
-        @param[in,out] refCat  reference object catalog, or None.
+        refCat :
+            reference object catalog, or None.
             If provided then all centroids are updated with the new WCS,
             otherwise only the centroids for ref objects in matches are updated.
             Required fields are "centroid_x", "centroid_y", "coord_ra", and "coord_dec".
-        @param[in,out] sourceCat  source catalog, or None.
+        sourceCat :
+            source catalog, or None.
             If provided then coords are updated with the new WCS;
             otherwise only the coords for sources in matches are updated.
             Required fields are "slot_Centroid_x", "slot_Centroid_y", and "coord_ra", and "coord_dec".
-        @param[in] exposure  Ignored; present for consistency with FitSipDistortionTask.
+        exposure :
+            Ignored; present for consistency with FitSipDistortionTask.
 
-        @return an lsst.pipe.base.Struct with the following fields:
-        - wcs  the fit WCS as an lsst.afw.geom.Wcs
-        - scatterOnSky  median on-sky separation between reference objects and sources in "matches",
-            as an lsst.afw.geom.Angle
+        Returns
+        -------
+        result : `lsst.pipe.base.Struct`
+            with the following fields:
+
+            - ``wcs`` :  the fit WCS as an lsst.afw.geom.Wcs
+            - ``scatterOnSky`` :  median on-sky separation between reference objects and sources in "matches",
+                as an lsst.afw.geom.Angle
         """
         if bbox is None:
             bbox = lsst.geom.Box2I()
