@@ -1,7 +1,27 @@
+# This file is part of meas_astrom.
+#
+# Developed for the LSST Data Management System.
+# This product includes software developed by the LSST Project
+# (https://www.lsst.org).
+# See the COPYRIGHT file at the top-level directory of this distribution
+# for details of code ownership.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 __all__ = ["denormalizeMatches"]
 
-import lsst.afw.table
+import lsst.afw.table as afwTable
 
 
 def denormalizeMatches(matches, matchMeta=None):
@@ -17,8 +37,8 @@ def denormalizeMatches(matches, matchMeta=None):
     This function generates a Catalog containing all the information in the
     matches. The reference catalog entries are in columns with "ref_"
     prepended, while the source catalog entries are in columns with "src_"
-    prepended. The distance between the matches is in a column named
-    "distance".
+    prepended (including any alias mappings). The distance between the
+    matches is in a column named "distance".
 
     Parameters
     ----------
@@ -42,11 +62,15 @@ def denormalizeMatches(matches, matchMeta=None):
     refSchema = matches[0].first.getSchema()
     srcSchema = matches[0].second.getSchema()
 
-    refMapper, srcMapper = lsst.afw.table.SchemaMapper.join([refSchema, srcSchema], ["ref_", "src_"])
+    refMapper, srcMapper = afwTable.SchemaMapper.join([refSchema, srcSchema], ["ref_", "src_"])
     schema = refMapper.editOutputSchema()
+
+    schema = afwTable.catalogMatches.copyAliasMapWithPrefix(srcSchema, schema, prefix="src_")
+    schema = afwTable.catalogMatches.copyAliasMapWithPrefix(refSchema, schema, prefix="ref_")
+
     distKey = schema.addField("distance", type=float, doc="Distance between ref and src")
 
-    catalog = lsst.afw.table.BaseCatalog(schema)
+    catalog = afwTable.BaseCatalog(schema)
     catalog.reserve(len(matches))
     for mm in matches:
         row = catalog.addNew()
