@@ -42,7 +42,7 @@ class RefMatchConfig(pexConfig.Config):
     )
     matchDistanceSigma = pexConfig.RangeField(
         doc="the maximum match distance is set to "
-        " mean_match_distance + matchDistanceSigma*std_dev_match_distance; " +
+        " mean_match_distance + matchDistanceSigma*std_dev_match_distance; "
         "ignored if not fitting a WCS",
         dtype=float,
         default=2,
@@ -71,7 +71,7 @@ class RefMatchTask(pipeBase.Task):
     _DefaultName = "calibrationBaseClass"
 
     def __init__(self, refObjLoader, schema=None, **kwargs):
-        """!Construct a RefMatchTask
+        r"""!Construct a RefMatchTask
 
         @param[in] refObjLoader A reference object loader object
         @param[in] schema  ignored; available for compatibility with an older astrometry task

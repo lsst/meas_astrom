@@ -37,12 +37,12 @@ class AstrometryConfig(RefMatchConfig):
     )
     forceKnownWcs = pexConfig.Field(
         dtype=bool,
-        doc="If True then load reference objects and match sources but do not fit a WCS; " +
+        doc="If True then load reference objects and match sources but do not fit a WCS; "
         " this simply controls whether 'run' calls 'solve' or 'loadAndMatch'",
         default=False,
     )
     maxIter = pexConfig.RangeField(
-        doc="maximum number of iterations of match sources and fit WCS" +
+        doc="maximum number of iterations of match sources and fit WCS"
         "ignored if not fitting a WCS",
         dtype=int,
         default=3,
@@ -66,7 +66,7 @@ class AstrometryConfig(RefMatchConfig):
 
 
 class AstrometryTask(RefMatchTask):
-    """!Match an input source catalog with objects from a reference catalog and solve for the WCS
+    r"""!Match an input source catalog with objects from a reference catalog and solve for the WCS
 
     @anchor AstrometryTask_
 
@@ -140,7 +140,7 @@ class AstrometryTask(RefMatchTask):
     _DefaultName = "astrometricSolver"
 
     def __init__(self, refObjLoader, schema=None, **kwargs):
-        """!Construct an AstrometryTask
+        r"""!Construct an AstrometryTask
 
         @param[in] refObjLoader A reference object loader object
         @param[in] schema  ignored; available for compatibility with an older astrometry task

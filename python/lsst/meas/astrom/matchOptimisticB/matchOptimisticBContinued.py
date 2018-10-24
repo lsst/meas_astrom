@@ -109,7 +109,7 @@ class MatchOptimisticBConfig(pexConfig.Config):
 
 
 class MatchOptimisticBTask(pipeBase.Task):
-    """!Match sources to reference objects
+    r"""!Match sources to reference objects
 
     @anchor MatchOptimisticBTask_
 

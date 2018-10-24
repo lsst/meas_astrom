@@ -173,7 +173,7 @@ class MatchPessimisticBConfig(pexConfig.Config):
 
 
 class MatchPessimisticBTask(pipeBase.Task):
-    """!Match sources to reference objects
+    r"""!Match sources to reference objects
 
     @anchor MatchPessimisticBTask_
 

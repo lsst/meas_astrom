@@ -83,7 +83,7 @@ class CheckSource:
 
 @pexConfig.registerConfigurable("catalog", sourceSelectorRegistry)
 class CatalogStarSelectorTask:
-    """!Select stars based on a reference catalog
+    r"""!Select stars based on a reference catalog
 
     @anchor CatalogStarSelectorTask_
 
