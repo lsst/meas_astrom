@@ -45,14 +45,14 @@ class FitSipDistortionConfig(lsst.pex.config.Config):
         default=1
     )
     maxScatterArcsec = lsst.pex.config.RangeField(
-        doc="Maximum median scatter of a WCS fit beyond which the fit fails (arcsec); " +
+        doc="Maximum median scatter of a WCS fit beyond which the fit fails (arcsec); "
             "be generous, as this is only intended to catch catastrophic failures",
         dtype=float,
         default=10,
         min=0,
     )
     refUncertainty = lsst.pex.config.Field(
-        doc="RMS uncertainty in reference catalog positions, in pixels.  Will be added " +
+        doc="RMS uncertainty in reference catalog positions, in pixels.  Will be added "
             "in quadrature with measured uncertainties in the fit.",
         dtype=float,
         default=0.25,
@@ -68,8 +68,8 @@ class FitSipDistortionConfig(lsst.pex.config.Config):
         default=100,
     )
     gridBorder = lsst.pex.config.Field(
-        doc="When setting the gird region, how much to extend the image " +
-            "bounding box (in pixels) before transforming it to intermediate " +
+        doc="When setting the gird region, how much to extend the image "
+            "bounding box (in pixels) before transforming it to intermediate "
             "world coordinates using the initial WCS.",
         dtype=float,
         default=50.0,

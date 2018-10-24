@@ -25,7 +25,7 @@ class DirectMatchConfig(DirectMatchConfigWithoutLoader):
 
 
 class DirectMatchTask(Task):
-    """!Simple matching of a source catalog to a reference catalog
+    r"""!Simple matching of a source catalog to a reference catalog
 
     @anchor DirectMatchTask_
 

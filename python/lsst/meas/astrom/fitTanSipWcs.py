@@ -22,7 +22,7 @@ class FitTanSipWcsConfig(pexConfig.Config):
         min=0,
     )
     numIter = pexConfig.RangeField(
-        doc="number of iterations of fitter (which fits X and Y separately, and so benefits from " +
+        doc="number of iterations of fitter (which fits X and Y separately, and so benefits from "
         "a few iterations",
         dtype=int,
         default=3,
@@ -41,7 +41,7 @@ class FitTanSipWcsConfig(pexConfig.Config):
         min=0.0,
     )
     maxScatterArcsec = pexConfig.RangeField(
-        doc="maximum median scatter of a WCS fit beyond which the fit fails (arcsec); " +
+        doc="maximum median scatter of a WCS fit beyond which the fit fails (arcsec); "
         "be generous, as this is only intended to catch catastrophic failures",
         dtype=float,
         default=10,
@@ -58,7 +58,7 @@ class FitTanSipWcsConfig(pexConfig.Config):
 
 
 class FitTanSipWcsTask(pipeBase.Task):
-    """!Fit a TAN-SIP WCS given a list of reference object/source matches
+    r"""!Fit a TAN-SIP WCS given a list of reference object/source matches
 
     @anchor FitTanSipWcsTask_
 
