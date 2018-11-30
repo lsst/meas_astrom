@@ -150,10 +150,7 @@ class TestMatchPessimisticB(unittest.TestCase):
     def computePosRefCatalog(self, sourceCat):
         """Generate a position reference catalog from a source catalog
         """
-        minimalPosRefSchema = LoadReferenceObjectsTask.makeMinimalSchema(
-            filterNameList=["r"],
-            addFluxErr=True,
-        )
+        minimalPosRefSchema = LoadReferenceObjectsTask.makeMinimalSchema(filterNameList=["r"])
         refCat = afwTable.SimpleCatalog(minimalPosRefSchema)
         refCat.reserve(len(sourceCat))
         for source in sourceCat:
