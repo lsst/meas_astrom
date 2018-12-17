@@ -78,14 +78,13 @@ class FitSipDistortionConfig(lsst.pex.config.Config):
 
 class FitSipDistortionTask(lsst.pipe.base.Task):
     """Fit a TAN-SIP WCS given a list of reference object/source matches
-
-
+ 
     Notes
     -----
     FitSipDistortionTask is a drop-in replacement for
     :py:class:`lsst.meas.astrom.FitTanSipWcsTask`.  It is built on fundamentally
     stronger fitting algorithms, but has received significantly less testing.
-
+    
     Like :py:class:`lsst.meas.astrom.FitTanSipWcsTask`, this task is most
     easily used as the wcsFitter component of
     :py:class:`lsst.meas.astrom.AstrometryTask`; it can be enabled in a config
@@ -100,36 +99,33 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
 
     The algorithm used by FitSipDistortionTask involves three steps:
 
-     - We set the CRVAL and CRPIX reference points to the mean positions of
-       the matches, while holding the CD matrix fixed to the value passed in
-       to the run() method.  This work is done by the makeInitialWcs method.
-
-     - We fit the SIP "reverse transform" (the AP and BP polynomials that map
-       "intermediate world coordinates" to pixels).  This happens iteratively;
-       while fitting for the polynomial coefficients given a set of matches is
-       a linear operation that can be done without iteration, outlier
-       rejection using sigma-clipping and estimation of the intrinsic scatter
-       are not. By fitting the reverse transform first, we can do outlier
-       rejection in pixel coordinates, where we can better handle the source
-       measurement uncertainties that contribute to the overall scatter.  This
-       fit results in a
-       :cpp:class:`lsst::meas::astrom::ScaledPolynomialTransform`, which is
-       somewhat more general than the SIP reverse transform in that it allows
-       an affine transform both before and after the polynomial.  This is
-       somewhat more numerically stable than the SIP form, which applies only
-       a linear transform (with no offset) before the polynomial and only a
-       shift afterwards.  We only convert to SIP form once the fitting is
-       complete.  This conversion is exact (though it may be subject to
-       significant round-off error) as long as we do not attempt to null the
-       low-order SIP polynomial terms (we do not).
-
-     - Once the SIP reverse transform has been fit, we use it to populate a
-       grid of points that we use as the data points for fitting its inverse,
-       the SIP forward transform.  Because our "data" here is artificial,
-       there is no need for outlier rejection or uncertainty handling.  We
-       again fit a general scaled polynomial, and only convert to SIP form
-       when the fit is complete.
-
+    - We set the CRVAL and CRPIX reference points to the mean positions of
+      the matches, while holding the CD matrix fixed to the value passed in
+      to the run() method.  This work is done by the makeInitialWcs method.i
+    - We fit the SIP "reverse transform" (the AP and BP polynomials that map
+      "intermediate world coordinates" to pixels).  This happens iteratively;
+      while fitting for the polynomial coefficients given a set of matches is
+      a linear operation that can be done without iteration, outlier
+      rejection using sigma-clipping and estimation of the intrinsic scatter
+      are not. By fitting the reverse transform first, we can do outlier
+      rejection in pixel coordinates, where we can better handle the source
+      measurement uncertainties that contribute to the overall scatter.  This
+      fit results in a
+      :cpp:class:`lsst::meas::astrom::ScaledPolynomialTransform`, which is
+      somewhat more general than the SIP reverse transform in that it allows
+      an affine transform both before and after the polynomial.  This is
+      somewhat more numerically stable than the SIP form, which applies only
+      a linear transform (with no offset) before the polynomial and only a
+      shift afterwards.  We only convert to SIP form once the fitting is
+      complete.  This conversion is exact (though it may be subject to
+      significant round-off error) as long as we do not attempt to null the
+      low-order SIP polynomial terms (we do not).
+    - Once the SIP reverse transform has been fit, we use it to populate a
+      grid of points that we use as the data points for fitting its inverse,
+      the SIP forward transform.  Because our "data" here is artificial,
+      there is no need for outlier rejection or uncertainty handling.  We
+      again fit a general scaled polynomial, and only convert to SIP form
+      when the fit is complete.
 
     Debugging:
 
@@ -139,12 +135,12 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
 
     FitSipDistortionTask also supports the following lsstDebug variables to
     control diagnostic displays:
-      - FitSipDistortionTask.display: if True, enable display diagnostics.
-      - FitSipDistortionTask.frame: frame to which the display will be sent
-      - FitSipDistortionTask.pause: whether to pause (by dropping into pdb)
-                                    between iterations (default is True).  If
-                                    False, multiple frames will be used,
-                                    starting at the given number.
+
+    - FitSipDistortionTask.display: if True, enable display diagnostics.
+    - FitSipDistortionTask.frame: frame to which the display will be sent
+    - FitSipDistortionTask.pause: whether to pause (by dropping into pdb)
+      between iterations (default is True).  If False, multiple frames
+      will be used, starting at the given number.
 
     The diagnostic display displays the image (or an empty image if
     exposure=None) overlaid with the positions of sources and reference
@@ -179,9 +175,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
     Reference to parameters:
     See :py:class:`lsst.pipe.base.Task`; FitSipDistortionTask does not add any
     additional constructor parameters.
-
     """
-
     ConfigClass = FitSipDistortionConfig
     _DefaultName = "fitWcs"
 
@@ -194,19 +188,18 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
 
     @lsst.pipe.base.timeMethod
     def fitWcs(self, matches, initWcs, bbox=None, refCat=None, sourceCat=None, exposure=None):
-        """Fit a TAN-SIP WCS from a list of reference object/source matches
+        """Fit a TAN-SIP WCS from a list of reference object/source matches.
 
         Parameters
         ----------
-
         matches : list of :cpp:class:`lsst::afw::table::ReferenceMatch`
             A sequence of reference object/source matches.
             The following fields are read:
-
             - match.first (reference object) coord
             - match.second (source) centroid
+
             The following fields are written:
-            - match.first (reference object) centroid,
+            - match.first (reference object) centroid
             - match.second (source) centroid
             - match.distance (on sky separation, in radians)
 
@@ -235,14 +228,12 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
 
         Returns
         -------
-
         An lsst.pipe.base.Struct with the following fields:
-
-        wcs : :cpp:class:`lsst::afw::geom::SkyWcs`
-            The best-fit WCS.
-        scatterOnSky : :cpp:class:`lsst::afw::geom::Angle`
-            The median on-sky separation between reference objects and
-            sources in "matches", as an lsst.afw.geom.Angle
+            - wcs : :cpp:class:`lsst::afw::geom::SkyWcs`
+                The best-fit WCS.
+            - scatterOnSky : :cpp:class:`lsst::afw::geom::Angle`
+                The median on-sky separation between reference objects and
+                sources in "matches", as an lsst.afw.geom.Angle
         """
         import lsstDebug
         display = lsstDebug.Info(__name__).display

@@ -38,19 +38,19 @@ class AstrometryConfig(RefMatchConfig):
     forceKnownWcs = pexConfig.Field(
         dtype=bool,
         doc="If True then load reference objects and match sources but do not fit a WCS; "
-        " this simply controls whether 'run' calls 'solve' or 'loadAndMatch'",
+            "this simply controls whether 'run' calls 'solve' or 'loadAndMatch'",
         default=False,
     )
     maxIter = pexConfig.RangeField(
         doc="maximum number of iterations of match sources and fit WCS"
-        "ignored if not fitting a WCS",
+            "ignored if not fitting a WCS",
         dtype=int,
         default=3,
         min=1,
     )
     minMatchDistanceArcSec = pexConfig.RangeField(
         doc="the match distance below which further iteration is pointless (arcsec); "
-        "ignored if not fitting a WCS",
+            "ignored if not fitting a WCS",
         dtype=float,
         default=0.001,
         min=0,
@@ -66,84 +66,85 @@ class AstrometryConfig(RefMatchConfig):
 
 
 class AstrometryTask(RefMatchTask):
-    # Parameters
-    # ----------
-    # refObjLoader :
-    #     A reference object loader object
-    # schema :
-    #     ignored; available for compatibility with an older astrometry task
-    # kwargs :
-    #     additional keyword arguments for pipe_base Task.\_\_init\_\_
-    r"""!Match an input source catalog with objects from a reference catalog and solve for the WCS
+    """Match an input source catalog with objects from a reference catalog and
+    solve for the WCS.
 
-    @anchor AstrometryTask_
-
-    @section meas_astrom_astrometry_Contents Contents
-
-     - @ref meas_astrom_astrometry_Purpose
-     - @ref meas_astrom_astrometry_Initialize
-     - @ref meas_astrom_astrometry_IO
-     - @ref meas_astrom_astrometry_Config
-     - @ref meas_astrom_astrometry_Example
-     - @ref meas_astrom_astrometry_Debug
-
-    @section meas_astrom_astrometry_Purpose  Description
-
-    Match input sourceCat with a reference catalog and solve for the Wcs
-
-    There are three steps, each performed by different subtasks:
-    - Find position reference stars that overlap the exposure
-    - Match sourceCat to position reference stars
-    - Fit a WCS based on the matches
-
-    @section meas_astrom_astrometry_Initialize   Task initialisation
-
-    @copydoc \_\_init\_\_
-
-    @section meas_astrom_astrometry_IO       Invoking the Task
-
-    @copydoc run
-
-    @copydoc loadAndMatch
-
-    @section meas_astrom_astrometry_Config       Configuration parameters
-
-    See @ref AstrometryConfig
-
-    @section meas_astrom_astrometry_Example  A complete example of using AstrometryTask
-
-    See \ref pipe_tasks_photocal_Example.
-
-    @section meas_astrom_astrometry_Debug        Debug variables
-
-    The @link lsst.pipe.base.cmdLineTask.CmdLineTask command line task@endlink interface supports a
-    flag @c -d to import @b debug.py from your @c PYTHONPATH; see @ref baseDebug for more about
-    @b debug.py files.
-
-    The available variables in AstrometryTask are:
-    <DL>
-      <DT> @c display (bool)
-      <DD> If True display information at three stages: after finding reference objects,
-        after matching sources to reference objects, and after fitting the WCS; defaults to False
-      <DT> @c frame (int)
-      <DD> ds9 frame to use to display the reference objects; the next two frames are used
-            to display the match list and the results of the final WCS; defaults to 0
-    </DL>
-
-    To investigate the @ref meas_astrom_astrometry_Debug, put something like
-    @code{.py}
-    import lsstDebug
-    def DebugInfo(name):
-        debug = lsstDebug.getInfo(name)        # N.b. lsstDebug.Info(name) would call us recursively
-        if name == "lsst.meas.astrom.astrometry":
-            debug.display = True
-
-        return debug
-
-    lsstDebug.Info = DebugInfo
-    @endcode
-    into your debug.py file and run this task with the @c --debug flag.
+    Parameters
+    ----------
+    refObjLoader :
+        A reference object loader object
+    schema :
+        ignored; available for compatibility with an older astrometry task
+    kwargs :
+        additional keyword arguments for pipe_base `lsst.pipe.base.Task.__init__`
     """
+    #@anchor AstrometryTask_
+
+    #@section meas_astrom_astrometry_Contents Contents
+
+    # - @ref meas_astrom_astrometry_Purpose
+    # - @ref meas_astrom_astrometry_Initialize
+    # - @ref meas_astrom_astrometry_IO
+    # - @ref meas_astrom_astrometry_Config
+    # - @ref meas_astrom_astrometry_Example
+    # - @ref meas_astrom_astrometry_Debug
+
+    #@section meas_astrom_astrometry_Purpose  Description
+
+    #Match input sourceCat with a reference catalog and solve for the Wcs
+
+    #There are three steps, each performed by different subtasks:
+    #- Find position reference stars that overlap the exposure
+    #- Match sourceCat to position reference stars
+    #- Fit a WCS based on the matches
+
+    #@section meas_astrom_astrometry_Initialize   Task initialisation
+
+    #@copydoc \_\_init\_\_
+
+    #@section meas_astrom_astrometry_IO       Invoking the Task
+
+    #@copydoc run
+
+    #@copydoc loadAndMatch
+
+    #@section meas_astrom_astrometry_Config       Configuration parameters
+
+    #See @ref AstrometryConfig
+
+    #@section meas_astrom_astrometry_Example  A complete example of using AstrometryTask
+
+    #See \ref pipe_tasks_photocal_Example.
+
+    #@section meas_astrom_astrometry_Debug        Debug variables
+
+    #The @link lsst.pipe.base.cmdLineTask.CmdLineTask command line task@endlink interface supports a
+    #flag @c -d to import @b debug.py from your @c PYTHONPATH; see @ref baseDebug for more about
+    #@b debug.py files.
+
+    #The available variables in AstrometryTask are:
+    #<DL>
+    #  <DT> @c display (bool)
+    #  <DD> If True display information at three stages: after finding reference objects,
+    #    after matching sources to reference objects, and after fitting the WCS; defaults to False
+    #  <DT> @c frame (int)
+    #  <DD> ds9 frame to use to display the reference objects; the next two frames are used
+    #        to display the match list and the results of the final WCS; defaults to 0
+    #</DL>
+
+    #To investigate the @ref meas_astrom_astrometry_Debug, put something like
+    #@code{.py}
+    #import lsstDebug
+    #def DebugInfo(name):
+    #    debug = lsstDebug.getInfo(name)        # N.b. lsstDebug.Info(name) would call us recursively
+    #    if name == "lsst.meas.astrom.astrometry":
+    #        debug.display = True
+
+    #    return debug
+
+    #lsstDebug.Info = DebugInfo
+    #@endcode
+    #into your debug.py file and run this task with the @c --debug flag.
     ConfigClass = AstrometryConfig
     _DefaultName = "astrometricSolver"
 
@@ -166,18 +167,16 @@ class AstrometryTask(RefMatchTask):
 
         Parameters
         ----------
-        exposure :
+        exposure : `lsst.afw.image.Exposure`
             exposure whose WCS is to be fit
             The following are read only:
-
             - bbox
             - calib (may be absent)
             - filter (may be unset)
             - detector (if wcs is pure tangent; may be absent)
             The following are updated:
             - wcs (the initial value is used as an initial guess, and is required)
-
-        sourceCat :lsst.afw.table.SourceCatalog
+        sourceCat : `lsst.afw.table.SourceCatalog`
             catalog of sources detected on the exposure
 
         Returns

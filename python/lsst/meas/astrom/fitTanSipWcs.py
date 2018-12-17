@@ -58,46 +58,47 @@ class FitTanSipWcsConfig(pexConfig.Config):
 
 
 class FitTanSipWcsTask(pipeBase.Task):
-    r"""!Fit a TAN-SIP WCS given a list of reference object/source matches
-
-    @anchor FitTanSipWcsTask_
-
-    @section meas_astrom_fitTanSipWcs_Contents Contents
-
-     - @ref meas_astrom_fitTanSipWcs_Purpose
-     - @ref meas_astrom_fitTanSipWcs_Initialize
-     - @ref meas_astrom_fitTanSipWcs_IO
-     - @ref meas_astrom_fitTanSipWcs_Schema
-     - @ref meas_astrom_fitTanSipWcs_Config
-     - @ref meas_astrom_fitTanSipWcs_Example
-     - @ref meas_astrom_fitTanSipWcs_Debug
-
-    @section meas_astrom_fitTanSipWcs_Purpose  Description
-
-    Fit a TAN-SIP WCS given a list of reference object/source matches.
-    See CreateWithSip.h for information about the fitting algorithm.
-
-    @section meas_astrom_fitTanSipWcs_Initialize   Task initialisation
-
-    @copydoc \_\_init\_\_
-
-    @section meas_astrom_fitTanSipWcs_IO       Invoking the Task
-
-    @copydoc fitWcs
-
-    @section meas_astrom_fitTanSipWcs_Config       Configuration parameters
-
-    See @ref FitTanSipWcsConfig
-
-    @section meas_astrom_fitTanSipWcs_Example  A complete example of using FitTanSipWcsTask
-
-    FitTanSipWcsTask is a subtask of AstrometryTask, which is called by PhotoCalTask.
-    See \ref pipe_tasks_photocal_Example.
-
-    @section meas_astrom_fitTanSipWcs_Debug        Debug variables
-
-    FitTanSipWcsTask does not support any debug variables.
+    """Fit a TAN-SIP WCS given a list of reference object/source matches.
     """
+    #r"""!Fit a TAN-SIP WCS given a list of reference object/source matches
+
+    #@anchor FitTanSipWcsTask_
+
+    #@section meas_astrom_fitTanSipWcs_Contents Contents
+
+    # - @ref meas_astrom_fitTanSipWcs_Purpose
+    # - @ref meas_astrom_fitTanSipWcs_Initialize
+    # - @ref meas_astrom_fitTanSipWcs_IO
+    # - @ref meas_astrom_fitTanSipWcs_Schema
+    # - @ref meas_astrom_fitTanSipWcs_Config
+    # - @ref meas_astrom_fitTanSipWcs_Example
+    # - @ref meas_astrom_fitTanSipWcs_Debug
+
+    #@section meas_astrom_fitTanSipWcs_Purpose  Description
+
+    #Fit a TAN-SIP WCS given a list of reference object/source matches.
+    #See CreateWithSip.h for information about the fitting algorithm.
+
+    #@section meas_astrom_fitTanSipWcs_Initialize   Task initialisation
+
+    #@copydoc \_\_init\_\_
+
+    #@section meas_astrom_fitTanSipWcs_IO       Invoking the Task
+
+    #@copydoc fitWcs
+
+    #@section meas_astrom_fitTanSipWcs_Config       Configuration parameters
+
+    #See @ref FitTanSipWcsConfig
+
+    #@section meas_astrom_fitTanSipWcs_Example  A complete example of using FitTanSipWcsTask
+
+    #FitTanSipWcsTask is a subtask of AstrometryTask, which is called by PhotoCalTask.
+    #See \ref pipe_tasks_photocal_Example.
+
+    #@section meas_astrom_fitTanSipWcs_Debug        Debug variables
+
+    #FitTanSipWcsTask does not support any debug variables.
     ConfigClass = FitTanSipWcsConfig
     _DefaultName = "fitWcs"
 
@@ -112,7 +113,9 @@ class FitTanSipWcsTask(pipeBase.Task):
 
             - match.first (reference object) coord
             - match.second (source) centroid
+
             The following fields are written:
+
             - match.first (reference object) centroid,
             - match.second (source) centroid
             - match.distance (on sky separation, in radians)

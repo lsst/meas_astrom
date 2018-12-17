@@ -173,75 +173,74 @@ class MatchPessimisticBConfig(pexConfig.Config):
 
 
 class MatchPessimisticBTask(pipeBase.Task):
-    r"""!Match sources to reference objects
-
-    @anchor MatchPessimisticBTask_
-
-    @section meas_astrom_MatchPessimisticB_Contents Contents
-
-     - @ref meas_astrom_MatchPessimisticB_Purpose
-     - @ref meas_astrom_MatchPessimisticB_Initialize
-     - @ref meas_astrom_MatchPessimisticB_IO
-     - @ref meas_astrom_MatchPessimisticB_Config
-     - @ref meas_astrom_MatchPessimisticB_Example
-     - @ref meas_astrom_MatchPessimisticB_Debug
-
-    @section meas_astrom_MatchPessimisticB_Purpose  Description
-
-    Match sources to reference objects. This is often done as a preliminary
-    step to fitting an astrometric or photometric solution. For details about
-    the matching algorithm see pessimistic_pattern_matcher_b_3D.py
-
-    @section meas_astrom_MatchPessimisticB_Initialize   Task initialization
-
-    @copydoc \_\_init\_\_
-
-    @section meas_astrom_MatchPessimisticB_IO       Invoking the Task
-
-    @copydoc matchObjectsToSources
-
-    @section meas_astrom_MatchPessimisticB_Config       Configuration
-    parameters
-
-    See @ref MatchPessimisticBConfig
-
-    To modify the tests for good sources for matching, create a new
-    sourceSelector class in meas_algorithms and use it in the config.
-
-    @section meas_astrom_MatchPessimisticB_Example  A complete example of
-    using MatchPessimisticBTask
-
-    MatchPessimisticBTask is a subtask of AstrometryTask, which is called by
-    PhotoCalTask. See \ref meas_photocal_photocal_Example.
-
-    @section meas_astrom_MatchPessimisticB_Debug        Debug variables
-
-    The @link lsst.pipe.base.cmdLineTask.CmdLineTask command line task@endlink
-    interface supports a flag @c -d to import @b debug.py from your
-    @c PYTHONPATH; see @ref baseDebug for more about @b debug.py files.
-
-    The available variables in MatchPessimisticBTask are:
-    <DL>
-      <DT> @c verbose (bool)
-      <DD> If True then the matcher prints debug messages to stdout
-    </DL>
-
-    To investigate the @ref meas_astrom_MatchPessimisticB_Debug, put something
-    like
-    @code{.py}
-        import lsstDebug
-        def DebugInfo(name):
-            # N.b. lsstDebug.Info(name) would call us recursively
-            debug = lsstDebug.getInfo(name)
-            if name == "lsst.pipe.tasks.astrometry":
-                debug.verbose = True
-
-            return debug
-
-        lsstDebug.Info = DebugInfo
-    @endcode
-    into your debug.py file and run this task with the @c --debug flag.
+    """Match sources to reference objects.
     """
+    #@anchor MatchPessimisticBTask_
+
+    #@section meas_astrom_MatchPessimisticB_Contents Contents
+
+    # - @ref meas_astrom_MatchPessimisticB_Purpose
+    # - @ref meas_astrom_MatchPessimisticB_Initialize
+    # - @ref meas_astrom_MatchPessimisticB_IO
+    # - @ref meas_astrom_MatchPessimisticB_Config
+    # - @ref meas_astrom_MatchPessimisticB_Example
+    # - @ref meas_astrom_MatchPessimisticB_Debug
+
+    #@section meas_astrom_MatchPessimisticB_Purpose  Description
+
+    #Match sources to reference objects. This is often done as a preliminary
+    #step to fitting an astrometric or photometric solution. For details about
+    #the matching algorithm see pessimistic_pattern_matcher_b_3D.py
+
+    #@section meas_astrom_MatchPessimisticB_Initialize   Task initialization
+
+    #@copydoc \_\_init\_\_
+
+    #@section meas_astrom_MatchPessimisticB_IO       Invoking the Task
+
+    #@copydoc matchObjectsToSources
+
+    #@section meas_astrom_MatchPessimisticB_Config       Configuration
+    #parameters
+
+    #See @ref MatchPessimisticBConfig
+
+    #To modify the tests for good sources for matching, create a new
+    #sourceSelector class in meas_algorithms and use it in the config.
+
+    #@section meas_astrom_MatchPessimisticB_Example  A complete example of
+    #using MatchPessimisticBTask
+
+    #MatchPessimisticBTask is a subtask of AstrometryTask, which is called by
+    #PhotoCalTask. See \ref meas_photocal_photocal_Example.
+
+    #@section meas_astrom_MatchPessimisticB_Debug        Debug variables
+
+    #The @link lsst.pipe.base.cmdLineTask.CmdLineTask command line task@endlink
+    #interface supports a flag @c -d to import @b debug.py from your
+    #@c PYTHONPATH; see @ref baseDebug for more about @b debug.py files.
+
+    #The available variables in MatchPessimisticBTask are:
+    #<DL>
+    #  <DT> @c verbose (bool)
+    #  <DD> If True then the matcher prints debug messages to stdout
+    #</DL>
+
+    #To investigate the @ref meas_astrom_MatchPessimisticB_Debug, put something
+    #like
+    #@code{.py}
+    #    import lsstDebug
+    #    def DebugInfo(name):
+    #        # N.b. lsstDebug.Info(name) would call us recursively
+    #        debug = lsstDebug.getInfo(name)
+    #        if name == "lsst.pipe.tasks.astrometry":
+    #            debug.verbose = True
+
+    #        return debug
+
+    #    lsstDebug.Info = DebugInfo
+    #@endcode
+    #into your debug.py file and run this task with the @c --debug flag.
 
     ConfigClass = MatchPessimisticBConfig
     _DefaultName = "matchObjectsToSources"

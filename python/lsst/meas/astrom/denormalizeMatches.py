@@ -49,8 +49,8 @@ def denormalizeMatches(matches, matchMeta=None):
     requires reading each catalog and doing the join.
 
     This function generates a Catalog containing all the information in the
-    matches. The reference catalog entries are in columns with "ref_"
-    prepended, while the source catalog entries are in columns with "src_"
+    matches. The reference catalog entries are in columns with 'ref'
+    prepended, while the source catalog entries are in columns with 'src'
     prepended (including any alias mappings). The distance between the
     matches is in a column named "distance".
 
