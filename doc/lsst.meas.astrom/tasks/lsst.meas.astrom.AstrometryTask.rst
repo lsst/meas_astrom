@@ -10,7 +10,7 @@ AstrometryTask
 ``AstrometryTask`` matches a source catalog with objects from a reference
 catalog and attempts to fit a WCS.
 
-.. _lsst.example.ExampleCmdLineTask-summary:
+.. _lsst.meas.astrom.AstrometryTask-summary:
 
 Processing summary
 ==================
@@ -24,28 +24,28 @@ Processing summary
 - Match input source catalog to the position reference stars.
 - Fit a WCS based on the matches.
 
-.. _lsst.example.ExampleCmdLineTask-api:
+.. _lsst.meas.astrom.AstrometryTask-api:
 
 Python API summary
 ==================
 
 .. lsst-task-api-summary:: lsst.meas.astrom.AstrometryTask
 
-.. _lsst.example.ExampleCmdLineTask-subtasks:
+.. _lsst.meas.astrom.AstrometryTask-subtasks:
 
 Retargetable subtasks
 =====================
 
 .. lsst-task-config-subtasks:: lsst.meas.astrom.AstrometryTask
 
-.. _lsst.example.ExampleCmdLineTask-configs:
+.. _lsst.meas.astrom.AstrometryTask-configs:
 
 Configuration fields
 ====================
 
 .. lsst-task-config-fields:: lsst.meas.astrom.AstrometryTask
 
-.. _lsst.example.ExampleCmdLineTask-examples:
+.. _lsst.meas.astrom.AstrometryTask-examples:
 
 Examples
 ========
@@ -58,7 +58,7 @@ Examples
 See :lsst-task:`lsst.pipe.tasks.photoCal.PhotoCalTask`
 .. note:: Pipe task will require conversion before this link is useable.
 
-.. _lsst.example.ExampleCmdLineTask-debug:
+.. _lsst.meas.astrom.AstrometryTask-debug:
 
 Debugging
 =========

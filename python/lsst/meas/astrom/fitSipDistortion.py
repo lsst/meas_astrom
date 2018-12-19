@@ -1,4 +1,24 @@
-
+#
+# LSST Data Management System
+# Copyright 2008-2016 AURA/LSST.
+#
+# This product includes software developed by the
+# LSST Project (http://www.lsst.org/).
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the LSST License Statement and
+# the GNU General Public License along with this program.  If not,
+# see <http://www.lsstcorp.org/LegalNotices/>.
+#
 __all__ = ["FitSipDistortionTask", "FitSipDistortionConfig"]
 
 
@@ -16,6 +36,7 @@ from .setMatchDistance import setMatchDistance
 
 
 class FitSipDistortionConfig(lsst.pex.config.Config):
+    """""Config for FitSipDistortionTask"""
     order = lsst.pex.config.RangeField(
         doc="Order of SIP polynomial",
         dtype=int,
@@ -77,110 +98,13 @@ class FitSipDistortionConfig(lsst.pex.config.Config):
 
 
 class FitSipDistortionTask(lsst.pipe.base.Task):
-    """Fit a TAN-SIP WCS given a list of reference object/source matches
- 
-    Notes
-    -----
-    FitSipDistortionTask is a drop-in replacement for
-    :py:class:`lsst.meas.astrom.FitTanSipWcsTask`.  It is built on fundamentally
-    stronger fitting algorithms, but has received significantly less testing.
-    
-    Like :py:class:`lsst.meas.astrom.FitTanSipWcsTask`, this task is most
-    easily used as the wcsFitter component of
-    :py:class:`lsst.meas.astrom.AstrometryTask`; it can be enabled in a config
-    file via e.g.
-
-    .. code-block:: py
-
-       from lsst.meas.astrom import FitSipDistortionTask
-       config.(...).astometry.wcsFitter.retarget(FitSipDistortionTask)
-
-    Algorithm:
-
-    The algorithm used by FitSipDistortionTask involves three steps:
-
-    - We set the CRVAL and CRPIX reference points to the mean positions of
-      the matches, while holding the CD matrix fixed to the value passed in
-      to the run() method.  This work is done by the makeInitialWcs method.i
-    - We fit the SIP "reverse transform" (the AP and BP polynomials that map
-      "intermediate world coordinates" to pixels).  This happens iteratively;
-      while fitting for the polynomial coefficients given a set of matches is
-      a linear operation that can be done without iteration, outlier
-      rejection using sigma-clipping and estimation of the intrinsic scatter
-      are not. By fitting the reverse transform first, we can do outlier
-      rejection in pixel coordinates, where we can better handle the source
-      measurement uncertainties that contribute to the overall scatter.  This
-      fit results in a
-      :cpp:class:`lsst::meas::astrom::ScaledPolynomialTransform`, which is
-      somewhat more general than the SIP reverse transform in that it allows
-      an affine transform both before and after the polynomial.  This is
-      somewhat more numerically stable than the SIP form, which applies only
-      a linear transform (with no offset) before the polynomial and only a
-      shift afterwards.  We only convert to SIP form once the fitting is
-      complete.  This conversion is exact (though it may be subject to
-      significant round-off error) as long as we do not attempt to null the
-      low-order SIP polynomial terms (we do not).
-    - Once the SIP reverse transform has been fit, we use it to populate a
-      grid of points that we use as the data points for fitting its inverse,
-      the SIP forward transform.  Because our "data" here is artificial,
-      there is no need for outlier rejection or uncertainty handling.  We
-      again fit a general scaled polynomial, and only convert to SIP form
-      when the fit is complete.
-
-    Debugging:
-
-    Enabling DEBUG-level logging on this task will report the number of
-    outliers rejected and the current estimate of intrinsic scatter at each
-    iteration.
-
-    FitSipDistortionTask also supports the following lsstDebug variables to
-    control diagnostic displays:
-
-    - FitSipDistortionTask.display: if True, enable display diagnostics.
-    - FitSipDistortionTask.frame: frame to which the display will be sent
-    - FitSipDistortionTask.pause: whether to pause (by dropping into pdb)
-      between iterations (default is True).  If False, multiple frames
-      will be used, starting at the given number.
-
-    The diagnostic display displays the image (or an empty image if
-    exposure=None) overlaid with the positions of sources and reference
-    objects will be shown for every iteration in the reverse transform fit.
-    The legend for the overlay is:
-
-    Red X
-        Reference sources transformed without SIP distortion terms; this
-        uses a TAN WCS whose CRPIX, CRVAL and CD matrix are the same
-        as those in the TAN-SIP WCS being fit.  These are not expected to
-        line up with sources unless distortion is small.
-
-    Magenta X
-        Same as Red X, but for matches that were rejected as outliers.
-
-    Red O
-        Reference sources using the current best-fit TAN-SIP WCS.  These
-        are connected to the corresponding non-distorted WCS position by
-        a red line, and should be a much better fit to source positions
-        than the Red Xs.
-
-    Magenta O
-        Same as Red O, but for matches that were rejected as outliers.
-
-    Green Ellipse
-        Source positions and their error ellipses, including the current
-        estimate of the intrinsic scatter.
-
-    Cyan Ellipse
-        Same as Green Ellipse, but for matches that were rejected as outliers.
-
-    Reference to parameters:
-    See :py:class:`lsst.pipe.base.Task`; FitSipDistortionTask does not add any
-    additional constructor parameters.
+    """Fit a TAN-SIP WCS given a list of reference object/source matches.
     """
     ConfigClass = FitSipDistortionConfig
     _DefaultName = "fitWcs"
 
-    def __init__(self, **kwds):
-        lsst.pipe.base.Task.__init__(self, **kwds)
+    def __init__(self, **kwargs):
+        lsst.pipe.base.Task.__init__(self, **kwargs)
         self.outlierRejectionCtrl = OutlierRejectionControl()
         self.outlierRejectionCtrl.nClipMin = self.config.nClipMin
         self.outlierRejectionCtrl.nClipMax = self.config.nClipMax
@@ -192,7 +116,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
 
         Parameters
         ----------
-        matches : list of :cpp:class:`lsst::afw::table::ReferenceMatch`
+        matches : `list` of :cpp:class:`lsst::afw::table::ReferenceMatch`
             A sequence of reference object/source matches.
             The following fields are read:
             - match.first (reference object) coord
@@ -207,14 +131,14 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
             An initial WCS whose CD matrix is used as the final CD matrix.
         bbox : :cpp:class:`lsst::afw::geom::Box2I`
             The region over which the WCS will be valid (PARENT pixel coordinates);
-            if None or an empty box then computed from matches
+            if `None` or an empty box then computed from matches
         refCat : :cpp:class:`lsst::afw::table::SimpleCatalog`
-            Reference object catalog, or None.
+            Reference object catalog, or `None`.
             If provided then all centroids are updated with the new WCS,
             otherwise only the centroids for ref objects in matches are updated.
             Required fields are "centroid_x", "centroid_y", "coord_ra", and "coord_dec".
         sourceCat : :cpp:class:`lsst::afw::table::SourceCatalog`
-            Source catalog, or None.
+            Source catalog, or `None`.
             If provided then coords are updated with the new WCS;
             otherwise only the coords for sources in matches are updated.
             Required input fields are "slot_Centroid_x", "slot_Centroid_y",
@@ -223,7 +147,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
             will be updated but are not used as input.
         exposure : :cpp:class:`lsst::afw::image::Exposure`
             An Exposure or other displayable image on which matches can be
-            overplotted.  Ignored (and may be None) if display-based debugging
+            overplotted.  Ignored (and may be `None`) if display-based debugging
             is not enabled via lsstDebug.
 
         Returns
@@ -344,7 +268,6 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
 
         Parameters
         ----------
-
         revFitter : :cpp:class:`lsst::meas::astrom::ScaledPolynomialTransformFitter`
             Fitter object initialized with `fromMatches` for fitting a "reverse"
             distortion: the mapping from intermediate world coordinates to
@@ -415,8 +338,8 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
 
         Returns
         -------
-
-        A new :cpp:class:`lsst::afw::geom::SkyWcs`.
+        newWcsL : :cpp:class:`lsst::afw::geom::SkyWcs`
+            A new WCS guess. 
         """
         crpix = lsst.afw.geom.Extent2D(0, 0)
         crval = lsst.sphgeom.Vector3d(0, 0, 0)

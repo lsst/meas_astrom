@@ -1,4 +1,24 @@
-
+#
+# LSST Data Management System
+# Copyright 2008-2016 AURA/LSST.
+#
+# This product includes software developed by the
+# LSST Project (http://www.lsst.org/).
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the LSST License Statement and
+# the GNU General Public License along with this program.  If not,
+# see <http://www.lsstcorp.org/LegalNotices/>.
+#
 __all__ = ["FitTanSipWcsTask", "FitTanSipWcsConfig"]
 
 
@@ -15,6 +35,7 @@ from .sip import makeCreateWcsWithSip
 
 
 class FitTanSipWcsConfig(pexConfig.Config):
+    """Config for FitTanSipWcsTask."""
     order = pexConfig.RangeField(
         doc="order of SIP polynomial",
         dtype=int,
@@ -60,45 +81,6 @@ class FitTanSipWcsConfig(pexConfig.Config):
 class FitTanSipWcsTask(pipeBase.Task):
     """Fit a TAN-SIP WCS given a list of reference object/source matches.
     """
-    #r"""!Fit a TAN-SIP WCS given a list of reference object/source matches
-
-    #@anchor FitTanSipWcsTask_
-
-    #@section meas_astrom_fitTanSipWcs_Contents Contents
-
-    # - @ref meas_astrom_fitTanSipWcs_Purpose
-    # - @ref meas_astrom_fitTanSipWcs_Initialize
-    # - @ref meas_astrom_fitTanSipWcs_IO
-    # - @ref meas_astrom_fitTanSipWcs_Schema
-    # - @ref meas_astrom_fitTanSipWcs_Config
-    # - @ref meas_astrom_fitTanSipWcs_Example
-    # - @ref meas_astrom_fitTanSipWcs_Debug
-
-    #@section meas_astrom_fitTanSipWcs_Purpose  Description
-
-    #Fit a TAN-SIP WCS given a list of reference object/source matches.
-    #See CreateWithSip.h for information about the fitting algorithm.
-
-    #@section meas_astrom_fitTanSipWcs_Initialize   Task initialisation
-
-    #@copydoc \_\_init\_\_
-
-    #@section meas_astrom_fitTanSipWcs_IO       Invoking the Task
-
-    #@copydoc fitWcs
-
-    #@section meas_astrom_fitTanSipWcs_Config       Configuration parameters
-
-    #See @ref FitTanSipWcsConfig
-
-    #@section meas_astrom_fitTanSipWcs_Example  A complete example of using FitTanSipWcsTask
-
-    #FitTanSipWcsTask is a subtask of AstrometryTask, which is called by PhotoCalTask.
-    #See \ref pipe_tasks_photocal_Example.
-
-    #@section meas_astrom_fitTanSipWcs_Debug        Debug variables
-
-    #FitTanSipWcsTask does not support any debug variables.
     ConfigClass = FitTanSipWcsConfig
     _DefaultName = "fitWcs"
 
@@ -108,7 +90,7 @@ class FitTanSipWcsTask(pipeBase.Task):
 
         Parameters
         ----------
-        matches : a list of lsst::afw::table::ReferenceMatch
+        matches : `list` of `lsst.afw.table.ReferenceMatch`
             The following fields are read:
 
             - match.first (reference object) coord
@@ -120,22 +102,22 @@ class FitTanSipWcsTask(pipeBase.Task):
             - match.second (source) centroid
             - match.distance (on sky separation, in radians)
 
-        initWcs :
+        initWcs : `lsst.afw.geom.SkyWcs`
             initial WCS
-        bbox :
+        bbox : `lsst.geom.Box2I`
             the region over which the WCS will be valid (an lsst:afw::geom::Box2I);
             if None or an empty box then computed from matches
-        refCat :
+        refCat : `lsst.afw.table.SimpleCatalog`
             reference object catalog, or None.
             If provided then all centroids are updated with the new WCS,
             otherwise only the centroids for ref objects in matches are updated.
             Required fields are "centroid_x", "centroid_y", "coord_ra", and "coord_dec".
-        sourceCat :
+        sourceCat : `lsst.afw.table.SourceCatalog`
             source catalog, or None.
             If provided then coords are updated with the new WCS;
             otherwise only the coords for sources in matches are updated.
             Required fields are "slot_Centroid_x", "slot_Centroid_y", and "coord_ra", and "coord_dec".
-        exposure :
+        exposure : `lsst.afw.image.Exposure`
             Ignored; present for consistency with FitSipDistortionTask.
 
         Returns
@@ -143,9 +125,9 @@ class FitTanSipWcsTask(pipeBase.Task):
         result : `lsst.pipe.base.Struct`
             with the following fields:
 
-            - ``wcs`` :  the fit WCS as an lsst.afw.geom.Wcs
-            - ``scatterOnSky`` :  median on-sky separation between reference objects and sources in "matches",
-                as an lsst.afw.geom.Angle
+            - ``wcs`` :  the fit WCS (`lsst.afw.geom.SkyWcs`)
+            - ``scatterOnSky`` :  median on-sky separation between reference
+              objects and sources in "matches" (`lsst.afw.geom.Angle`)
         """
         if bbox is None:
             bbox = lsst.geom.Box2I()
@@ -214,6 +196,18 @@ class FitTanSipWcsTask(pipeBase.Task):
         matches with no estimated Wcs, and the input Wcs is a wild guess.
         We're using the best of each: positions from the matches, and scale
         from the input Wcs.
+
+        Parameters
+        ----------
+        matches : `list` of `lsst.afw.table.ReferenceMatch`
+            List of sources matched to references.
+        wcs : `lsst.afw.geom.SkyWcs`
+            Current WCS.
+
+        Returns
+        -------
+        newWcs : `lsst.afw.geom.SkyWcs`
+            Initial WCS guess from estimated crpix and crval.
         """
         crpix = lsst.geom.Extent2D(0, 0)
         crval = lsst.sphgeom.Vector3d(0, 0, 0)
@@ -228,7 +222,20 @@ class FitTanSipWcsTask(pipeBase.Task):
         return newWcs
 
     def _fitWcs(self, matches, wcs):
-        """Fit a Wcs based on the matches and a guess Wcs"""
+        """Fit a Wcs based on the matches and a guess Wcs.
+
+        Parameters
+        ----------
+        matches : `list` of `lsst.afw.table.ReferenceMatch`
+            List of sources matched to references.
+        wcs : `lsst.afw.geom.SkyWcs`
+            Current WCS.
+
+        Returns
+        -------
+        sipObject : `lsst::meas::astrom::sip::CreateWcsWithSip`
+            Fitted SIP object.
+        """
         for i in range(self.config.numIter):
             sipObject = makeCreateWcsWithSip(matches, wcs, self.config.order)
             wcs = sipObject.getNewWcs()
@@ -240,6 +247,20 @@ class FitTanSipWcsTask(pipeBase.Task):
         We return a boolean numpy array indicating whether the corresponding
         match should be rejected.  The previous list of rejections is used
         so we can calculate uncontaminated statistics.
+        
+        Parameters
+        ----------
+        matches : `list` of `lsst.afw.table.ReferenceMatch`
+            List of sources matched to references.
+        wcs : `lsst.afw.geom.SkyWcs`
+            Fitted WCS.
+        rejected : array-like of `bool`
+            Array of matches rejected from the fit. Unused.
+
+        Returns
+        -------
+        rejectedMatches : `ndarray` of type `bool`
+            Matched objects found to be outside of tolerance.
         """
         fit = [wcs.skyToPixel(m.first.getCoord()) for m in matches]
         dx = np.array([ff.getX() - mm.second.getCentroid().getX() for ff, mm in zip(fit, matches)])
@@ -252,6 +273,15 @@ class FitTanSipWcsTask(pipeBase.Task):
 
         We create four plots, for all combinations of (dx, dy) against
         (x, y).  Good points are black, while rejected points are red.
+
+        Parameters
+        ----------
+        matches : `list` of `lsst.afw.table.ReferenceMatch`
+            List of sources matched to references.
+        wcs : `lsst.afw.geom.SkyWcs`
+            Fitted WCS.
+        rejected : array-like of `bool`
+            Array of matches rejected from the fit.
         """
         try:
             import matplotlib.pyplot as plt

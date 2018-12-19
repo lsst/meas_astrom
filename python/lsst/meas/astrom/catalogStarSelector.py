@@ -83,7 +83,14 @@ class CheckSource:
 
 @pexConfig.registerConfigurable("catalog", sourceSelectorRegistry)
 class CatalogStarSelectorTask:
-    """Select stars based on a reference catalog
+    """Select stars based on a reference catalog.
+
+    Attributes
+    ----------
+    usesMatches : `bool`
+        A boolean variable specify if the inherited source selector uses
+        matches to an external catalog, and thus requires the ``matches``
+        argument to ``run()``. Set to True for this selector.
     """
     #@anchor CatalogStarSelectorTask_
 
@@ -158,11 +165,10 @@ class CatalogStarSelectorTask:
         Return
         ------
         struct : `lsst.pipe.base.Struct`
-            The struct contains the following data:
+            Result struct with components:
 
-            - selected : `numpy.ndarray` of `bool``
-                Boolean array of sources that were selected, same length as
-                sourceCat.
+            - selected : Boolean array of sources that were selected, same
+              length as sourceCat (`numpy.ndarray` of `bool`)
         """
         import lsstDebug
         debugInfo = lsstDebug.Info(__name__)

@@ -37,23 +37,24 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
 
     Parameters
     ----------
-    refCat :
-        reference object catalog; must have fields "centroid_x" and "centroid_y"
-    sourceCat :
+    refCat : `lsst.afw.table.SimpleCatalog`
+        reference object catalog; must have fields "centroid_x" an
+        "centroid_y"
+    sourceCat : `lsst.afw.table.SourceCatalg`
         source catalog; must have field "slot_Centroid_x" and "slot_Centroid_y"
-    distortedCentroidKey :
-        key for sourceCat with field to use for distorted positions, or None
-    exposure :
-        exposure to display, or None for a blank exposure
-    bbox :
-        bounding box of exposure; used if exposure is None for a blank image
-    matches :
-        a list of lsst.afw.table.ReferenceMatch, or None
-    frame :
+    distortedCentroidKey : `lsst.afw.table.Key`
+        key for sourceCat with field to use for distorted positions
+    exposure : `lsst.afw.image.Exposure`
+        exposure to display
+    bbox : `lsst.geom.Box2I`
+        bounding box of exposure; Used if the exposure is `None`
+    matches : `list` of `lsst.afw.table.ReferenceMatch`
+        List of matched objects
+    frame : `int`
         frame number for ds9 display
-    title :
+    title : `str`
         title for ds9 display
-    pause :
+    pause : `bool`
         pause for inspection of display? This is done by dropping into pdb.
 
     Notes
@@ -61,10 +62,11 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
 
     - reference objects in refCat are shown as red X
     - sources in sourceCat are shown as green +
-    - distorted sources in sourceCat (position given by distortedCentroidKey) are shown as green o
+    - distorted sources in sourceCat (position given by distortedCentroidKey)
+      are shown as green o
     - matches are shown as a yellow circle around the source and a yellow line
-        connecting the reference object and source
-    - if both exposure and bbox are None, no image is displayed
+      connecting the reference object and source
+    - if both exposure and bbox are `None`, no image is displayed
 
     """
     disp = afwDisplay.getDisplay(frame)
@@ -127,21 +129,21 @@ def plotAstrometry(
 
     Parameters
     ----------
-    matches :
+    matches : `list` of `lsst.afw.table.ReferenceMatch`
         list of matches
-    refCat :
+    refCat : `lsst.afw.table.SimpleCatalog`
         reference object catalog, or None to not plot reference objects
-    sourceCat :
+    sourceCat : `lsst.afw.table.SourceCatalog`
         source catalog, or None to not plot sources
-    refMarker :
+    refMarker : `str`
         pyplot marker for reference objects
-    refColor :
+    refColor : `str`
         pyplot color for reference objects
-    sourceMarker :
+    sourceMarker : `str`
         pyplot marker for sources
-    sourceColor :
+    sourceColor : `str`
         pyplot color for sources
-    matchColor :
+    matchColor : `str`
         color for matches; can be a constant
         or a function taking one match and returning a string
 
@@ -152,8 +154,7 @@ def plotAstrometry(
     - reference objects in refCat are shown as red X
     - sources in sourceCat are shown as green +
     - matches are shown as a yellow circle around the source and a line
-        connecting the reference object to the source
-
+      connecting the reference object to the source
     """
     # delay importing plt to give users a chance to set the backend before calling this function
     import matplotlib.pyplot as plt
