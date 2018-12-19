@@ -31,6 +31,8 @@ from .display import displayAstrometry
 
 
 class AstrometryConfig(RefMatchConfig):
+    """Config for AstrometryTask.
+    """
     wcsFitter = pexConfig.ConfigurableField(
         target=FitTanSipWcsTask,
         doc="WCS fitter",
@@ -69,82 +71,18 @@ class AstrometryTask(RefMatchTask):
     """Match an input source catalog with objects from a reference catalog and
     solve for the WCS.
 
+    # TODO: DM-16868 remove explicit and unused schema from class input.
+
     Parameters
     ----------
-    refObjLoader :
+    refObjLoader : `lsst.meas.algorithms.ReferenceLoader`
         A reference object loader object
-    schema :
+    schema : `lsst.afw.table.Schema`
         ignored; available for compatibility with an older astrometry task
-    kwargs :
-        additional keyword arguments for pipe_base `lsst.pipe.base.Task.__init__`
+    kwargs
+        additional keyword arguments for pipe_base 
+        `lsst.pipe.base.Task.__init__`
     """
-    #@anchor AstrometryTask_
-
-    #@section meas_astrom_astrometry_Contents Contents
-
-    # - @ref meas_astrom_astrometry_Purpose
-    # - @ref meas_astrom_astrometry_Initialize
-    # - @ref meas_astrom_astrometry_IO
-    # - @ref meas_astrom_astrometry_Config
-    # - @ref meas_astrom_astrometry_Example
-    # - @ref meas_astrom_astrometry_Debug
-
-    #@section meas_astrom_astrometry_Purpose  Description
-
-    #Match input sourceCat with a reference catalog and solve for the Wcs
-
-    #There are three steps, each performed by different subtasks:
-    #- Find position reference stars that overlap the exposure
-    #- Match sourceCat to position reference stars
-    #- Fit a WCS based on the matches
-
-    #@section meas_astrom_astrometry_Initialize   Task initialisation
-
-    #@copydoc \_\_init\_\_
-
-    #@section meas_astrom_astrometry_IO       Invoking the Task
-
-    #@copydoc run
-
-    #@copydoc loadAndMatch
-
-    #@section meas_astrom_astrometry_Config       Configuration parameters
-
-    #See @ref AstrometryConfig
-
-    #@section meas_astrom_astrometry_Example  A complete example of using AstrometryTask
-
-    #See \ref pipe_tasks_photocal_Example.
-
-    #@section meas_astrom_astrometry_Debug        Debug variables
-
-    #The @link lsst.pipe.base.cmdLineTask.CmdLineTask command line task@endlink interface supports a
-    #flag @c -d to import @b debug.py from your @c PYTHONPATH; see @ref baseDebug for more about
-    #@b debug.py files.
-
-    #The available variables in AstrometryTask are:
-    #<DL>
-    #  <DT> @c display (bool)
-    #  <DD> If True display information at three stages: after finding reference objects,
-    #    after matching sources to reference objects, and after fitting the WCS; defaults to False
-    #  <DT> @c frame (int)
-    #  <DD> ds9 frame to use to display the reference objects; the next two frames are used
-    #        to display the match list and the results of the final WCS; defaults to 0
-    #</DL>
-
-    #To investigate the @ref meas_astrom_astrometry_Debug, put something like
-    #@code{.py}
-    #import lsstDebug
-    #def DebugInfo(name):
-    #    debug = lsstDebug.getInfo(name)        # N.b. lsstDebug.Info(name) would call us recursively
-    #    if name == "lsst.meas.astrom.astrometry":
-    #        debug.display = True
-
-    #    return debug
-
-    #lsstDebug.Info = DebugInfo
-    #@endcode
-    #into your debug.py file and run this task with the @c --debug flag.
     ConfigClass = AstrometryConfig
     _DefaultName = "astrometricSolver"
 
@@ -161,21 +99,27 @@ class AstrometryTask(RefMatchTask):
 
     @pipeBase.timeMethod
     def run(self, sourceCat, exposure):
-        """Load reference objects, match sources and optionally fit a WCS
+        """Load reference objects, match sources and optionally fit a WCS.
 
-        This is a thin layer around solve or loadAndMatch, depending on config.forceKnownWcs
+        This is a thin layer around solve or loadAndMatch, depending on
+        config.forceKnownWcs.
 
         Parameters
         ----------
         exposure : `lsst.afw.image.Exposure`
             exposure whose WCS is to be fit
             The following are read only:
+
             - bbox
             - calib (may be absent)
             - filter (may be unset)
             - detector (if wcs is pure tangent; may be absent)
+
             The following are updated:
-            - wcs (the initial value is used as an initial guess, and is required)
+
+            - wcs (the initial value is used as an initial guess, and is
+              required)
+
         sourceCat : `lsst.afw.table.SourceCatalog`
             catalog of sources detected on the exposure
 
@@ -184,12 +128,15 @@ class AstrometryTask(RefMatchTask):
         result : `lsst.pipe.base.Struct`
             with these fields:
 
-        - ``refCat`` :  reference object catalog of objects that overlap the exposure (with some margin)
-            (an lsst::afw::table::SimpleCatalog)
-        - ``matches`` : astrometric matches, a list of lsst.afw.table.ReferenceMatch
-        - ``scatterOnSky`` :  median on-sky separation between reference objects and sources in "matches"
-            (an lsst.afw.geom.Angle), or None if config.forceKnownWcs True
-        - ``matchMeta`` :  metadata needed to unpersist matches (an lsst.daf.base.PropertyList)
+            - ``refCat`` : reference object catalog of objects that overlap the
+              exposure (with some margin) (`lsst.afw.table.SimpleCatalog`).
+            - ``matches`` : astrometric matches
+              (`list` of `lsst.afw.table.ReferenceMatch`).
+            - ``scatterOnSky`` :  median on-sky separation between reference
+              objects and sources in "matches"
+              (`lsst.afw.geom.Angle`) or `None` if config.forceKnownWcs True
+            - ``matchMeta`` :  metadata needed to unpersist matches
+              (`lsst.daf.base.PropertyList`)
         """
         if self.config.forceKnownWcs:
             res = self.loadAndMatch(exposure=exposure, sourceCat=sourceCat)
@@ -200,19 +147,22 @@ class AstrometryTask(RefMatchTask):
 
     @pipeBase.timeMethod
     def solve(self, exposure, sourceCat):
-        """Load reference objects overlapping an exposure, match to sources and fit a WCS
+        """Load reference objects overlapping an exposure, match to sources and
+        fit a WCS
 
         Returns
         -------
         result : `lsst.pipe.base.Struct`
-            with these fields:
+            Result struct with components:
 
-            - ``refCat`` :  reference object catalog of objects that overlap the exposure (with some margin)
-                (an lsst::afw::table::SimpleCatalog)
-            - ``matches`` :  astrometric matches, a list of lsst.afw.table.ReferenceMatch
-            - ``scatterOnSky`` :  median on-sky separation between reference objects and sources in "matches"
-                (an lsst.afw.geom.Angle)
-            - ``matchMeta`` :  metadata needed to unpersist matches (an lsst.daf.base.PropertyList)
+            - ``refCat`` : reference object catalog of objects that overlap the
+              exposure (with some margin) (`lsst::afw::table::SimpleCatalog`).
+            - ``matches`` :  astrometric matches
+              (`list` of `lsst.afw.table.ReferenceMatch`).
+            - ``scatterOnSky`` :  median on-sky separation between reference
+              objects and sources in "matches" (`lsst.geom.Angle`)
+            - ``matchMeta`` :  metadata needed to unpersist matches
+              (`lsst.daf.base.PropertyList`)
 
         Notes
         -----
@@ -312,36 +262,38 @@ class AstrometryTask(RefMatchTask):
     @pipeBase.timeMethod
     def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, match_tolerance,
                         exposure=None):
-        """Match sources to reference objects and fit a WCS
+        """Match sources to reference objects and fit a WCS.
 
         Parameters
         ----------
-        refCat :
+        refCat : `lsst.afw.table.SimpleCatalog`
             catalog of reference objects
-        sourceCat :
-            catalog of sources detected on the exposure (an lsst.afw.table.SourceCatalog)
-        refFluxField :
+        sourceCat : `lsst.afw.table.SourceCatalog`
+            catalog of sources detected on the exposure
+        refFluxField : 'str'
             field of refCat to use for flux
-        bbox :
-            bounding box of exposure (an lsst.afw.geom.Box2I)
-        wcs :
-            initial guess for WCS of exposure (an lsst.afw.geom.Wcs)
-        match_tolerance :
+        bbox : `lsst.geom.Box2I`
+            bounding box of exposure
+        wcs : `lsst.afw.geom.SkyWcs`
+            initial guess for WCS of exposure
+        match_tolerance : `lsst.meas.astrom.MatchTolerance`
             a MatchTolerance object (or None) specifying
             internal tolerances to the matcher. See the MatchTolerance
             definition in the respective matcher for the class definition.
-        exposure :
-            exposure whose WCS is to be fit, or None; used only for the debug display
+        exposure : `lsst.afw.image.Exposure`
+            exposure whose WCS is to be fit, or None; used only for the debug
+            display.
 
         Returns
         -------
         result : `lsst.pipe.base.Struct`
-            with these fields:
+            Result struct with components:
 
-            - ``matches`` :  astrometric matches, a list of lsst.afw.table.ReferenceMatch
-            - ``wcs`` :  the fit WCS (an lsst.afw.geom.Wcs)
-            - ``scatterOnSky`` :  median on-sky separation between reference objects and sources in "matches"
-                (an lsst.afw.geom.Angle)
+            - ``matches``:  astrometric matches
+              (`list` of `lsst.afw.table.ReferenceMatch`).
+            - ``wcs``:  the fit WCS (lsst.afw.geom.SkyWcs).
+            - ``scatterOnSky`` :  median on-sky separation between reference
+              objects and sources in "matches" (`lsst.afw.geom.Angle`).
         """
         import lsstDebug
         debug = lsstDebug.Info(__name__)

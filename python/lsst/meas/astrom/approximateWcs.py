@@ -51,7 +51,7 @@ def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3,
     ----------
     wcs : `lsst.afw.geom.SkyWcs`
         wcs to approximate
-    bbox : `lsst.geom.BoundingBox`
+    bbox : `lsst.geom.Box2I`
         the region over which the WCS will be fit
     order : `int`
         order of SIP fit
