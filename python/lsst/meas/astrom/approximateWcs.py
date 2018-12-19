@@ -44,35 +44,36 @@ def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3,
                    skyTolerance=0.001*lsst.geom.arcseconds, pixelTolerance=0.02, useTanWcs=False):
     """Approximate an existing WCS as a TAN-SIP WCS
 
-    The fit is performed by evaluating the WCS at a uniform grid of points within a bounding box.
+    The fit is performed by evaluating the WCS at a uniform grid of points
+    within a bounding box.
 
     Parameters
     ----------
-    wcs :
+    wcs : `lsst.afw.geom.SkyWcs`
         wcs to approximate
-    bbox :
+    bbox : `lsst.geom.BoundingBox`
         the region over which the WCS will be fit
-    order :
+    order : `int`
         order of SIP fit
-    nx :
+    nx : `int`
         number of grid points along x
-    ny :
-            number of grid points along y
-    iterations :
+    ny : `int`
+        number of grid points along y
+    iterations : `int`
         number of times to iterate over fitting
-    skyTolerance :
+    skyTolerance : `lsst.geom.Angle`
         maximum allowed difference in world coordinates between
         input wcs and approximate wcs (default is 0.001 arcsec)
-    pixelTolerance :
+    pixelTolerance : `float`
         maximum allowed difference in pixel coordinates between
         input wcs and approximate wcs (default is 0.02 pixels)
-    useTanWcs :
+    useTanWcs : `bool`
         send a TAN version of wcs to the fitter? It is documented to require that,
         but I don't think the fitter actually cares
 
     Returns
     -------
-    fitWcs :
+    fitWcs : `lsst.afw.geom.SkyWcs`
         the fit TAN-SIP WCS
     """
     if useTanWcs:
