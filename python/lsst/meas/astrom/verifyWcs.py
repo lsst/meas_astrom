@@ -33,6 +33,28 @@ from lsst.log import Log
 
 
 def checkMatches(srcMatchSet, exposure, log=None):
+    """Check astrometric matches and assess Wcs quality by computing statics
+    over spacial cells in the image.
+
+    Parameters
+    ----------
+    srcMatchSet : `list` of `lsst.afw.table.ReferenceMatch`
+        List of matched sources to a reference catalog.
+    exposure : `lsst.afw.image.Exposure`
+        Image the sources in srcMatchSet were detected/measured in.
+    log : `lsst.log.Log`
+        Logger object.
+
+    Returns
+    -------
+    values : `dict`
+        Result dictionary with fields:
+
+        - ``minObjectsPerCell`` : (`int`)
+        - ``maxObjectsPerCell`` : (`int`)
+        - ``meanObjectsPerCell`` : (`float`)
+        - ``stdObjectsPerCell`` : (`float`)
+    """
     if not exposure:
         return {}
 
