@@ -63,15 +63,15 @@ class RefMatchConfig(pexConfig.Config):
 
 
 class RefMatchTask(pipeBase.Task):
-    """Match an input source catalog with objects from a reference catalog
+    """Match an input source catalog with objects from a reference catalog.
 
     Parameters
     ----------
-    refObjLoader :
+    refObjLoader : `lsst.meas.algorithms.ReferenceLoader`
         A reference object loader object
-    schema :
+    schema : `lsst.afw.table.Schema`
         ignored; available for compatibility with an older astrometry task
-    kwargs :
+    kwargs
         additional keyword arguments for pipe_base `lsst.pipe.base.Task`
     """
     ConfigClass = RefMatchConfig
@@ -86,24 +86,27 @@ class RefMatchTask(pipeBase.Task):
 
     @pipeBase.timeMethod
     def loadAndMatch(self, exposure, sourceCat):
-        """Load reference objects overlapping an exposure and match to sources detected on that exposure
+        """Load reference objects overlapping an exposure and match to sources
+        detected on that exposure.
 
         Parameters
         ----------
-        exposure :
+        exposure : `lsst.afw.image.Exposure`
             exposure that the sources overlap
-        sourceCat :
-            catalog of sources detected on the exposure (an lsst.afw.table.SourceCatalog)
+        sourceCat : `lsst.afw.table.SourceCatalog.`
+            catalog of sources detected on the exposure
 
         Returns
         -------
         result : `lsst.pipe.base.Struct`
-            with these fields:
+            Result struct with Components:
 
-            - ``refCat`` :  reference object catalog of objects that overlap the exposure (with some margin)
-                (an lsst::afw::table::SimpleCatalog)
-            - ``matches`` :  a list of lsst.afw.table.ReferenceMatch
-            - ``matchMeta`` :  metadata needed to unpersist matches (an lsst.daf.base.PropertyList)
+            - ``refCat`` : reference object catalog of objects that overlap the
+              exposure (`lsst.afw.table.SimpleCatalog`)
+            - ``matches`` :  Matched sources and references
+              (`list` of `lsst.afw.table.ReferenceMatch`)
+            - ``matchMeta`` : metadata needed to unpersist matches
+              (`lsst.daf.base.PropertyList`)
 
         Notes
         -----
@@ -171,18 +174,20 @@ class RefMatchTask(pipeBase.Task):
 
         Parameters
         ----------
-        matchList :
+        matchList : `list` of `lsst.afw.table.ReferenceMatch`
             list of matches between reference object and sources;
             the distance field is the only field read and it must be set to distance in radians
 
         Returns
         -------
         result : `lsst.pipe.base.Struct`
-            a pipe_base Struct containing these fields:
+            Result struct with components:
 
-            - ``distMean`` :  clipped mean of on-sky radial separation
-            - ``distStdDev`` :  clipped standard deviation of on-sky radial separation
-            - ``maxMatchDist`` :  distMean + self.config.matchDistanceSigma*distStdDev
+            - ``distMean`` : clipped mean of on-sky radial separation (`float`)
+            - ``distStdDev`` : clipped standard deviation of on-sky radial
+              separation (`float`)
+            - ``maxMatchDist`` : distMean + self.config.matchDistanceSigma * 
+              distStdDev (`float`)
         """
         distStatsInRadians = makeMatchStatistics(matchList, afwMath.MEANCLIP | afwMath.STDEVCLIP)
         distMean = distStatsInRadians.getValue(afwMath.MEANCLIP)*lsst.geom.radians
@@ -190,22 +195,26 @@ class RefMatchTask(pipeBase.Task):
         return pipeBase.Struct(
             distMean=distMean,
             distStdDev=distStdDev,
-            maxMatchDist=distMean + self.config.matchDistanceSigma*distStdDev,
+            maxMatchDist=distMean + self.config.matchDistanceSigma * distStdDev,
         )
 
     def _getExposureMetadata(self, exposure):
-        """Extract metadata from an exposure
+        """Extract metadata from an exposure.
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
 
         Returns
         -------
         result : `lsst.pipe.base.Struct`
-            containing the following exposure metadata:
+            Result struct with components:
 
-            - ``bbox`` : parent bounding box
-            - ``wcs`` : WCS (an lsst.afw.geom.Wcs)
-            - ``calib`` : calibration (an lsst.afw.image.Calib), or None if unknown
-            - ``filterName`` : name of filter, or None if unknown
-            - ``epoch`` : date of exposure (an astropy.time.Time), or None
+            - ``bbox`` : parent bounding box (`lsst.geom.Box2I`)
+            - ``wcs`` : exposure WCS (`lsst.afw.geom.SkyWcs`)
+            - ``calib`` : calibration (`lsst.afw.image.Calib`)
+            - ``filterName`` : name of filter (`str`)
+            - ``epoch`` : date of exposure (`astropy.time.Time`)
 
         """
         exposureInfo = exposure.getInfo()
