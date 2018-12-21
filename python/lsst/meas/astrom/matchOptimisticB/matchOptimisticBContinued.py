@@ -13,19 +13,20 @@ from . import matchOptimisticB, MatchOptimisticBControl
 
 
 class MatchTolerance:
-    """ Stores match tolerances for use in AstrometryTask and later
-    iterations of the matcher.
+    """Stores match tolerances for use in `lsst.meas.astromAstrometryTask` and
+    later iterations of the matcher.
 
-    Attributes
+    MatchOptimsiticBTask relies on a maximum distance for matching
+    set by either the default in MatchOptimisticBConfig or the 2 sigma
+    scatter found after AstrometryTask has fit for a wcs.
+
+    Parameters
     ----------
-    maxMatchDist : lsst.afw.geom.Angle
+    maxMatchDist : `lsst.afw.geom.Angle`
+        Current maximum distance to consider a match.
     """
 
     def __init__(self, maxMatchDist=None):
-        """ MatchOptimsiticBTask relies on a maximum distance for matching
-        set by either the default in MatchOptimisticBConfig or the 2 sigma
-        scatter found after AstrometryTask has fit for a wcs.
-        """
         self.maxMatchDist = maxMatchDist
 
 
@@ -109,69 +110,9 @@ class MatchOptimisticBConfig(pexConfig.Config):
 
 
 class MatchOptimisticBTask(pipeBase.Task):
-    """Match sources to reference objects
+    """Match sources to reference objects using the Optimistic Pattern Matcher
+    B algorithm of Tabur 2007.
     """
-    #@anchor MatchOptimisticBTask_
-
-    #@section meas_astrom_matchOptimisticB_Contents Contents
-
-    # - @ref meas_astrom_matchOptimisticB_Purpose
-    # - @ref meas_astrom_matchOptimisticB_Initialize
-    # - @ref meas_astrom_matchOptimisticB_IO
-    # - @ref meas_astrom_matchOptimisticB_Config
-    # - @ref meas_astrom_matchOptimisticB_Example
-    # - @ref meas_astrom_matchOptimisticB_Debug
-
-    #@section meas_astrom_matchOptimisticB_Purpose  Description
-
-    #Match sources to reference objects. This is often done as a preliminary step to fitting an astrometric
-    #or photometric solution. For details about the matching algorithm see matchOptimisticB.h
-
-    #@section meas_astrom_matchOptimisticB_Initialize   Task initialisation
-
-    #@copydoc \_\_init\_\_
-
-    #@section meas_astrom_matchOptimisticB_IO       Invoking the Task
-
-    #@copydoc matchObjectsToSources
-
-    #@section meas_astrom_matchOptimisticB_Config       Configuration parameters
-
-    #See @ref MatchOptimisticBConfig
-
-    #To modify how usable sources are selected, specify a different source
-    #selector in `config.sourceSelector`.
-
-    #@section meas_astrom_matchOptimisticB_Example  A complete example of using MatchOptimisticBTask
-
-    #MatchOptimisticBTask is a subtask of AstrometryTask, which is called by PhotoCalTask.
-    #See \ref pipe_tasks_photocal_Example.
-
-    #@section meas_astrom_matchOptimisticB_Debug        Debug variables
-
-    #The @link lsst.pipe.base.cmdLineTask.CmdLineTask command line task@endlink interface supports a
-    #flag @c -d to import @b debug.py from your @c PYTHONPATH; see @ref baseDebug for more about
-    #@b debug.py files.
-
-    #The available variables in MatchOptimisticBTask are:
-    #<DL>
-    #  <DT> @c verbose (bool)
-    #  <DD> If True then the matcher prints debug messages to stdout
-    #</DL>
-
-    #To investigate the @ref meas_astrom_matchOptimisticB_Debug, put something like
-    #@code{.py}
-    #    import lsstDebug
-    #    def DebugInfo(name):
-    #        debug = lsstDebug.getInfo(name)        # N.b. lsstDebug.Info(name) would call us recursively
-    #        if name == "lsst.pipe.tasks.astrometry":
-    #            debug.verbose = True
-
-    #        return debug
-
-    #    lsstDebug.Info = DebugInfo
-    #@endcode
-    #into your debug.py file and run this task with the @c --debug flag.
     ConfigClass = MatchOptimisticBConfig
     _DefaultName = "matchObjectsToSources"
 
@@ -180,36 +121,53 @@ class MatchOptimisticBTask(pipeBase.Task):
         self.makeSubtask("sourceSelector")
 
     def filterStars(self, refCat):
-        """Extra filtering pass; subclass if desired
+        """Extra filtering pass; subclass if desired.
+
+        Parameters
+        ----------
+        refCat : `lsst.afw.table.SimpleCatalog`
+            Catalog of reference objects.
+
+        Returns
+        -------
+        trimmedRefCat : `lsst.afw.table.SimpleCatalog`
+            Reference catalog with some filtering applied. Currently no
+            filtering is applied.
         """
         return refCat
 
     @pipeBase.timeMethod
     def matchObjectsToSources(self, refCat, sourceCat, wcs, refFluxField,
                               match_tolerance=None):
-        """Match sources to position reference stars
+        """Match sources to position reference stars.
+
+        Parameters
+        ----------
+        refCat : `lsst.afw.table.SimpleCatalog`
+            Reference catalog to match.
+        sourceCat : `lsst.afw.table.SourceCatalog`
+            Source catalog to match.
+        wcs : `lsst.afw.geom.SkyWcs`
+            Current WCS of the  exposure containing the sources.
+        refFluxField : `str`
+            Name of the reference catalog filter to use.
+        match_tolerance : `lsst.meas.astrom.MatchTolerance`
+            Object containing information from previous
+            `lsst.meas.astrom.AstrometryTask` match/fit cycles for use in
+            matching. If `None` is config defaults.
+
+        Returns
+        -------
+        matchResult : `lsst.pipe.base.Struct`
+            Result struct with components
+
+            - ``matches`` : List of matches with distance below the maximum match
+              distance (`list` of `lsst.afw.table.ReferenceMatch`).
+            - ``useableSourceCat`` : Catalog of sources matched and suited for
+              WCS fitting (`lsst.afw.table.SourceCatalog`).
+            - ``match_tolerance`` : MatchTolerance object updated from this
+              match iteration (`lsst.meas.astrom.MatchTolerance`).
         """
-        #@param[in] refCat  catalog of reference objects that overlap the exposure; reads fields for:
-        #    - coord
-        #    - the specified flux field
-        #@param[in] sourceCat  catalog of sources found on an exposure; reads fields for:
-        #    - centroid
-        #    - centroid flag
-        #    - edge flag
-        #    - saturated flag
-        #    - aperture flux, if found, else PSF flux
-        #@param[in] wcs  estimated WCS
-        #@param[in] refFluxField  field of refCat to use for flux
-        #@param[in] match_tolerance a MatchTolerance object for specifying
-        #    tolerances. Must at minimum contain a lsst.afw.geom.Angle
-        #    called maxMatchDist that communicates state between AstrometryTask
-        #    and the matcher Task.
-        #@return an lsst.pipe.base.Struct with fields:
-        #- matches  a list of matches, each instance of lsst.afw.table.ReferenceMatch
-        #- usableSourcCat  a catalog of sources potentially usable for matching.
-        #    For this fitter usable sources include unresolved sources not too near the edge.
-        #    It includes saturated sources, even those these are removed from the final match list,
-        #    because saturated sources may be used to determine the match list.
         import lsstDebug
         debug = lsstDebug.Info(__name__)
 
@@ -278,14 +236,33 @@ class MatchOptimisticBTask(pipeBase.Task):
         )
 
     def _getIsGoodKeys(self, schema):
+        """Retrieve the keys needed for the isGoodTest from the source catalog
+        schema.
+
+        Parameters
+        ----------
+        schema : `lsst.afw.table.Schema`
+            Source schema to retrieve `lsst.afw.table.Key` s from.
+        """
         self.edgeKey = schema["base_PixelFlags_flag_edge"].asKey()
         self.interpolatedCenterKey = schema["base_PixelFlags_flag_interpolatedCenter"].asKey()
         self.saturatedKey = schema["base_PixelFlags_flag_saturated"].asKey()
 
     def _isGoodTest(self, source):
-        """This is a hard coded version of the isGood flag from the old SourceInfo class that used to be
-        part of this class. This is done current as the API for sourceSelector does not currently
-        support matchLists.
+        """Test that an object is good for use in the WCS fitter.
+
+        This is a hard coded version of the isGood flag from the old SourceInfo
+        class that used to be part of this class.
+
+        Parameters
+        ----------
+        source : `lsst.afw.table.SourceRecord`
+            Source to test.
+
+        Returns
+        -------
+        isGood : `bool`
+            Source passes CCD edge and saturated tests.
         """
         return (not source.get(self.edgeKey) and
                 not source.get(self.interpolatedCenterKey) and
@@ -294,24 +271,37 @@ class MatchOptimisticBTask(pipeBase.Task):
     @pipeBase.timeMethod
     def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numUsableSources, minMatchedPairs,
                  maxMatchDist, sourceFluxField, verbose):
-        """Implementation of matching sources to position reference stars
+        """Implementation of matching sources to position reference stars.
+
+        Unlike matchObjectsToSources, this method does not check if the sources
+        are suitable.
+
+        Parameters
+        ----------
+        refCat : `lsst.afw.table.SimpleCatalog`
+            Catalog of reference objects.
+        sourceCat : `lsst.afw.table.SourceCatalog`
+            Catalog of detected sources.
+        wcs : `lsst.afw.geom.SkyWcs`
+            Current best WCS of the image.
+        refFluxFioeld : `str`
+            Name of flux field in refCat to use.
+        numUsableSources : `int`
+            Total number of source usable for matching.
+        mintMatchPairs : `int`
+            Minimum number of objects to match between the refCat and sourceCat
+            to consider a valid match.
+        maxMatchDist : `lsst.geom.Angle`
+            Maximum separation to considering a reference and a source a match.
+        sourceFluxField : `str`
+            Name of source catalog flux field.
+        verbose : `bool`
+            Print diagnostic information std::cout
+
+        Returns
+        -------
+        matches : `list` of `lsst.afw.table.ReferenceMatch`
         """
-        #Unlike matchObjectsToSources, this method does not check if the sources are suitable.
-
-        #@param[in] refCat  catalog of position reference stars that overlap an exposure
-        #@param[in] sourceCat  catalog of sources found on the exposure
-        #@param[in] wcs  estimated WCS of exposure
-        #@param[in] refFluxField  field of refCat to use for flux
-        #@param[in] numUsableSources  number of usable sources (sources with known centroid
-        #    that are not near the edge, but may be saturated)
-        #@param[in] minMatchedPairs  minimum number of matches
-        #@param[in] maxMatchDist  maximum on-sky distance between reference objects and sources
-        #    (an lsst.afw.geom.Angle); if specified then the smaller of config.maxMatchDistArcSec or
-        #    maxMatchDist is used; if None then config.maxMatchDistArcSec is used
-        #@param[in] sourceFluxField  Name of flux field in source catalog
-        #@param[in] verbose  true to print diagnostic information to std::cout
-
-        #@return a list of matches, an instance of lsst.afw.table.ReferenceMatch
         numSources = len(sourceCat)
         posRefBegInd = numUsableSources - numSources
         if maxMatchDist is None:
