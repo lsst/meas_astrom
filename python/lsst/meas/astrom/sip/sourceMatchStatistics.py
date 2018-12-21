@@ -26,18 +26,30 @@ import numpy as np
 
 
 def sourceMatchStatistics(matchList, log=None):
-    """Compute statistics on the accuracy of a wcs solution, using a precomputed list
-    of matches between an image and a catalogue
+    """Compute statistics on the accuracy of a wcs solution, using a
+    precomputed list of matches between an image and a catalog.
 
-    Input:
-    matchList is a lsst::afw::detection::SourceMatch object
+    Parameters
+    ----------
+    matchList : `lsst.afw.detection.SourceMatch`
+        List of matches between sources and references to compute statistics
+        on.
 
-    Output:
-    A dictionary storing the following quanities
-    meanOfDiffInPixels          Average distance between image and catalogue position (in pixels)
-    rmsOfDiffInPixels           Root mean square of distribution of distances
-    quartilesOfDiffInPixels     An array of 5 values giving the boundaries of the quartiles of the
-                                distribution.
+    Returns
+    -------
+    values : `dict
+        Value dictionary with fields:
+
+        - diffInPixels_mean : Average distance between image and
+          catalog position in pixels (`float`).
+        - diffInPixels_std : Root mean square of distribution of distances
+          (`float`).
+        - diffInPixels_Q25 : 25% quantile boundary of the match dist
+          distribution (`float`).
+        - diffInPixels_Q50 : 50% quantile boundary of the match dist
+          distribution (`float`).
+        - diffInPixels_Q75 : 75% quantile boundary of the match
+          dist distribution (`float`).
     """
 
     size = len(matchList)
