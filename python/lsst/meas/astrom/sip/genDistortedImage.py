@@ -32,7 +32,18 @@ import lsst.afw.table as afwTable
 
 
 def noDistort(src):
-    """Do no distortion. Used for sanity checking"""
+    """Do no distortion. Used for sanity checking
+
+    Parameters
+    ----------
+    src : `lsst.afw.table.SourceRecord`
+        Input record
+
+    Returns
+    -------
+    out : `lsst.afw.table.SourceRecord`
+        Copy of input record.
+    """
 
     out = src.table.copyRecord(src)
     return out
@@ -42,12 +53,17 @@ def linearXDistort(src, frac=.001):
     """Increase the x value in a Source object by frac. E.g
     src.x = 1000 --> 1001 if frac=.001
 
-    Input:
-    src     A Source object
-    frac    How much to change X by
+    Parameters
+    ----------
+    src : `lsst.afw.table.SourceRecord`
+        A Source object
+    frac : `float`  
+        How much to change X by
 
-    Output:
-    A deep copy of src, with the value of x changed
+    Returns
+    -------
+    out : `lsst.afw.table.SourceRecord`
+        A deep copy of src, with the value of x changed
     """
 
     out = src.table.copyRecord(src)
@@ -58,6 +74,18 @@ def linearXDistort(src, frac=.001):
 def quadraticDistortX(src, frac=1e-6):
     """Distort image by terms with power <=2
     i.e y, y^2, x, xy, x^2
+
+    Parameters
+    ----------
+    src : `lsst.afw.table.SourceRecord`
+        A Source object
+    frac : `float`  
+        How much to change X by
+
+    Returns
+    -------
+    out : `lsst.afw.table.SourceRecord`
+        A deep copy of src, with the value of x changed
     """
 
     out = src.table.copyRecord(src)
@@ -73,6 +101,18 @@ def quadraticDistortX(src, frac=1e-6):
 def cubicDistortX(src, frac=1e-9):
     """Distort image by terms with power <=2
     i.e y, y^2, x, xy, x^2
+
+    Parameters
+    ----------
+    src : `lsst.afw.table.SourceRecord`
+        A Source object
+    frac : `float`  
+        How much to change X by
+
+    Returns
+    -------
+    out : `lsst.afw.table.SourceRecord`
+        A deep copy of src, with the value of x changed
     """
 
     out = src.table.copyRecord(src)
@@ -86,6 +126,21 @@ def cubicDistortX(src, frac=1e-9):
 
 
 def manyTermX(src, frac=1e-9):
+    """Distort image by multiple powers of x, 'x**3 - 2*x**2 + 4*x - 9'.
+
+    Parameters
+    ----------
+    src : `lsst.afw.table.SourceRecord`
+        A Source object
+    frac : `float`  
+        How much to change X by
+
+    Returns
+    -------
+    out : `lsst.afw.table.SourceRecord`
+        A deep copy of src, with the value of x changed
+    """
+
     out = src.table.copyRecord(src)
     x = out.getX()
     y = out.getY()
@@ -100,12 +155,17 @@ def linearYDistort(src, frac=.001):
     """Increase the y value in a Source object by frac. E.g
     src.x = 1000 --> 1001 if frac=.001
 
-    Input:
-    src     A Source object
-    frac    How much to change Y by
+    Parameters
+    ----------
+    src : `lsst.afw.table.SourceRecord`
+        A Source object
+    frac : `float`  
+        How much to change Y by
 
-    Output:
-    A deep copy of src, with the value of y changed
+    Returns
+    -------
+    out : `lsst.afw.table.SourceRecord`
+        A deep copy of src, with the value of Y changed
     """
 
     out = src.table.copyRecord(src)
@@ -116,6 +176,18 @@ def linearYDistort(src, frac=.001):
 def quadraticDistortY(src, frac=1e-6):
     """Distort image by terms with power <=2
     i.e y, y^2, x, xy, x^2
+
+    Parameters
+    ----------
+    src : `lsst.afw.table.SourceRecord`
+        A Source object
+    frac : `float`  
+        How much to change Y by
+
+    Returns
+    -------
+    out : `lsst.afw.table.SourceRecord`
+        A deep copy of src, with the value of Y changed
     """
 
     out = src.table.copyRecord(src)
@@ -131,6 +203,18 @@ def quadraticDistortY(src, frac=1e-6):
 def cubicDistortY(src, frac=1e-9):
     """Distort image by terms with power <=2
     i.e y, y^2, x, xy, x^2
+
+    Parameters
+    ----------
+    src : `lsst.afw.table.SourceRecord`
+        A Source object
+    frac : `float`  
+        How much to change Y by
+
+    Returns
+    -------
+    out : `lsst.afw.table.SourceRecord`
+        A deep copy of src, with the value of Y changed
     """
 
     out = src.table.copyRecord(src)
@@ -144,6 +228,20 @@ def cubicDistortY(src, frac=1e-9):
 
 
 def manyTermY(src, frac=1e-9):
+    """Distort image by multiple terms of Y, 'y**3 - 2*y**2 + 4*y - 9'.
+
+    Parameters
+    ----------
+    src : `lsst.afw.table.SourceRecord`
+        A Source object
+    frac : `float`  
+        How much to change Y by
+
+    Returns
+    -------
+    out : `lsst.afw.table.SourceRecord`
+        A deep copy of src, with the value of Y changed
+    """
     out = src.table.copyRecord(src)
     x = out.getX()
     y = out.getY()
@@ -155,6 +253,20 @@ def manyTermY(src, frac=1e-9):
 
 
 def crossTerms1(src, frac=1e-11):
+    """Distort image Y by X, leaving X unchanged, 'x**3 - 2*x**2'.
+
+    Parameters
+    ----------
+    src : `lsst.afw.table.SourceRecord`
+        A Source object
+    frac : `float`  
+        How much to change Y by
+
+    Returns
+    -------
+    out : `lsst.afw.table.SourceRecord`
+        A deep copy of src, with the value of Y changed
+    """
     out = src.table.copyRecord(src)
     x = out.getX()
     y = out.getY()
@@ -166,6 +278,20 @@ def crossTerms1(src, frac=1e-11):
 
 
 def crossTerms2(src, frac=1e-11):
+    """Distort image X by Y, leaving Y unchanged, 'y**3 - 2*y**2 + 4*y - 9'.
+
+    Parameters
+    ----------
+    src : `lsst.afw.table.SourceRecord`
+        A Source object
+    frac : `float`  
+        How much to change X by
+
+    Returns
+    -------
+    out : `lsst.afw.table.SourceRecord`
+        A deep copy of src, with the value of X changed
+    """
     out = src.table.copyRecord(src)
     x = out.getX()
     y = out.getY()
@@ -177,6 +303,21 @@ def crossTerms2(src, frac=1e-11):
 
 
 def crossTerms3(src, frac=1e-9):
+    """Distort image X and Y , 'dx=x**3 - 2*x**2 + 4*x - 9',
+    'dy=y**3 - 2*y**2 + 4*y - 9'.
+
+    Parameters
+    ----------
+    src : `lsst.afw.table.SourceRecord`
+        A Source object
+    frac : `float`  
+        How much to change X and Y by
+
+    Returns
+    -------
+    out : `lsst.afw.table.SourceRecord`
+        A deep copy of src, with the value of X and Y changed
+    """
     out = src.table.copyRecord(src)
     x = out.getX()
     y = out.getY()
@@ -191,6 +332,18 @@ def crossTerms3(src, frac=1e-9):
 def quadraticDistort(src, frac=1e-6):
     """Distort image by terms with power <=2
     i.e y, y^2, x, xy, x^2
+
+    Parameters
+    ----------
+    src : `lsst.afw.table.SourceRecord`
+        A Source object
+    frac : `float`  
+        How much to change X
+
+    Returns
+    -------
+    out : `lsst.afw.table.SourceRecord`
+        A deep copy of src, with the value of X
     """
 
     out = src.table.copyRecord(src)
@@ -206,7 +359,20 @@ def quadraticDistort(src, frac=1e-6):
 
 
 def T2DistortX(src, frac=1e-6):
-    """Distort image by a 2nd order Cheby polynomial"""
+    """Distort image by a 2nd order Cheby polynomial
+
+    Parameters
+    ----------
+    src : `lsst.afw.table.SourceRecord`
+        A Source object
+    frac : `float`  
+        How much to change X
+
+    Returns
+    -------
+    out : `lsst.afw.table.SourceRecord`
+        A deep copy of src, with the value of X    
+    """
 
     out = src.table.copyRecord(src)
     x = src.getX()
@@ -219,9 +385,17 @@ def distortList(srcList, function):
     """Create a copy of srcList, and apply function to distort the
     values of x and y.
 
-    Input:
-    srcList     a SourceSet object
-    function:   A function that does a deep copy of a single Source
+    Parameters
+    ----------
+    srcList : `list` of `lsst.afw.table.SourceRecord`
+        Input list of source to distort.
+    function : `callable`
+        A function that does a deep copy of a single Source
+
+    Returns
+    -------
+    out : `lsst.afw.table.SourceCatalog`
+        Output catalog with distorted positions.
     """
 
     out = afwTable.SourceCatalog(srcList.table)
