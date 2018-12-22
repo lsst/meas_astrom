@@ -92,60 +92,6 @@ class CatalogStarSelectorTask:
         matches to an external catalog, and thus requires the ``matches``
         argument to ``run()``. Set to True for this selector.
     """
-    #@anchor CatalogStarSelectorTask_
-
-    #@section meas_astrom_catalogStarSelector_Contents  Contents
-
-    # - @ref meas_astrom_catalogStarSelector_Purpose
-    # - @ref meas_astrom_catalogStarSelector_Initialize
-    # - @ref meas_astrom_catalogStarSelector_IO
-    # - @ref meas_astrom_catalogStarSelector_Config
-    # - @ref meas_astrom_catalogStarSelector_Debug
-
-    #@section meas_astrom_catalogStarSelector_Purpose  Description
-
-    #Select stars using a match list: select sources where the matching reference object is unresolved,
-    #plus the source passes the following tests:
-    #- no flag from config.badFlags is set
-    #- psf flux >= config.fluxLim
-    #- psf flux <= config.fluxMax (not checked if fluxMax == 0)
-
-    #@section meas_astrom_catalogStarSelector_Initialize  Task initialisation
-
-    #@copydoc \_\_init\_\_
-
-    #@section meas_astrom_catalogStarSelector_IO  Invoking the Task
-
-    #Like all star selectors, the main method is `run`. Unlike most star selectors,
-    #this one requires the `matches` argument (the `usesMatches` property is true).
-
-    #@section meas_astrom_catalogStarSelector_Config  Configuration parameters
-
-    #See @ref CatalogStarSelectorConfig
-
-    #@section meas_astrom_catalogStarSelector_Debug  Debug variables
-
-    #CatalogStarSelectorTask has a debug dictionary with the following keys:
-    #<dl>
-    #<dt>display
-    #<dd>bool; if True display debug information
-    #<dt>pauseAtEnd
-    #<dd>bool; if True wait after displaying everything and wait for user input
-    #</dl>
-
-    #For example, put something like:
-    #@code{.py}
-    #    import lsstDebug
-    #    def DebugInfo(name):
-    #        di = lsstDebug.getInfo(name)  # N.b. lsstDebug.Info(name) would call us recursively
-    #        if name.endswith("catalogStarSelector"):
-    #            di.display = True
-
-    #        return di
-
-    #    lsstDebug.Info = DebugInfo
-    #@endcode
-    #into your `debug.py` file and run your task with the `--debug` flag.
     ConfigClass = CatalogStarSelectorConfig
     usesMatches = True  # `run` and `selectStars` require the `matches` argument
 

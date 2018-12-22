@@ -19,23 +19,23 @@ def _rotation_matrix_chi_sq(flattened_rot_matrix,
 
     Parameters
     ----------
-    flattened_rot_matrix : float array
+    flattened_rot_matrix : `numpy.array`, (9, )
         A flattened array representing a 3x3 rotation matrix. The array is
         flattened to comply with the API of scipy.optimize.least_squares.
         Flattened elements are [[0, 0], [0, 1], [0, 2], [1, 0]...]
-    pattern_a : float array of 3 vectors
+    pattern_a : `numpy.array`, (N, 3)
         A array containing N, 3 vectors representing the objects we would like
         to transform into the frame of pattern_b.
-    pattern_b : float array of 3 vectors
+    pattern_b : `numpy.array`, (N, 3)
         A array containing N, 3 vectors representing the reference frame we
         would like to transform pattern_a into.
-    max_dist_rad : float
+    max_dist_rad : `float`
         The maximum distance allowed from the pattern matching. This value is
         used as the standard error for the resultant chi values.
 
     Returns
     -------
-    float array
+    noralized_diff : `numpy.array`, (9,)
         Array of differences between the vectors representing of the source
         pattern rotated into the reference frame and the converse. This is
         used to minimize in a least squares fitter.
@@ -58,35 +58,16 @@ def _rotation_matrix_chi_sq(flattened_rot_matrix,
 
 
 class PessimisticPatternMatcherB:
-    """ Class implementing a pessimistic version of Optimistic Pattern Matcher
-    B (OPMb) from Tabur 2007.
+    """Class implementing a pessimistic version of Optimistic Pattern Matcher
+    B (OPMb) from Tabur 2007. See `DMTN-031 <http://ls.st/DMTN-031`_
 
     Parameters
     ----------
-        reference_array : float array
-            spherical points x, y, z of to use as reference objects for
-            pattern matching.
-        log : an lsst.log instance
-        pair_id_array : int array
-           Internal lookup table. Given an id in the reference array, return
-           an array of the id pair that contains this object's id sorted on
-           the distance to the pairs.
-        pair_delta_array : float array
-           Internal lookup table. Given an id in the reference array, return
-           an array of the 3 vector deltas of all other pairs sorted on their
-           distance.
-        pair_dist_array : float array
-           Internal lookup table. Given an id in the reference return an array
-           of pair distances of all other pairs sorted on distance.
-        dist_array : float array
-            Array of all pairs of objects in the reference array sorted on
-            distance.
-        id_array : int array
-            Array of id pairs that lookup into the reference array sorted
-            on pair distance.
-        delta_array : float array
-           Array of 3 vector deltas for each pair in the reference array
-           sorted on pair distance.
+    reference_array : `numpy.array`, (N, 3)
+        spherical points x, y, z of to use as reference objects for
+        pattern matching.
+    log : `lsst.log.Log`
+        Logger for outputting debug info.
 
     Notes
     -----
@@ -108,21 +89,12 @@ class PessimisticPatternMatcherB:
         self._build_distances_and_angles()
 
     def _build_distances_and_angles(self):
-        """ Create the data structures we will use to search for our pattern
+        """Create the data structures we will use to search for our pattern
         match in.
 
-        Throughout this function and the rest of the
-
-        class we use id to reference the position in the input reference
-        catalog and index to 'index' into the arrays sorted on distance.
-
-        Parameters
-        ----------
-        self
-
-        Returns
-        -------
-        None
+        Throughout this function and the rest of the class we use id to
+        reference the position in the input reference catalog and index to
+        'index' into the arrays sorted on distance.
         """
 
         # Initialize the arrays we will need for quick look up of pairs once
@@ -219,33 +191,33 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        source_array: float array
+        source_array : `numpy.array`, (N, 3)
             An array of spherical x,y,z coordinates and a magnitude in units
             of objects having a lower value for sorting. The array should be
             of shape (N, 4).
-        n_check : int value
+        n_check  : `int`
             Number of sources to create a pattern from. Not all objects may be
             checked if n_match criteria is before looping through all n_check
             objects.
-        n_match : int value
+        n_match : `int`
             Number of objects to use in constructing a pattern to match.
-        n_agree: int value
+        n_agree : `int`
             Number of found patterns that must agree on their shift and
             rotation before exiting. Set this value to 1 to recover the
             expected behavior of Optimistic Pattern Matcher B.
-        max_n_patters : int value
+        max_n_patters : `int`
             Number of patterns to create from the input source objects to
             attempt to match into the reference objects.
-        max_shift: float value
+        max_shift : `float`
             Maximum allowed shift to match patterns in arcseconds.
-        max_rotation: float value
+        max_rotation : `float`
             Maximum allowed rotation between patterns in degrees.
-        max_dist: float value
+        max_dist : `float`
             Maximum distance in arcseconds allowed between candidate spokes in
             the source and reference objects. Also sets that maximum distance
             in the intermediate verify, pattern shift/rotation agreement, and
             final verify steps.
-        pattern_skip_array: int array
+        pattern_skip_array : `int`
             Patterns we would like to skip. This could be due to the pattern
             being matched on a previous iteration that we now consider invalid.
             This assumes the ordering of the source objects is the same
@@ -254,20 +226,17 @@ class PessimisticPatternMatcherB:
 
         Returns
         -------
-        output_struct : pipe.base.struct
-            A lsst.pipe.base struct containing the following outputs.
+        output_struct : `lsst.pipe.base.Struct`
+            Result struct with components
 
-                matches : int array
-                    (N, 2) array of matched ids for pairs. Empty list if no
-                    match found.
-                distances_rad : float array
-                    Radian distances between the matched objects. Empty list
-                    if no match found.
-                pattern_idx : int
-                    Index of matched pattern. None if no match found.
-                shift : float
-                    Magnitude for the shift between the source and
-                    reference objects in arcseconds. None if no match found.
+            - ``matches`` : (N, 2) array of matched ids for pairs. Empty list if no
+              match found (`numpy.array`, (N, 2) or `list`)
+            - ``distances_rad`` : Radian distances between the matched objects.
+              Empty list if no match found (`numpy.array`, (N,))
+            - ``pattern_idx``: Index of matched pattern. None if no match found
+              (`int`).
+            - ``shift`` : Magnitude for the shift between the source and reference
+              objects in arcseconds. None if no match found (`float`).
         """
 
         # Given our input source_array we sort on magnitude.
@@ -399,13 +368,13 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        source_array : float array (N, 3)
+        source_array : `numpy.array`, (N, 3)
             array of 3 vectors representing positions on the unit
             sphere.
 
         Returns
         -------
-        float array of 3 vectors
+        test_vectors : `numpy.array`, (N, 3)
             Array of vectors representing the maximum extents in x, y, z
             of the input source array. These are used with the rotations
             the code finds to test for agreement from different patterns
@@ -455,17 +424,17 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        src_pattern_array : float array
+        src_pattern_array : `numpy.array`, (N, 3)
             Sub selection of source 3 vectors to create a pattern from
-        n_match : int
+        n_match : `int`
             Number of points to attempt to create a pattern from. Must be
             >= len(src_pattern_array)
-        max_cos_theta_shift : float
+        max_cos_theta_shift : `float`
             Maximum shift allowed between two patterns' centers.
-        max_cos_rot_sq : float
+        max_cos_rot_sq : `float`
             Maximum rotation between two patterns that have been shifted
             to have their centers on top of each other.
-        max_dist_rad : float
+        max_dist_rad : `float`
             Maximum delta distance allowed between the source and reference
             pair distances to consider the reference pair a candidate for
             the source pair. Also sets the tolerance between the opening
@@ -473,28 +442,26 @@ class PessimisticPatternMatcherB:
 
         Return
         -------
-        lsst.pipe.base.Struct
-            Return a Struct containing the following data:
+        output_matched_pattern : `lsst.pipe.base.Struct`
+            Result struct with components:
 
-            ref_candidates : list of ints
-                ids of the matched pattern in the internal reference_array
-                object.
-            src_candidates : list of ints
-                Pattern ids of the sources matched.
-            shift_rot_matrix_src_to_ref : float array
-                3x3 matrix specifying the full shift and rotation between the
-                reference and source objects. Rotates
-                source into reference frame. None if match is not found.
-            shift_rot_matrix_ref_to_src : float array
-                3x3 matrix specifying the full shift
-                and rotation of the reference and source objects. Rotates
-                reference into source frame. None if match is not found.
-            cos_shift : float
-                Magnitude of the shift found between the two patten
-                centers. None if match is not found.
-            sin_rot : float value of the rotation to align the already shifted
-               source pattern to the reference pattern. None if no match
-               found.
+            - ``ref_candidates`` : ids of the matched pattern in the internal
+              reference_array object (`list` of `int`).
+            - ``src_candidates`` : Pattern ids of the sources matched
+              (`list` of `int`).
+            - ``shift_rot_matrix_src_to_ref`` : 3x3 matrix specifying the full
+              shift and rotation between the reference and source objects.
+              Rotates source into reference frame. `None` if match is not
+              found. (`numpy.array`, (3, 3))
+            - ``shift_rot_matrix_ref_to_src`` : 3x3 matrix specifying the full
+              shift and rotation of the reference and source objects. Rotates
+              reference into source frame. None if match is not found
+              (`numpy.array`, (3, 3)).
+            - ``cos_shift`` : Magnitude of the shift found between the two
+              patten centers. `None` if match is not found (`float`).
+            - ``sin_rot`` : float value of the rotation to align the already
+              shifted source pattern to the reference pattern. `None` if no match
+              found (`float`).
         """
 
         # Create our place holder variables for the matched sources and
@@ -654,18 +621,18 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        src_dist : float radians
+        src_dist : `float`
             float value of the distance we would like to search for in
             the reference array in radians.
-        ref_dist_array : float array
+        ref_dist_array : `numpy.array`, (N,)
             sorted array of distances in radians.
-        max_dist_rad : float
+        max_dist_rad : `float`
             maximum plus/minus search to find in the reference array in
             radians.
 
         Return
         ------
-        int array
+        tmp_diff_array : `numpy.array`, (N,)
             indices lookup into the input ref_dist_array sorted by the
             difference in value to the src_dist from absolute value
             smallest to largest.
@@ -701,37 +668,35 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        src_center : float array3
+        src_center : `numpy.array`, (N, 3)
             pattern.
-        ref_center : float array
+        ref_center : `numpy.array`, (N, 3)
             3 vector defining the center of the candidate reference pinwheel
             pattern.
-        src_delta : float array
+        src_delta : `numpy.array`, (N, 3)
             3 vector delta between the source pattern center and the end of
             the pinwheel spoke.
-        ref_delta : float array
+        ref_delta : `numpy.array`, (N, 3)
             3 vector delta of the candidate matched reference pair
-        cos_shift : float
+        cos_shift : `float`
             Cosine of the angle between the source and reference candidate
             centers.
-        max_cos_rot_sq : float
+        max_cos_rot_sq : `float`
             candidate reference pair after shifting the centers on top of each
             other. The function will return None if the rotation implied is
             greater than max_cos_rot_sq.
 
         Returns
         -------
-        lsst.pipe.base.Struct
-            Return a pipe.base.Struct containing the following data.
+        result : `lsst.pipe.base.Struct`
+            Result struct with components:
 
-            cos_rot_sq : float
-                magnitude of the rotation needed to align the two patterns
-                after their centers are shifted on top of each other.
-                None if rotation test fails.
-            shift_matrix : float array
-                3x3 rotation matrix describing the shift needed to align
-                the source and candidate reference center.
-                None if rotation test fails.
+            - ``cos_rot_sq`` :  magnitude of the rotation needed to align the
+              two patterns after their centers are shifted on top of each
+              other. `None` if rotation test fails (`float`).
+            - ``shift_matrix`` : 3x3 rotation matrix describing the shift needed to
+            align the source and candidate reference center. `None` if rotation
+            test fails (`numpy.array`, (N, 3)).
         """
 
         # Make sure the sine is a real number.
@@ -782,16 +747,16 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        rot_axis : float array
+        rot_axis : `numpy.array`, (3,)
             3 vector defining the axis to rotate about.
-        cos_rotation : float
+        cos_rotation : `float`
             cosine of the rotation angle.
-        sin_rotation : float
+        sin_rotation : `float`
             sine of the rotation angle.
 
         Return
         ------
-        float array
+        shift_matrix : `numpy.array`, (3, 3)
             3x3 spherical, rotation matrix.
         """
 
@@ -816,45 +781,45 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        src_ctr : float array
+        src_ctr : `numpy.array`, (3,)
             3 vector of the source pinwheel center
-        src_delta_array : float array
+        src_delta_array : `numpy.array`, (N, 3)
             Array of 3 vector deltas between the source center and the pairs
             that make up the remaining spokes of the pinwheel
-        src_dist_array : float array
+        src_dist_array : `numpy.array`, (N, 3)
             Array of the distances of each src_delta in the pinwheel
-        ref_ctr : float array
+        ref_ctr : `numpy.array`, (3,)
             3 vector of the candidate reference center
-        ref_ctr_id : int
+        ref_ctr_id : `int`
             id of the ref_ctr in the master reference array
-        proj_ref_ctr_delta : `float` array-like
+        proj_ref_ctr_delta : `numpy.array`, (3,)
             Plane projected 3 vector formed from the center point of the
             candidate pin-wheel and the second point in the pattern to create
             the first spoke pair. This is the candidate pair that was matched
             in the main _construct_pattern_and_shift_rot_matrix loop
-        ref_delta_array : float array
+        ref_delta_array : `numpy.array`, (N,3)
             Array of 3 vector deltas that are have the current candidate
             reference center as part of the pair
-        ref_dist_array : float array
+        ref_dist_array : `numpy.array`, (N,)
             Array of vector distances for each of the reference pairs
-        ref_id_array : int array
+        ref_id_array : `numpy.array`, (N,)
             Array of id lookups into the master reference array that our
             center id object is paired with.
-        max_dist_rad : float
+        max_dist_rad : `float`
             Maximum search distance
-        n_match : int
+        n_match : `int`
             Number of source deltas that must be matched into the reference
             deltas in order to consider this a successful pattern match.
 
         Returns
         -------
-        lsst.pipe.base.Struct
-            The Struct contains the following data:
+        output_spokes : `lsst.pipe.base.Struct`
+            Result struct with components:
 
-            ref_spoke_list : list of ints specifying ids into the master
-                reference array
-            src_spoke_list : list of ints specifying indices into the current
-                source pattern that is being tested.
+            - ``ref_spoke_list`` : list of ints specifying ids into the master
+              reference array (`list` of `int`).
+            - ``src_spoke_list`` : list of ints specifying indices into the
+              current source pattern that is being tested (`list` of `int`).
         """
         # Struct where we will be putting our results.
         output_spokes = pipeBase.Struct(
@@ -965,33 +930,33 @@ class PessimisticPatternMatcherB:
         sin_theta_src : `float`
             Sine of the angle between the current candidate source spoke and
             the first spoke.
-        ref_ctr : float array
+        ref_ctr : `numpy.array`, (3,)
             3 vector of the candidate reference center
-        ref_ctr_id : int
+        ref_ctr_id : `int`
             id lookup of the ref_ctr into the master reference array
         proj_ref_ctr_delta : `float`
             Plane projected first spoke in the reference pattern using the
             pattern center as normal.
         proj_ref_ctr_dist_sq : `float`
             Squared length of the projected vector.
-        ref_dist_idx_array : int array
+        ref_dist_idx_array : `numpy.array`, (N,)
             Indices sorted by the delta distance between the source
             spoke we are trying to test and the candidate reference
             spokes.
-        ref_delta_array : float array
+        ref_delta_array : `numpy.array`, (N, 3)
             Array of 3 vector deltas that are have the current candidate
             reference center as part of the pair
-        ref_id_array : int array
+        ref_id_array : `numpy.array`, (N,)
             Array of id lookups into the master reference array that our
             center id object is paired with.
-        src_sin_tol : float
+        src_sin_tol : `float`
             Sine of tolerance allowed between source and reference spoke
             opening angles.
 
         Returns
         -------
-        None or int
-            If we can not find a candidate spoke we return None else we
+        id : `int`
+            If we can not find a candidate spoke we return `None` else we
             return an int id into the master reference array.
         """
 
@@ -1057,32 +1022,32 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        cos_rot_sq : float
+        cos_rot_sq : `float`
             cosine of the rotation needed to align our source and reference
             candidate patterns.
-        shift_matrix : float array
+        shift_matrix : `numpy.array`, (3, 3)
             3x3 rotation matrix for shifting the source pattern center on top
             of the candidate reference pattern center.
-        src_delta : float array
+        src_delta : `numpy.array`, (3,)
             3 vector delta of representing the first spoke of the source
             pattern
-        ref_ctr : float array
+        ref_ctr : `numpy.array`, (3,)
             3 vector on the unit-sphere representing the center of our
             reference pattern.
-        ref_delta : float array
+        ref_delta : `numpy.array`, (3,)
             3 vector delta made by the first pair of the reference pattern.
 
         Returns
         -------
-        lsst.pipe.base.Struct
-            Struct object containing the following data:
+        result : `lsst.pipe.base.Struct`
+            Result struct with components:
 
-            sin_rot : float sine of the amount of rotation between the
-                source and reference pattern. We use sine here as it is
-                signed and tells us the chirality of the rotation.
-            shift_rot_matrix : float array representing the 3x3 rotation
-                matrix that takes the source pattern and shifts and rotates
-                it to align with the reference pattern.
+            - ``sin_rot`` : float sine of the amount of rotation between the
+              source and reference pattern. We use sine here as it is
+              signed and tells us the chirality of the rotation (`float`).
+            - ``shift_rot_matrix`` : float array representing the 3x3 rotation
+              matrix that takes the source pattern and shifts and rotates
+              it to align with the reference pattern (`numpy.array`, (3,3)).
         """
         cos_rot = np.sqrt(cos_rot_sq)
         rot_src_delta = np.dot(shift_matrix, src_delta)
@@ -1108,21 +1073,21 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        src_pattern : float array
+        src_pattern : `numpy.array`, (N,3)
             Array of 3 vectors representing the points that make up our source
             pinwheel pattern.
-        ref_pattern : float array
+        ref_pattern : `numpy.array`, (N,3)
             Array of 3 vectors representing our candidate reference pinwheel
             pattern.
-        shift_rot_matrix : float array
+        shift_rot_matrix : `numpy.array`, (3,3)
             3x3 rotation matrix that takes the source objects and rotates them
             onto the frame of the reference objects
-        max_dist_rad : float
+        max_dist_rad : `float`
             Maximum distance allowed to consider two objects the same.
 
         Returns
         -------
-        float array or None
+        fit_shift_rot_matrix : `numpy.array`, (3,3)
            Return the fitted shift/rotation matrix if all of the points in our
            source pattern are within max_dist_rad of their matched reference
            objects. Returns None if this criteria is not satisfied.
@@ -1166,16 +1131,16 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        pattern_a : float array
+        pattern_a :  `numpy.array`, (N,3)
             Array of 3 vectors representing the points that make up our source
             pinwheel pattern.
-        pattern_b : float array
+        pattern_b :  `numpy.array`, (N,3)
             Array of 3 vectors representing our candidate reference pinwheel
             pattern.
-        shift_rot_matrix : float array
+        shift_rot_matrix :  `numpy.array`, (3,3)
             3x3 rotation matrix that takes the source objects and rotates them
             onto the frame of the reference objects
-        max_dist_rad : float
+        max_dist_rad : `float`
             Maximum distance allowed to consider two objects the same.
 
 
@@ -1199,6 +1164,19 @@ class PessimisticPatternMatcherB:
 
         This is useful for assuring the non unitary transforms do not contain
         too much distortion.
+
+        Parameters
+        ----------
+        test_pattern : `numpy.array`, (N, 3)
+            Test vectors at the maximum and minimum x, y, z extents.
+        max_dist_rad : `float`
+            maximum distance in radians to consider two points "agreeing" on
+            a rotation
+
+        Returns
+        -------
+        test : `bool`
+            Length tests pass.
         """
         dists = (test_pattern[:, 0] ** 2 +
                  test_pattern[:, 1] ** 2 +
@@ -1214,17 +1192,17 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        rot_vects : float array
+        rot_vects : `numpy.array`, (N, 3)
             Arrays of rotated 3 vectors representing the maximum x, y,
             z extent on the unit sphere of the input source objects rotated by
             the candidate rotations into the reference frame.
-        max_dist_rad : float
+        max_dist_rad : `float`
             maximum distance in radians to consider two points "agreeing" on
             a rotation
 
         Returns
         -------
-        int
+        tot_consent : `int`
             Number of candidate rotations that agree for all of the rotated
             test 3 vectors.
         """
@@ -1256,22 +1234,24 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        source_array : float array
+        source_array : `numpy.array`, (N, 3)
             array of 3 vectors representing the source objects we are trying
             to match into the source catalog.
-        shift_rot_matrix : float array
+        shift_rot_matrix : `numpy.array`, (3, 3)
             3x3 rotation matrix that performs the spherical rotation from the
             source frame into the reference frame.
 
         Returns
         -------
-        lsst.pipe.base.Struct
-            A Struct object containing the following data
-            matches : a (N, 2) array of integer ids into the source and
-                reference arrays. Matches are only returned for those that
-                satisfy the distance and handshake criteria.
-            distances : float array of the distance between each match in
-                radians after the shift and rotation is applied.
+        results : `lsst.pipe.base.Struct`
+            Result struct with components:
+
+            - ``matches`` : array of integer ids into the source and
+              reference arrays. Matches are only returned for those that
+              satisfy the distance and handshake criteria
+              (`numpy.array`, (N, 2)).
+            - ``distances`` : Distances between each match in radians after
+              the shift and rotation is applied (`numpy.array`, (N)).
         """
         shifted_references = np.dot(
             np.linalg.inv(shift_rot_matrix),
@@ -1310,17 +1290,18 @@ class PessimisticPatternMatcherB:
         """Return only those matches where both the source
         and reference objects agree they they are each others'
         nearest neighbor.
+
         Parameters
         ----------
-        matches_src : int array
-            (N, 2) int array of nearest neighbor matches between shifted and
+        matches_src : `numpy.array`, (N, 2)
+            int array of nearest neighbor matches between shifted and
             rotated reference objects matched into the sources.
-        matches_ref : int array
-            (M, 2) int array of nearest neighbor matches between shifted and
+        matches_ref : `numpy.array`, (N, 2)
+            int array of nearest neighbor matches between shifted and
             rotated source objects matched into the references.
         Return
         ------
-        bool array
+        handshake_mask_array : `numpy.array`, (N,)
            Return the array positions where the two match catalogs agree.
         """
         handshake_mask_array = np.zeros(len(matches_src), dtype=np.bool)

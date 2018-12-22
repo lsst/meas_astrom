@@ -53,14 +53,6 @@ class RefMatchConfig(pexConfig.Config):
     referenceSelection = pexConfig.ConfigurableField(target=ReferenceSourceSelectorTask,
                                                      doc="Selection of reference sources")
 
-# The following block adds links to this task from the Task Documentation page.
-## \addtogroup LSST_task_documentation
-## \{
-## \page measAlgorithms_RefMatchTask
-## \ref RefMatchTask_ "RefMatchTask"
-##         Basic functionality for all calibration tasks: i.e. a matcher
-## \}
-
 
 class RefMatchTask(pipeBase.Task):
     """Match an input source catalog with objects from a reference catalog.
@@ -186,7 +178,7 @@ class RefMatchTask(pipeBase.Task):
             - ``distMean`` : clipped mean of on-sky radial separation (`float`)
             - ``distStdDev`` : clipped standard deviation of on-sky radial
               separation (`float`)
-            - ``maxMatchDist`` : distMean + self.config.matchDistanceSigma * 
+            - ``maxMatchDist`` : distMean + self.config.matchDistanceSigma *
               distStdDev (`float`)
         """
         distStatsInRadians = makeMatchStatistics(matchList, afwMath.MEANCLIP | afwMath.STDEVCLIP)

@@ -339,7 +339,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
         Returns
         -------
         newWcsL : :cpp:class:`lsst::afw::geom::SkyWcs`
-            A new WCS guess. 
+            A new WCS guess.
         """
         crpix = lsst.afw.geom.Extent2D(0, 0)
         crval = lsst.sphgeom.Vector3d(0, 0, 0)

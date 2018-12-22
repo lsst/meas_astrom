@@ -58,14 +58,6 @@ class AstrometryConfig(RefMatchConfig):
         min=0,
     )
 
-# The following block adds links to this task from the Task Documentation page.
-## \addtogroup LSST_task_documentation
-## \{
-## \page measAstrom_astrometryTask
-## \ref AstrometryTask_ "AstrometryTask"
-##      Match an input source catalog with objects from a reference catalog and solve for the WCS
-## \}
-
 
 class AstrometryTask(RefMatchTask):
     """Match an input source catalog with objects from a reference catalog and
@@ -80,7 +72,7 @@ class AstrometryTask(RefMatchTask):
     schema : `lsst.afw.table.Schema`
         ignored; available for compatibility with an older astrometry task
     kwargs
-        additional keyword arguments for pipe_base 
+        additional keyword arguments for pipe_base
         `lsst.pipe.base.Task.__init__`
     """
     ConfigClass = AstrometryConfig

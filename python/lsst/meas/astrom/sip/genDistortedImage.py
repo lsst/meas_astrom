@@ -57,7 +57,7 @@ def linearXDistort(src, frac=.001):
     ----------
     src : `lsst.afw.table.SourceRecord`
         A Source object
-    frac : `float`  
+    frac : `float`
         How much to change X by
 
     Returns
@@ -79,7 +79,7 @@ def quadraticDistortX(src, frac=1e-6):
     ----------
     src : `lsst.afw.table.SourceRecord`
         A Source object
-    frac : `float`  
+    frac : `float`
         How much to change X by
 
     Returns
@@ -106,7 +106,7 @@ def cubicDistortX(src, frac=1e-9):
     ----------
     src : `lsst.afw.table.SourceRecord`
         A Source object
-    frac : `float`  
+    frac : `float`
         How much to change X by
 
     Returns
@@ -132,7 +132,7 @@ def manyTermX(src, frac=1e-9):
     ----------
     src : `lsst.afw.table.SourceRecord`
         A Source object
-    frac : `float`  
+    frac : `float`
         How much to change X by
 
     Returns
@@ -159,7 +159,7 @@ def linearYDistort(src, frac=.001):
     ----------
     src : `lsst.afw.table.SourceRecord`
         A Source object
-    frac : `float`  
+    frac : `float`
         How much to change Y by
 
     Returns
@@ -181,7 +181,7 @@ def quadraticDistortY(src, frac=1e-6):
     ----------
     src : `lsst.afw.table.SourceRecord`
         A Source object
-    frac : `float`  
+    frac : `float`
         How much to change Y by
 
     Returns
@@ -208,7 +208,7 @@ def cubicDistortY(src, frac=1e-9):
     ----------
     src : `lsst.afw.table.SourceRecord`
         A Source object
-    frac : `float`  
+    frac : `float`
         How much to change Y by
 
     Returns
@@ -234,7 +234,7 @@ def manyTermY(src, frac=1e-9):
     ----------
     src : `lsst.afw.table.SourceRecord`
         A Source object
-    frac : `float`  
+    frac : `float`
         How much to change Y by
 
     Returns
@@ -259,7 +259,7 @@ def crossTerms1(src, frac=1e-11):
     ----------
     src : `lsst.afw.table.SourceRecord`
         A Source object
-    frac : `float`  
+    frac : `float`
         How much to change Y by
 
     Returns
@@ -284,7 +284,7 @@ def crossTerms2(src, frac=1e-11):
     ----------
     src : `lsst.afw.table.SourceRecord`
         A Source object
-    frac : `float`  
+    frac : `float`
         How much to change X by
 
     Returns
@@ -310,7 +310,7 @@ def crossTerms3(src, frac=1e-9):
     ----------
     src : `lsst.afw.table.SourceRecord`
         A Source object
-    frac : `float`  
+    frac : `float`
         How much to change X and Y by
 
     Returns
@@ -337,7 +337,7 @@ def quadraticDistort(src, frac=1e-6):
     ----------
     src : `lsst.afw.table.SourceRecord`
         A Source object
-    frac : `float`  
+    frac : `float`
         How much to change X
 
     Returns
@@ -365,13 +365,13 @@ def T2DistortX(src, frac=1e-6):
     ----------
     src : `lsst.afw.table.SourceRecord`
         A Source object
-    frac : `float`  
+    frac : `float`
         How much to change X
 
     Returns
     -------
     out : `lsst.afw.table.SourceRecord`
-        A deep copy of src, with the value of X    
+        A deep copy of src, with the value of X
     """
 
     out = src.table.copyRecord(src)
