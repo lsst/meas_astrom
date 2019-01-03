@@ -71,10 +71,23 @@ class RefMatchTask(pipeBase.Task):
 
     def __init__(self, refObjLoader, schema=None, **kwargs):
         pipeBase.Task.__init__(self, **kwargs)
-        self.refObjLoader = refObjLoader
+        if refObjLoader:
+            self.refObjLoader = refObjLoader
+        else:
+            self.refObjLoader = None
         self.makeSubtask("matcher")
         self.makeSubtask("sourceSelection")
         self.makeSubtask("referenceSelection")
+
+    def setRefObjLoader(self, refObjLoader):
+        """Sets the reference object loader for the task
+
+        Parameters
+        ----------
+        refObjLoader
+            An instance of a reference object loader task or class
+        """
+        self.refObjLoader = refObjLoader
 
     @pipeBase.timeMethod
     def loadAndMatch(self, exposure, sourceCat):
@@ -104,6 +117,8 @@ class RefMatchTask(pipeBase.Task):
         -----
         ignores config.matchDistanceSigma
         """
+        if self.refObjLoader is None:
+            raise RuntimeError("Running matcher task with no refObjLoader set in __ini__ or setRefObjLoader")
         import lsstDebug
         debug = lsstDebug.Info(__name__)
 

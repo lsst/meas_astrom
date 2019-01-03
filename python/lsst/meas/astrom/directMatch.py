@@ -42,14 +42,31 @@ class DirectMatchTask(Task):
     def __init__(self, butler=None, refObjLoader=None, **kwargs):
         Task.__init__(self, **kwargs)
         if not refObjLoader:
-            if not isinstance(self.config, DirectMatchConfig):
-                raise RuntimeError("DirectMatchTask must be initialized with DirectMatchConfig "
-                                   "if a refObjLoader is not supplied at initialization")
-            self.makeSubtask("refObjLoader", butler=butler)
+            if butler:
+                if not isinstance(self.config, DirectMatchConfig):
+                    raise RuntimeError("DirectMatchTask must be initialized with DirectMatchConfig "
+                                       "if a refObjLoader is not supplied at initialization")
+                self.makeSubtask("refObjLoader", butler=butler)
+            else:
+                self.refObjLoader = None
+
         else:
             self.refObjLoader = refObjLoader
         self.makeSubtask("sourceSelection")
         self.makeSubtask("referenceSelection")
+
+    def setRefObjLoader(self, refObjLoader):
+        """Sets the reference object loader for the task
+
+        Parameters
+        ----------
+        refObjLoader : `lsst.meas.algorithms.LoadReferenceObjectsTask` or
+                       `lsst.meas.algorithms.ReferenceObjectLoader`
+            An instance of a reference object loader task or class. A task can be  used as a subtask
+            and is generally used in gen2 middleware. The class is designed to be used with gen3
+            middleware and is initialized outside the normal task framework.
+        """
+        self.refObjLoader = refObjLoader
 
     def run(self, catalog, filterName=None, epoch=None):
         """Load reference objects and match to them.
@@ -73,6 +90,8 @@ class DirectMatchTask(Task):
               (`lsst.afw.table.SourceMatchVector`)
             - matchMeta : Match metadata (`lsst.meas.astrom.MatchMetadata`)
         """
+        if self.refObjLoader is None:
+            raise RuntimeError("Running matcher task with no refObjLoader set in __ini__ or setRefObjLoader")
         circle = self.calculateCircle(catalog)
         matchMeta = self.refObjLoader.getMetadataCircle(circle.center, circle.radius, filterName, epoch=epoch)
         emptyResult = Struct(matches=[], matchMeta=matchMeta)
