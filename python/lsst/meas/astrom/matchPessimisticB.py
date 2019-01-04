@@ -416,8 +416,8 @@ class MatchPessimisticBTask(pipeBase.Task):
 
         match_found = False
         # Start the iteration over our tolerances.
-        for soften_pattern in range(self.config.matcherIterations):
-            for soften_dist in range(self.config.matcherIterations):
+        for soften_dist in range(self.config.matcherIterations):
+            for soften_pattern in range(self.config.matcherIterations):
                 if soften_pattern == 0 and soften_dist == 0 and \
                         match_tolerance.lastMatchedPattern is not None:
                     # If we are on the first, most stringent tolerance,
