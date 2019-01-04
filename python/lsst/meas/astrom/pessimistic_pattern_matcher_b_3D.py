@@ -357,7 +357,7 @@ class PessimisticPatternMatcherB:
                 output_match_struct.shift = shift
                 return output_match_struct
 
-        self.log.warn("Failed after %i patterns." % (pattern_idx + 1))
+        self.log.debug("Failed after %i patterns." % (pattern_idx + 1))
         return output_match_struct
 
     def _compute_test_vectors(self, source_array):

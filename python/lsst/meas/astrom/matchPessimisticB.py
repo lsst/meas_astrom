@@ -110,7 +110,7 @@ class MatchPessimisticBConfig(pexConfig.Config):
     matcherIterations = pexConfig.RangeField(
         doc="Number of softening iterations in matcher.",
         dtype=int,
-        default=5,
+        default=3,
         min=1,
     )
     maxOffsetPix = pexConfig.RangeField(
