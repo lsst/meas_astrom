@@ -176,6 +176,9 @@ class MatchPessimisticBConfig(pexConfig.Config):
         if self.numPointsForShapeAttempt < self.numPointsForShape:
             raise ValueError("numPointsForShapeAttempt must be greater than "
                              "or equal to numPointsForShape.")
+        if self.numPointsForShape > self.numBrightStars:
+            raise ValueError("numBrightStars must be greater than "
+                             "numPointsForShape.")
 
 
 # The following block adds links to this task from the Task Documentation page.
@@ -348,7 +351,7 @@ class MatchPessimisticBTask(pipeBase.Task):
                 self._latlong_flux_to_xyz_mag(theta, phi, flux)
 
         if match_tolerance.PPMbObj is None or \
-           match_tolerance.autoMaxDist is None:
+           match_tolerance.autoMaxMatchDist is None:
             # The reference catalog is fixed per AstrometryTask so we only
             # create the data needed if this is the first step in the match
             # fit cycle.
@@ -370,8 +373,8 @@ class MatchPessimisticBTask(pipeBase.Task):
                 ref_array)
             maxMatchDistArcSec = np.min((maxMatchDistArcSecSrc,
                                          maxMatchDistArcSecRef))
-            match_tolerance.autoMaxDist = afwgeom.Angle(maxMatchDistArcSec,
-                                                        afwgeom.arcseconds)
+            match_tolerance.autoMaxMatchDist = afwgeom.Angle(
+                maxMatchDistArcSec, afwgeom.arcseconds)
 
         # Set configurable defaults when we encounter None type or set
         # state based on previous run of AstrometryTask._matchAndFitWcs.
@@ -391,13 +394,13 @@ class MatchPessimisticBTask(pipeBase.Task):
         # create on both the source and reference catalog. We use the smaller
         # of the two.
         if match_tolerance.maxMatchDist is None:
-            match_tolerance.maxMatchDist = match_tolerance.autoMaxDist
+            match_tolerance.maxMatchDist = match_tolerance.autoMaxMatchDist
         else:
             maxMatchDistArcSec = np.max(
                 (self.config.minMatchDistPixels *
                  wcs.getPixelScale().asArcseconds(),
                  np.min((match_tolerance.maxMatchDist.asArcseconds(),
-                         match_tolerance.autoMaxDist.asArcseconds()))))
+                         match_tolerance.autoMaxMatchDist.asArcseconds()))))
 
         # Make sure the data we are considering is dense enough to require
         # the consensus mode of the matcher. If not default to Optimistic
