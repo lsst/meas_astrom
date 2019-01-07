@@ -1,9 +1,10 @@
+# This file is part of meas_astrom.
 #
-# LSST Data Management System
-# Copyright 2008-2016 AURA/LSST.
-#
-# This product includes software developed by the
-# LSST Project (http://www.lsst.org/).
+# Developed for the LSST Data Management System.
+# This product includes software developed by the LSST Project
+# (https://www.lsst.org).
+# See the COPYRIGHT file at the top-level directory of this distribution
+# for details of code ownership.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,10 +16,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
-# You should have received a copy of the LSST License Statement and
-# the GNU General Public License along with this program.  If not,
-# see <http://www.lsstcorp.org/LegalNotices/>.
-#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 __all__ = ["FitSipDistortionTask", "FitSipDistortionConfig"]
 
 
@@ -36,7 +36,7 @@ from .setMatchDistance import setMatchDistance
 
 
 class FitSipDistortionConfig(lsst.pex.config.Config):
-    """""Config for FitSipDistortionTask"""
+    """Config for FitSipDistortionTask"""
     order = lsst.pex.config.RangeField(
         doc="Order of SIP polynomial",
         dtype=int,
@@ -116,7 +116,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
 
         Parameters
         ----------
-        matches : `list` of :cpp:class:`lsst::afw::table::ReferenceMatch`
+        matches : `list` of `lsst.afw.table.ReferenceMatch`
             A sequence of reference object/source matches.
             The following fields are read:
             - match.first (reference object) coord
@@ -127,17 +127,17 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
             - match.second (source) centroid
             - match.distance (on sky separation, in radians)
 
-        initWcs : :cpp:class:`lsst::afw::geom::SkyWcs`
+        initWcs : `lsst.afw.geom.SkyWcs`
             An initial WCS whose CD matrix is used as the final CD matrix.
-        bbox : :cpp:class:`lsst::afw::geom::Box2I`
+        bbox : `lsst.geom.Box2I`
             The region over which the WCS will be valid (PARENT pixel coordinates);
             if `None` or an empty box then computed from matches
-        refCat : :cpp:class:`lsst::afw::table::SimpleCatalog`
+        refCat : `lsst.afw.table.SimpleCatalog`
             Reference object catalog, or `None`.
             If provided then all centroids are updated with the new WCS,
             otherwise only the centroids for ref objects in matches are updated.
             Required fields are "centroid_x", "centroid_y", "coord_ra", and "coord_dec".
-        sourceCat : :cpp:class:`lsst::afw::table::SourceCatalog`
+        sourceCat : `lsst.afw.table.SourceCatalog`
             Source catalog, or `None`.
             If provided then coords are updated with the new WCS;
             otherwise only the coords for sources in matches are updated.
@@ -145,7 +145,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
             "slot_Centroid_xErr", "slot_Centroid_yErr", and optionally
             "slot_Centroid_x_y_Cov".  The "coord_ra" and "coord_dec" fields
             will be updated but are not used as input.
-        exposure : :cpp:class:`lsst::afw::image::Exposure`
+        exposure : `lsst.afw.image.Exposure`
             An Exposure or other displayable image on which matches can be
             overplotted.  Ignored (and may be `None`) if display-based debugging
             is not enabled via lsstDebug.
@@ -153,11 +153,11 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
         Returns
         -------
         An lsst.pipe.base.Struct with the following fields:
-            - wcs : :cpp:class:`lsst::afw::geom::SkyWcs`
+            - wcs : `lsst.afw.geom.SkyWcs`
                 The best-fit WCS.
-            - scatterOnSky : :cpp:class:`lsst::afw::geom::Angle`
+            - scatterOnSky : `lsst.geom.Angle`
                 The median on-sky separation between reference objects and
-                sources in "matches", as an lsst.afw.geom.Angle
+                sources in "matches", as an `lsst.geom.Angle`
         """
         import lsstDebug
         display = lsstDebug.Info(__name__).display
@@ -338,7 +338,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
 
         Returns
         -------
-        newWcsL : :cpp:class:`lsst::afw::geom::SkyWcs`
+        newWcs : `lsst.afw.geom.SkyWcs`
             A new WCS guess.
         """
         crpix = lsst.afw.geom.Extent2D(0, 0)

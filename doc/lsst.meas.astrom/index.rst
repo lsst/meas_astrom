@@ -20,11 +20,13 @@ lsst.meas.astrom
 
 .. _lsst.meas.astrom-contributing:
 
+Tasks and methods for finding an astrometric solution.
+
 Contributing
 ============
 
 ``lsst.meas.astrom`` is developed at https://github.com/lsst/meas_astrom.
-You can find Jira issues for this module under the `example <https://jira.lsstcorp.org/issues/?jql=project%20%3D%20DM%20AND%20component%20%3D%20example>`_ component.
+You can find Jira issues for this module under `here <https://jira.lsstcorp.org/issues/?jql=text%20~%20%22meas_astrom%22>`_.
 
 .. If there are topics related to developing this module (rather than using it), link to this from a toctree placed here.
 

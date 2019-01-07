@@ -509,7 +509,7 @@ class MatchPessimisticBTask(pipeBase.Task):
 
         Return
         ------
-        output_array : `numpy.array`, (N, 4)
+        output_array : `numpy.ndarray`, (N, 4)
             Spherical unit vector x, y, z  with flux.
         """
         output_array = np.empty(4, dtype=np.float64)
@@ -537,7 +537,7 @@ class MatchPessimisticBTask(pipeBase.Task):
 
         Parameters
         ----------
-        cat_array : `numpy.array`, (N, 3)
+        cat_array : `numpy.ndarray`, (N, 3)
             array of 3 vectors representing the x, y, z position of catalog
             objects on the unit sphere.
 

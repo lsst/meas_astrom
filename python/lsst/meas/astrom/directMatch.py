@@ -33,7 +33,7 @@ class DirectMatchTask(Task):
         Data butler containing the relevant reference catalog data.
     refObjLoader : `lsst.meas.algorithms.LoadReferenceObjectsTask` or `None`
         For loading reference objects
-    kwargs :
+    **kwargs :
         Other keyword arguments required for instantiating a Task (e.g., 'config')
     """
     ConfigClass = DirectMatchConfig

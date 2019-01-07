@@ -19,14 +19,14 @@ def _rotation_matrix_chi_sq(flattened_rot_matrix,
 
     Parameters
     ----------
-    flattened_rot_matrix : `numpy.array`, (9, )
+    flattened_rot_matrix : `numpy.ndarray`, (9, )
         A flattened array representing a 3x3 rotation matrix. The array is
         flattened to comply with the API of scipy.optimize.least_squares.
         Flattened elements are [[0, 0], [0, 1], [0, 2], [1, 0]...]
-    pattern_a : `numpy.array`, (N, 3)
+    pattern_a : `numpy.ndarray`, (N, 3)
         A array containing N, 3 vectors representing the objects we would like
         to transform into the frame of pattern_b.
-    pattern_b : `numpy.array`, (N, 3)
+    pattern_b : `numpy.ndarray`, (N, 3)
         A array containing N, 3 vectors representing the reference frame we
         would like to transform pattern_a into.
     max_dist_rad : `float`
@@ -35,7 +35,7 @@ def _rotation_matrix_chi_sq(flattened_rot_matrix,
 
     Returns
     -------
-    noralized_diff : `numpy.array`, (9,)
+    noralized_diff : `numpy.ndarray`, (9,)
         Array of differences between the vectors representing of the source
         pattern rotated into the reference frame and the converse. This is
         used to minimize in a least squares fitter.
@@ -63,7 +63,7 @@ class PessimisticPatternMatcherB:
 
     Parameters
     ----------
-    reference_array : `numpy.array`, (N, 3)
+    reference_array : `numpy.ndarray`, (N, 3)
         spherical points x, y, z of to use as reference objects for
         pattern matching.
     log : `lsst.log.Log`
@@ -191,7 +191,7 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        source_array : `numpy.array`, (N, 3)
+        source_array : `numpy.ndarray`, (N, 3)
             An array of spherical x,y,z coordinates and a magnitude in units
             of objects having a lower value for sorting. The array should be
             of shape (N, 4).
@@ -230,9 +230,9 @@ class PessimisticPatternMatcherB:
             Result struct with components
 
             - ``matches`` : (N, 2) array of matched ids for pairs. Empty list if no
-              match found (`numpy.array`, (N, 2) or `list`)
+              match found (`numpy.ndarray`, (N, 2) or `list`)
             - ``distances_rad`` : Radian distances between the matched objects.
-              Empty list if no match found (`numpy.array`, (N,))
+              Empty list if no match found (`numpy.ndarray`, (N,))
             - ``pattern_idx``: Index of matched pattern. None if no match found
               (`int`).
             - ``shift`` : Magnitude for the shift between the source and reference
@@ -368,13 +368,13 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        source_array : `numpy.array`, (N, 3)
+        source_array : `numpy.ndarray`, (N, 3)
             array of 3 vectors representing positions on the unit
             sphere.
 
         Returns
         -------
-        test_vectors : `numpy.array`, (N, 3)
+        test_vectors : `numpy.ndarray`, (N, 3)
             Array of vectors representing the maximum extents in x, y, z
             of the input source array. These are used with the rotations
             the code finds to test for agreement from different patterns
@@ -424,7 +424,7 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        src_pattern_array : `numpy.array`, (N, 3)
+        src_pattern_array : `numpy.ndarray`, (N, 3)
             Sub selection of source 3 vectors to create a pattern from
         n_match : `int`
             Number of points to attempt to create a pattern from. Must be
@@ -452,11 +452,11 @@ class PessimisticPatternMatcherB:
             - ``shift_rot_matrix_src_to_ref`` : 3x3 matrix specifying the full
               shift and rotation between the reference and source objects.
               Rotates source into reference frame. `None` if match is not
-              found. (`numpy.array`, (3, 3))
+              found. (`numpy.ndarray`, (3, 3))
             - ``shift_rot_matrix_ref_to_src`` : 3x3 matrix specifying the full
               shift and rotation of the reference and source objects. Rotates
               reference into source frame. None if match is not found
-              (`numpy.array`, (3, 3)).
+              (`numpy.ndarray`, (3, 3)).
             - ``cos_shift`` : Magnitude of the shift found between the two
               patten centers. `None` if match is not found (`float`).
             - ``sin_rot`` : float value of the rotation to align the already
@@ -624,7 +624,7 @@ class PessimisticPatternMatcherB:
         src_dist : `float`
             float value of the distance we would like to search for in
             the reference array in radians.
-        ref_dist_array : `numpy.array`, (N,)
+        ref_dist_array : `numpy.ndarray`, (N,)
             sorted array of distances in radians.
         max_dist_rad : `float`
             maximum plus/minus search to find in the reference array in
@@ -632,7 +632,7 @@ class PessimisticPatternMatcherB:
 
         Return
         ------
-        tmp_diff_array : `numpy.array`, (N,)
+        tmp_diff_array : `numpy.ndarray`, (N,)
             indices lookup into the input ref_dist_array sorted by the
             difference in value to the src_dist from absolute value
             smallest to largest.
@@ -668,15 +668,15 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        src_center : `numpy.array`, (N, 3)
+        src_center : `numpy.ndarray`, (N, 3)
             pattern.
-        ref_center : `numpy.array`, (N, 3)
+        ref_center : `numpy.ndarray`, (N, 3)
             3 vector defining the center of the candidate reference pinwheel
             pattern.
-        src_delta : `numpy.array`, (N, 3)
+        src_delta : `numpy.ndarray`, (N, 3)
             3 vector delta between the source pattern center and the end of
             the pinwheel spoke.
-        ref_delta : `numpy.array`, (N, 3)
+        ref_delta : `numpy.ndarray`, (N, 3)
             3 vector delta of the candidate matched reference pair
         cos_shift : `float`
             Cosine of the angle between the source and reference candidate
@@ -696,7 +696,7 @@ class PessimisticPatternMatcherB:
               other. `None` if rotation test fails (`float`).
             - ``shift_matrix`` : 3x3 rotation matrix describing the shift needed to
             align the source and candidate reference center. `None` if rotation
-            test fails (`numpy.array`, (N, 3)).
+            test fails (`numpy.ndarray`, (N, 3)).
         """
 
         # Make sure the sine is a real number.
@@ -747,7 +747,7 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        rot_axis : `numpy.array`, (3,)
+        rot_axis : `numpy.ndarray`, (3,)
             3 vector defining the axis to rotate about.
         cos_rotation : `float`
             cosine of the rotation angle.
@@ -756,7 +756,7 @@ class PessimisticPatternMatcherB:
 
         Return
         ------
-        shift_matrix : `numpy.array`, (3, 3)
+        shift_matrix : `numpy.ndarray`, (3, 3)
             3x3 spherical, rotation matrix.
         """
 
@@ -781,28 +781,28 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        src_ctr : `numpy.array`, (3,)
+        src_ctr : `numpy.ndarray`, (3,)
             3 vector of the source pinwheel center
-        src_delta_array : `numpy.array`, (N, 3)
+        src_delta_array : `numpy.ndarray`, (N, 3)
             Array of 3 vector deltas between the source center and the pairs
             that make up the remaining spokes of the pinwheel
-        src_dist_array : `numpy.array`, (N, 3)
+        src_dist_array : `numpy.ndarray`, (N, 3)
             Array of the distances of each src_delta in the pinwheel
-        ref_ctr : `numpy.array`, (3,)
+        ref_ctr : `numpy.ndarray`, (3,)
             3 vector of the candidate reference center
         ref_ctr_id : `int`
             id of the ref_ctr in the master reference array
-        proj_ref_ctr_delta : `numpy.array`, (3,)
+        proj_ref_ctr_delta : `numpy.ndarray`, (3,)
             Plane projected 3 vector formed from the center point of the
             candidate pin-wheel and the second point in the pattern to create
             the first spoke pair. This is the candidate pair that was matched
             in the main _construct_pattern_and_shift_rot_matrix loop
-        ref_delta_array : `numpy.array`, (N,3)
+        ref_delta_array : `numpy.ndarray`, (N,3)
             Array of 3 vector deltas that are have the current candidate
             reference center as part of the pair
-        ref_dist_array : `numpy.array`, (N,)
+        ref_dist_array : `numpy.ndarray`, (N,)
             Array of vector distances for each of the reference pairs
-        ref_id_array : `numpy.array`, (N,)
+        ref_id_array : `numpy.ndarray`, (N,)
             Array of id lookups into the master reference array that our
             center id object is paired with.
         max_dist_rad : `float`
@@ -930,7 +930,7 @@ class PessimisticPatternMatcherB:
         sin_theta_src : `float`
             Sine of the angle between the current candidate source spoke and
             the first spoke.
-        ref_ctr : `numpy.array`, (3,)
+        ref_ctr : `numpy.ndarray`, (3,)
             3 vector of the candidate reference center
         ref_ctr_id : `int`
             id lookup of the ref_ctr into the master reference array
@@ -939,14 +939,14 @@ class PessimisticPatternMatcherB:
             pattern center as normal.
         proj_ref_ctr_dist_sq : `float`
             Squared length of the projected vector.
-        ref_dist_idx_array : `numpy.array`, (N,)
+        ref_dist_idx_array : `numpy.ndarray`, (N,)
             Indices sorted by the delta distance between the source
             spoke we are trying to test and the candidate reference
             spokes.
-        ref_delta_array : `numpy.array`, (N, 3)
+        ref_delta_array : `numpy.ndarray`, (N, 3)
             Array of 3 vector deltas that are have the current candidate
             reference center as part of the pair
-        ref_id_array : `numpy.array`, (N,)
+        ref_id_array : `numpy.ndarray`, (N,)
             Array of id lookups into the master reference array that our
             center id object is paired with.
         src_sin_tol : `float`
@@ -1025,16 +1025,16 @@ class PessimisticPatternMatcherB:
         cos_rot_sq : `float`
             cosine of the rotation needed to align our source and reference
             candidate patterns.
-        shift_matrix : `numpy.array`, (3, 3)
+        shift_matrix : `numpy.ndarray`, (3, 3)
             3x3 rotation matrix for shifting the source pattern center on top
             of the candidate reference pattern center.
-        src_delta : `numpy.array`, (3,)
+        src_delta : `numpy.ndarray`, (3,)
             3 vector delta of representing the first spoke of the source
             pattern
-        ref_ctr : `numpy.array`, (3,)
+        ref_ctr : `numpy.ndarray`, (3,)
             3 vector on the unit-sphere representing the center of our
             reference pattern.
-        ref_delta : `numpy.array`, (3,)
+        ref_delta : `numpy.ndarray`, (3,)
             3 vector delta made by the first pair of the reference pattern.
 
         Returns
@@ -1047,7 +1047,7 @@ class PessimisticPatternMatcherB:
               signed and tells us the chirality of the rotation (`float`).
             - ``shift_rot_matrix`` : float array representing the 3x3 rotation
               matrix that takes the source pattern and shifts and rotates
-              it to align with the reference pattern (`numpy.array`, (3,3)).
+              it to align with the reference pattern (`numpy.ndarray`, (3,3)).
         """
         cos_rot = np.sqrt(cos_rot_sq)
         rot_src_delta = np.dot(shift_matrix, src_delta)
@@ -1073,13 +1073,13 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        src_pattern : `numpy.array`, (N,3)
+        src_pattern : `numpy.ndarray`, (N,3)
             Array of 3 vectors representing the points that make up our source
             pinwheel pattern.
-        ref_pattern : `numpy.array`, (N,3)
+        ref_pattern : `numpy.ndarray`, (N,3)
             Array of 3 vectors representing our candidate reference pinwheel
             pattern.
-        shift_rot_matrix : `numpy.array`, (3,3)
+        shift_rot_matrix : `numpy.ndarray`, (3,3)
             3x3 rotation matrix that takes the source objects and rotates them
             onto the frame of the reference objects
         max_dist_rad : `float`
@@ -1087,7 +1087,7 @@ class PessimisticPatternMatcherB:
 
         Returns
         -------
-        fit_shift_rot_matrix : `numpy.array`, (3,3)
+        fit_shift_rot_matrix : `numpy.ndarray`, (3,3)
            Return the fitted shift/rotation matrix if all of the points in our
            source pattern are within max_dist_rad of their matched reference
            objects. Returns None if this criteria is not satisfied.
@@ -1131,13 +1131,13 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        pattern_a :  `numpy.array`, (N,3)
+        pattern_a :  `numpy.ndarray`, (N,3)
             Array of 3 vectors representing the points that make up our source
             pinwheel pattern.
-        pattern_b :  `numpy.array`, (N,3)
+        pattern_b :  `numpy.ndarray`, (N,3)
             Array of 3 vectors representing our candidate reference pinwheel
             pattern.
-        shift_rot_matrix :  `numpy.array`, (3,3)
+        shift_rot_matrix :  `numpy.ndarray`, (3,3)
             3x3 rotation matrix that takes the source objects and rotates them
             onto the frame of the reference objects
         max_dist_rad : `float`
@@ -1167,7 +1167,7 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        test_pattern : `numpy.array`, (N, 3)
+        test_pattern : `numpy.ndarray`, (N, 3)
             Test vectors at the maximum and minimum x, y, z extents.
         max_dist_rad : `float`
             maximum distance in radians to consider two points "agreeing" on
@@ -1192,7 +1192,7 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        rot_vects : `numpy.array`, (N, 3)
+        rot_vects : `numpy.ndarray`, (N, 3)
             Arrays of rotated 3 vectors representing the maximum x, y,
             z extent on the unit sphere of the input source objects rotated by
             the candidate rotations into the reference frame.
@@ -1234,10 +1234,10 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        source_array : `numpy.array`, (N, 3)
+        source_array : `numpy.ndarray`, (N, 3)
             array of 3 vectors representing the source objects we are trying
             to match into the source catalog.
-        shift_rot_matrix : `numpy.array`, (3, 3)
+        shift_rot_matrix : `numpy.ndarray`, (3, 3)
             3x3 rotation matrix that performs the spherical rotation from the
             source frame into the reference frame.
 
@@ -1249,9 +1249,9 @@ class PessimisticPatternMatcherB:
             - ``matches`` : array of integer ids into the source and
               reference arrays. Matches are only returned for those that
               satisfy the distance and handshake criteria
-              (`numpy.array`, (N, 2)).
+              (`numpy.ndarray`, (N, 2)).
             - ``distances`` : Distances between each match in radians after
-              the shift and rotation is applied (`numpy.array`, (N)).
+              the shift and rotation is applied (`numpy.ndarray`, (N)).
         """
         shifted_references = np.dot(
             np.linalg.inv(shift_rot_matrix),
@@ -1293,15 +1293,15 @@ class PessimisticPatternMatcherB:
 
         Parameters
         ----------
-        matches_src : `numpy.array`, (N, 2)
+        matches_src : `numpy.ndarray`, (N, 2)
             int array of nearest neighbor matches between shifted and
             rotated reference objects matched into the sources.
-        matches_ref : `numpy.array`, (N, 2)
+        matches_ref : `numpy.ndarray`, (N, 2)
             int array of nearest neighbor matches between shifted and
             rotated source objects matched into the references.
         Return
         ------
-        handshake_mask_array : `numpy.array`, (N,)
+        handshake_mask_array : `numpy.ndarray`, (N,)
            Return the array positions where the two match catalogs agree.
         """
         handshake_mask_array = np.zeros(len(matches_src), dtype=np.bool)

@@ -63,7 +63,7 @@ class RefMatchTask(pipeBase.Task):
         A reference object loader object
     schema : `lsst.afw.table.Schema`
         ignored; available for compatibility with an older astrometry task
-    kwargs
+    **kwargs
         additional keyword arguments for pipe_base `lsst.pipe.base.Task`
     """
     ConfigClass = RefMatchConfig

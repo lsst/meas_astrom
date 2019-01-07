@@ -13,8 +13,10 @@ done as a preliminary step to fitting an astrometric or photometric solution.
 The algorithm is based on a more "Pessimistic" version of the Optimistic
 Pattern Matcher B as described in `DMTN-013 <http://ls.st/DMTN-031>`_.
 
-Optimistic Pattern Matching is described in V. Tabur 2007, PASA, 24, 189-198
-"Fast Algorithms for Matching CCD Images to a Stellar Catalogue"
+Optimistic Pattern Matching is described in [Tabur2007]_
+
+.. [Tabur2007] Fast algorithms for matching CCD images to a stellar catalogue*
+               `arxiv:0710.3618 <https://arxiv.org/abs/0710.3618>`_
 
 .. _lsst.meas.astrom.MatchPessimisticBTask-summary:
 

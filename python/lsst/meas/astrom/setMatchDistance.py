@@ -37,7 +37,8 @@ def setMatchDistance(matches):
 
     Notes
     -----
-    WARNING : the coord field of the source in each match must be correct
+    .. warning::
+       the coord field of the source in each match must be correct
     """
     if len(matches) < 1:
         return

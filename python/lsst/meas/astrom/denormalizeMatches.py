@@ -54,8 +54,13 @@ def denormalizeMatches(matches, matchMeta=None):
     prepended (including any alias mappings). The distance between the
     matches is in a column named "distance".
 
-    See also `lsst.afw.table.packMatches`
+    See Also
+    --------
+    lsst.afw.table.packMatches
     """
+    # TODO: DM-16863 Current this link is removed due to the conversion of
+    # afw.table not yet being complete and causing an error on build.
+    # """
     if len(matches) == 0:
         raise RuntimeError("No matches provided.")
 

@@ -13,7 +13,7 @@ from . import matchOptimisticB, MatchOptimisticBControl
 
 
 class MatchTolerance:
-    """Stores match tolerances for use in `lsst.meas.astromAstrometryTask` and
+    """Stores match tolerances for use in `lsst.meas.astrom.AstrometryTask` and
     later iterations of the matcher.
 
     MatchOptimsiticBTask relies on a maximum distance for matching
@@ -22,7 +22,7 @@ class MatchTolerance:
 
     Parameters
     ----------
-    maxMatchDist : `lsst.afw.geom.Angle`
+    maxMatchDist : `lsst.geom.Angle`
         Current maximum distance to consider a match.
     """
 
