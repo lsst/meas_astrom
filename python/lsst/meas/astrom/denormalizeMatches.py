@@ -27,19 +27,6 @@ import lsst.afw.table as afwTable
 def denormalizeMatches(matches, matchMeta=None):
     """Generate a denormalized Catalog of matches
 
-    This is intended for writing matches in a convenient way.
-    Normally we write matches in a 'normalized' form: recording only the join
-    table (reference ID, source ID) to minimise space (the reference and source
-    catalogs should both be available separately, so the only extra information
-    we need is how to join them). However, using that can be a pain, since it
-    requires reading each catalog and doing the join.
-
-    This function generates a Catalog containing all the information in the
-    matches. The reference catalog entries are in columns with "ref_"
-    prepended, while the source catalog entries are in columns with "src_"
-    prepended (including any alias mappings). The distance between the
-    matches is in a column named "distance".
-
     Parameters
     ----------
     matches : `list` of `lsst.afw.table.ReferenceMatch`
@@ -52,10 +39,28 @@ def denormalizeMatches(matches, matchMeta=None):
     catalog : `lsst.afw.table.BaseCatalog`
         Catalog containing matchlist entries.
 
-    See also
+    Notes
+    -----
+    This is intended for writing matches in a convenient way.
+    Normally we write matches in a 'normalized' form: recording only the join
+    table (reference ID, source ID) to minimise space (the reference and source
+    catalogs should both be available separately, so the only extra information
+    we need is how to join them). However, using that can be a pain, since it
+    requires reading each catalog and doing the join.
+
+    This function generates a Catalog containing all the information in the
+    matches. The reference catalog entries are in columns with 'ref'
+    prepended, while the source catalog entries are in columns with 'src'
+    prepended (including any alias mappings). The distance between the
+    matches is in a column named "distance".
+
+    See Also
     --------
-    `lsst.afw.table.packMatches`
+    lsst.afw.table.packMatches
     """
+    # TODO: DM-16863 Current this link is removed due to the conversion of
+    # afw.table not yet being complete and causing an error on build.
+    # """
     if len(matches) == 0:
         raise RuntimeError("No matches provided.")
 

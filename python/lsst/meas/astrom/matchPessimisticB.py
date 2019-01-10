@@ -21,43 +21,30 @@ class MatchTolerancePessimistic(MatchTolerance):
     """Stores match tolerances for use in AstrometryTask and later
     iterations of the matcher.
 
-    Attributes
+    MatchPessimisticBTask relies on several state variables to be
+    preserved over different iterations in the
+    AstrometryTask.matchAndFitWcs loop of AstrometryTask.
+
+    Parameters
     ----------
-    maxMatchDist : lsst.afw.geom.Angle
-    autoMaxMatchDist : lsst.afw.geom.Angle
-    maxShift : lsst.afw.geom.Angle
-    lastMatchedPattern : int
-    failedPatternList : list of ints
+    maxMatchDist : `lsst.geom.Angle`
+        Maximum distance to consider a match from the previous match/fit
+        iteration.
+    autoMaxMatchDist : `lsst.geom.Angle`
+        Automated estimation of the maxMatchDist from the sky statistics of the
+        source and reference catalogs.
+    maxShift : `lsst.geom.Angle`
+        Maximum shift found in the previous match/fit cycle.
+    lastMatchedPattern : `int`
+        Index of the last source pattern that was matched into the reference
+        data.
+    failedPatternList : `list` of `int`
+        Previous matches were found to be false positives.
     """
 
     def __init__(self, maxMatchDist=None, autoMaxMatchDist=None,
                  maxShift=None, lastMatchedPattern=None,
                  failedPatternList=None):
-        """Construct a MatchPessimisticTolerance
-
-        MatchPessimisticBTask relies on several state variables to be
-        preserved over different iterations in the
-        AstrometryTask.matchAndFitWcs loop of AstrometryTask.
-
-        Parameters
-        ----------
-        maxMatchDist : afw.geom.Angle
-            Current 2 sigma scatter from the previous matched wcs (if it
-            exists. It is None if this is the first iteration.)
-        autoMatxMatchDist : afw.geom.Angle
-            Result of the automated match tolerance generation.
-        maxShift  : afw.geom.Angle
-            None for the first iteration or is the magnitude of the previous
-            iteration's wcs shift.
-        lastMatchedPattern : int
-            Reference to the position in the magnitude sorted source array
-            where a successful pattern match was found.
-        failedPatternList : list of ints
-            List of ints specifying indicies in the magnitude sourced source
-            array to skip. These are skipped are previous iterations that are
-            likely false positives due to the code having to soften after a
-            pattern is matched.
-        """
         self.maxMatchDist = maxMatchDist
         self.autoMaxMatchDist = autoMaxMatchDist
         self.maxShift = maxShift
@@ -173,74 +160,7 @@ class MatchPessimisticBConfig(pexConfig.Config):
 
 
 class MatchPessimisticBTask(pipeBase.Task):
-    r"""!Match sources to reference objects
-
-    @anchor MatchPessimisticBTask_
-
-    @section meas_astrom_MatchPessimisticB_Contents Contents
-
-     - @ref meas_astrom_MatchPessimisticB_Purpose
-     - @ref meas_astrom_MatchPessimisticB_Initialize
-     - @ref meas_astrom_MatchPessimisticB_IO
-     - @ref meas_astrom_MatchPessimisticB_Config
-     - @ref meas_astrom_MatchPessimisticB_Example
-     - @ref meas_astrom_MatchPessimisticB_Debug
-
-    @section meas_astrom_MatchPessimisticB_Purpose  Description
-
-    Match sources to reference objects. This is often done as a preliminary
-    step to fitting an astrometric or photometric solution. For details about
-    the matching algorithm see pessimistic_pattern_matcher_b_3D.py
-
-    @section meas_astrom_MatchPessimisticB_Initialize   Task initialization
-
-    @copydoc \_\_init\_\_
-
-    @section meas_astrom_MatchPessimisticB_IO       Invoking the Task
-
-    @copydoc matchObjectsToSources
-
-    @section meas_astrom_MatchPessimisticB_Config       Configuration
-    parameters
-
-    See @ref MatchPessimisticBConfig
-
-    To modify the tests for good sources for matching, create a new
-    sourceSelector class in meas_algorithms and use it in the config.
-
-    @section meas_astrom_MatchPessimisticB_Example  A complete example of
-    using MatchPessimisticBTask
-
-    MatchPessimisticBTask is a subtask of AstrometryTask, which is called by
-    PhotoCalTask. See \ref meas_photocal_photocal_Example.
-
-    @section meas_astrom_MatchPessimisticB_Debug        Debug variables
-
-    The @link lsst.pipe.base.cmdLineTask.CmdLineTask command line task@endlink
-    interface supports a flag @c -d to import @b debug.py from your
-    @c PYTHONPATH; see @ref baseDebug for more about @b debug.py files.
-
-    The available variables in MatchPessimisticBTask are:
-    <DL>
-      <DT> @c verbose (bool)
-      <DD> If True then the matcher prints debug messages to stdout
-    </DL>
-
-    To investigate the @ref meas_astrom_MatchPessimisticB_Debug, put something
-    like
-    @code{.py}
-        import lsstDebug
-        def DebugInfo(name):
-            # N.b. lsstDebug.Info(name) would call us recursively
-            debug = lsstDebug.getInfo(name)
-            if name == "lsst.pipe.tasks.astrometry":
-                debug.verbose = True
-
-            return debug
-
-        lsstDebug.Info = DebugInfo
-    @endcode
-    into your debug.py file and run this task with the @c --debug flag.
+    """Match sources to reference objects.
     """
 
     ConfigClass = MatchPessimisticBConfig
@@ -253,29 +173,41 @@ class MatchPessimisticBTask(pipeBase.Task):
     @pipeBase.timeMethod
     def matchObjectsToSources(self, refCat, sourceCat, wcs, refFluxField,
                               match_tolerance=None):
-        """!Match sources to position reference stars
+        """Match sources to position reference stars
 
-        @param[in] refCat  catalog of reference objects that overlap the
-        exposure; reads fields for:
+        refCat : `lsst.afw.table.SimpleCatalog`
+            catalog of reference objects that overlap the exposure; reads
+            fields for:
+
             - coord
             - the specified flux field
-        @param[in] sourceCat  catalog of sources found on an exposure;
-            Please check the required fields of your specified source selector
-            that the correct flags are present.
-        @param[in] wcs  estimated WCS
-        @param[in] refFluxField  field of refCat to use for flux
-        @param[in] match_tolerance is a MatchTolerance class object or None.
-            This this class is used to communicate state between AstrometryTask
-            and MatcherTask. AstrometryTask will also set the MatchTolerance
-            class variable maxMatchDist based on the scatter AstrometryTask has
-            found after fitting for the wcs.
-        @return an lsst.pipe.base.Struct with fields:
-        - matches  a list of matches, each instance of
-            lsst.afw.table.ReferenceMatch
-        - usableSourcCat  a catalog of sources potentially usable for
-            matching.
-        - match_tolerance a MatchTolerance object containing the resulting
-            state variables from the match.
+
+        sourceCat : `lsst.afw.table.SourceCatalog`
+            catalog of sources found on an exposure; Please check the required
+            fields of your specified source selector that the correct flags are present.
+        wcs : `lsst.afw.geom.SkyWcs`
+            estimated WCS
+        refFluxField : `str`
+            field of refCat to use for flux
+        match_tolerance : `lsst.meas.astrom.MatchTolerancePessimistic`
+            is a MatchTolerance class object or `None`. This this class is used
+            to communicate state between AstrometryTask and MatcherTask.
+            AstrometryTask will also set the MatchTolerance class variable
+            maxMatchDist based on the scatter AstrometryTask has found after
+            fitting for the wcs.
+
+        Returns
+        -------
+        result : `lsst.pipe.base.Struct`
+            Result struct with components:
+
+            - ``matches`` : source to reference matches found (`list` of
+              `lsst.afw.table.ReferenceMatch`)
+            - ``usableSourcCat`` : a catalog of sources potentially usable for
+              matching and WCS fitting (`lsst.afw.table.SourceCatalog`).
+            - ``match_tolerance`` : a MatchTolerance object containing the
+              resulting state variables from the match
+              (`lsst.meas.astrom.MatchTolerancePessimistic`).
         """
         import lsstDebug
         debug = lsstDebug.Info(__name__)
@@ -333,27 +265,43 @@ class MatchPessimisticBTask(pipeBase.Task):
     @pipeBase.timeMethod
     def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numUsableSources,
                  minMatchedPairs, match_tolerance, sourceFluxField, verbose):
-        """!Implementation of matching sources to position reference stars
+        """Implementation of matching sources to position reference stars
 
         Unlike matchObjectsToSources, this method does not check if the sources
         are suitable.
 
-        @param[in] refCat  catalog of position reference stars that overlap an
-            exposure
-        @param[in] sourceCat  catalog of sources found on the exposure
-        @param[in] wcs  estimated WCS of exposure
-        @param[in] refFluxField  field of refCat to use for flux
-        @param[in] numUsableSources  number of usable sources (sources with
-            known centroid that are not near the edge, but may be saturated)
-        @param[in] minMatchedPairs  minimum number of matches
-        @param[in] match_tolerance a MatchTolerance object containing
-            variables specifying matcher tolerances and state from possible
-            previous runs.
-        @param[in] sourceInfo  SourceInfo for the sourceCat
-        @param[in] verbose  true to print diagnostic information to std::cout
+        Parameters
+        ----------
+        refCat : `lsst.afw.table.SimpleCatalog`
+            catalog of position reference stars that overlap an exposure
+        sourceCat : `lsst.afw.table.SourceCatalog`
+            catalog of sources found on the exposure
+        wcs : `lsst.afw.geom.SkyWcs`
+            estimated WCS of exposure
+        refFluxField : `str`
+            field of refCat to use for flux
+        numUsableSources : `int`
+            number of usable sources (sources with known centroid that are not
+            near the edge, but may be saturated)
+        minMatchedPairs : `int`
+            minimum number of matches
+        match_tolerance : `lsst.meas.astrom.MatchTolerancePessimistic`
+            a MatchTolerance object containing variables specifying matcher
+            tolerances and state from possible previous runs.
+        sourceFluxField : `str`
+            Name of the flux field in the source catalog.
+        verbose : `bool`
+            Set true to print diagnostic information to std::cout
 
-        @return a list of matches, an instance of
-            lsst.afw.table.ReferenceMatch, a MatchTolerance object
+        Returns
+        -------
+        result :
+            Results struct with components:
+
+            - ``matches`` : a list the matches found
+              (`list` of `lsst.afw.table.ReferenceMatch`).
+            - ``match_tolerance`` : MatchTolerance containing updated values from
+              this fit iteration (`lsst.meas.astrom.MatchTolerancePessimistic`)
         """
 
         # Load the source and reference catalog as spherical points
@@ -545,7 +493,7 @@ class MatchPessimisticBTask(pipeBase.Task):
         )
 
     def _latlong_flux_to_xyz_mag(self, theta, phi, flux):
-        r"""Convert angles theta and phi and a flux into unit sphere
+        """Convert angles theta and phi and a flux into unit sphere
         x, y, z, and a relative magnitude.
 
         Takes in a afw catalog object and converts the catalog object RA, DECs
@@ -554,15 +502,15 @@ class MatchPessimisticBTask(pipeBase.Task):
 
         Parameters
         ----------
-        theta : float
+        theta : `float`
             Angle from the north pole (z axis) of the sphere
-        phi : float
+        phi : `float`
             Rotation around the sphere
 
         Return
         ------
-        float array
-            Spherical unit vector x, y, z  on the unit-sphere.
+        output_array : `numpy.ndarray`, (N, 4)
+            Spherical unit vector x, y, z  with flux.
         """
         output_array = np.empty(4, dtype=np.float64)
         output_array[0] = np.sin(theta)*np.cos(phi)
@@ -589,13 +537,13 @@ class MatchPessimisticBTask(pipeBase.Task):
 
         Parameters
         ----------
-        cat_array : float array
+        cat_array : `numpy.ndarray`, (N, 3)
             array of 3 vectors representing the x, y, z position of catalog
             objects on the unit sphere.
 
         Returns
         -------
-        float
+        dist_tol : `float`
             Suggested max match tolerance distance calculated from comparisons
             between pinwheel patterns used in optimistic/pessimistic pattern
             matcher.

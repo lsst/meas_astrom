@@ -44,21 +44,37 @@ def approximateWcs(wcs, bbox, order=3, nx=20, ny=20, iterations=3,
                    skyTolerance=0.001*lsst.geom.arcseconds, pixelTolerance=0.02, useTanWcs=False):
     """Approximate an existing WCS as a TAN-SIP WCS
 
-    The fit is performed by evaluating the WCS at a uniform grid of points within a bounding box.
+    The fit is performed by evaluating the WCS at a uniform grid of points
+    within a bounding box.
 
-    @param[in] wcs  wcs to approximate
-    @param[in] bbox  the region over which the WCS will be fit
-    @param[in] order  order of SIP fit
-    @param[in] nx  number of grid points along x
-    @param[in] ny  number of grid points along y
-    @param[in] iterations number of times to iterate over fitting
-    @param[in] skyTolerance maximum allowed difference in world coordinates between
-               input wcs and approximate wcs (default is 0.001 arcsec)
-    @param[in] pixelTolerance maximum allowed difference in pixel coordinates between
-               input wcs and approximate wcs (default is 0.02 pixels)
-    @param[in] useTanWcs  send a TAN version of wcs to the fitter? It is documented to require that,
+    Parameters
+    ----------
+    wcs : `lsst.afw.geom.SkyWcs`
+        wcs to approximate
+    bbox : `lsst.geom.Box2I`
+        the region over which the WCS will be fit
+    order : `int`
+        order of SIP fit
+    nx : `int`
+        number of grid points along x
+    ny : `int`
+        number of grid points along y
+    iterations : `int`
+        number of times to iterate over fitting
+    skyTolerance : `lsst.geom.Angle`
+        maximum allowed difference in world coordinates between
+        input wcs and approximate wcs (default is 0.001 arcsec)
+    pixelTolerance : `float`
+        maximum allowed difference in pixel coordinates between
+        input wcs and approximate wcs (default is 0.02 pixels)
+    useTanWcs : `bool`
+        send a TAN version of wcs to the fitter? It is documented to require that,
         but I don't think the fitter actually cares
-    @return the fit TAN-SIP WCS
+
+    Returns
+    -------
+    fitWcs : `lsst.afw.geom.SkyWcs`
+        the fit TAN-SIP WCS
     """
     if useTanWcs:
         crpix = wcs.getPixelOrigin()
