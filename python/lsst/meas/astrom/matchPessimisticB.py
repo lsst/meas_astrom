@@ -55,6 +55,8 @@ class MatchTolerancePessimistic(MatchTolerance):
         self.PPMbObj = PPMbObj
         if failedPatternList is None:
             self.failedPatternList = []
+        else:
+            self.failedPatternList = failedPatternList
 
 
 class MatchPessimisticBConfig(pexConfig.Config):
