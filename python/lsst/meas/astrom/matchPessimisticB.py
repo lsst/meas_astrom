@@ -40,38 +40,14 @@ class MatchTolerancePessimistic(MatchTolerance):
         data.
     failedPatternList : `list` of `int`
         Previous matches were found to be false positives.
+    PPMbObj : `lsst.meas.astrom.PessimisticPatternMatcherB`
+        Initialized Pessimistic pattern matcher object. Storing this prevents
+        the need for recalculation of the searchable distances in the PPMB.
     """
 
     def __init__(self, maxMatchDist=None, autoMaxMatchDist=None,
                  maxShift=None, lastMatchedPattern=None,
                  failedPatternList=None, PPMbObj=None):
-        """Construct a MatchPessimisticTolerance
-
-        MatchPessimisticBTask relies on several state variables to be
-        preserved over different iterations in the
-        AstrometryTask.matchAndFitWcs loop of AstrometryTask.
-
-        Parameters
-        ----------
-        maxMatchDist : `lsst.afw.geom.Angle`
-            Current 2 sigma scatter from the previous matched wcs (if it
-            exists. It is None if this is the first iteration.)
-        autoMatxMatchDist : `lsst.afw.geom.Angle`
-            Result of the automated match tolerance generation.
-        maxShift  : `lsst.afw.geom.Angle`
-            None for the first iteration or is the magnitude of the previous
-            iteration's wcs shift.
-        lastMatchedPattern : `int`
-            Reference to the position in the magnitude sorted source array
-            where a successful pattern match was found.
-        failedPatternList : `list` of `int`s
-            List of ints specifying indicies in the magnitude sourced source
-            array to skip. These are skipped are previous iterations that are
-            likely false positives due to the code having to soften after a
-            pattern is matched.
-        PPMbObj : `lsst.meas.astrom.PessimisticPatternMatcherB`
-            Pessimistic initialized pattern matcher object.
-        """
         self.maxMatchDist = maxMatchDist
         self.autoMaxMatchDist = autoMaxMatchDist
         self.maxShift = maxShift
