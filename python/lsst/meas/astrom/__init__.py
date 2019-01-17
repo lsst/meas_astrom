@@ -36,7 +36,6 @@ from .matchPessimisticB import *
 from .setMatchDistance import *
 from .display import *
 from .approximateWcs import *
-from .catalogStarSelector import *
 from .directMatch import *
 from .fitTanSipWcs import *
 from .fitSipDistortion import *
