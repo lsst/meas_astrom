@@ -166,12 +166,15 @@ class TestMatchPessimisticB(unittest.TestCase):
             refFluxField="r_flux",
         )
 
+        maxShift = matchRes.match_tolerance.maxShift * 300
+        # Force the matcher to use a different pattern thatn the previous
+        # "iteration".
         matchTol = measAstrom.MatchTolerancePessimistic(
             maxMatchDist=matchRes.match_tolerance.maxMatchDist,
             autoMaxMatchDist=matchRes.match_tolerance.autoMaxMatchDist,
-            maxShift=matchRes.match_tolerance.maxShift * 300,
-            lastMatchedPattern=matchRes.match_tolerance.lastMatchedPattern,
-            failedPatternList=matchRes.match_tolerance.failedPatternList,
+            maxShift=maxShift,
+            lastMatchedPattern=0,
+            failedPatternList=[0],
             PPMbObj=matchRes.match_tolerance.PPMbObj,
         )
 
@@ -183,7 +186,14 @@ class TestMatchPessimisticB(unittest.TestCase):
             match_tolerance=matchTol,
         )
 
-        self.assertEquals(len(matchRes.matches), self.expectedMatches)
+        self.assertEqual(len(matchRes.matches), self.expectedMatches)
+        self.assertLess(matchRes.match_tolerance.maxShift, maxShift)
+        self.assertEqual(matchRes.match_tolerance.lastMatchedPattern, 1)
+        self.assertIsNotNone(matchRes.match_tolerance.maxMatchDist)
+        self.assertIsNotNone(matchRes.match_tolerance.autoMaxMatchDist)
+        self.assertIsNotNone(matchRes.match_tolerance.lastMatchedPattern)
+        self.assertIsNotNone(matchRes.match_tolerance.failedPatternList)
+        self.assertIsNotNone(matchRes.match_tolerance.PPMbObj)
 
     def computePosRefCatalog(self, sourceCat):
         """Generate a position reference catalog from a source catalog
