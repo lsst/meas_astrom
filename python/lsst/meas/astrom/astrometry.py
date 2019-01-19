@@ -130,6 +130,8 @@ class AstrometryTask(RefMatchTask):
             - ``matchMeta`` :  metadata needed to unpersist matches
               (`lsst.daf.base.PropertyList`)
         """
+        if self.refObjLoader is None:
+            raise RuntimeError("Running matcher task with no refObjLoader set in __init__ or setRefObjLoader")
         if self.config.forceKnownWcs:
             res = self.loadAndMatch(exposure=exposure, sourceCat=sourceCat)
             res.scatterOnSky = None
@@ -160,6 +162,8 @@ class AstrometryTask(RefMatchTask):
         -----
         ignores config.forceKnownWcs
         """
+        if self.refObjLoader is None:
+            raise RuntimeError("Running matcher task with no refObjLoader set in __init__ or setRefObjLoader")
         import lsstDebug
         debug = lsstDebug.Info(__name__)
 
