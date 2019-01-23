@@ -52,6 +52,8 @@ class TestMatchPessimisticB(unittest.TestCase):
         self.tolArcsec = .4
         self.tolPixel = .1
 
+        self.expectedMatches = 183
+
     def tearDown(self):
         del self.config
         del self.MatchPessimisticB
@@ -122,7 +124,7 @@ class TestMatchPessimisticB(unittest.TestCase):
         if doPlot:
             measAstrom.plotAstrometry(matches=matches, refCat=refCat,
                                       sourceCat=sourceCat)
-        self.assertEqual(len(matches), 183)
+        self.assertEqual(len(matches), self.expectedMatches)
 
         refCoordKey = afwTable.CoordKey(refCat.schema["coord"])
         srcCoordKey = afwTable.CoordKey(sourceCat.schema["coord"])
@@ -146,6 +148,52 @@ class TestMatchPessimisticB(unittest.TestCase):
                      sourceCentroid, radius))
 
         self.assertLess(maxDistErr.asArcseconds(), 1e-7)
+
+    def testPassingMatcherState(self):
+        """Test that results of the matcher can be propagated to to in
+        subsequent iterations.
+        """
+        sourceCat = self.loadSourceCatalog(self.filename)
+        refCat = self.computePosRefCatalog(sourceCat)
+        distortedCat = distort.distortList(sourceCat, distort.linearXDistort)
+
+        sourceCat = distortedCat
+
+        matchRes = self.MatchPessimisticB.matchObjectsToSources(
+            refCat=refCat,
+            sourceCat=sourceCat,
+            wcs=self.distortedWcs,
+            refFluxField="r_flux",
+        )
+
+        maxShift = matchRes.match_tolerance.maxShift * 300
+        # Force the matcher to use a different pattern thatn the previous
+        # "iteration".
+        matchTol = measAstrom.MatchTolerancePessimistic(
+            maxMatchDist=matchRes.match_tolerance.maxMatchDist,
+            autoMaxMatchDist=matchRes.match_tolerance.autoMaxMatchDist,
+            maxShift=maxShift,
+            lastMatchedPattern=0,
+            failedPatternList=[0],
+            PPMbObj=matchRes.match_tolerance.PPMbObj,
+        )
+
+        matchRes = self.MatchPessimisticB.matchObjectsToSources(
+            refCat=refCat,
+            sourceCat=sourceCat,
+            wcs=self.distortedWcs,
+            refFluxField="r_flux",
+            match_tolerance=matchTol,
+        )
+
+        self.assertEqual(len(matchRes.matches), self.expectedMatches)
+        self.assertLess(matchRes.match_tolerance.maxShift, maxShift)
+        self.assertEqual(matchRes.match_tolerance.lastMatchedPattern, 1)
+        self.assertIsNotNone(matchRes.match_tolerance.maxMatchDist)
+        self.assertIsNotNone(matchRes.match_tolerance.autoMaxMatchDist)
+        self.assertIsNotNone(matchRes.match_tolerance.lastMatchedPattern)
+        self.assertIsNotNone(matchRes.match_tolerance.failedPatternList)
+        self.assertIsNotNone(matchRes.match_tolerance.PPMbObj)
 
     def computePosRefCatalog(self, sourceCat):
         """Generate a position reference catalog from a source catalog
