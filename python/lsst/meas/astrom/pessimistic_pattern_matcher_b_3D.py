@@ -187,6 +187,7 @@ class PessimisticPatternMatcherB:
         self.log.info("Memory in minimum arrays: %i" % to_kept_arrays)
         self.log.info("Memory in pair arrays: %i" % pair_arrays)
         self.log.info("Memory in delta arrays: %i" % delta_arrays)
+        self.log.info("Memory Total: %i" % (to_kept_arrays + pair_arrays + delta_arrays))
 
         return None
 
