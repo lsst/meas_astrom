@@ -1,4 +1,5 @@
 
+import sys
 
 import numpy as np
 from scipy.optimize import least_squares
@@ -168,6 +169,24 @@ class PessimisticPatternMatcherB:
         self._dist_array = unsorted_dist_array[sorted_dist_args]
         self._id_array = unsorted_id_array[sorted_dist_args]
         self._delta_array = unsorted_delta_array[sorted_dist_args]
+
+        # Temporary memory usage calculation.
+        # Search-able arrays to be likely kept.
+        to_kept_arrays = 0
+        to_kept_arrays += sys.getsizeof(self._id_array)
+        to_kept_arrays += sys.getsizeof(self._dist_array)
+        # Pair arrays to be likely kept.
+        pair_arrays = 0
+        pair_arrays += sys.getsizeof(self._pair_id_array)
+        pair_arrays += sys.getsizeof(self._pair_dist_array)
+        # Pair arrays to be likely kept.
+        delta_arrays = 0
+        delta_arrays += sys.getsizeof(self._delta_array)
+        delta_arrays += sys.getsizeof(self._pair_delta_array)
+
+        self.log.info("Memory in minimum arrays: %i" % to_kept_arrays)
+        self.log.info("Memory in pair arrays: %i" % pair_arrays)
+        self.log.info("Memory in delta arrays: %i" % delta_arrays)
 
         return None
 
