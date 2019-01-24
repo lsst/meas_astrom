@@ -245,6 +245,12 @@ class MatchPessimisticBTask(pipeBase.Task):
                               int(self.config.minFracMatchedPairs *
                                   min([len(refCat), len(goodSourceCat)])))
 
+        # TODO, sub-select from the refcat is if this condition is true.
+        if len(refCat) > 2 ** 16:
+            self.log.warn("WARNING: refcat too long for allocated index "
+                          "integer type (16bit). Please limit to max 65536 "
+                          "reference objects.")
+
         doMatchReturn = self._doMatch(
             refCat=refCat,
             sourceCat=goodSourceCat,
@@ -495,8 +501,8 @@ class MatchPessimisticBTask(pipeBase.Task):
                                               distances_arcsec):
             if dist_arcsec < dist_cut_arcsec:
                 match = afwTable.ReferenceMatch()
-                match.first = refCat[match_id_pair[1]]
-                match.second = sourceCat[match_id_pair[0]]
+                match.first = refCat[int(match_id_pair[1])]
+                match.second = sourceCat[int(match_id_pair[0])]
                 # We compute the true distance along and sphere instead
                 # and store it in units of arcseconds. The previous
                 # distances we used were approximate.

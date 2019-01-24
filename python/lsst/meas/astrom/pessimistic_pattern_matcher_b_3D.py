@@ -95,13 +95,13 @@ class PessimisticPatternMatcherB:
         # have a candidate spoke center.
         self._pair_id_array = np.empty(
             (self._n_reference, self._n_reference - 1),
-            dtype=np.uint32)
+            dtype=np.uint16)
         self._pair_delta_array = np.empty(
             (self._n_reference, self._n_reference - 1, 3),
-            dtype=np.float64)
+            dtype=np.float32)
         self._pair_dist_array = np.empty(
             (self._n_reference, self._n_reference - 1),
-            dtype=np.float64)
+            dtype=np.float32)
 
         # Create empty lists to temporarily store our pair information per
         # reference object. These will be concatenated into our final arrays.
@@ -115,15 +115,15 @@ class PessimisticPatternMatcherB:
 
             # Reserve and fill the ids of each reference object pair.
             sub_id_array = np.zeros((self._n_reference - 1 - ref_id, 2),
-                                    dtype=np.uint32)
+                                    dtype=np.uint16)
             sub_id_array[:, 0] = ref_id
             sub_id_array[:, 1] = np.arange(ref_id + 1, self._n_reference,
-                                           dtype=np.uint32)
+                                           dtype=np.uint16)
 
             # Compute the vector deltas for each pair of reference objects
             # and compute and store the distances.
             sub_delta_array = (self._reference_array[ref_id + 1:, :] -
-                               ref_obj)
+                               ref_obj).astype(np.float32)
             sub_dist_array = np.sqrt(sub_delta_array[:, 0] ** 2 +
                                      sub_delta_array[:, 1] ** 2 +
                                      sub_delta_array[:, 2] ** 2)
@@ -170,6 +170,7 @@ class PessimisticPatternMatcherB:
         self._id_array = unsorted_id_array[sorted_dist_args]
         self._delta_array = unsorted_delta_array[sorted_dist_args]
 
+        print("dist array type", self._delta_array.dtype, self._dist_array.dtype)
         # Temporary memory usage calculation.
         # Search-able arrays to be likely kept.
         to_kept_arrays = 0
@@ -1274,14 +1275,14 @@ class PessimisticPatternMatcherB:
             source_array.transpose()).transpose()
 
         ref_matches = np.empty((len(shifted_references), 2),
-                               dtype=np.uint32)
+                               dtype=np.uint16)
         src_matches = np.empty((len(shifted_sources), 2),
-                               dtype=np.uint32)
+                               dtype=np.uint16)
 
         ref_matches[:, 1] = np.arange(len(shifted_references),
-                                      dtype=np.uint32)
+                                      dtype=np.uint16)
         src_matches[:, 0] = np.arange(len(shifted_sources),
-                                      dtype=np.uint32)
+                                      dtype=np.uint16)
 
         ref_kdtree = cKDTree(self._reference_array)
         src_kdtree = cKDTree(source_array)
