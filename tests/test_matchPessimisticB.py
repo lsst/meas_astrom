@@ -195,6 +195,31 @@ class TestMatchPessimisticB(unittest.TestCase):
         self.assertIsNotNone(matchRes.match_tolerance.failedPatternList)
         self.assertIsNotNone(matchRes.match_tolerance.PPMbObj)
 
+    def testReferenceFilter(self):
+        """Test sub-selecting reference objects by flux."""
+        sourceCat = self.loadSourceCatalog(self.filename)
+        refCat = self.computePosRefCatalog(sourceCat)
+        distortedCat = distort.distortList(sourceCat, distort.linearXDistort)
+
+        matchPessConfig = measAstrom.MatchPessimisticBTask.ConfigClass()
+        matchPessConfig.maxRefObjects = 150
+        matchPessConfig.minMatchDistPixels = 5.0
+
+        matchPess = measAstrom.MatchPessimisticBTask(config=matchPessConfig)
+        trimedRefCat = matchPess.filterRefCat(refCat, 'r_flux')
+        self.assertEqual(len(trimedRefCat), matchPessConfig.maxRefObjects)
+
+        matchRes = matchPess.matchObjectsToSources(
+            refCat=refCat,
+            sourceCat=distortedCat,
+            wcs=self.distortedWcs,
+            refFluxField="r_flux",
+        )
+
+        # One of the reference objects is part of the 3 that are never matched
+        # in all previous verions of the mathcer including MathcOptimisticB.
+        self.assertEqual(len(matchRes.matches), matchPessConfig.maxRefObjects - 1)
+
     def computePosRefCatalog(self, sourceCat):
         """Generate a position reference catalog from a source catalog
         """

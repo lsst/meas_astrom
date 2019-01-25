@@ -139,6 +139,14 @@ class MatchPessimisticBConfig(pexConfig.Config):
         dtype=int,
         default=3,
     )
+    maxRefObjects = pexConfig.RangeField(
+        doc="Maximum number of reference objects to use for the matcher. The "
+            "absolute maximum allowed for is 2 ** 16 for memory reasons.",
+        dtype=int,
+        default=2**16,
+        min=0,
+        max=2**16 + 1,
+    )
     sourceSelector = sourceSelectorRegistry.makeField(
         doc="How to select sources for cross-matching. The default "
             "matcherSourceSelector removes objects with low S/N, bad "
@@ -246,13 +254,16 @@ class MatchPessimisticBTask(pipeBase.Task):
                                   min([len(refCat), len(goodSourceCat)])))
 
         # TODO, sub-select from the refcat is if this condition is true.
-        if len(refCat) > 2 ** 16:
+        if len(refCat) > self.config.maxRefObjects:
             self.log.warn("WARNING: refcat too long for allocated index "
                           "integer type (16bit). Please limit to max 65536 "
                           "reference objects.")
+            trimedRefCat = self.filterRefCat(refCat, refFluxField)
+        else:
+            trimedRefCat = refCat
 
         doMatchReturn = self._doMatch(
-            refCat=refCat,
+            refCat=trimedRefCat,
             sourceCat=goodSourceCat,
             wcs=wcs,
             refFluxField=refFluxField,
@@ -278,10 +289,41 @@ class MatchPessimisticBTask(pipeBase.Task):
             match_tolerance=match_tolerance,
         )
 
+    def filterRefCat(self, refCat, refFluxField):
+        """Sub-select a number of reference objects starting from the brightest
+        and maxing out at the number specified by maxRefObjects in the config.
+
+        Parameters
+        ----------
+        refCat : `lsst.afw.table.SimpleCatalog`
+            Catalog of reference objects to trim.
+        refFluxField : `str`
+            field of refCat to use for flux
+        Returns
+        -------
+        outCat : `lsst.afw.table.SimpleCatalog`
+            Catalog trimmed to the number set in the task config from the
+            brightest flux down.
+        """
+        # Find the flux cut that gives us the desired number of objects.
+        fluxArray = refCat.get(refFluxField)
+        fluxArray.sort()
+        minFlux = fluxArray[-self.config.maxRefObjects]
+
+        outCat = afwTable.SimpleCatalog(refCat.schema)
+        for refObj in refCat:
+            if refObj[refFluxField] < minFlux:
+                continue
+            outCat.append(refObj)
+            if len(outCat) >= self.config.maxRefObjects:
+                break
+
+        return outCat
+
     @pipeBase.timeMethod
     def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numUsableSources,
                  minMatchedPairs, match_tolerance, sourceFluxField, verbose):
-        """Implementation of matching sources to position reference stars
+        """Implementation of matching sources to position reference objects
 
         Unlike matchObjectsToSources, this method does not check if the sources
         are suitable.
@@ -289,7 +331,7 @@ class MatchPessimisticBTask(pipeBase.Task):
         Parameters
         ----------
         refCat : `lsst.afw.table.SimpleCatalog`
-            catalog of position reference stars that overlap an exposure
+            catalog of position reference objects that overlap an exposure
         sourceCat : `lsst.afw.table.SourceCatalog`
             catalog of sources found on the exposure
         wcs : `lsst.afw.geom.SkyWcs`
