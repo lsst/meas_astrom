@@ -1,6 +1,4 @@
 
-import sys
-
 import numpy as np
 from scipy.optimize import least_squares
 from scipy.spatial import cKDTree
@@ -115,8 +113,8 @@ class PessimisticPatternMatcherB:
             sub_id_array[:, 1] = np.arange(ref_id + 1, self._n_reference,
                                            dtype=np.uint16)
 
-            # Compute the vector deltas for each pair of reference objects
-            # and compute and store the distances.
+            # Compute the vector deltas for each pair of reference objects.
+            # Compute and store the distances.
             sub_delta_array = (self._reference_array[ref_id + 1:, :] -
                                ref_obj).astype(np.float32)
             sub_dist_array = np.sqrt(sub_delta_array[:, 0] ** 2 +
@@ -156,20 +154,6 @@ class PessimisticPatternMatcherB:
         sorted_dist_args = unsorted_dist_array.argsort()
         self._dist_array = unsorted_dist_array[sorted_dist_args]
         self._id_array = unsorted_id_array[sorted_dist_args]
-
-        # Temporary memory usage calculation.
-        # Search-able arrays to be likely kept.
-        to_kept_arrays = 0
-        to_kept_arrays += sys.getsizeof(self._id_array)
-        to_kept_arrays += sys.getsizeof(self._dist_array)
-        # Pair arrays to be likely kept.
-        pair_arrays = 0
-        pair_arrays += sys.getsizeof(self._pair_id_array)
-        pair_arrays += sys.getsizeof(self._pair_dist_array)
-
-        self.log.info("Memory in minimum arrays: %i" % to_kept_arrays)
-        self.log.info("Memory in pair arrays: %i" % pair_arrays)
-        self.log.info("Memory Total: %i" % (to_kept_arrays + pair_arrays))
 
         return None
 
@@ -511,9 +495,7 @@ class PessimisticPatternMatcherB:
 
                 # We can now append this one as a candidate.
                 ref_candidates.append(ref_id)
-                # If the candidate reference center we found is second in
-                # this pair we need to reverse the direction of the
-                # corresponding pair's delta vector.
+                # Test to see which reference object to use in the pair.
                 if pair_idx == 0:
                     ref_candidates.append(
                         tmp_ref_pair_list[1])

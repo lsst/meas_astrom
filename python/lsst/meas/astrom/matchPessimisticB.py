@@ -1,4 +1,3 @@
-import time
 
 import numpy as np
 from scipy.spatial import cKDTree
@@ -255,9 +254,8 @@ class MatchPessimisticBTask(pipeBase.Task):
 
         # TODO, sub-select from the refcat is if this condition is true.
         if len(refCat) > self.config.maxRefObjects:
-            self.log.warn("WARNING: refcat too long for allocated index "
-                          "integer type (16bit). Please limit to max 65536 "
-                          "reference objects.")
+            self.log.warn("WARNING: Reference catalog larger that maximum "
+                          "allowed. Timming to %i" % self.config.maxRefObjects)
             trimedRefCat = self.filterRefCat(refCat, refFluxField)
         else:
             trimedRefCat = refCat
@@ -368,7 +366,6 @@ class MatchPessimisticBTask(pipeBase.Task):
         # objects contiguous in memory. We need to do these slightly
         # differently for the reference and source cats as they are
         # different catalog objects with different fields.
-        start_time = time.time()
         src_array = np.empty((len(sourceCat), 4), dtype=np.float64)
         for src_idx, srcObj in enumerate(sourceCat):
             coord = wcs.pixelToSky(srcObj.getCentroid())
@@ -552,7 +549,6 @@ class MatchPessimisticBTask(pipeBase.Task):
                     match.second.getCoord()).asArcseconds()
                 matches.append(match)
 
-        self.log.info("Matcher run time: %i", 10 ** 9 * (time.time() - start_time))
         return pipeBase.Struct(
             matches=matches,
             match_tolerance=match_tolerance,
