@@ -252,11 +252,11 @@ class MatchPessimisticBTask(pipeBase.Task):
                               int(self.config.minFracMatchedPairs *
                                   min([len(refCat), len(goodSourceCat)])))
 
-        # TODO, sub-select from the refcat is if this condition is true.
         if len(refCat) > self.config.maxRefObjects:
-            self.log.warn("WARNING: Reference catalog larger that maximum "
-                          "allowed. Timming to %i" % self.config.maxRefObjects)
-            trimedRefCat = self.filterRefCat(refCat, refFluxField)
+            self.log.warn(
+                "WARNING: Reference catalog larger that maximum allowed. "
+                "Trimming to %i" % self.config.maxRefObjects)
+            trimedRefCat = self._filterRefCat(refCat, refFluxField)
         else:
             trimedRefCat = refCat
 
@@ -287,9 +287,11 @@ class MatchPessimisticBTask(pipeBase.Task):
             match_tolerance=match_tolerance,
         )
 
-    def filterRefCat(self, refCat, refFluxField):
+    def _filterRefCat(self, refCat, refFluxField):
         """Sub-select a number of reference objects starting from the brightest
         and maxing out at the number specified by maxRefObjects in the config.
+
+        No trimming is done if len(refCat) > config.maxRefObjects.
 
         Parameters
         ----------
@@ -304,17 +306,17 @@ class MatchPessimisticBTask(pipeBase.Task):
             brightest flux down.
         """
         # Find the flux cut that gives us the desired number of objects.
+        if len(refCat) <= self.config.maxRefObjects:
+            return refCat
         fluxArray = refCat.get(refFluxField)
-        fluxArray.sort()
-        minFlux = fluxArray[-self.config.maxRefObjects]
+        sortedFluxArray = fluxArray[fluxArray.argsort()]
+        minFlux = sortedFluxArray[-(self.config.maxRefObjects + 1)]
+
+        selected = (refCat.get(refFluxField) > minFlux)
 
         outCat = afwTable.SimpleCatalog(refCat.schema)
-        for refObj in refCat:
-            if refObj[refFluxField] < minFlux:
-                continue
-            outCat.append(refObj)
-            if len(outCat) >= self.config.maxRefObjects:
-                break
+        outCat.reserve(self.config.maxRefObjects)
+        outCat.extend(refCat[selected])
 
         return outCat
 

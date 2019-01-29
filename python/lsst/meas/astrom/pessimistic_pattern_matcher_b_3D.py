@@ -107,6 +107,8 @@ class PessimisticPatternMatcherB:
         for ref_id, ref_obj in enumerate(self._reference_array):
 
             # Reserve and fill the ids of each reference object pair.
+            # 16 bit is safe for the id array as the catalog input from
+            # MatchPessimisticB is limited to a max length of 2 ** 16.
             sub_id_array = np.zeros((self._n_reference - 1 - ref_id, 2),
                                     dtype=np.uint16)
             sub_id_array[:, 0] = ref_id
