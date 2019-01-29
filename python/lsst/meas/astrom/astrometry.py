@@ -79,7 +79,7 @@ class AstrometryTask(RefMatchTask):
     _DefaultName = "astrometricSolver"
 
     def __init__(self, refObjLoader, schema=None, **kwargs):
-        RefMatchTask.__init__(self, refObjLoader, schema=schema, **kwargs)
+        RefMatchTask.__init__(self, refObjLoader, **kwargs)
 
         if schema is not None:
             self.usedKey = schema.addField("calib_astrometry_used", type="Flag",

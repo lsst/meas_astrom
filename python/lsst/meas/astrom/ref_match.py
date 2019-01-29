@@ -61,15 +61,13 @@ class RefMatchTask(pipeBase.Task):
     ----------
     refObjLoader : `lsst.meas.algorithms.ReferenceLoader`
         A reference object loader object
-    schema : `lsst.afw.table.Schema`
-        ignored; available for compatibility with an older astrometry task
     **kwargs
         additional keyword arguments for pipe_base `lsst.pipe.base.Task`
     """
     ConfigClass = RefMatchConfig
     _DefaultName = "calibrationBaseClass"
 
-    def __init__(self, refObjLoader, schema=None, **kwargs):
+    def __init__(self, refObjLoader, **kwargs):
         pipeBase.Task.__init__(self, **kwargs)
         if refObjLoader:
             self.refObjLoader = refObjLoader
