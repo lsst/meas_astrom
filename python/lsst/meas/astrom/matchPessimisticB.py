@@ -138,6 +138,14 @@ class MatchPessimisticBConfig(pexConfig.Config):
         dtype=int,
         default=3,
     )
+    maxRefObjects = pexConfig.RangeField(
+        doc="Maximum number of reference objects to use for the matcher. The "
+            "absolute maximum allowed for is 2 ** 16 for memory reasons.",
+        dtype=int,
+        default=2**16,
+        min=0,
+        max=2**16 + 1,
+    )
     sourceSelector = sourceSelectorRegistry.makeField(
         doc="How to select sources for cross-matching. The default "
             "matcherSourceSelector removes objects with low S/N, bad "
@@ -244,8 +252,16 @@ class MatchPessimisticBTask(pipeBase.Task):
                               int(self.config.minFracMatchedPairs *
                                   min([len(refCat), len(goodSourceCat)])))
 
+        if len(refCat) > self.config.maxRefObjects:
+            self.log.warn(
+                "WARNING: Reference catalog larger that maximum allowed. "
+                "Trimming to %i" % self.config.maxRefObjects)
+            trimedRefCat = self._filterRefCat(refCat, refFluxField)
+        else:
+            trimedRefCat = refCat
+
         doMatchReturn = self._doMatch(
-            refCat=refCat,
+            refCat=trimedRefCat,
             sourceCat=goodSourceCat,
             wcs=wcs,
             refFluxField=refFluxField,
@@ -271,10 +287,43 @@ class MatchPessimisticBTask(pipeBase.Task):
             match_tolerance=match_tolerance,
         )
 
+    def _filterRefCat(self, refCat, refFluxField):
+        """Sub-select a number of reference objects starting from the brightest
+        and maxing out at the number specified by maxRefObjects in the config.
+
+        No trimming is done if len(refCat) > config.maxRefObjects.
+
+        Parameters
+        ----------
+        refCat : `lsst.afw.table.SimpleCatalog`
+            Catalog of reference objects to trim.
+        refFluxField : `str`
+            field of refCat to use for flux
+        Returns
+        -------
+        outCat : `lsst.afw.table.SimpleCatalog`
+            Catalog trimmed to the number set in the task config from the
+            brightest flux down.
+        """
+        # Find the flux cut that gives us the desired number of objects.
+        if len(refCat) <= self.config.maxRefObjects:
+            return refCat
+        fluxArray = refCat.get(refFluxField)
+        sortedFluxArray = fluxArray[fluxArray.argsort()]
+        minFlux = sortedFluxArray[-(self.config.maxRefObjects + 1)]
+
+        selected = (refCat.get(refFluxField) > minFlux)
+
+        outCat = afwTable.SimpleCatalog(refCat.schema)
+        outCat.reserve(self.config.maxRefObjects)
+        outCat.extend(refCat[selected])
+
+        return outCat
+
     @pipeBase.timeMethod
     def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numUsableSources,
                  minMatchedPairs, match_tolerance, sourceFluxField, verbose):
-        """Implementation of matching sources to position reference stars
+        """Implementation of matching sources to position reference objects
 
         Unlike matchObjectsToSources, this method does not check if the sources
         are suitable.
@@ -282,7 +331,7 @@ class MatchPessimisticBTask(pipeBase.Task):
         Parameters
         ----------
         refCat : `lsst.afw.table.SimpleCatalog`
-            catalog of position reference stars that overlap an exposure
+            catalog of position reference objects that overlap an exposure
         sourceCat : `lsst.afw.table.SourceCatalog`
             catalog of sources found on the exposure
         wcs : `lsst.afw.geom.SkyWcs`
@@ -493,8 +542,8 @@ class MatchPessimisticBTask(pipeBase.Task):
                                               distances_arcsec):
             if dist_arcsec < dist_cut_arcsec:
                 match = afwTable.ReferenceMatch()
-                match.first = refCat[match_id_pair[1]]
-                match.second = sourceCat[match_id_pair[0]]
+                match.first = refCat[int(match_id_pair[1])]
+                match.second = sourceCat[int(match_id_pair[0])]
                 # We compute the true distance along and sphere instead
                 # and store it in units of arcseconds. The previous
                 # distances we used were approximate.

@@ -25,6 +25,8 @@ import math
 import os
 import unittest
 
+import numpy as np
+
 import lsst.geom
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
@@ -37,6 +39,8 @@ import lsst.meas.astrom as measAstrom
 class TestMatchPessimisticB(unittest.TestCase):
 
     def setUp(self):
+
+        np.random.seed(12345)
 
         self.config = measAstrom.MatchPessimisticBTask.ConfigClass()
         self.config.minMatchDistPixels = 3.0
@@ -195,6 +199,31 @@ class TestMatchPessimisticB(unittest.TestCase):
         self.assertIsNotNone(matchRes.match_tolerance.failedPatternList)
         self.assertIsNotNone(matchRes.match_tolerance.PPMbObj)
 
+    def testReferenceFilter(self):
+        """Test sub-selecting reference objects by flux."""
+        sourceCat = self.loadSourceCatalog(self.filename)
+        refCat = self.computePosRefCatalog(sourceCat)
+        distortedCat = distort.distortList(sourceCat, distort.linearXDistort)
+
+        matchPessConfig = measAstrom.MatchPessimisticBTask.ConfigClass()
+        matchPessConfig.maxRefObjects = 150
+        matchPessConfig.minMatchDistPixels = 5.0
+
+        matchPess = measAstrom.MatchPessimisticBTask(config=matchPessConfig)
+        trimedRefCat = matchPess._filterRefCat(refCat, 'r_flux')
+        self.assertEqual(len(trimedRefCat), matchPessConfig.maxRefObjects)
+
+        matchRes = matchPess.matchObjectsToSources(
+            refCat=refCat,
+            sourceCat=distortedCat,
+            wcs=self.distortedWcs,
+            refFluxField="r_flux",
+        )
+
+        # One of the reference objects is part of the 3 that are never matched
+        # in all previous verions of the mathcer including MathcOptimisticB.
+        self.assertEqual(len(matchRes.matches), matchPessConfig.maxRefObjects - 3)
+
     def computePosRefCatalog(self, sourceCat):
         """Generate a position reference catalog from a source catalog
         """
@@ -207,7 +236,7 @@ class TestMatchPessimisticB(unittest.TestCase):
             refObj.set("centroid_x", source.getX())
             refObj.set("centroid_y", source.getY())
             refObj.set("hasCentroid", True)
-            refObj.set("r_flux", source.get("slot_ApFlux_instFlux"))
+            refObj.set("r_flux", np.random.uniform(1, 10000))
             refObj.set("r_fluxErr", source.get("slot_ApFlux_instFluxErr"))
             refObj.setId(source.getId())
         return refCat

@@ -1,5 +1,4 @@
 
-
 import numpy as np
 from scipy.optimize import least_squares
 from scipy.spatial import cKDTree
@@ -94,35 +93,32 @@ class PessimisticPatternMatcherB:
         # have a candidate spoke center.
         self._pair_id_array = np.empty(
             (self._n_reference, self._n_reference - 1),
-            dtype=np.uint32)
-        self._pair_delta_array = np.empty(
-            (self._n_reference, self._n_reference - 1, 3),
-            dtype=np.float64)
+            dtype=np.uint16)
         self._pair_dist_array = np.empty(
             (self._n_reference, self._n_reference - 1),
-            dtype=np.float64)
+            dtype=np.float32)
 
         # Create empty lists to temporarily store our pair information per
         # reference object. These will be concatenated into our final arrays.
         sub_id_array_list = []
-        sub_delta_array_list = []
         sub_dist_array_list = []
 
-        # Loop over reference objects and store pair distances, ids, and
-        # 3 vector deltas.
+        # Loop over reference objects storing pair distances and ids.
         for ref_id, ref_obj in enumerate(self._reference_array):
 
             # Reserve and fill the ids of each reference object pair.
+            # 16 bit is safe for the id array as the catalog input from
+            # MatchPessimisticB is limited to a max length of 2 ** 16.
             sub_id_array = np.zeros((self._n_reference - 1 - ref_id, 2),
-                                    dtype=np.uint32)
+                                    dtype=np.uint16)
             sub_id_array[:, 0] = ref_id
             sub_id_array[:, 1] = np.arange(ref_id + 1, self._n_reference,
-                                           dtype=np.uint32)
+                                           dtype=np.uint16)
 
-            # Compute the vector deltas for each pair of reference objects
-            # and compute and store the distances.
+            # Compute the vector deltas for each pair of reference objects.
+            # Compute and store the distances.
             sub_delta_array = (self._reference_array[ref_id + 1:, :] -
-                               ref_obj)
+                               ref_obj).astype(np.float32)
             sub_dist_array = np.sqrt(sub_delta_array[:, 0] ** 2 +
                                      sub_delta_array[:, 1] ** 2 +
                                      sub_delta_array[:, 2] ** 2)
@@ -130,12 +126,10 @@ class PessimisticPatternMatcherB:
             # Append to our arrays to the output lists for later
             # concatenation.
             sub_id_array_list.append(sub_id_array)
-            sub_delta_array_list.append(sub_delta_array)
             sub_dist_array_list.append(sub_dist_array)
 
             # Fill the pair look up arrays row wise and then column wise.
             self._pair_id_array[ref_id, ref_id:] = sub_id_array[:, 1]
-            self._pair_delta_array[ref_id, ref_id:, :] = sub_delta_array
             self._pair_dist_array[ref_id, ref_id:] = sub_dist_array
 
             # Don't fill the array column wise if we are on the last as
@@ -143,8 +137,6 @@ class PessimisticPatternMatcherB:
             # iterations.
             if ref_id < self._n_reference - 1:
                 self._pair_id_array[ref_id + 1:, ref_id] = ref_id
-                self._pair_delta_array[ref_id + 1:, ref_id, :] = \
-                    sub_delta_array
                 self._pair_dist_array[ref_id + 1:, ref_id] = sub_dist_array
 
             # Sort each row on distance for fast look up of pairs given
@@ -154,12 +146,9 @@ class PessimisticPatternMatcherB:
                 ref_id, sorted_pair_dist_args]
             self._pair_id_array[ref_id, :] = self._pair_id_array[
                 ref_id, sorted_pair_dist_args]
-            self._pair_delta_array[ref_id, :, :] = self._pair_delta_array[
-                ref_id, sorted_pair_dist_args, :]
 
         # Concatenate our arrays together.
         unsorted_id_array = np.concatenate(sub_id_array_list)
-        unsorted_delta_array = np.concatenate(sub_delta_array_list)
         unsorted_dist_array = np.concatenate(sub_dist_array_list)
 
         # Sort each array on the pair distances for the initial
@@ -167,7 +156,6 @@ class PessimisticPatternMatcherB:
         sorted_dist_args = unsorted_dist_array.argsort()
         self._dist_array = unsorted_dist_array[sorted_dist_args]
         self._id_array = unsorted_id_array[sorted_dist_args]
-        self._delta_array = unsorted_delta_array[sorted_dist_args]
 
         return None
 
@@ -509,17 +497,17 @@ class PessimisticPatternMatcherB:
 
                 # We can now append this one as a candidate.
                 ref_candidates.append(ref_id)
-                ref_delta = self._delta_array[ref_dist_idx]
-                # If the candidate reference center we found is second in
-                # this pair we need to reverse the direction of the
-                # corresponding pair's delta vector.
+                # Test to see which reference object to use in the pair.
                 if pair_idx == 0:
                     ref_candidates.append(
                         tmp_ref_pair_list[1])
+                    ref_delta = (self._reference_array[tmp_ref_pair_list[1]] -
+                                 ref_center)
                 else:
                     ref_candidates.append(
                         tmp_ref_pair_list[0])
-                    ref_delta *= -1
+                    ref_delta = (self._reference_array[tmp_ref_pair_list[0]] -
+                                 ref_center)
 
                 # For dense fields it will be faster to compute the absolute
                 # rotation this pair suggests first rather than saving it
@@ -542,7 +530,6 @@ class PessimisticPatternMatcherB:
                 # Now that we have a candidate first spoke and reference
                 # pattern center, we mask our future search to only those
                 # pairs that contain our candidate reference center.
-                tmp_ref_delta_array = self._pair_delta_array[ref_id]
                 tmp_ref_dist_array = self._pair_dist_array[ref_id]
                 tmp_ref_id_array = self._pair_id_array[ref_id]
 
@@ -551,8 +538,8 @@ class PessimisticPatternMatcherB:
                 pattern_spoke_struct = self._create_pattern_spokes(
                     src_pattern_array[0], src_delta_array, src_dist_array,
                     self._reference_array[ref_id], ref_id, proj_ref_ctr_delta,
-                    tmp_ref_delta_array, tmp_ref_dist_array,
-                    tmp_ref_id_array, max_dist_rad, n_match)
+                    tmp_ref_dist_array, tmp_ref_id_array, max_dist_rad,
+                    n_match)
 
                 # If we don't find enough candidates we can continue to the
                 # next reference center pair.
@@ -765,8 +752,8 @@ class PessimisticPatternMatcherB:
 
     def _create_pattern_spokes(self, src_ctr, src_delta_array, src_dist_array,
                                ref_ctr, ref_ctr_id, proj_ref_ctr_delta,
-                               ref_delta_array, ref_dist_array,
-                               ref_id_array, max_dist_rad, n_match):
+                               ref_dist_array, ref_id_array, max_dist_rad,
+                               n_match):
         """ Create the individual spokes that make up the pattern now that the
         shift and rotation are within tolerance.
 
@@ -790,9 +777,6 @@ class PessimisticPatternMatcherB:
             candidate pin-wheel and the second point in the pattern to create
             the first spoke pair. This is the candidate pair that was matched
             in the main _construct_pattern_and_shift_rot_matrix loop
-        ref_delta_array : `numpy.ndarray`, (N,3)
-            Array of 3 vector deltas that are have the current candidate
-            reference center as part of the pair
         ref_dist_array : `numpy.ndarray`, (N,)
             Array of vector distances for each of the reference pairs
         ref_id_array : `numpy.ndarray`, (N,)
@@ -883,7 +867,6 @@ class PessimisticPatternMatcherB:
                 proj_ref_ctr_delta,
                 proj_ref_ctr_dist_sq,
                 ref_dist_idx_array,
-                ref_delta_array,
                 ref_id_array,
                 src_sin_tol)
             if ref_id is None:
@@ -907,8 +890,7 @@ class PessimisticPatternMatcherB:
 
     def _test_spoke(self, cos_theta_src, sin_theta_src, ref_ctr, ref_ctr_id,
                     proj_ref_ctr_delta, proj_ref_ctr_dist_sq,
-                    ref_dist_idx_array, ref_delta_array,
-                    ref_id_array, src_sin_tol):
+                    ref_dist_idx_array, ref_id_array, src_sin_tol):
         """Test the opening angle between the first spoke of our pattern
         for the source object against the reference object.
 
@@ -936,9 +918,6 @@ class PessimisticPatternMatcherB:
             Indices sorted by the delta distance between the source
             spoke we are trying to test and the candidate reference
             spokes.
-        ref_delta_array : `numpy.ndarray`, (N, 3)
-            Array of 3 vector deltas that are have the current candidate
-            reference center as part of the pair
         ref_id_array : `numpy.ndarray`, (N,)
             Array of id lookups into the master reference array that our
             center id object is paired with.
@@ -955,21 +934,16 @@ class PessimisticPatternMatcherB:
 
         # Loop over our candidate reference objects.
         for ref_dist_idx in ref_dist_idx_array:
-            # Check the direction of the delta vector.
-            ref_sign = 1
-            if ref_id_array[ref_dist_idx] < ref_ctr_id:
-                ref_sign = -1
-
+            # Compute the delta vector from the pattern center.
+            ref_delta = (self._reference_array[ref_id_array[ref_dist_idx]] -
+                         ref_ctr)
             # Compute the cos between our "center" reference vector and the
             # current reference candidate.
-            proj_ref_delta = (
-                ref_delta_array[ref_dist_idx] -
-                np.dot(ref_delta_array[ref_dist_idx], ref_ctr) * ref_ctr)
+            proj_ref_delta = ref_delta - np.dot(ref_delta, ref_ctr) * ref_ctr
             geom_dist_ref = np.sqrt(proj_ref_ctr_dist_sq *
                                     np.dot(proj_ref_delta, proj_ref_delta))
-            cos_theta_ref = ref_sign * (
-                np.dot(proj_ref_delta, proj_ref_ctr_delta) /
-                geom_dist_ref)
+            cos_theta_ref = (np.dot(proj_ref_delta, proj_ref_ctr_delta) /
+                             geom_dist_ref)
 
             # Make sure we can safely make the comparison in case
             # our "center" and candidate vectors are mostly aligned.
@@ -988,9 +962,8 @@ class PessimisticPatternMatcherB:
             # The cosine tests the magnitude of the angle but not
             # its direction. To do that we need to know the sine as well.
             # This cross product calculation does that.
-            cross_ref = ref_sign * (
-                np.cross(proj_ref_delta, proj_ref_ctr_delta) /
-                geom_dist_ref)
+            cross_ref = (np.cross(proj_ref_delta, proj_ref_ctr_delta) /
+                         geom_dist_ref)
             sin_theta_ref = np.dot(cross_ref, ref_ctr)
 
             # Check the value of the cos again to make sure that it is not
@@ -1254,14 +1227,14 @@ class PessimisticPatternMatcherB:
             source_array.transpose()).transpose()
 
         ref_matches = np.empty((len(shifted_references), 2),
-                               dtype=np.uint32)
+                               dtype=np.uint16)
         src_matches = np.empty((len(shifted_sources), 2),
-                               dtype=np.uint32)
+                               dtype=np.uint16)
 
         ref_matches[:, 1] = np.arange(len(shifted_references),
-                                      dtype=np.uint32)
+                                      dtype=np.uint16)
         src_matches[:, 0] = np.arange(len(shifted_sources),
-                                      dtype=np.uint32)
+                                      dtype=np.uint16)
 
         ref_kdtree = cKDTree(self._reference_array)
         src_kdtree = cKDTree(source_array)
