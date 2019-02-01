@@ -63,14 +63,16 @@ class AstrometryTask(RefMatchTask):
     """Match an input source catalog with objects from a reference catalog and
     solve for the WCS.
 
-    # TODO: DM-16868 remove explicit and unused schema from class input.
+    This task is broken into two main subasks: matching and WCS fitting which
+    are very interactive. The matching here can be considered in part a first
+    pass WCS fitter due to the fitter's sensitivity to outliers.
 
     Parameters
     ----------
     refObjLoader : `lsst.meas.algorithms.ReferenceLoader`
         A reference object loader object
     schema : `lsst.afw.table.Schema`
-        ignored; available for compatibility with an older astrometry task
+        Used to set "calib_astrometry_used" flag in output source catalog.
     **kwargs
         additional keyword arguments for pipe_base
         `lsst.pipe.base.Task.__init__`

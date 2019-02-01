@@ -318,11 +318,27 @@ class PessimisticPatternMatcherB:
             match_sources_struct = self._match_sources(source_array[:, :3],
                                                        shift_rot_matrix)
 
-            n_matched = len(match_sources_struct.match_ids[
-                match_sources_struct.distances_rad < max_dist_rad])
+            cut_ids = match_sources_struct.match_ids[
+                match_sources_struct.distances_rad < max_dist_rad]
+            n_matched = len(cut_ids)
 
             # Check that we have enough matches.
             if n_matched >= min_matches:
+                # The shift/rotation matrix returned by
+                # ``_construct_pattern_and_shift_rot_matrix``, above, was
+                # based on only six points. Here, we refine that result by
+                # using all of the good matches from the “final verification”
+                # step, above. This will produce a more consistent result.
+                fit_shift_rot_matrix = least_squares(
+                    _rotation_matrix_chi_sq,
+                    x0=shift_rot_matrix.flatten(),
+                    args=(source_array[cut_ids[:, 0], :3],
+                          self._reference_array[cut_ids[:, 1], :3],
+                          max_dist_rad)
+                ).x.reshape((3, 3))
+                match_sources_struct = self._match_sources(
+                    source_array[:, :3], fit_shift_rot_matrix)
+
                 # Convert the observed shift to arcseconds
                 shift = np.degrees(np.arccos(cos_shift)) * 3600.
                 # Print information to the logger.

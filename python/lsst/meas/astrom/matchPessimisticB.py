@@ -544,9 +544,9 @@ class MatchPessimisticBTask(pipeBase.Task):
                 match = afwTable.ReferenceMatch()
                 match.first = refCat[int(match_id_pair[1])]
                 match.second = sourceCat[int(match_id_pair[0])]
-                # We compute the true distance along and sphere instead
-                # and store it in units of arcseconds. The previous
-                # distances we used were approximate.
+                # We compute the true distance along and sphere. This isn't
+                # used in the WCS fitter however it is used in the unittest
+                # to confirm the matches computed.
                 match.distance = match.first.getCoord().separation(
                     match.second.getCoord()).asArcseconds()
                 matches.append(match)

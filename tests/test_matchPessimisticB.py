@@ -43,7 +43,10 @@ class TestMatchPessimisticB(unittest.TestCase):
         np.random.seed(12345)
 
         self.config = measAstrom.MatchPessimisticBTask.ConfigClass()
-        self.config.minMatchDistPixels = 3.0
+        # Value below is to assure all matches are selected. The
+        # original test is set for a 3 arcsecond max match distance
+        # using matchOptimisticB.
+        self.config.minMatchDistPixels = 2.0
         self.MatchPessimisticB = measAstrom.MatchPessimisticBTask(
             config=self.config)
 
@@ -56,6 +59,9 @@ class TestMatchPessimisticB(unittest.TestCase):
         self.tolArcsec = .4
         self.tolPixel = .1
 
+        # 3 of the objects are removed by the source selector and are used in
+        # matching hence the 183 number vs the total of 186. This is also why
+        # these three objects are missing in the testReferenceFilter test.
         self.expectedMatches = 183
 
     def tearDown(self):
@@ -220,8 +226,6 @@ class TestMatchPessimisticB(unittest.TestCase):
             refFluxField="r_flux",
         )
 
-        # One of the reference objects is part of the 3 that are never matched
-        # in all previous verions of the mathcer including MathcOptimisticB.
         self.assertEqual(len(matchRes.matches), matchPessConfig.maxRefObjects - 3)
 
     def computePosRefCatalog(self, sourceCat):
