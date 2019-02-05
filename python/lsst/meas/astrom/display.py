@@ -51,9 +51,9 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
     matches : `list` of `lsst.afw.table.ReferenceMatch`
         List of matched objects
     frame : `int`
-        frame number for ds9 display
+        frame number for display
     title : `str`
-        title for ds9 display
+        title for display
     pause : `bool`
         pause for inspection of display? This is done by dropping into pdb.
 
@@ -69,7 +69,7 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
     - if both exposure and bbox are `None`, no image is displayed
 
     """
-    disp = afwDisplay.getDisplay(frame)
+    disp = afwDisplay.getDisplay(frame=frame)
 
     if exposure is not None:
         disp.mtv(exposure, title=title)
