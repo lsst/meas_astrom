@@ -398,8 +398,11 @@ class MatchPessimisticBTask(pipeBase.Task):
             self.log.debug("Computing reference statistics...")
             maxMatchDistArcSecRef = self._get_pair_pattern_statistics(
                 ref_array)
-            maxMatchDistArcSec = np.min((maxMatchDistArcSecSrc,
-                                         maxMatchDistArcSecRef))
+            maxMatchDistArcSec = np.max((
+                self.config.minMatchDistPixels *
+                wcs.getPixelScale().asArcseconds(),
+                np.min((maxMatchDistArcSecSrc,
+                        maxMatchDistArcSecRef))))
             match_tolerance.autoMaxMatchDist = afwgeom.Angle(
                 maxMatchDistArcSec, afwgeom.arcseconds)
 
