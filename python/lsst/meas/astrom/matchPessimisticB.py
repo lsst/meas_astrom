@@ -138,6 +138,16 @@ class MatchPessimisticBConfig(pexConfig.Config):
         dtype=int,
         default=3,
     )
+    numRefRequireConsensus = pexConfig.Field(
+        doc="If the available reference objects exceeds this number, "
+            "consensus/pessimistic mode will enforced regardless of the "
+            "number of available sources. Below this optimistic mode ("
+            "exit at first match rather than requiring numPatternConsensus to "
+            "be matched) can be used. If more sources are required to match, "
+            "decrease the signal to noise cut in the sourceSelector.",
+        dtype=int,
+        default=2000,
+    )
     maxRefObjects = pexConfig.RangeField(
         doc="Maximum number of reference objects to use for the matcher. The "
             "absolute maximum allowed for is 2 ** 16 for memory reasons.",
@@ -434,13 +444,16 @@ class MatchPessimisticBTask(pipeBase.Task):
 
         # Make sure the data we are considering is dense enough to require
         # the consensus mode of the matcher. If not default to Optimistic
-        # pattern matcher behavior.
+        # pattern matcher behavior. We enforce pessimistic mode if the
+        # reference cat is sufficiently large, avoiding false positives.
         numConsensus = self.config.numPatternConsensus
-        minObjectsForConsensus = \
-            self.config.numBrightStars + self.config.numPointsForShapeAttempt
-        if len(refCat) < minObjectsForConsensus or \
-           len(sourceCat) < minObjectsForConsensus:
-            numConsensus = 1
+        if len(refCat) < self.config.numRefRequireConsensus:
+            minObjectsForConsensus = \
+                self.config.numBrightStars + \
+                self.config.numPointsForShapeAttempt
+            if len(refCat) < minObjectsForConsensus or \
+               len(sourceCat) < minObjectsForConsensus:
+                numConsensus = 1
 
         self.log.debug("Current tol maxDist: %.4f arcsec" %
                        maxMatchDistArcSec)
