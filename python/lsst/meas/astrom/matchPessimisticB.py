@@ -88,7 +88,7 @@ class MatchPessimisticBConfig(pexConfig.Config):
     matcherIterations = pexConfig.RangeField(
         doc="Number of softening iterations in matcher.",
         dtype=int,
-        default=3,
+        default=5,
         min=1,
     )
     maxOffsetPix = pexConfig.RangeField(
@@ -450,58 +450,55 @@ class MatchPessimisticBTask(pipeBase.Task):
         match_found = False
         # Start the iteration over our tolerances.
         for soften_dist in range(self.config.matcherIterations):
-            for soften_pattern in range(self.config.matcherIterations):
-                if soften_pattern == 0 and soften_dist == 0 and \
-                        match_tolerance.lastMatchedPattern is not None:
-                    # If we are on the first, most stringent tolerance,
-                    # and have already found a match, the matcher should behave
-                    # like an optimistic pattern matcher. Exiting at the first
-                    # match.
-                    run_n_consent = 1
-                else:
-                    # If we fail or this is the first match attempt, set the
-                    # pattern consensus to the specified config value.
-                    run_n_consent = numConsensus
-                # We double the match dist tolerance each round and add 1 to the
-                # to the number of candidate spokes to check.
-                matcher_struct = match_tolerance.PPMbObj.match(
-                    source_array=src_array,
-                    n_check=self.config.numPointsForShapeAttempt + soften_pattern,
-                    n_match=self.config.numPointsForShape,
-                    n_agree=run_n_consent,
-                    max_n_patterns=self.config.numBrightStars,
-                    max_shift=maxShiftArcseconds,
-                    max_rotation=self.config.maxRotationDeg,
-                    max_dist=maxMatchDistArcSec * 2. ** soften_dist,
-                    min_matches=minMatchedPairs,
-                    pattern_skip_array=np.array(
-                        match_tolerance.failedPatternList)
-                )
+            if soften_dist == 0 and \
+               match_tolerance.lastMatchedPattern is not None:
+                # If we are on the first, most stringent tolerance,
+                # and have already found a match, the matcher should behave
+                # like an optimistic pattern matcher. Exiting at the first
+                # match.
+                run_n_consent = 1
+            else:
+                # If we fail or this is the first match attempt, set the
+                # pattern consensus to the specified config value.
+                run_n_consent = numConsensus
+            # We double the match dist tolerance each round and add 1 to the
+            # to the number of candidate spokes to check.
+            matcher_struct = match_tolerance.PPMbObj.match(
+                source_array=src_array,
+                n_check=self.config.numPointsForShapeAttempt,
+                n_match=self.config.numPointsForShape,
+                n_agree=run_n_consent,
+                max_n_patterns=self.config.numBrightStars,
+                max_shift=maxShiftArcseconds,
+                max_rotation=self.config.maxRotationDeg,
+                max_dist=maxMatchDistArcSec * 2. ** soften_dist,
+                min_matches=minMatchedPairs,
+                pattern_skip_array=np.array(
+                    match_tolerance.failedPatternList)
+            )
 
-                if soften_pattern == 0 and soften_dist == 0 and \
-                   len(matcher_struct.match_ids) == 0 and \
-                   match_tolerance.lastMatchedPattern is not None:
-                    # If we found a pattern on a previous match-fit iteration and
-                    # can't find an optimistic match on our first try with the
-                    # tolerances as found in the previous match-fit,
-                    # the match we found in the last iteration was likely bad. We
-                    # append the bad match's index to the a list of
-                    # patterns/matches to skip on subsequent iterations.
-                    match_tolerance.failedPatternList.append(
-                        match_tolerance.lastMatchedPattern)
-                    match_tolerance.lastMatchedPattern = None
-                    maxShiftArcseconds = \
-                        self.config.maxOffsetPix * wcs.getPixelScale().asArcseconds()
-                elif len(matcher_struct.match_ids) > 0:
-                    # Match found, save a bit a state regarding this pattern
-                    # in the match tolerance class object and exit.
-                    match_tolerance.maxShift = \
-                        matcher_struct.shift * afwgeom.arcseconds
-                    match_tolerance.lastMatchedPattern = \
-                        matcher_struct.pattern_idx
-                    match_found = True
-                    break
-            if match_found:
+            if soften_dist == 0 and \
+               len(matcher_struct.match_ids) == 0 and \
+               match_tolerance.lastMatchedPattern is not None:
+                # If we found a pattern on a previous match-fit iteration and
+                # can't find an optimistic match on our first try with the
+                # tolerances as found in the previous match-fit,
+                # the match we found in the last iteration was likely bad. We
+                # append the bad match's index to the a list of
+                # patterns/matches to skip on subsequent iterations.
+                match_tolerance.failedPatternList.append(
+                    match_tolerance.lastMatchedPattern)
+                match_tolerance.lastMatchedPattern = None
+                maxShiftArcseconds = \
+                    self.config.maxOffsetPix * wcs.getPixelScale().asArcseconds()
+            elif len(matcher_struct.match_ids) > 0:
+                # Match found, save a bit a state regarding this pattern
+                # in the match tolerance class object and exit.
+                match_tolerance.maxShift = \
+                    matcher_struct.shift * afwgeom.arcseconds
+                match_tolerance.lastMatchedPattern = \
+                    matcher_struct.pattern_idx
+                match_found = True
                 break
 
         # If we didn't find a match, exit early.
