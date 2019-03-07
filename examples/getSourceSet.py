@@ -1,9 +1,10 @@
+# This file is part of meas_astrom.
 #
-# LSST Data Management System
-# Copyright 2008, 2009, 2010 LSST Corporation.
-#
-# This product includes software developed by the
-# LSST Project (http://www.lsst.org/).
+# Developed for the LSST Data Management System.
+# This product includes software developed by the LSST Project
+# (https://www.lsst.org).
+# See the COPYRIGHT file at the top-level directory of this distribution
+# for details of code ownership.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,10 +16,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
-# You should have received a copy of the LSST License Statement and
-# the GNU General Public License along with this program.  If not,
-# see <http://www.lsstcorp.org/LegalNotices/>.
-#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import math
 import os
@@ -31,11 +30,11 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.afw.math as afwMath
 from lsst.afw.fits import readMetadata
-import lsst.afw.display.ds9 as ds9
+import lsst.afw.display as afwDisplay
 import lsst.meas.algorithms as algorithms
 
 try:
-    type(display)
+    display
 except NameError:
     display = False
 
@@ -65,7 +64,7 @@ def detectFootprints(exposure, positiveThreshold, psf=None, negativeThreshold=No
         convolvedImage = maskedImage.Factory(maskedImage.getBBox())
 
         if display:
-            ds9.mtv(maskedImage)
+            afwDisplay.Display().mtv(maskedImage)
         #
         # Smooth the Image
         #
@@ -83,8 +82,8 @@ def detectFootprints(exposure, positiveThreshold, psf=None, negativeThreshold=No
     if negativeThreshold is not None:
         # detect negative sources
         dsNegative = afwDetection.makeDetectionSet(middle, negativeThreshold, "DETECTED_NEGATIVE", npixMin)
-        if not ds9.getMaskPlaneColor("DETECTED_NEGATIVE"):
-            ds9.setMaskPlaneColor("DETECTED_NEGATIVE", ds9.CYAN)
+        if not afwDisplay.getMaskPlaneColor("DETECTED_NEGATIVE"):
+            afwDisplay.setMaskPlaneColor("DETECTED_NEGATIVE", afwDisplay.CYAN)
 
     dsPositive = None
     if positiveThreshold is not None:
@@ -140,7 +139,8 @@ def detectSources(exposure, threshold, psf=None):
     del img
 
     if display:
-        ds9.mtv(exposure)
+        disp = afwDisplay.Display()
+        disp.mtv(exposure)
 
     ds = detectFootprints(exposure, threshold)
 
@@ -174,9 +174,9 @@ def detectSources(exposure, threshold, psf=None):
         if display:
             xc, yc = source.getXAstrom() - mi.getX0(), source.getYAstrom() - mi.getY0()
             if False:
-                ds9.dot("%.1f %d" % (source.getPsfInstFlux(), source.getId()), xc, yc+1)
+                display.dot("%.1f %d" % (source.getPsfInstFlux(), source.getId()), xc, yc+1)
 
-            ds9.dot("+", xc, yc, size=1)
+            disp.dot("+", xc, yc, size=1)
 
     return sourceList
 
@@ -298,7 +298,8 @@ def readStandards(filename):
     return sourceSet
 
 
-def showStandards(standardStarSet, exp, frame, countsMin=None, flagMask=None, rmsMax=None, ctype=ds9.RED):
+def showStandards(standardStarSet, exp, disp, countsMin=None, flagMask=None, rmsMax=None,
+                  ctype=afwDisplay.RED):
     """Show all the standards that are visible on this exposure
 
     If countsMin is not None, only show brighter Sources
@@ -332,7 +333,8 @@ def showStandards(standardStarSet, exp, frame, countsMin=None, flagMask=None, rm
             pt = "%.1f" % (rms)
         else:
             pt = "+"
-        ds9.dot(pt, x, y, frame=frame, ctype=ctype)
+        if display and disp:
+            disp.dot(pt, x, y, ctype=ctype)
 
 
 def setRaDec(wcs, sourceSet):

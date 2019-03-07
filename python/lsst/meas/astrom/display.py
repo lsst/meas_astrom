@@ -1,9 +1,10 @@
+# This file is part of meas_astrom.
 #
-# LSST Data Management System
-# Copyright 2008-2016 AURA/LSST.
-#
-# This product includes software developed by the
-# LSST Project (http://www.lsst.org/).
+# Developed for the LSST Data Management System.
+# This product includes software developed by the LSST Project
+# (https://www.lsst.org).
+# See the COPYRIGHT file at the top-level directory of this distribution
+# for details of code ownership.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,10 +16,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
-# You should have received a copy of the LSST License Statement and
-# the GNU General Public License along with this program.  If not,
-# see <http://www.lsstcorp.org/LegalNotices/>.
-#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 __all__ = ["displayAstrometry", "plotAstrometry"]
 
@@ -51,9 +50,9 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
     matches : `list` of `lsst.afw.table.ReferenceMatch`
         List of matched objects
     frame : `int`
-        frame number for ds9 display
+        frame number for display
     title : `str`
-        title for ds9 display
+        title for display
     pause : `bool`
         pause for inspection of display? This is done by dropping into pdb.
 
@@ -69,7 +68,7 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
     - if both exposure and bbox are `None`, no image is displayed
 
     """
-    disp = afwDisplay.getDisplay(frame)
+    disp = afwDisplay.getDisplay(frame=frame)
 
     if exposure is not None:
         disp.mtv(exposure, title=title)

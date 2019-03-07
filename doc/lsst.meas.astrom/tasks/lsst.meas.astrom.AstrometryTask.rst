@@ -70,7 +70,7 @@ The available variables in AstrometryTask are
 display (bool)
     If True display information at three stages: after finding reference objects, after matching sources to reference objects, and after fitting the WCS; defaults to False
 frame (int)
-    ds9 frame to use to display the reference objects; the next two frames are used to display the match list and the results of the final WCS; defaults to 0
+    frame to use to display the reference objects; the next two frames are used to display the match list and the results of the final WCS; defaults to 0
 
 To investigate the meas_astrom_astrometry_Debug, put something like
 
