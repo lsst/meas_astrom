@@ -23,6 +23,7 @@
 import math
 import os
 import unittest
+import pickle
 
 import lsst.geom
 import lsst.afw.geom as afwGeom
@@ -32,6 +33,7 @@ import lsst.pex.exceptions as pexExcept
 from lsst.meas.algorithms import LoadReferenceObjectsTask
 import lsst.meas.astrom.sip.genDistortedImage as distort
 import lsst.meas.astrom as measAstrom
+import lsst.meas.astrom.matchOptimisticB as matchOptimisticB
 
 
 class TestMatchOptimisticB(unittest.TestCase):
@@ -179,7 +181,7 @@ class TestMatchOptimisticB(unittest.TestCase):
     def testArgumentErrors(self):
         """Test argument sanity checking in matchOptimisticB
         """
-        matchControl = measAstrom.MatchOptimisticBControl()
+        matchControl = matchOptimisticB.MatchOptimisticBControl()
 
         sourceCat = self.loadSourceCatalog(self.filename)
         emptySourceCat = afwTable.SourceCatalog(sourceCat.schema)
@@ -188,7 +190,7 @@ class TestMatchOptimisticB(unittest.TestCase):
         emptyRefCat = afwTable.SimpleCatalog(refCat.schema)
 
         with self.assertRaises(pexExcept.InvalidParameterError):
-            measAstrom.matchOptimisticB(
+            matchOptimisticB.matchOptimisticB(
                 emptyRefCat,
                 sourceCat,
                 matchControl,
@@ -196,7 +198,7 @@ class TestMatchOptimisticB(unittest.TestCase):
                 0,
             )
         with self.assertRaises(pexExcept.InvalidParameterError):
-            measAstrom.matchOptimisticB(
+            matchOptimisticB.matchOptimisticB(
                 refCat,
                 emptySourceCat,
                 matchControl,
@@ -204,7 +206,7 @@ class TestMatchOptimisticB(unittest.TestCase):
                 0,
             )
         with self.assertRaises(pexExcept.InvalidParameterError):
-            measAstrom.matchOptimisticB(
+            matchOptimisticB.matchOptimisticB(
                 refCat,
                 sourceCat,
                 matchControl,
@@ -212,13 +214,22 @@ class TestMatchOptimisticB(unittest.TestCase):
                 len(refCat),
             )
         with self.assertRaises(pexExcept.InvalidParameterError):
-            measAstrom.matchOptimisticB(
+            matchOptimisticB.matchOptimisticB(
                 refCat,
                 sourceCat,
                 matchControl,
                 self.wcs,
                 -1,
             )
+
+    def testConfigPickle(self):
+        """Test that we can pickle the Config
+
+        This is required for use in singleFrameDriver.
+        See DM-18314.
+        """
+        config = pickle.loads(pickle.dumps(self.config))
+        self.assertEqual(config, self.config)
 
 
 class MemoryTester(lsst.utils.tests.MemoryTestCase):

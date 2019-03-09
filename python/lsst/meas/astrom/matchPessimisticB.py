@@ -9,7 +9,7 @@ import lsst.afw.geom as afwgeom
 import lsst.afw.table as afwTable
 from lsst.meas.algorithms.sourceSelector import sourceSelectorRegistry
 
-from .matchOptimisticB import MatchTolerance
+from .matchOptimisticBTask import MatchTolerance
 
 from .pessimistic_pattern_matcher_b_3D import PessimisticPatternMatcherB
 

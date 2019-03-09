@@ -1,5 +1,5 @@
 
-__all__ = ["matchOptimisticB", "MatchOptimisticBTask", "MatchOptimisticBConfig",
+__all__ = ["MatchOptimisticBTask", "MatchOptimisticBConfig",
            "MatchTolerance"]
 
 import math
@@ -8,8 +8,8 @@ import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from lsst.meas.algorithms.sourceSelector import sourceSelectorRegistry
 
-from ..setMatchDistance import setMatchDistance
-from . import matchOptimisticB, MatchOptimisticBControl
+from .setMatchDistance import setMatchDistance
+from .matchOptimisticB import matchOptimisticB, MatchOptimisticBControl
 
 
 class MatchTolerance:

@@ -142,7 +142,7 @@ CreateWcsWithSip<MatchT>::CreateWcsWithSip(std::vector<MatchT> const& matches,
      * If no BBox is provided, guess one from the input points (extrapolated a bit to allow for fact
      * that a finite number of points won't reach to the edge of the image)
      */
-    if (_bbox.isEmpty() && !_matches.empty() > 0) {
+    if (_bbox.isEmpty() && !_matches.empty()) {
         for (typename std::vector<MatchT>::const_iterator ptr = _matches.begin(); ptr != _matches.end();
              ++ptr) {
             afw::table::SourceRecord const& src = *ptr->second;

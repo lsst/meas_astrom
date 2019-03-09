@@ -21,7 +21,7 @@
 #
 
 from .makeMatchStatistics import *
-from .matchOptimisticB import *
+from .matchOptimisticBTask import *
 from .polynomialTransform import *
 from .scaledPolynomialTransformFitter import *
 from .sipTransform import *
@@ -31,7 +31,6 @@ from . import sip
 from .ref_match import *
 from .astrometry import *
 from .approximateWcs import *
-from .matchOptimisticB import *
 from .matchPessimisticB import *
 from .setMatchDistance import *
 from .display import *
