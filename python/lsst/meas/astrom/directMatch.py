@@ -10,8 +10,9 @@ from lsst.afw.geom import arcseconds, averageSpherePoint
 
 
 class DirectMatchConfigWithoutLoader(Config):
-    """Configuration for DirectMatchTask when an already-initialized
-    refObjLoader will be passed to this task."""
+    """Configuration for `DirectMatchTask` when an already-initialized
+    ``refObjLoader`` will be passed to this task.
+    """
     matchRadius = Field(dtype=float, default=0.25, doc="Matching radius, arcsec")
     sourceSelection = ConfigurableField(target=ScienceSourceSelectorTask,
                                         doc="Selection of science sources")
@@ -20,7 +21,8 @@ class DirectMatchConfigWithoutLoader(Config):
 
 
 class DirectMatchConfig(DirectMatchConfigWithoutLoader):
-    """Configuration for DirectMatchTask"""
+    """Configuration for `DirectMatchTask`.
+    """
     refObjLoader = ConfigurableField(target=LoadIndexedReferenceObjectsTask, doc="Load reference objects")
 
 
@@ -32,9 +34,10 @@ class DirectMatchTask(Task):
     butler : `lsst.daf.persistence.Butler`
         Data butler containing the relevant reference catalog data.
     refObjLoader : `lsst.meas.algorithms.LoadReferenceObjectsTask` or `None`
-        For loading reference objects
-    **kwargs :
-        Other keyword arguments required for instantiating a Task (e.g., 'config')
+        For loading reference objects.
+    **kwargs
+        Other keyword arguments required for instantiating a Task (such as
+        ``config``).
     """
     ConfigClass = DirectMatchConfig
     _DefaultName = "directMatch"
@@ -56,7 +59,7 @@ class DirectMatchTask(Task):
         self.makeSubtask("referenceSelection")
 
     def setRefObjLoader(self, refObjLoader):
-        """Sets the reference object loader for the task
+        """Set the reference object loader for the task.
 
         Parameters
         ----------
@@ -78,19 +81,21 @@ class DirectMatchTask(Task):
         catalog : `lsst.afw.table.SourceCatalog`
             Catalog to match.
         filterName : `str`
-            Name of filter loading fluxes
+            Name of filter loading fluxes.
         epoch : `astropy.time.Time` or `None`
-            Epoch to which to correct proper motion and parallax,
-            or `None` to not apply such corrections.
+            Epoch to which to correct proper motion and parallax, or `None` to
+            not apply such corrections.
 
         Returns
         -------
         result : `lsst.pipe.base.Struct`
             Result struct with components:
 
-            - matches : Matched sources with associated reference
-              (`lsst.afw.table.SourceMatchVector`)
-            - matchMeta : Match metadata (`lsst.meas.astrom.MatchMetadata`)
+            ``matches``
+                Matched sources with associated reference
+                (`lsst.afw.table.SourceMatchVector`).
+            ``matchMeta``
+                Match metadata (`lsst.meas.astrom.MatchMetadata`).
         """
         if self.refObjLoader is None:
             raise RuntimeError("Running matcher task with no refObjLoader set in __ini__ or setRefObjLoader")
@@ -116,20 +121,22 @@ class DirectMatchTask(Task):
                       refSelection=refSelection)
 
     def calculateCircle(self, catalog):
-        """Calculate a circle enclosing the catalog
+        """Calculate a circle enclosing the catalog.
 
         Parameters
         ----------
         catalog : `lsst.afw.table.SourceCatalog`
-            Catalog to encircle
+            Catalog to encircle.
 
         Returns
         -------
         result : `lsst.pipe.base.Struct`
             Result struct with components:
 
-            - center : ICRS center coordinate (`lsst.afw.geom.SpherePoint`)
-            - radius : Radius of the circle (`lsst.geom.Angle`)
+            ``center``
+                ICRS center coordinate (`lsst.afw.geom.SpherePoint`).
+            ``radius``
+                Radius of the circle (`lsst.geom.Angle`).
         """
         coordList = [src.getCoord() for src in catalog]
         center = averageSpherePoint(coordList)
