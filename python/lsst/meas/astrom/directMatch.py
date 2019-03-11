@@ -60,11 +60,13 @@ class DirectMatchTask(Task):
 
         Parameters
         ----------
-        refObjLoader : `lsst.meas.algorithms.LoadReferenceObjectsTask` or
-                       `lsst.meas.algorithms.ReferenceObjectLoader`
-            An instance of a reference object loader task or class. A task can be  used as a subtask
-            and is generally used in gen2 middleware. The class is designed to be used with gen3
-            middleware and is initialized outside the normal task framework.
+        refObjLoader
+            An instance of a reference object loader, either a
+            `lsst.meas.algorithms.LoadReferenceObjectsTask` task or a
+            `lsst.meas.algorithms.ReferenceObjectLoader` instance. A task can
+            be used as a subtask and is generally used in gen2 middleware. The
+            class is designed to be used with gen3 middleware and is
+            initialized outside the normal task framework.
         """
         self.refObjLoader = refObjLoader
 
