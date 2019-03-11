@@ -1,4 +1,4 @@
-.. lsst-task-topic:: lsst.meas.astrom.matchOptimisticB.matchOptimisticBContinued.MatchOptimisticBTask
+.. lsst-task-topic:: lsst.meas.astrom.matchOptimisticBTask.MatchOptimisticBTask
 
 ####################
 MatchOptimisticBTask
@@ -12,7 +12,7 @@ as a preliminary step to fitting an astrometric or photometric solution.
 
 Optimistic Pattern Matching is described in [Tabur2007]_
 
-.. _lsst.meas.astrom.matchOptimisticB.matchOptimisticBContinued.MatchOptimisticBTask-summary:
+.. _lsst.meas.astrom.matchOptimisticBTask.MatchOptimisticBTask-summary:
 
 Processing summary
 ==================
@@ -30,28 +30,28 @@ Processing summary
   saturated.
 - Return these sources matched to the references.
 
-.. _lsst.meas.astrom.matchOptimisticB.matchOptimisticBContinued.MatchOptimisticBTask-api:
+.. _lsst.meas.astrom.matchOptimisticBTask.MatchOptimisticBTask-api:
 
 Python API summary
 ==================
 
-.. lsst-task-api-summary:: lsst.meas.astrom.matchOptimisticB.matchOptimisticBContinued.MatchOptimisticBTask
+.. lsst-task-api-summary:: lsst.meas.astrom.matchOptimisticBTask.MatchOptimisticBTask
 
-.. _lsst.meas.astrom.matchOptimisticB.matchOptimisticBContinued.MatchOptimisticBTask-subtasks:
+.. _lsst.meas.astrom.matchOptimisticBTask.MatchOptimisticBTask-subtasks:
 
 Retargetable subtasks
 =====================
 
-.. lsst-task-config-subtasks:: lsst.meas.astrom.matchOptimisticB.matchOptimisticBContinued.MatchOptimisticBTask
+.. lsst-task-config-subtasks:: lsst.meas.astrom.matchOptimisticBTask.MatchOptimisticBTask
 
-.. _lsst.meas.astrom.matchOptimisticB.matchOptimisticBContinued.MatchOptimisticBTask-configs:
+.. _lsst.meas.astrom.matchOptimisticBTask.MatchOptimisticBTask-configs:
 
 Configuration fields
 ====================
 
-.. lsst-task-config-fields:: lsst.meas.astrom.matchOptimisticB.matchOptimisticBContinued.MatchOptimisticBTask
+.. lsst-task-config-fields:: lsst.meas.astrom.matchOptimisticBTask.MatchOptimisticBTask
 
-.. _lsst.meas.astrom.matchOptimisticB.matchOptimisticBContinued.MatchOptimisticBTask-examples:
+.. _lsst.meas.astrom.matchOptimisticBTask.MatchOptimisticBTask-examples:
 
 Examples
 ========
@@ -67,7 +67,7 @@ PhotoCalTask.
 See :lsst-task:`lsst.pipe.tasks.photoCal.PhotoCalTask`
 .. note:: Pipe task will require conversion before this link is useable.
 
-.. _lsst.meas.astrom.matchOptimisticB.matchOptimisticBContinued.MatchOptimisticBTask-debug:
+.. _lsst.meas.astrom.matchOptimisticBTask.MatchOptimisticBTask-debug:
 
 Debugging
 =========
