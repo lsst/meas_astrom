@@ -327,9 +327,11 @@ class PessimisticPatternMatcherB:
                 match_sources_struct.distances_rad,
                 low=100,
                 high=2)[-1]
+            n_matched_clipped = np.sum(
+                match_sources_struct.distances_rad < clipped_max_dist)
+
             cut_ids = match_sources_struct.match_ids[
-                match_sources_struct.distances_rad < clipped_max_dist]
-            n_matched_clipped = len(cut_ids)
+                match_sources_struct.distances_rad < max_dist_rad]
 
             if n_matched < min_matches or n_matched_clipped < min_matches:
                 continue

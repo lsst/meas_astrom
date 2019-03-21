@@ -145,7 +145,7 @@ class MatchPessimisticBConfig(pexConfig.Config):
             "be matched) can be used. If more sources are required to match, "
             "decrease the signal to noise cut in the sourceSelector.",
         dtype=int,
-        default=2000,
+        default=1000,
     )
     maxRefObjects = pexConfig.RangeField(
         doc="Maximum number of reference objects to use for the matcher. The "
