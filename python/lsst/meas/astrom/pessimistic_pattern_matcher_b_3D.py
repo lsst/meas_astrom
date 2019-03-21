@@ -2,6 +2,7 @@
 import numpy as np
 from scipy.optimize import least_squares
 from scipy.spatial import cKDTree
+from scipy.stats import sigmaclip
 
 import lsst.pipe.base as pipeBase
 
@@ -229,7 +230,8 @@ class PessimisticPatternMatcherB:
             match_ids=[],
             distances_rad=[],
             pattern_idx=None,
-            shift=None,)
+            shift=None,
+            clipped_dist=None,)
 
         if n_source <= 0:
             self.log.warn("Source object array is empty. Unable to match. "
@@ -318,12 +320,19 @@ class PessimisticPatternMatcherB:
             match_sources_struct = self._match_sources(source_array[:, :3],
                                                        shift_rot_matrix)
 
+            n_matched = np.sum(
+                match_sources_struct.distances_rad < max_dist_rad)
+
+            clipped_max_dist = sigmaclip(
+                match_sources_struct.distances_rad,
+                low=100,
+                high=2)[-1]
             cut_ids = match_sources_struct.match_ids[
-                match_sources_struct.distances_rad < max_dist_rad]
-            n_matched = len(cut_ids)
+                match_sources_struct.distances_rad < clipped_max_dist]
+            n_matched_clipped = len(cut_ids)
 
             # Check that we have enough matches.
-            if n_matched >= min_matches:
+            if n_matched >= min_matches and n_matched_clipped >= min_matches:
                 # The shift/rotation matrix returned by
                 # ``_construct_pattern_and_shift_rot_matrix``, above, was
                 # based on only six points. Here, we refine that result by

@@ -1,7 +1,6 @@
 
 import numpy as np
 from scipy.spatial import cKDTree
-from scipy.stats import sigmaclip
 
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
@@ -531,22 +530,9 @@ class MatchPessimisticBTask(pipeBase.Task):
         # visits:  HSC (3358), DECam (406285, 410827),
         # CFHT (793169, 896070, 980526).
         distances_arcsec = np.degrees(matcher_struct.distances_rad) * 3600
-        clip_max_dist = np.max(
-            (sigmaclip(distances_arcsec, low=100, high=2)[-1],
-             self.config.minMatchDistPixels * wcs.getPixelScale().asArcseconds())
-        )
-        # Assuming the number of matched objects surviving the clip_max_dist
-        # cut if greater the requested min number of pairs, we select the
-        # smaller of the current maxMatchDist or the sigma clipped distance.
-        if not np.isfinite(clip_max_dist):
-            clip_max_dist = maxMatchDistArcSec
-
-        if clip_max_dist < maxMatchDistArcSec and \
-           len(distances_arcsec[distances_arcsec < clip_max_dist]) < \
-           minMatchedPairs:
-            dist_cut_arcsec = maxMatchDistArcSec
-        else:
-            dist_cut_arcsec = np.min((clip_max_dist, maxMatchDistArcSec))
+        dist_cut_arcsec = np.max(
+            (np.degrees(matcher_struct.clipped_dist) * 3600,
+             self.config.minMatchDistPixels * wcs.getPixelScale().asArcseconds()))
 
         # A match has been found, return our list of matches and
         # return.
