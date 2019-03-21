@@ -2,6 +2,7 @@
 import numpy as np
 from scipy.optimize import least_squares
 from scipy.spatial import cKDTree
+from scipy.stats import sigmaclip
 
 import lsst.pipe.base as pipeBase
 
@@ -229,7 +230,8 @@ class PessimisticPatternMatcherB:
             match_ids=[],
             distances_rad=[],
             pattern_idx=None,
-            shift=None,)
+            shift=None,
+            max_dist_rad=None,)
 
         if n_source <= 0:
             self.log.warn("Source object array is empty. Unable to match. "
@@ -314,31 +316,55 @@ class PessimisticPatternMatcherB:
                n_agree - 1:
                 continue
 
-            # Perform final verify.
+            # Perform an iterative final verify.
             match_sources_struct = self._match_sources(source_array[:, :3],
                                                        shift_rot_matrix)
-
             cut_ids = match_sources_struct.match_ids[
                 match_sources_struct.distances_rad < max_dist_rad]
+
             n_matched = len(cut_ids)
+            # Check clipped distances. The minimum value here
+            # prevents over convergance on perfect test data.
+            clipped_max_dist = np.max((
+                sigmaclip(match_sources_struct.distances_rad,
+                          low=100,
+                          high=2)[-1],
+                1e-16))
+            n_matched_clipped = np.sum(
+                match_sources_struct.distances_rad < clipped_max_dist)
+
+            if n_matched < min_matches or n_matched_clipped < min_matches:
+                continue
+
+            # The shift/rotation matrix returned by
+            # ``_construct_pattern_and_shift_rot_matrix``, above, was
+            # based on only six points. Here, we refine that result by
+            # using all of the good matches from the “final verification”
+            # step, above. This will produce a more consistent result.
+            fit_shift_rot_matrix = least_squares(
+                _rotation_matrix_chi_sq,
+                x0=shift_rot_matrix.flatten(),
+                args=(source_array[cut_ids[:, 0], :3],
+                      self._reference_array[cut_ids[:, 1], :3],
+                      max_dist_rad)
+            ).x.reshape((3, 3))
+            match_sources_struct = self._match_sources(
+                source_array[:, :3], fit_shift_rot_matrix)
+
+            # Double check the match distances to make sure enough matches
+            # survive still.
+            n_matched = np.sum(
+                match_sources_struct.distances_rad < max_dist_rad)
+            clipped_max_dist = np.max((
+                sigmaclip(match_sources_struct.distances_rad,
+                          low=100,
+                          high=2)[-1],
+                1e-16))
+            n_matched_clipped = np.sum(
+                match_sources_struct.distances_rad < clipped_max_dist)
 
             # Check that we have enough matches.
-            if n_matched >= min_matches:
-                # The shift/rotation matrix returned by
-                # ``_construct_pattern_and_shift_rot_matrix``, above, was
-                # based on only six points. Here, we refine that result by
-                # using all of the good matches from the “final verification”
-                # step, above. This will produce a more consistent result.
-                fit_shift_rot_matrix = least_squares(
-                    _rotation_matrix_chi_sq,
-                    x0=shift_rot_matrix.flatten(),
-                    args=(source_array[cut_ids[:, 0], :3],
-                          self._reference_array[cut_ids[:, 1], :3],
-                          max_dist_rad)
-                ).x.reshape((3, 3))
-                match_sources_struct = self._match_sources(
-                    source_array[:, :3], fit_shift_rot_matrix)
-
+            if n_matched >= min_matches and n_matched_clipped >= min_matches:
                 # Convert the observed shift to arcseconds
                 shift = np.degrees(np.arccos(cos_shift)) * 3600.
                 # Print information to the logger.
@@ -354,6 +380,10 @@ class PessimisticPatternMatcherB:
                     match_sources_struct.distances_rad
                 output_match_struct.pattern_idx = pattern_idx
                 output_match_struct.shift = shift
+                if 1e-15 < clipped_max_dist < max_dist_rad:
+                    output_match_struct.max_dist_rad = clipped_max_dist
+                else:
+                    output_match_struct.max_dist_rad = max_dist_rad
                 return output_match_struct
 
         self.log.debug("Failed after %i patterns." % (pattern_idx + 1))
