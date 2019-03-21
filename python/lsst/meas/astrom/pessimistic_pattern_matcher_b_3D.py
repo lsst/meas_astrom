@@ -316,12 +316,13 @@ class PessimisticPatternMatcherB:
                n_agree - 1:
                 continue
 
-            # Perform final verify.
+            # Perform an iterative final verify.
             match_sources_struct = self._match_sources(source_array[:, :3],
                                                        shift_rot_matrix)
+            cut_ids = match_sources_struct.match_ids[
+                match_sources_struct.distances_rad < max_dist_rad]
 
-            n_matched = np.sum(
-                match_sources_struct.distances_rad < max_dist_rad)
+            n_matched = len(cut_ids)
 
             clipped_max_dist = sigmaclip(
                 match_sources_struct.distances_rad,
@@ -329,9 +330,6 @@ class PessimisticPatternMatcherB:
                 high=2)[-1]
             n_matched_clipped = np.sum(
                 match_sources_struct.distances_rad < clipped_max_dist)
-
-            cut_ids = match_sources_struct.match_ids[
-                match_sources_struct.distances_rad < max_dist_rad]
 
             if n_matched < min_matches or n_matched_clipped < min_matches:
                 continue
@@ -351,6 +349,8 @@ class PessimisticPatternMatcherB:
             match_sources_struct = self._match_sources(
                 source_array[:, :3], fit_shift_rot_matrix)
 
+            # Double check the match distances to make sure enough matches
+            # survive still.
             n_matched = np.sum(
                 match_sources_struct.distances_rad < max_dist_rad)
             clipped_max_dist = sigmaclip(
