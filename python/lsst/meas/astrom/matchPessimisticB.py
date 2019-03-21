@@ -531,7 +531,7 @@ class MatchPessimisticBTask(pipeBase.Task):
         # CFHT (793169, 896070, 980526).
         distances_arcsec = np.degrees(matcher_struct.distances_rad) * 3600
         dist_cut_arcsec = np.max(
-            (np.degrees(matcher_struct.clipped_dist) * 3600,
+            (np.degrees(matcher_struct.clipped_dist_rad) * 3600,
              self.config.minMatchDistPixels * wcs.getPixelScale().asArcseconds()))
 
         # A match has been found, return our list of matches and

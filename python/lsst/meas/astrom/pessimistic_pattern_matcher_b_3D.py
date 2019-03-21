@@ -231,7 +231,7 @@ class PessimisticPatternMatcherB:
             distances_rad=[],
             pattern_idx=None,
             shift=None,
-            clipped_dist=None,)
+            clipped_dist_rad=None,)
 
         if n_source <= 0:
             self.log.warn("Source object array is empty. Unable to match. "
@@ -363,6 +363,7 @@ class PessimisticPatternMatcherB:
                     match_sources_struct.distances_rad
                 output_match_struct.pattern_idx = pattern_idx
                 output_match_struct.shift = shift
+                output_match_struct.clipped_dist_rad = clipped_max_dist
                 return output_match_struct
 
         self.log.debug("Failed after %i patterns." % (pattern_idx + 1))
