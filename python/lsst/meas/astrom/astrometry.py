@@ -171,6 +171,8 @@ class AstrometryTask(RefMatchTask):
 
         expMd = self._getExposureMetadata(exposure)
 
+        sourceSelection = self.sourceSelection.run(sourceCat)
+
         loadRes = self.refObjLoader.loadPixelBox(
             bbox=expMd.bbox,
             wcs=expMd.wcs,
@@ -178,6 +180,9 @@ class AstrometryTask(RefMatchTask):
             photoCalib=expMd.photoCalib,
             epoch=expMd.epoch,
         )
+
+        refSelection = self.referenceSelection.run(loadRes.refCat)
+
         matchMeta = self.refObjLoader.getMetadataBox(
             bbox=expMd.bbox,
             wcs=expMd.wcs,
@@ -189,8 +194,8 @@ class AstrometryTask(RefMatchTask):
         if debug.display:
             frame = int(debug.frame)
             displayAstrometry(
-                refCat=loadRes.refCat,
-                sourceCat=sourceCat,
+                refCat=refSelection.sourceCat,
+                sourceCat=sourceSelection.sourceCat,
                 exposure=exposure,
                 bbox=expMd.bbox,
                 frame=frame,
@@ -204,8 +209,8 @@ class AstrometryTask(RefMatchTask):
             iterNum = i + 1
             try:
                 tryRes = self._matchAndFitWcs(  # refCat, sourceCat, refFluxField, bbox, wcs, exposure=None
-                    refCat=loadRes.refCat,
-                    sourceCat=sourceCat,
+                    refCat=refSelection.sourceCat,
+                    sourceCat=sourceSelection.sourceCat,
                     refFluxField=loadRes.fluxField,
                     bbox=expMd.bbox,
                     wcs=wcs,
@@ -251,7 +256,7 @@ class AstrometryTask(RefMatchTask):
         exposure.setWcs(res.wcs)
 
         return pipeBase.Struct(
-            refCat=loadRes.refCat,
+            refCat=refSelection.sourceCat,
             matches=res.matches,
             scatterOnSky=res.scatterOnSky,
             matchMeta=matchMeta,
