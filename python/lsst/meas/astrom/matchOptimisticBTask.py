@@ -98,6 +98,7 @@ class MatchOptimisticBConfig(pexConfig.Config):
     def setDefaults(self):
         sourceSelector = self.sourceSelector["matcher"]
         sourceSelector.setDefaults()
+        sourceSelector.excludePixelFlags = False
 
 
 # The following block adds links to this task from the Task Documentation page.
