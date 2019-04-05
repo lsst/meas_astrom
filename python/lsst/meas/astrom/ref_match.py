@@ -128,7 +128,7 @@ class RefMatchTask(pipeBase.Task):
             bbox=expMd.bbox,
             wcs=expMd.wcs,
             filterName=expMd.filterName,
-            calib=expMd.calib,
+            photoCalib=expMd.photoCalib,
         )
 
         refSelection = self.referenceSelection.run(loadRes.refCat)
@@ -137,7 +137,7 @@ class RefMatchTask(pipeBase.Task):
             bbox=expMd.bbox,
             wcs=expMd.wcs,
             filterName=expMd.filterName,
-            calib=expMd.calib,
+            photoCalib=expMd.photoCalib,
         )
 
         matchRes = self.matcher.matchObjectsToSources(
@@ -217,7 +217,7 @@ class RefMatchTask(pipeBase.Task):
 
             - ``bbox`` : parent bounding box (`lsst.geom.Box2I`)
             - ``wcs`` : exposure WCS (`lsst.afw.geom.SkyWcs`)
-            - ``calib`` : calibration (`lsst.afw.image.Calib`)
+            - ``photoCalib`` : photometric calibration (`lsst.afw.image.PhotoCalib`)
             - ``filterName`` : name of filter (`str`)
             - ``epoch`` : date of exposure (`astropy.time.Time`)
 
@@ -235,7 +235,7 @@ class RefMatchTask(pipeBase.Task):
         return pipeBase.Struct(
             bbox=exposure.getBBox(),
             wcs=exposureInfo.getWcs(),
-            calib=exposureInfo.getCalib() if exposureInfo.hasCalib() else None,
+            photoCalib=exposureInfo.getPhotoCalib(),
             filterName=filterName,
             epoch=epoch,
         )

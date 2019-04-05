@@ -105,7 +105,7 @@ class AstrometryTask(RefMatchTask):
             The following are read only:
 
             - bbox
-            - calib (may be absent)
+            - photoCalib (may be absent)
             - filter (may be unset)
             - detector (if wcs is pure tangent; may be absent)
 
@@ -175,14 +175,14 @@ class AstrometryTask(RefMatchTask):
             bbox=expMd.bbox,
             wcs=expMd.wcs,
             filterName=expMd.filterName,
-            calib=expMd.calib,
+            photoCalib=expMd.photoCalib,
             epoch=expMd.epoch,
         )
         matchMeta = self.refObjLoader.getMetadataBox(
             bbox=expMd.bbox,
             wcs=expMd.wcs,
             filterName=expMd.filterName,
-            calib=expMd.calib,
+            photoCalib=expMd.photoCalib,
             epoch=expMd.epoch,
         )
 
