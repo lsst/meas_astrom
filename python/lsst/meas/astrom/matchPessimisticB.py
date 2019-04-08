@@ -159,11 +159,11 @@ class MatchPessimisticBConfig(pexConfig.Config):
         doc="How to select sources for cross-matching. The default "
             "matcherSourceSelector removes objects with low S/N, bad "
             "saturated objects, edge objects, and interpolated objects.",
-        default="matcherPessimistic"
+        default="matcher"
     )
 
     def setDefaults(self):
-        sourceSelector = self.sourceSelector["matcherPessimistic"]
+        sourceSelector = self.sourceSelector["matcher"]
         sourceSelector.setDefaults()
 
     def validate(self):
