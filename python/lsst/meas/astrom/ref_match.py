@@ -67,9 +67,9 @@ class RefMatchConfig(pexConfig.Config):
         self.sourceSelector.name = "science"
         self.sourceSelector['science'].fluxLimit.fluxField = \
             'slot_%sFlux_instFlux' % (self.sourceFluxType)
-        self.sourceSelector['science'].signalToNoiseLimit.fluxField = \
+        self.sourceSelector['science'].signalToNoise.fluxField = \
             'slot_%sFlux_instFlux' % (self.sourceFluxType)
-        self.sourceSelector['science'].signalToNoiseLimit.errField = \
+        self.sourceSelector['science'].signalToNoise.errField = \
             'slot_%sFlux_instFluxErr' % (self.sourceFluxType)
 
 
