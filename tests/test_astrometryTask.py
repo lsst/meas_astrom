@@ -151,7 +151,19 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         self.assertLess(maxAngSep.asArcseconds(), 0.0038)
         self.assertLess(maxPixSep, 0.021)
 
-        # try again, but without fitting the WCS
+        # try again, invoking the reference selector
+        config.referenceSelector.doUnresolved = True
+        config.referenceSelector.unresolved.name = 'resolved'
+        solverRefSelect = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
+        self.exposure.setWcs(distortedWcs)
+        resultsRefSelect = solverRefSelect.run(
+            sourceCat=sourceCat,
+            exposure=self.exposure,
+        )
+        self.assertLess(len(resultsRefSelect.matches), len(results.matches))
+
+        # try again, but without fitting the WCS, no reference selector
+        config.referenceSelector.doUnresolved = False
         config.forceKnownWcs = True
         solverNoFit = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
         self.exposure.setWcs(distortedWcs)
@@ -167,6 +179,16 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         meanFitDist = np.mean([match.distance for match in results.matches])
         meanNoFitDist = np.mean([match.distance for match in resultsNoFit.matches])
         self.assertLessEqual(meanFitDist, meanNoFitDist)
+
+        # try once again, without fitting the WCS, with the reference selector
+        # (this goes through a different code path)
+        config.referenceSelector.doUnresolved = True
+        solverNoFitRefSelect = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
+        resultsNoFitRefSelect = solverNoFitRefSelect.run(
+            sourceCat=sourceCat,
+            exposure=self.exposure,
+        )
+        self.assertLess(len(resultsNoFitRefSelect.matches), len(resultsNoFit.matches))
 
     def makeSourceCat(self, distortedWcs):
         """Make a source catalog by reading the position reference stars and distorting the positions
