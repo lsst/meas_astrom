@@ -86,7 +86,15 @@ class TestMatchOptimisticB(unittest.TestCase):
     def singleTestInstance(self, filename, distortFunc, doPlot=False):
         sourceCat = self.loadSourceCatalog(self.filename)
         refCat = self.computePosRefCatalog(sourceCat)
-        distortedCat = distort.distortList(sourceCat, distortFunc)
+
+        # Apply source selector to sourceCat, using the astrometry config defaults
+        tempConfig = measAstrom.AstrometryTask.ConfigClass()
+        tempConfig.matcher.retarget(measAstrom.MatchOptimisticBTask)
+        tempConfig.sourceSelector["matcher"].excludePixelFlags = False
+        tempSolver = measAstrom.AstrometryTask(config=tempConfig, refObjLoader=None)
+        sourceSelection = tempSolver.sourceSelector.run(sourceCat)
+
+        distortedCat = distort.distortList(sourceSelection.sourceCat, distortFunc)
 
         if doPlot:
             import matplotlib.pyplot as plt
@@ -111,6 +119,7 @@ class TestMatchOptimisticB(unittest.TestCase):
             refCat=refCat,
             sourceCat=sourceCat,
             wcs=self.distortedWcs,
+            sourceFluxField='slot_ApFlux_instFlux',
             refFluxField="r_flux",
         )
         matches = matchRes.matches

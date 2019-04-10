@@ -6,7 +6,6 @@ import math
 
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
-from lsst.meas.algorithms.sourceSelector import sourceSelectorRegistry
 
 from .setMatchDistance import setMatchDistance
 from .matchOptimisticB import matchOptimisticB, MatchOptimisticBControl
@@ -90,15 +89,6 @@ class MatchOptimisticBConfig(pexConfig.Config):
         dtype=float,
         default=0.02,
     )
-    sourceSelector = sourceSelectorRegistry.makeField(
-        doc="How to select sources for cross-matching",
-        default="matcher"
-    )
-
-    def setDefaults(self):
-        sourceSelector = self.sourceSelector["matcher"]
-        sourceSelector.setDefaults()
-        sourceSelector.excludePixelFlags = False
 
 
 # The following block adds links to this task from the Task Documentation page.
@@ -119,7 +109,6 @@ class MatchOptimisticBTask(pipeBase.Task):
 
     def __init__(self, **kwargs):
         pipeBase.Task.__init__(self, **kwargs)
-        self.makeSubtask("sourceSelector")
 
     def filterStars(self, refCat):
         """Extra filtering pass; subclass if desired.
@@ -138,7 +127,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         return refCat
 
     @pipeBase.timeMethod
-    def matchObjectsToSources(self, refCat, sourceCat, wcs, refFluxField,
+    def matchObjectsToSources(self, refCat, sourceCat, wcs, sourceFluxField, refFluxField,
                               match_tolerance=None):
         """Match sources to position reference stars.
 
@@ -147,11 +136,14 @@ class MatchOptimisticBTask(pipeBase.Task):
         refCat : `lsst.afw.table.SimpleCatalog`
             Reference catalog to match.
         sourceCat : `lsst.afw.table.SourceCatalog`
-            Source catalog to match.
+            Catalog of sources found on an exposure.  This should already be
+            down-selected to "good"/"usable" sources in the calling Task.
         wcs : `lsst.afw.geom.SkyWcs`
             Current WCS of the  exposure containing the sources.
+        sourceFluxField : `str`
+            Field of the sourceCat to use for flux
         refFluxField : `str`
-            Name of the reference catalog filter to use.
+            Field of the refCat to use for flux
         match_tolerance : `lsst.meas.astrom.MatchTolerance`
             Object containing information from previous
             `lsst.meas.astrom.AstrometryTask` match/fit cycles for use in
@@ -183,18 +175,14 @@ class MatchOptimisticBTask(pipeBase.Task):
         if match_tolerance is None:
             match_tolerance = MatchTolerance()
 
-        # usableSourceCat: sources that are good but may be saturated
-        numSources = len(sourceCat)
-        selectedSources = self.sourceSelector.run(sourceCat)
-        usableSourceCat = selectedSources.sourceCat
+        # Make a name alias here for consistency with older code, and to make
+        # it clear that this is a good/usable (cleaned) source catalog.
+        usableSourceCat = sourceCat
+
         numUsableSources = len(usableSourceCat)
-        self.log.info("Purged %d unusable sources, leaving %d usable sources" %
-                      (numSources - numUsableSources, numUsableSources))
 
         if len(usableSourceCat) == 0:
             raise pipeBase.TaskError("No sources are usable")
-
-        del sourceCat  # avoid accidentally using sourceCat; use usableSourceCat or goodSourceCat from now on
 
         minMatchedPairs = min(self.config.minMatchedPairs,
                               int(self.config.minFracMatchedPairs * min([len(refCat), len(usableSourceCat)])))
@@ -208,7 +196,7 @@ class MatchOptimisticBTask(pipeBase.Task):
             numUsableSources=numUsableSources,
             minMatchedPairs=minMatchedPairs,
             maxMatchDist=match_tolerance.maxMatchDist,
-            sourceFluxField=self.sourceSelector.fluxField,
+            sourceFluxField=sourceFluxField,
             verbose=debug.verbose,
         )
 

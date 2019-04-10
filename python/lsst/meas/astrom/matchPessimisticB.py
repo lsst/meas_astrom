@@ -6,7 +6,6 @@ import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 import lsst.afw.geom as afwgeom
 import lsst.afw.table as afwTable
-from lsst.meas.algorithms.sourceSelector import sourceSelectorRegistry
 
 from .matchOptimisticBTask import MatchTolerance
 
@@ -113,7 +112,7 @@ class MatchPessimisticBConfig(pexConfig.Config):
     numPointsForShapeAttempt = pexConfig.Field(
         doc="Number of points to try for creating a shape. This value should "
             "be greater than or equal to numPointsForShape. Besides "
-            "loosening the signal to noise cut in the matcherSourceSelector, "
+            "loosening the signal to noise cut in the 'matcher' SourceSelector, "
             "increasing this number will solve CCDs where no match was found.",
         dtype=int,
         default=6,
@@ -155,16 +154,6 @@ class MatchPessimisticBConfig(pexConfig.Config):
         min=0,
         max=2**16 + 1,
     )
-    sourceSelector = sourceSelectorRegistry.makeField(
-        doc="How to select sources for cross-matching. The default "
-            "matcherSourceSelector removes objects with low S/N, bad "
-            "saturated objects, edge objects, and interpolated objects.",
-        default="matcher"
-    )
-
-    def setDefaults(self):
-        sourceSelector = self.sourceSelector["matcher"]
-        sourceSelector.setDefaults()
 
     def validate(self):
         pexConfig.Config.validate(self)
@@ -194,10 +183,9 @@ class MatchPessimisticBTask(pipeBase.Task):
 
     def __init__(self, **kwargs):
         pipeBase.Task.__init__(self, **kwargs)
-        self.makeSubtask("sourceSelector")
 
     @pipeBase.timeMethod
-    def matchObjectsToSources(self, refCat, sourceCat, wcs, refFluxField,
+    def matchObjectsToSources(self, refCat, sourceCat, wcs, sourceFluxField, refFluxField,
                               match_tolerance=None):
         """Match sources to position reference stars
 
@@ -209,10 +197,12 @@ class MatchPessimisticBTask(pipeBase.Task):
             - the specified flux field
 
         sourceCat : `lsst.afw.table.SourceCatalog`
-            catalog of sources found on an exposure; Please check the required
-            fields of your specified source selector that the correct flags are present.
+            Catalog of sources found on an exposure.  This should already be
+            down-selected to "good"/"usable" sources in the calling Task.
         wcs : `lsst.afw.geom.SkyWcs`
             estimated WCS
+        sourceFluxField: `str`
+            field of sourceCat to use for flux
         refFluxField : `str`
             field of refCat to use for flux
         match_tolerance : `lsst.meas.astrom.MatchTolerancePessimistic`
@@ -229,7 +219,7 @@ class MatchPessimisticBTask(pipeBase.Task):
 
             - ``matches`` : source to reference matches found (`list` of
               `lsst.afw.table.ReferenceMatch`)
-            - ``usableSourcCat`` : a catalog of sources potentially usable for
+            - ``usableSourceCat`` : a catalog of sources potentially usable for
               matching and WCS fitting (`lsst.afw.table.SourceCatalog`).
             - ``match_tolerance`` : a MatchTolerance object containing the
               resulting state variables from the match
@@ -243,19 +233,14 @@ class MatchPessimisticBTask(pipeBase.Task):
         if match_tolerance is None:
             match_tolerance = MatchTolerancePessimistic()
 
-        # usableSourceCat: sources that are good but may be saturated
-        numSources = len(sourceCat)
-        selectedSources = self.sourceSelector.run(sourceCat)
-        goodSourceCat = selectedSources.sourceCat
+        # Make a name alias here for consistency with older code, and to make
+        # it clear that this is a good/usable (cleaned) source catalog.
+        goodSourceCat = sourceCat
+
         numUsableSources = len(goodSourceCat)
-        self.log.info("Purged %d sources, leaving %d good sources" %
-                      (numSources - numUsableSources, numUsableSources))
 
         if len(goodSourceCat) == 0:
             raise pipeBase.TaskError("No sources are good")
-
-        # avoid accidentally using sourceCat; use goodSourceCat from now on
-        del sourceCat
 
         minMatchedPairs = min(self.config.minMatchedPairs,
                               int(self.config.minFracMatchedPairs *
@@ -265,19 +250,19 @@ class MatchPessimisticBTask(pipeBase.Task):
             self.log.warn(
                 "WARNING: Reference catalog larger that maximum allowed. "
                 "Trimming to %i" % self.config.maxRefObjects)
-            trimedRefCat = self._filterRefCat(refCat, refFluxField)
+            trimmedRefCat = self._filterRefCat(refCat, refFluxField)
         else:
-            trimedRefCat = refCat
+            trimmedRefCat = refCat
 
         doMatchReturn = self._doMatch(
-            refCat=trimedRefCat,
+            refCat=trimmedRefCat,
             sourceCat=goodSourceCat,
             wcs=wcs,
             refFluxField=refFluxField,
             numUsableSources=numUsableSources,
             minMatchedPairs=minMatchedPairs,
             match_tolerance=match_tolerance,
-            sourceFluxField=self.sourceSelector.fluxField,
+            sourceFluxField=sourceFluxField,
             verbose=debug.verbose,
         )
         matches = doMatchReturn.matches
@@ -382,7 +367,7 @@ class MatchPessimisticBTask(pipeBase.Task):
             coord = wcs.pixelToSky(srcObj.getCentroid())
             theta = np.pi / 2 - coord.getLatitude().asRadians()
             phi = coord.getLongitude().asRadians()
-            flux = srcObj.getPsfInstFlux()
+            flux = srcObj[sourceFluxField]
             src_array[src_idx, :] = \
                 self._latlong_flux_to_xyz_mag(theta, phi, flux)
 
