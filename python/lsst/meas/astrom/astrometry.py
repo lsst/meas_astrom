@@ -58,6 +58,17 @@ class AstrometryConfig(RefMatchConfig):
         min=0,
     )
 
+    def setDefaults(self):
+        # Override the default source selector for astrometry tasks
+        self.sourceFluxType = "Ap"
+
+        self.sourceSelector.name = "matcher"
+        self.sourceSelector["matcher"].sourceFluxType = self.sourceFluxType
+
+        # Note that if the matcher is MatchOptimisticBTask, then the
+        # default should be self.sourceSelector['matcher'].excludePixelFlags = False
+        # However, there is no way to do this automatically.
+
 
 class AstrometryTask(RefMatchTask):
     """Match an input source catalog with objects from a reference catalog and
@@ -171,7 +182,11 @@ class AstrometryTask(RefMatchTask):
 
         expMd = self._getExposureMetadata(exposure)
 
-        sourceSelection = self.sourceSelection.run(sourceCat)
+        sourceSelection = self.sourceSelector.run(sourceCat)
+
+        self.log.info("Purged %d sources, leaving %d good sources" %
+                      (len(sourceCat) - len(sourceSelection.sourceCat),
+                       len(sourceSelection.sourceCat)))
 
         loadRes = self.refObjLoader.loadPixelBox(
             bbox=expMd.bbox,
@@ -181,7 +196,7 @@ class AstrometryTask(RefMatchTask):
             epoch=expMd.epoch,
         )
 
-        refSelection = self.referenceSelection.run(loadRes.refCat)
+        refSelection = self.referenceSelector.run(loadRes.refCat)
 
         matchMeta = self.refObjLoader.getMetadataBox(
             bbox=expMd.bbox,
@@ -300,10 +315,14 @@ class AstrometryTask(RefMatchTask):
         """
         import lsstDebug
         debug = lsstDebug.Info(__name__)
+
+        sourceFluxField = "slot_%sFlux_instFlux" % (self.config.sourceFluxType)
+
         matchRes = self.matcher.matchObjectsToSources(
             refCat=refCat,
             sourceCat=sourceCat,
             wcs=wcs,
+            sourceFluxField=sourceFluxField,
             refFluxField=refFluxField,
             match_tolerance=match_tolerance,
         )

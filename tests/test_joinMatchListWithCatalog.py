@@ -62,7 +62,7 @@ class JoinMatchListWithCatalogTestCase(unittest.TestCase):
         self.astrom.log.setLevel(logLevel)
         # Since our sourceSelector is a registry object we have to wait for it to be created
         # before setting default values.
-        self.astrom.matcher.sourceSelector.config.minSnr = 0
+        self.astrom.sourceSelector.config.minSnr = 0
 
     def tearDown(self):
         del self.srcSet

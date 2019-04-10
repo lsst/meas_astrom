@@ -101,7 +101,13 @@ class TestMatchPessimisticB(unittest.TestCase):
     def singleTestInstance(self, filename, distortFunc, doPlot=False):
         sourceCat = self.loadSourceCatalog(self.filename)
         refCat = self.computePosRefCatalog(sourceCat)
-        distortedCat = distort.distortList(sourceCat, distortFunc)
+
+        # Apply source selector to sourceCat, using the astrometry config defaults
+        tempConfig = measAstrom.AstrometryTask.ConfigClass()
+        tempSolver = measAstrom.AstrometryTask(config=tempConfig, refObjLoader=None)
+        sourceSelection = tempSolver.sourceSelector.run(sourceCat)
+
+        distortedCat = distort.distortList(sourceSelection.sourceCat, distortFunc)
 
         if doPlot:
             import matplotlib.pyplot as plt
@@ -128,6 +134,7 @@ class TestMatchPessimisticB(unittest.TestCase):
             refCat=refCat,
             sourceCat=sourceCat,
             wcs=self.distortedWcs,
+            sourceFluxField='slot_ApFlux_instFlux',
             refFluxField="r_flux",
         )
         matches = matchRes.matches
@@ -165,7 +172,13 @@ class TestMatchPessimisticB(unittest.TestCase):
         """
         sourceCat = self.loadSourceCatalog(self.filename)
         refCat = self.computePosRefCatalog(sourceCat)
-        distortedCat = distort.distortList(sourceCat, distort.linearXDistort)
+
+        # Apply source selector to sourceCat, using the astrometry config defaults
+        tempConfig = measAstrom.AstrometryTask.ConfigClass()
+        tempSolver = measAstrom.AstrometryTask(config=tempConfig, refObjLoader=None)
+        sourceSelection = tempSolver.sourceSelector.run(sourceCat)
+
+        distortedCat = distort.distortList(sourceSelection.sourceCat, distort.linearXDistort)
 
         sourceCat = distortedCat
 
@@ -173,6 +186,7 @@ class TestMatchPessimisticB(unittest.TestCase):
             refCat=refCat,
             sourceCat=sourceCat,
             wcs=self.distortedWcs,
+            sourceFluxField='slot_ApFlux_instFlux',
             refFluxField="r_flux",
         )
 
@@ -192,6 +206,7 @@ class TestMatchPessimisticB(unittest.TestCase):
             refCat=refCat,
             sourceCat=sourceCat,
             wcs=self.distortedWcs,
+            sourceFluxField='slot_ApFlux_instFlux',
             refFluxField="r_flux",
             match_tolerance=matchTol,
         )
@@ -209,20 +224,27 @@ class TestMatchPessimisticB(unittest.TestCase):
         """Test sub-selecting reference objects by flux."""
         sourceCat = self.loadSourceCatalog(self.filename)
         refCat = self.computePosRefCatalog(sourceCat)
-        distortedCat = distort.distortList(sourceCat, distort.linearXDistort)
+
+        # Apply source selector to sourceCat, using the astrometry config defaults
+        tempConfig = measAstrom.AstrometryTask.ConfigClass()
+        tempSolver = measAstrom.AstrometryTask(config=tempConfig, refObjLoader=None)
+        sourceSelection = tempSolver.sourceSelector.run(sourceCat)
+
+        distortedCat = distort.distortList(sourceSelection.sourceCat, distort.linearXDistort)
 
         matchPessConfig = measAstrom.MatchPessimisticBTask.ConfigClass()
         matchPessConfig.maxRefObjects = 150
         matchPessConfig.minMatchDistPixels = 5.0
 
         matchPess = measAstrom.MatchPessimisticBTask(config=matchPessConfig)
-        trimedRefCat = matchPess._filterRefCat(refCat, 'r_flux')
-        self.assertEqual(len(trimedRefCat), matchPessConfig.maxRefObjects)
+        trimmedRefCat = matchPess._filterRefCat(refCat, 'r_flux')
+        self.assertEqual(len(trimmedRefCat), matchPessConfig.maxRefObjects)
 
         matchRes = matchPess.matchObjectsToSources(
             refCat=refCat,
             sourceCat=distortedCat,
             wcs=self.distortedWcs,
+            sourceFluxField='slot_ApFlux_instFlux',
             refFluxField="r_flux",
         )
 

@@ -29,7 +29,8 @@ from lsst.daf.base import DateTime
 import lsst.afw.math as afwMath
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
-from lsst.meas.algorithms import ScienceSourceSelectorTask, ReferenceSourceSelectorTask
+from lsst.meas.algorithms import ReferenceSourceSelectorTask
+from lsst.meas.algorithms.sourceSelector import sourceSelectorRegistry
 from .matchPessimisticB import MatchPessimisticBTask
 from .display import displayAstrometry
 from . import makeMatchStatistics
@@ -48,10 +49,28 @@ class RefMatchConfig(pexConfig.Config):
         default=2,
         min=0,
     )
-    sourceSelection = pexConfig.ConfigurableField(target=ScienceSourceSelectorTask,
-                                                  doc="Selection of science sources")
-    referenceSelection = pexConfig.ConfigurableField(target=ReferenceSourceSelectorTask,
-                                                     doc="Selection of reference sources")
+    sourceSelector = sourceSelectorRegistry.makeField(
+        doc="How to select sources for cross-matching.",
+        default="science",
+    )
+    referenceSelector = pexConfig.ConfigurableField(
+        target=ReferenceSourceSelectorTask,
+        doc="How to select reference objects for cross-matching."
+    )
+    sourceFluxType = pexConfig.Field(
+        dtype=str,
+        doc="Source flux type to use in source selection.",
+        default='Calib'
+    )
+
+    def setDefaults(self):
+        self.sourceSelector.name = "science"
+        self.sourceSelector['science'].fluxLimit.fluxField = \
+            'slot_%sFlux_instFlux' % (self.sourceFluxType)
+        self.sourceSelector['science'].SignalToNoiseLimit.fluxField = \
+            'slot_%sFlux_instFlux' % (self.sourceFluxType)
+        self.sourceSelector['science'].SignalToNoiseLimit.errField = \
+            'slot_%sFlux_instFluxErr' % (self.sourceFluxType)
 
 
 class RefMatchTask(pipeBase.Task):
@@ -73,9 +92,15 @@ class RefMatchTask(pipeBase.Task):
             self.refObjLoader = refObjLoader
         else:
             self.refObjLoader = None
+
+        if self.config.sourceSelector.name == 'matcher':
+            if self.config.sourceSelector['matcher'].sourceFluxType != self.config.sourceFluxType:
+                raise RuntimeError("The sourceFluxType in the sourceSelector['matcher'] must match "
+                                   "the configured sourceFluxType")
+
         self.makeSubtask("matcher")
-        self.makeSubtask("sourceSelection")
-        self.makeSubtask("referenceSelection")
+        self.makeSubtask("sourceSelector")
+        self.makeSubtask("referenceSelector")
 
     def setRefObjLoader(self, refObjLoader):
         """Sets the reference object loader for the task
@@ -122,7 +147,9 @@ class RefMatchTask(pipeBase.Task):
 
         expMd = self._getExposureMetadata(exposure)
 
-        sourceSelection = self.sourceSelection.run(sourceCat)
+        sourceSelection = self.sourceSelector.run(sourceCat)
+
+        sourceFluxField = "slot_%sFlux_instFlux" % (self.config.sourceFluxType)
 
         loadRes = self.refObjLoader.loadPixelBox(
             bbox=expMd.bbox,
@@ -131,7 +158,7 @@ class RefMatchTask(pipeBase.Task):
             photoCalib=expMd.photoCalib,
         )
 
-        refSelection = self.referenceSelection.run(loadRes.refCat)
+        refSelection = self.referenceSelector.run(loadRes.refCat)
 
         matchMeta = self.refObjLoader.getMetadataBox(
             bbox=expMd.bbox,
@@ -144,6 +171,7 @@ class RefMatchTask(pipeBase.Task):
             refCat=refSelection.sourceCat,
             sourceCat=sourceSelection.sourceCat,
             wcs=expMd.wcs,
+            sourceFluxField=sourceFluxField,
             refFluxField=loadRes.fluxField,
             match_tolerance=None,
         )
