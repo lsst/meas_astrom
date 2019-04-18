@@ -223,9 +223,10 @@ class AstrometryTask(RefMatchTask):
         for i in range(self.config.maxIter):
             iterNum = i + 1
             try:
-                tryRes = self._matchAndFitWcs(  # refCat, sourceCat, refFluxField, bbox, wcs, exposure=None
+                tryRes = self._matchAndFitWcs(
                     refCat=refSelection.sourceCat,
-                    sourceCat=sourceSelection.sourceCat,
+                    sourceCat=sourceCat,
+                    goodSourceCat=sourceSelection.sourceCat,
                     refFluxField=loadRes.fluxField,
                     bbox=expMd.bbox,
                     wcs=wcs,
@@ -278,7 +279,7 @@ class AstrometryTask(RefMatchTask):
         )
 
     @pipeBase.timeMethod
-    def _matchAndFitWcs(self, refCat, sourceCat, refFluxField, bbox, wcs, match_tolerance,
+    def _matchAndFitWcs(self, refCat, sourceCat, goodSourceCat, refFluxField, bbox, wcs, match_tolerance,
                         exposure=None):
         """Match sources to reference objects and fit a WCS.
 
@@ -288,6 +289,8 @@ class AstrometryTask(RefMatchTask):
             catalog of reference objects
         sourceCat : `lsst.afw.table.SourceCatalog`
             catalog of sources detected on the exposure
+        goodSourceCat : `lsst.afw.table.SourceCatalog`
+            catalog of down-selected good sources detected on the exposure
         refFluxField : 'str'
             field of refCat to use for flux
         bbox : `lsst.geom.Box2I`
@@ -320,7 +323,7 @@ class AstrometryTask(RefMatchTask):
 
         matchRes = self.matcher.matchObjectsToSources(
             refCat=refCat,
-            sourceCat=sourceCat,
+            sourceCat=goodSourceCat,
             wcs=wcs,
             sourceFluxField=sourceFluxField,
             refFluxField=refFluxField,
