@@ -39,7 +39,7 @@ class FitTanSipWcsConfig(pexConfig.Config):
     order = pexConfig.RangeField(
         doc="order of SIP polynomial",
         dtype=int,
-        default=4,
+        default=2,
         min=0,
     )
     numIter = pexConfig.RangeField(
