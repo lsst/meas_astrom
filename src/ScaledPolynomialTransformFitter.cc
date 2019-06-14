@@ -95,10 +95,8 @@ private:
                       schema, "model", "result of applying transform to reference positions", "pix")),
               outputErr(
                       afw::table::CovarianceMatrixKey<float, 2>::addFields(schema, "src", {"x", "y"}, "pix")),
-              rejected(schema.addField<std::uint16_t>("rejected",
-                                                      "True if the match should be rejected from the fit.")) {
-        schema.getCitizen().markPersistent();
-    }
+              rejected(schema.addField<std::uint16_t>(
+                      "rejected", "True if the match should be rejected from the fit.")) {}
 
     Keys()
             : schema(),
@@ -107,9 +105,7 @@ private:
               input(afw::table::Point2DKey::addFields(schema, "input",
                                                       "grid input positions in pixel coordinates.", "pix")),
               model(afw::table::Point2DKey::addFields(
-                      schema, "model", "result of applying transform to input positions", "deg")) {
-        schema.getCitizen().markPersistent();
-    }
+                      schema, "model", "result of applying transform to input positions", "deg")) {}
 };
 
 namespace {
