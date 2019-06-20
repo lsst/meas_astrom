@@ -150,7 +150,8 @@ class TestMatchOptimisticB(unittest.TestCase):
     def computePosRefCatalog(self, sourceCat):
         """Generate a position reference catalog from a source catalog
         """
-        minimalPosRefSchema = LoadReferenceObjectsTask.makeMinimalSchema(filterNameList=["r"])
+        minimalPosRefSchema = LoadReferenceObjectsTask.makeMinimalSchema(filterNameList=["r"],
+                                                                         addCentroid=True)
         refCat = afwTable.SimpleCatalog(minimalPosRefSchema)
         for source in sourceCat:
             refObj = refCat.addNew()
