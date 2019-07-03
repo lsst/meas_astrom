@@ -36,6 +36,7 @@ from .setMatchDistance import *
 from .display import *
 from .approximateWcs import *
 from .directMatch import *
+from .fitAffineWcs import *
 from .fitTanSipWcs import *
 from .fitSipDistortion import *
 from .denormalizeMatches import *
