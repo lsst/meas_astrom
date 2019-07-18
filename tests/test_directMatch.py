@@ -29,7 +29,7 @@ import numpy as np
 
 import lsst.utils.tests
 import lsst.meas.astrom
-import lsst.afw.geom
+import lsst.geom
 
 from lsst.daf.persistence import Butler
 from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
@@ -44,8 +44,8 @@ class DirectMatchTestCase(lsst.utils.tests.TestCase):
         np.random.seed(12345)
         self.butler = Butler(RefCatDir)
         refObjLoader = LoadIndexedReferenceObjectsTask(butler=self.butler)
-        center = lsst.afw.geom.SpherePoint(215.5, 53.0, lsst.afw.geom.degrees)
-        radius = 0.5*lsst.afw.geom.degrees
+        center = lsst.geom.SpherePoint(215.5, 53.0, lsst.geom.degrees)
+        radius = 0.5*lsst.geom.degrees
         self.filter = "r"
         self.references = refObjLoader.loadSkyCircle(center, radius, self.filter).refCat
 
@@ -77,7 +77,7 @@ class DirectMatchTestCase(lsst.utils.tests.TestCase):
     def testWithNoise(self):
         """Match the reference catalog against a noised version of itself"""
         references = self.references.copy(True)
-        offset = (0.1*lsst.afw.geom.arcseconds).asRadians()
+        offset = (0.1*lsst.geom.arcseconds).asRadians()
         num = len(references)
         ra, dec = references["coord_ra"], references["coord_dec"]
         cosDec = np.cos(dec.mean())

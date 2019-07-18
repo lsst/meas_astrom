@@ -22,7 +22,6 @@
 import sys
 import unittest
 
-import lsst.afw.geom
 import lsst.afw.table
 
 from lsst.geom import degrees
