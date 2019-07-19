@@ -6,7 +6,7 @@ from lsst.pipe.base import Task, Struct
 from lsst.meas.algorithms import (LoadIndexedReferenceObjectsTask, ScienceSourceSelectorTask,
                                   ReferenceSourceSelectorTask)
 import lsst.afw.table as afwTable
-from lsst.afw.geom import arcseconds, averageSpherePoint
+from lsst.geom import arcseconds, averageSpherePoint
 
 
 class DirectMatchConfigWithoutLoader(Config):

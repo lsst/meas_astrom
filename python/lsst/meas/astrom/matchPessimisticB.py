@@ -4,7 +4,7 @@ from scipy.spatial import cKDTree
 
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
-import lsst.afw.geom as afwgeom
+import lsst.geom as geom
 import lsst.afw.table as afwTable
 
 from .matchOptimisticBTask import MatchTolerance
@@ -397,8 +397,8 @@ class MatchPessimisticBTask(pipeBase.Task):
                 wcs.getPixelScale().asArcseconds(),
                 np.min((maxMatchDistArcSecSrc,
                         maxMatchDistArcSecRef))))
-            match_tolerance.autoMaxMatchDist = afwgeom.Angle(
-                maxMatchDistArcSec, afwgeom.arcseconds)
+            match_tolerance.autoMaxMatchDist = geom.Angle(
+                maxMatchDistArcSec, geom.arcseconds)
 
         # Set configurable defaults when we encounter None type or set
         # state based on previous run of AstrometryTask._matchAndFitWcs.
@@ -492,7 +492,7 @@ class MatchPessimisticBTask(pipeBase.Task):
                 # Match found, save a bit a state regarding this pattern
                 # in the match tolerance class object and exit.
                 match_tolerance.maxShift = \
-                    matcher_struct.shift * afwgeom.arcseconds
+                    matcher_struct.shift * geom.arcseconds
                 match_tolerance.lastMatchedPattern = \
                     matcher_struct.pattern_idx
                 match_found = True

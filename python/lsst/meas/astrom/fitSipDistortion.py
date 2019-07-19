@@ -24,6 +24,7 @@ __all__ = ["FitSipDistortionTask", "FitSipDistortionConfig"]
 
 import lsst.sphgeom
 import lsst.pipe.base
+import lsst.geom
 import lsst.afw.image
 import lsst.afw.geom
 import lsst.afw.display
@@ -165,13 +166,13 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
         displayPause = lsstDebug.Info(__name__).pause
 
         if bbox is None:
-            bbox = lsst.afw.geom.Box2D()
+            bbox = lsst.geom.Box2D()
             for match in matches:
                 bbox.include(match.second.getCentroid())
-            bbox = lsst.afw.geom.Box2I(bbox)
+            bbox = lsst.geom.Box2I(bbox)
 
         wcs = self.makeInitialWcs(matches, initWcs)
-        cdMatrix = lsst.afw.geom.LinearTransform(wcs.getCdMatrix())
+        cdMatrix = lsst.geom.LinearTransform(wcs.getCdMatrix())
 
         # Fit the "reverse" mapping from intermediate world coordinates to
         # pixels, rejecting outliers. Fitting in this direction first makes it
@@ -207,15 +208,15 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
         # world coordinates, and we don't have a good way to get from pixels to
         # intermediate world coordinates yet (that's what we're fitting), we'll
         # first grow the box to make it conservatively large...
-        gridBBoxPix = lsst.afw.geom.Box2D(bbox)
+        gridBBoxPix = lsst.geom.Box2D(bbox)
         gridBBoxPix.grow(self.config.gridBorder)
         # ...and then we'll transform using just the CRPIX offset and CD matrix
         # linear transform, which is the TAN-only (no SIP distortion, and
         # hence approximate) mapping from pixels to intermediate world
         # coordinates.
-        gridBBoxIwc = lsst.afw.geom.Box2D()
+        gridBBoxIwc = lsst.geom.Box2D()
         for point in gridBBoxPix.getCorners():
-            point -= lsst.afw.geom.Extent2D(wcs.getPixelOrigin())
+            point -= lsst.geom.Extent2D(wcs.getPixelOrigin())
             gridBBoxIwc.include(cdMatrix(point))
         fwdFitter = ScaledPolynomialTransformFitter.fromGrid(self.config.order, gridBBoxIwc,
                                                              self.config.nGridX, self.config.nGridY,
@@ -247,7 +248,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
         setMatchDistance(matches)
 
         stats = makeMatchStatisticsInRadians(wcs, matches, lsst.afw.math.MEDIAN)
-        scatterOnSky = stats.getValue()*lsst.afw.geom.radians
+        scatterOnSky = stats.getValue()*lsst.geom.radians
 
         if scatterOnSky.asArcseconds() > self.config.maxScatterArcsec:
             raise lsst.pipe.base.TaskError(
@@ -341,15 +342,15 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
         newWcs : `lsst.afw.geom.SkyWcs`
             A new WCS guess.
         """
-        crpix = lsst.afw.geom.Extent2D(0, 0)
+        crpix = lsst.geom.Extent2D(0, 0)
         crval = lsst.sphgeom.Vector3d(0, 0, 0)
         for mm in matches:
-            crpix += lsst.afw.geom.Extent2D(mm.second.getCentroid())
+            crpix += lsst.geom.Extent2D(mm.second.getCentroid())
             crval += mm.first.getCoord().getVector()
         crpix /= len(matches)
         crval /= len(matches)
         cd = wcs.getCdMatrix()
-        newWcs = lsst.afw.geom.makeSkyWcs(crpix=lsst.afw.geom.Point2D(crpix),
-                                          crval=lsst.afw.geom.SpherePoint(crval),
+        newWcs = lsst.afw.geom.makeSkyWcs(crpix=lsst.geom.Point2D(crpix),
+                                          crval=lsst.geom.SpherePoint(crval),
                                           cdMatrix=cd)
         return newWcs

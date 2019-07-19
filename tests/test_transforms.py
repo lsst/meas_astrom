@@ -27,6 +27,7 @@ import numpy as np
 
 import lsst.utils.tests
 import lsst.pex.exceptions
+import lsst.geom
 import lsst.afw.geom
 import lsst.afw.image
 import lsst.afw.math
@@ -52,9 +53,9 @@ def makeRandomCoefficientMatrix(n):
 
 
 def makeRandomAffineTransform():
-    return lsst.afw.geom.AffineTransform(
-        lsst.afw.geom.LinearTransform(np.random.randn(2, 2)),
-        lsst.afw.geom.Extent2D(*np.random.randn(2))
+    return lsst.geom.AffineTransform(
+        lsst.geom.LinearTransform(np.random.randn(2, 2)),
+        lsst.geom.Extent2D(*np.random.randn(2))
     )
 
 
@@ -81,15 +82,15 @@ def makeRandomScaledPolynomialTransform(order):
 
 def makeRandomSipForwardTransform(order):
     return SipForwardTransform(
-        lsst.afw.geom.Point2D(*np.random.randn(2)),
-        lsst.afw.geom.LinearTransform(np.random.randn(2, 2)),
+        lsst.geom.Point2D(*np.random.randn(2)),
+        lsst.geom.LinearTransform(np.random.randn(2, 2)),
         makeRandomPolynomialTransform(order, sip=True)
     )
 
 
 def makeRandomSipReverseTransform(order):
-    origin = lsst.afw.geom.Point2D(*np.random.randn(2))
-    cd = lsst.afw.geom.LinearTransform(np.random.randn(2, 2))
+    origin = lsst.geom.Point2D(*np.random.randn(2))
+    cd = lsst.geom.LinearTransform(np.random.randn(2, 2))
     poly = makeRandomPolynomialTransform(order, sip=False)
     return SipReverseTransform(origin, cd, poly)
 
@@ -107,7 +108,7 @@ class TransformTestMixin:
         bArr = []
         for i in range(10):
             xy = rangeval * np.random.rand(2) - minval
-            point = lsst.afw.geom.Point2D(*xy)
+            point = lsst.geom.Point2D(*xy)
             aArr.append(list(a(point)))
             bArr.append(list(b(point)))
         self.assertFloatsAlmostEqual(np.array(aArr), np.array(bArr), atol=atol, rtol=rtol)
@@ -117,12 +118,12 @@ class TransformTestMixin:
         to the transform at the expansion point, and matches finite differences.
         """
         transform = self.makeRandom()
-        point = lsst.afw.geom.Point2D(*np.random.randn(2))
+        point = lsst.geom.Point2D(*np.random.randn(2))
         affine = transform.linearize(point)
         self.assertFloatsAlmostEqual(np.array(transform(point)), np.array(affine(point)), rtol=1E-14)
         delta = 1E-4
-        deltaX = lsst.afw.geom.Extent2D(delta, 0.0)
-        deltaY = lsst.afw.geom.Extent2D(0.0, delta)
+        deltaX = lsst.geom.Extent2D(delta, 0.0)
+        deltaY = lsst.geom.Extent2D(0.0, delta)
         dtdx = (transform(point + deltaX) - transform(point - deltaX)) / (2*delta)
         dtdy = (transform(point + deltaY) - transform(point - deltaY)) / (2*delta)
         self.assertFloatsAlmostEqual(affine[affine.XX], dtdx.getX(), rtol=1E-6)
@@ -195,17 +196,17 @@ class PolynomialTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         into an equivalent PolynomialTransform.
         """
         poly = makeRandomPolynomialTransform(4)
-        affine = lsst.afw.geom.AffineTransform(
-            lsst.afw.geom.LinearTransform(np.random.randn(2, 2)),
-            lsst.afw.geom.Extent2D(*np.random.randn(2))
+        affine = lsst.geom.AffineTransform(
+            lsst.geom.LinearTransform(np.random.randn(2, 2)),
+            lsst.geom.Extent2D(*np.random.randn(2))
         )
         composed1 = lsst.meas.astrom.compose(poly, affine)
         composed2 = lsst.meas.astrom.compose(affine, poly)
         self.assertTransformsAlmostEqual(composed1, lambda p: poly(affine(p)))
         self.assertTransformsAlmostEqual(composed2, lambda p: affine(poly(p)))
         # Test that composition with an identity transform is a no-op
-        composed3 = lsst.meas.astrom.compose(poly, lsst.afw.geom.AffineTransform())
-        composed4 = lsst.meas.astrom.compose(lsst.afw.geom.AffineTransform(), poly)
+        composed3 = lsst.meas.astrom.compose(poly, lsst.geom.AffineTransform())
+        composed4 = lsst.meas.astrom.compose(lsst.geom.AffineTransform(), poly)
         self.assertFloatsAlmostEqual(composed3.getXCoeffs(), poly.getXCoeffs())
         self.assertFloatsAlmostEqual(composed3.getYCoeffs(), poly.getYCoeffs())
         self.assertFloatsAlmostEqual(composed4.getXCoeffs(), poly.getXCoeffs())
@@ -262,25 +263,25 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
 
     def testConstruction(self):
         poly = makeRandomPolynomialTransform(4, sip=True)
-        cd = lsst.afw.geom.LinearTransform(np.random.randn(2, 2))
-        crpix = lsst.afw.geom.Point2D(*np.random.randn(2))
+        cd = lsst.geom.LinearTransform(np.random.randn(2, 2))
+        crpix = lsst.geom.Point2D(*np.random.randn(2))
         sip = SipForwardTransform(crpix, cd, poly)
         self.assertTransformsAlmostEqual(
             sip,
-            lambda p: cd((p - crpix) + poly(lsst.afw.geom.Point2D(p - crpix)))
+            lambda p: cd((p - crpix) + poly(lsst.geom.Point2D(p - crpix)))
         )
 
     def testConvertPolynomial(self):
         poly = makeRandomPolynomialTransform(4)
-        cd = lsst.afw.geom.LinearTransform(np.random.randn(2, 2))
-        crpix = lsst.afw.geom.Point2D(*np.random.randn(2))
+        cd = lsst.geom.LinearTransform(np.random.randn(2, 2))
+        crpix = lsst.geom.Point2D(*np.random.randn(2))
         sip = lsst.meas.astrom.SipForwardTransform.convert(poly, crpix, cd)
         self.assertTransformsAlmostEqual(sip, poly)
 
     def testConvertScaledPolynomialManual(self):
         scaled = makeRandomScaledPolynomialTransform(4)
-        cd = lsst.afw.geom.LinearTransform(np.random.randn(2, 2))
-        crpix = lsst.afw.geom.Point2D(*np.random.randn(2))
+        cd = lsst.geom.LinearTransform(np.random.randn(2, 2))
+        crpix = lsst.geom.Point2D(*np.random.randn(2))
         sip = lsst.meas.astrom.SipForwardTransform.convert(scaled, crpix, cd)
         self.assertTransformsAlmostEqual(sip, scaled)
 
@@ -306,15 +307,15 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         # We're building an ICRS-based TAN-SIP using coefficients read from metadata
         # so ignore the RADESYS in metadata (which is missing anyway, falling back to FK5)
         sipMetadata.set("RADESYS", "ICRS")
-        crpix = lsst.afw.geom.Point2D(
+        crpix = lsst.geom.Point2D(
             sipMetadata.getScalar("CRPIX1") - 1,
             sipMetadata.getScalar("CRPIX2") - 1,
         )
-        crval = lsst.afw.geom.SpherePoint(
+        crval = lsst.geom.SpherePoint(
             sipMetadata.getScalar("CRVAL1"),
-            sipMetadata.getScalar("CRVAL2"), lsst.afw.geom.degrees,
+            sipMetadata.getScalar("CRVAL2"), lsst.geom.degrees,
         )
-        cdLinearTransform = lsst.afw.geom.LinearTransform(getCdMatrixFromMetadata(sipMetadata))
+        cdLinearTransform = lsst.geom.LinearTransform(getCdMatrixFromMetadata(sipMetadata))
         aArr = getSipMatrixFromMetadata(sipMetadata, "A")
         bArr = getSipMatrixFromMetadata(sipMetadata, "B")
         apArr = getSipMatrixFromMetadata(sipMetadata, "AP")
@@ -357,7 +358,7 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
 
         # Check a WCS constructed from SipForwardTransform, SipReverseTransform
         # against one constructed directly from the metadata
-        bbox = lsst.afw.geom.Box2D(lsst.afw.geom.Point2D(0, 0), lsst.afw.geom.Extent2D(2000, 2000))
+        bbox = lsst.geom.Box2D(lsst.geom.Point2D(0, 0), lsst.geom.Extent2D(2000, 2000))
         self.assertWcsAlmostEqualOverBBox(wcsFromMakeWcs, wcsFromMetadata, bbox)
 
     def testTransformWcsPixels(self):
@@ -366,27 +367,27 @@ class SipForwardTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
         wcs1 = lsst.afw.geom.makeSkyWcs(readMetadata(filename))
         s = makeRandomAffineTransform()
         wcs2 = transformWcsPixels(wcs1, s)
-        crvalDeg = wcs1.getSkyOrigin().getPosition(lsst.afw.geom.degrees)
+        crvalDeg = wcs1.getSkyOrigin().getPosition(lsst.geom.degrees)
 
         def t1a(p):
-            raDeg, decDeg = crvalDeg + lsst.afw.geom.Extent2D(p)
-            sky = lsst.afw.geom.SpherePoint(raDeg, decDeg, lsst.afw.geom.degrees)
+            raDeg, decDeg = crvalDeg + lsst.geom.Extent2D(p)
+            sky = lsst.geom.SpherePoint(raDeg, decDeg, lsst.geom.degrees)
             return s(wcs1.skyToPixel(sky))
 
         def t2a(p):
-            raDeg, decDeg = crvalDeg + lsst.afw.geom.Extent2D(p)
-            sky = lsst.afw.geom.SpherePoint(raDeg, decDeg, lsst.afw.geom.degrees)
+            raDeg, decDeg = crvalDeg + lsst.geom.Extent2D(p)
+            sky = lsst.geom.SpherePoint(raDeg, decDeg, lsst.geom.degrees)
             return wcs2.skyToPixel(sky)
 
         self.assertTransformsAlmostEqual(t1a, t2a)
 
         def t1b(p):
             sky = wcs1.pixelToSky(s.inverted()(p))
-            return sky.getPosition(lsst.afw.geom.degrees)
+            return sky.getPosition(lsst.geom.degrees)
 
         def t2b(p):
             sky = wcs2.pixelToSky(p)
-            return sky.getPosition(lsst.afw.geom.degrees)
+            return sky.getPosition(lsst.geom.degrees)
 
         self.assertTransformsAlmostEqual(t1b, t2b)
 
@@ -448,27 +449,27 @@ class SipReverseTransformTestCase(lsst.utils.tests.TestCase, TransformTestMixin)
 
     def testConstruction(self):
         poly = makeRandomPolynomialTransform(4)
-        cd = lsst.afw.geom.LinearTransform(np.random.randn(2, 2))
-        crpix = lsst.afw.geom.Point2D(*np.random.randn(2))
+        cd = lsst.geom.LinearTransform(np.random.randn(2, 2))
+        crpix = lsst.geom.Point2D(*np.random.randn(2))
         sip = SipReverseTransform(crpix, cd, poly)
-        offset = lsst.afw.geom.Extent2D(crpix)
+        offset = lsst.geom.Extent2D(crpix)
         cdInverse = cd.inverted()
         self.assertTransformsAlmostEqual(
             sip,
-            lambda p: offset + lsst.afw.geom.Extent2D(cdInverse(p)) + poly(cdInverse(p))
+            lambda p: offset + lsst.geom.Extent2D(cdInverse(p)) + poly(cdInverse(p))
         )
 
     def testConvertPolynomial(self):
         poly = makeRandomPolynomialTransform(4)
-        cd = lsst.afw.geom.LinearTransform(np.random.randn(2, 2))
-        crpix = lsst.afw.geom.Point2D(*np.random.randn(2))
+        cd = lsst.geom.LinearTransform(np.random.randn(2, 2))
+        crpix = lsst.geom.Point2D(*np.random.randn(2))
         sip = lsst.meas.astrom.SipReverseTransform.convert(poly, crpix, cd)
         self.assertTransformsAlmostEqual(sip, poly)
 
     def testConvertScaledPolynomialManual(self):
         scaled = makeRandomScaledPolynomialTransform(4)
-        cd = lsst.afw.geom.LinearTransform(np.random.randn(2, 2))
-        crpix = lsst.afw.geom.Point2D(*np.random.randn(2))
+        cd = lsst.geom.LinearTransform(np.random.randn(2, 2))
+        crpix = lsst.geom.Point2D(*np.random.randn(2))
         sip = lsst.meas.astrom.SipReverseTransform.convert(scaled, crpix, cd)
         self.assertTransformsAlmostEqual(sip, scaled)
 
@@ -495,13 +496,13 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
         # Setup artifical matches that correspond to a known (random) PolynomialTransform.
         order = 3
         truePoly = makeRandomPolynomialTransform(order)
-        crval = lsst.afw.geom.SpherePoint(35.0, 10.0, lsst.afw.geom.degrees)
-        crpix = lsst.afw.geom.Point2D(50, 50)
-        cd = lsst.afw.geom.LinearTransform.makeScaling((0.2*lsst.afw.geom.arcseconds).asDegrees()).getMatrix()
+        crval = lsst.geom.SpherePoint(35.0, 10.0, lsst.geom.degrees)
+        crpix = lsst.geom.Point2D(50, 50)
+        cd = lsst.geom.LinearTransform.makeScaling((0.2*lsst.geom.arcseconds).asDegrees()).getMatrix()
         initialWcs = lsst.afw.geom.makeSkyWcs(crpix=crpix, crval=crval, cdMatrix=cd)
-        bbox = lsst.afw.geom.Box2D(
-            crval.getPosition(lsst.afw.geom.arcseconds) - lsst.afw.geom.Extent2D(20, 20),
-            crval.getPosition(lsst.afw.geom.arcseconds) + lsst.afw.geom.Extent2D(20, 20),
+        bbox = lsst.geom.Box2D(
+            crval.getPosition(lsst.geom.arcseconds) - lsst.geom.Extent2D(20, 20),
+            crval.getPosition(lsst.geom.arcseconds) + lsst.geom.Extent2D(20, 20),
         )
         srcSchema = lsst.afw.table.SourceTable.makeMinimalSchema()
         srcPosKey = lsst.afw.table.Point2DKey.addFields(srcSchema, "pos", "source position", "pix")
@@ -525,7 +526,7 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
                 np.random.uniform(low=bbox.getMinX(), high=bbox.getMaxX()),
                 np.random.uniform(low=bbox.getMinY(), high=bbox.getMaxY()),
             )
-            skyCoord = lsst.afw.geom.SpherePoint(raDeg, decDeg, lsst.afw.geom.arcseconds)
+            skyCoord = lsst.geom.SpherePoint(raDeg, decDeg, lsst.geom.arcseconds)
             refRec.set(refCoordKey, skyCoord)
             trueRec = trueSrc.addNew()
             truePos = truePoly(initialIwcToSky.applyInverse(skyCoord))
@@ -552,8 +553,8 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
         dataOutKey = lsst.afw.table.Point2DKey(data.schema["src"])
         dataInKey = lsst.afw.table.Point2DKey(data.schema["intermediate"])
         dataErrKey = lsst.afw.table.CovarianceMatrix2fKey(data.schema["src"], ["x", "y"])
-        scaledInBBox = lsst.afw.geom.Box2D()
-        scaledOutBBox = lsst.afw.geom.Box2D()
+        scaledInBBox = lsst.geom.Box2D()
+        scaledOutBBox = lsst.geom.Box2D()
         vandermonde = np.zeros((nPoints, (order + 1)*(order + 2)//2), dtype=float)
         for i, (match, dataRec, trueRec) in enumerate(zip(matches, data, trueSrc)):
             self.assertEqual(match.second.getX(), dataRec.get("src_x"))
@@ -600,7 +601,7 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
         outOrder = 8
         inOrder = 2
         toInvert = makeRandomScaledPolynomialTransform(inOrder)
-        bbox = lsst.afw.geom.Box2D(lsst.afw.geom.Point2D(432, -671), lsst.afw.geom.Point2D(527, -463))
+        bbox = lsst.geom.Box2D(lsst.geom.Point2D(432, -671), lsst.geom.Point2D(527, -463))
         fitter = ScaledPolynomialTransformFitter.fromGrid(outOrder, bbox, 50, 50, toInvert)
         fitter.fit(outOrder)
         fitter.updateModel()
