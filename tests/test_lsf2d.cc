@@ -20,11 +20,10 @@
  * see <http://www.lsstcorp.org/LegalNotices/>.
  */
 
-#define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE testlsf2d
 
 // The boost unit test header
-#include "boost/test/unit_test.hpp"
+#include "boost/test/included/unit_test.hpp"
 
 using namespace std;
 
