@@ -34,6 +34,7 @@ import lsst.pipe.base as pipeBase
 import lsst.sphgeom as sphgeom
 
 from .makeMatchStatistics import makeMatchStatisticsInRadians
+from .setMatchDistance import setMatchDistance
 
 
 def _chi_func(x, ref_points, src_pixels, wcs_maker):
@@ -162,11 +163,13 @@ class FitAffineWcsTask(pipeBase.Task):
             src_pixels.append(src_centroid)
             src_coord = initWcs.pixelToSky(src_centroid)
             offset_dir += src_coord.bearingTo(ref_coord).asDegrees()
-            offset_dist += src_coord.separation(ref_coord).asArcminutes()
+            offset_dist += src_coord.separation(ref_coord).asArcseconds()
         offset_dir /= len(src_pixels)
         offset_dist /= len(src_pixels)
         if offset_dir > 180:
             offset_dir = offset_dir - 360
+        self.log.debug("Initial guess: Direction: %.3f, Dist %.3f..." %\
+                       (offset_dir, offset_dist))
 
         # Best performing fitter in scipy tried so far (vs. default settings in
         # minimize). Fits all current test cases with a scatter of a most 0.15
@@ -178,11 +181,15 @@ class FitAffineWcsTask(pipeBase.Task):
                                   src_pixels,
                                   wcs_maker),
                             method='dogbox',
-                            bounds=[[-180, 0, -np.inf, -np.inf, -np.inf, -np.inf],
-                                    [180, np.inf, np.inf, np.inf, np.inf, np.inf]],
+                            bounds=[[-360, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+                                    [360, np.inf, np.inf, np.inf, np.inf, np.inf]],
                             ftol=2.3e-16,
                             gtol=2.31e-16,
                             xtol=2.3e-16)
+        self.log.debug("Best fit: Direction: %.3f, Dist: %.3f, "
+                       "Affine matrix: [[%.6f, %.6f], [%.6f, %.6f]]..." %
+                       (fit.x[0], fit.x[1], 
+                        fit.x[2], fit.x[3], fit.x[4], fit.x[5]))
 
         wcs = wcs_maker.makeWcs(fit.x[:2], fit.x[2:].reshape((2, 2)))
 
@@ -206,11 +213,14 @@ class FitAffineWcsTask(pipeBase.Task):
             lsst.afw.table.updateSourceCoords(
                 wcs,
                 sourceList=[match.second for match in matches])
+        setMatchDistance(matches)
 
         stats = makeMatchStatisticsInRadians(wcs,
                                              matches,
                                              lsst.afw.math.MEDIAN)
         scatterOnSky = stats.getValue() * radians
+
+        self.log.debug("In fitter scatter %.4f" % scatterOnSky.asArcseconds())
 
         return lsst.pipe.base.Struct(
             wcs=wcs,
@@ -281,7 +291,7 @@ class TransformedSkyWcsMaker(object):
         iwcs_to_sky_wcs = makeSkyWcs(
             Point2D(0., 0.),
             self.origin.offset(crval_offset[0] * degrees,
-                               crval_offset[1] * arcminutes),
+                               crval_offset[1] * arcseconds),
             np.array([[1., 0.], [0., 1.]]))
         iwc_to_sky_map = iwcs_to_sky_wcs.getFrameDict().getMapping("PIXELS",
                                                                    "SKY")
