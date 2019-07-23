@@ -41,7 +41,7 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 from lsst.meas.algorithms import LoadReferenceObjectsTask
 from lsst.meas.base import SingleFrameMeasurementTask
-from lsst.meas.astrom import FitAffineWcsTask
+from lsst.meas.astrom import FitAffineWcsTask, TransformedSkyWcsMaker
 
 
 class BaseTestCase:
@@ -165,6 +165,32 @@ class BaseTestCase:
 
         self.checkResults(fitRes, catsUpdated=True)
 
+    def doTestAffine(self, name, offset, matrix):
+        """Apply func(x, y) to each source in self.sourceCat, then fit and
+        check the resulting WCS.
+        """
+        wcs_maker = TransformedSkyWcsMaker(self.tanWcs)
+
+        new_wcs = wcs_maker.makeWcs(offset, matrix)
+        bbox = lsst.geom.Box2I()
+        for refObj, src, d in self.matches:
+            origPos = src.get(self.srcCentroidKey)
+            origCoord = src.get(self.srcCoordKey)
+            new_coord = new_wcs.pixelToSky(origPos)
+            src.setCoord(new_coord)
+            bbox.include(lsst.geom.Point2I(lsst.geom.Point2I(origPos)))
+
+        fitter = FitAffineWcsTask()
+        fitRes = fitter.fitWcs(
+            matches=self.matches,
+            initWcs=new_wcs,
+            bbox=bbox,
+            refCat=self.refCat,
+            sourceCat=self.sourceCat,
+        )
+
+        self.checkResults(fitRes, catsUpdated=True)
+
 
 class SideLoadTestCases:
 
@@ -179,35 +205,30 @@ class SideLoadTestCases:
     def testOffset(self):
         """Add an offset"""
         self.doTest("testOffset", lambda x, y: (x + 5, y + 7))
-    
-    def testLinearX(self):
-        """Scale x, offset y"""
-        self.doTest("testLinearX", lambda x, y: (2*x, y + 7))
 
-    def testLinearXY(self):
-        """Scale x and y"""
-        self.doTest("testLinearXY", lambda x, y: (2*x, 3*y))
+    def testSkyOffset(self):
+        """Add an transform and offset"""
+        self.doTestAffine("testSkyOffset", [77, -200], np.array([[1.0, 0.0],
+                                                                 [0.0, 1.0]]))
 
-    def testLinearYX(self):
-        """Add an offset to each point; scale in y and x"""
-        self.doTest("testLinearYX", lambda x, y: (x + 0.2*y, y + 0.3*x))
+    def testAffine(self):
+        """Add an transform and offset"""
+        self.doTestAffine("testAffine", [0, 0], np.array([[1.1, 0.1],
+                                                          [-0.21, 2.0]]))
 
-    def testQuadraticX(self):
-       """Add quadratic distortion in x"""
-       self.doTest("testQuadraticX", lambda x, y: (x + 1e-5*x**2, y))
+    def testAffineShearAndScale(self):
+        """Add an transform and offset"""
+        self.doTestAffine("testAffine", [0, 0], np.array([[0.41, 0.1],
+                                                          [0.21, 2.0]]))
 
-    def testRadial(self):
-        """Add radial distortion"""
-        radialTransform = afwGeom.makeRadialTransform([0, 1.01, 1e-8])
+    def testAffineAndOffset(self):
+        """Add an transform and offset"""
+        self.doTestAffine("testAffineAndOffset", [30, 100], np.array([[0.5, 0.01],
+                                                                      [-0.2, 0.3]]))
 
-        def radialDistortion(x, y):
-            x, y = radialTransform.applyForward(lsst.geom.Point2D(x, y))
-            return (x, y)
-        self.doTest("testRadial", radialDistortion)
 
 # The test classes inherit from two base classes and differ in the match
 # class being used.
-
 
 class FitAffineWcsTaskTestCaseReferenceMatch(BaseTestCase,
                                              SideLoadTestCases,

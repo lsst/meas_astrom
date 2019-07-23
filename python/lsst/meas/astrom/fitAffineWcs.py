@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["FitAffineWcsTask", "FitAffineWcsConfig"]
+__all__ = ["FitAffineWcsTask", "FitAffineWcsConfig", "TransformedSkyWcsMaker"]
 
 
 import astshim
@@ -176,7 +176,7 @@ class FitAffineWcsTask(pipeBase.Task):
         # arcseconds. exits early because of the xTol value which cannot be
         # disabled in scipy1.2.1.
         fit = least_squares(_chi_func,
-                            x0=[offset_dir, offset_dist, 1., 0., 0., 1.],
+                            x0=[offset_dir, offset_dist, 1., 1e-8, 1e-8, 1.],
                             args=(ref_points,
                                   src_pixels,
                                   wcs_maker),
