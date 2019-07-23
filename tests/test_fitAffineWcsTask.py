@@ -175,7 +175,6 @@ class BaseTestCase:
         bbox = lsst.geom.Box2I()
         for refObj, src, d in self.matches:
             origPos = src.get(self.srcCentroidKey)
-            origCoord = src.get(self.srcCoordKey)
             new_coord = new_wcs.pixelToSky(origPos)
             src.setCoord(new_coord)
             bbox.include(lsst.geom.Point2I(lsst.geom.Point2I(origPos)))
@@ -184,6 +183,31 @@ class BaseTestCase:
         fitRes = fitter.fitWcs(
             matches=self.matches,
             initWcs=new_wcs,
+            bbox=bbox,
+            refCat=self.refCat,
+            sourceCat=self.sourceCat,
+        )
+
+        self.checkResults(fitRes, catsUpdated=True)
+
+    def doTestAffineReverse(self, name, offset, matrix):
+        """Apply func(x, y) to each source in self.sourceCat, then fit and
+        check the resulting WCS.
+        """
+        wcs_maker = TransformedSkyWcsMaker(self.tanWcs)
+
+        new_wcs = wcs_maker.makeWcs(offset, matrix)
+        bbox = lsst.geom.Box2I()
+        for refObj, src, d in self.matches:
+            origCoord = src.get(self.srcCoordKey)
+            new_centroid = new_wcs.skyToPixel(origCoord)
+            src.set(self.srcCentroidKey, new_centroid)
+            bbox.include(lsst.geom.Point2I(lsst.geom.Point2I(new_centroid)))
+
+        fitter = FitAffineWcsTask()
+        fitRes = fitter.fitWcs(
+            matches=self.matches,
+            initWcs=self.tanWcs,
             bbox=bbox,
             refCat=self.refCat,
             sourceCat=self.sourceCat,
@@ -207,24 +231,25 @@ class SideLoadTestCases:
         self.doTest("testOffset", lambda x, y: (x + 5, y + 7))
 
     def testSkyOffset(self):
-        """Add an transform and offset"""
+        """Add an on sky offset"""
         self.doTestAffine("testSkyOffset", [77, -200], np.array([[1.0, 0.0],
                                                                  [0.0, 1.0]]))
+        self.doTestAffineReverse("testSkyOffsetRev", [77, -200], np.array([[1.0, 0.0],
+                                                                           [0.0, 1.0]]))
 
     def testAffine(self):
-        """Add an transform and offset"""
-        self.doTestAffine("testAffine", [0, 0], np.array([[1.1, 0.1],
+        """Add an Affine (shear + scale + rot) distortion"""
+        self.doTestAffine("testAffine", [0, 0], np.array([[0.4, 0.1],
                                                           [-0.21, 2.0]]))
-
-    def testAffineShearAndScale(self):
-        """Add an transform and offset"""
-        self.doTestAffine("testAffine", [0, 0], np.array([[0.41, 0.1],
-                                                          [0.21, 2.0]]))
+        self.doTestAffineReverse("testAffineRev", [0, 0], np.array([[0.4, 0.1],
+                                                                    [-0.21, 2.0]]))
 
     def testAffineAndOffset(self):
-        """Add an transform and offset"""
+        """Add a transform and offset"""
         self.doTestAffine("testAffineAndOffset", [30, 100], np.array([[0.5, 0.01],
                                                                       [-0.2, 0.3]]))
+        self.doTestAffineReverse("testAffineAndOffsetRev", [30, 100], np.array([[0.5, 0.01],
+                                                                                [-0.2, 0.3]]))
 
 
 # The test classes inherit from two base classes and differ in the match

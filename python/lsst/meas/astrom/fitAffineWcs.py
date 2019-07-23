@@ -24,14 +24,13 @@ __all__ = ["FitAffineWcsTask", "FitAffineWcsConfig", "TransformedSkyWcsMaker"]
 
 import astshim
 import numpy as np
-from scipy.optimize import least_squares, minimize, Bounds
+from scipy.optimize import least_squares
 
-from lsst.afw.geom import (makeSkyWcs, degrees, arcseconds, arcminutes, radians, SkyWcs, SpherePoint) 
+from lsst.afw.geom import makeSkyWcs, degrees, arcseconds, radians, SkyWcs
 import lsst.afw.math
 from lsst.geom import Point2D
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
-import lsst.sphgeom as sphgeom
 
 from .makeMatchStatistics import makeMatchStatisticsInRadians
 from .setMatchDistance import setMatchDistance
@@ -168,13 +167,14 @@ class FitAffineWcsTask(pipeBase.Task):
         offset_dist /= len(src_pixels)
         if offset_dir > 180:
             offset_dir = offset_dir - 360
-        self.log.debug("Initial guess: Direction: %.3f, Dist %.3f..." %\
+        self.log.debug("Initial shift guess: Direction: %.3f, Dist %.3f..." %
                        (offset_dir, offset_dist))
 
         # Best performing fitter in scipy tried so far (vs. default settings in
         # minimize). Fits all current test cases with a scatter of a most 0.15
         # arcseconds. exits early because of the xTol value which cannot be
-        # disabled in scipy1.2.1.
+        # disabled in scipy1.2.1. Matrix starting values are non-zero as this
+        # results in better fit off-diagonal terms.
         fit = least_squares(_chi_func,
                             x0=[offset_dir, offset_dist, 1., 1e-8, 1e-8, 1.],
                             args=(ref_points,
@@ -188,7 +188,7 @@ class FitAffineWcsTask(pipeBase.Task):
                             xtol=2.3e-16)
         self.log.debug("Best fit: Direction: %.3f, Dist: %.3f, "
                        "Affine matrix: [[%.6f, %.6f], [%.6f, %.6f]]..." %
-                       (fit.x[0], fit.x[1], 
+                       (fit.x[0], fit.x[1],
                         fit.x[2], fit.x[3], fit.x[4], fit.x[5]))
 
         wcs = wcs_maker.makeWcs(fit.x[:2], fit.x[2:].reshape((2, 2)))
