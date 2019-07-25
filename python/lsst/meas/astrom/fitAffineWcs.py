@@ -164,8 +164,8 @@ class FitAffineWcsTask(pipeBase.Task):
 
         refPoints = []
         srcPixels = []
-        offsetDir = 0
-        offsetDist = 0
+        offsetLong = 0
+        offsetLat = 0
         # Grab reference coordinates and source centroids. Compute the average
         # direction and separation between the reference and the sources.
         for match in matches:
@@ -174,12 +174,17 @@ class FitAffineWcsTask(pipeBase.Task):
             srcCentroid = match.second.getCentroid()
             srcPixels.append(srcCentroid)
             srcCoord = initWcs.pixelToSky(srcCentroid)
-            offsetDir += srcCoord.bearingTo(refCoord).asDegrees()
-            offsetDist += srcCoord.separation(refCoord).asArcseconds()
-        offsetDir /= len(srcPixels)
-        offsetDist /= len(srcPixels)
-        if offsetDir > 180:
-            offsetDir = offsetDir - 360
+            deltaLong, deltaLat = srcCoord.getTangentPlaneOffset(refCoord)
+            offsetLong += deltaLong.asArcseconds()
+            offsetLat += deltaLat.asArcseconds()
+        offsetLong /= len(srcPixels)
+        offsetLat /= len(srcPixels)
+        offsetDist = np.sqrt(offsetLong ** 2 + offsetLat ** 2)
+        if offsetDist > 0.:
+            offsetDir = np.degrees(np.arccos(offsetLong / offsetDist))
+        else:
+            offsetDir = 0.
+        offsetDir *= np.sign(offsetLat)
         self.log.debug("Initial shift guess: Direction: %.3f, Dist %.3f..." %
                        (offsetDir, offsetDist))
 
