@@ -1,8 +1,10 @@
-# LSST Data Management System
-# Copyright 2008, 2009, 2010 LSST Corporation.
+# This file is part of meas_astrom.
 #
-# This product includes software developed by the
-# LSST Project (http://www.lsst.org/).
+# Developed for the LSST Data Management System.
+# This product includes software developed by the LSST Project
+# (https://www.lsst.org).
+# See the COPYRIGHT file at the top-level directory of this distribution
+# for details of code ownership.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,20 +16,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
-# You should have received a copy of the LSST License Statement and
-# the GNU General Public License along with this program.  If not,
-# see <http://www.lsstcorp.org/LegalNotices/>.
-#
-# The classes in this test are a little non-standard to reduce code
-# duplication and support automated unittest discovery.
-# A base class includes all the code that implements the testing and
-# itself inherits from unittest.TestCase. unittest automated discovery
-# will scan all classes that inherit from unittest.TestCase and invoke
-# any test methods found. To prevent this base class from being executed
-# the test methods are placed in a different class that does not inherit
-# from unittest.TestCase. The actual test classes then inherit from
-# both the testing class and the implementation class allowing test
-# discovery to only run tests found in the subclasses.
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import math
 import unittest
@@ -169,20 +159,20 @@ class BaseTestCase:
         """Apply func(x, y) to each source in self.sourceCat, then fit and
         check the resulting WCS.
         """
-        wcs_maker = TransformedSkyWcsMaker(self.tanWcs)
+        wcsMaker = TransformedSkyWcsMaker(self.tanWcs)
 
-        new_wcs = wcs_maker.makeWcs(offset, matrix)
+        newWcs = wcsMaker.makeWcs(offset, matrix)
         bbox = lsst.geom.Box2I()
         for refObj, src, d in self.matches:
             origPos = src.get(self.srcCentroidKey)
-            new_coord = new_wcs.pixelToSky(origPos)
-            src.setCoord(new_coord)
+            newCoord = newWcs.pixelToSky(origPos)
+            src.setCoord(newCoord)
             bbox.include(lsst.geom.Point2I(lsst.geom.Point2I(origPos)))
 
         fitter = FitAffineWcsTask()
         fitRes = fitter.fitWcs(
             matches=self.matches,
-            initWcs=new_wcs,
+            initWcs=newWcs,
             bbox=bbox,
             refCat=self.refCat,
             sourceCat=self.sourceCat,
@@ -194,15 +184,15 @@ class BaseTestCase:
         """Apply func(x, y) to each source in self.sourceCat, then fit and
         check the resulting WCS.
         """
-        wcs_maker = TransformedSkyWcsMaker(self.tanWcs)
+        wcsMaker = TransformedSkyWcsMaker(self.tanWcs)
 
-        new_wcs = wcs_maker.makeWcs(offset, matrix)
+        newWcs = wcsMaker.makeWcs(offset, matrix)
         bbox = lsst.geom.Box2I()
         for refObj, src, d in self.matches:
             origCoord = src.get(self.srcCoordKey)
-            new_centroid = new_wcs.skyToPixel(origCoord)
-            src.set(self.srcCentroidKey, new_centroid)
-            bbox.include(lsst.geom.Point2I(lsst.geom.Point2I(new_centroid)))
+            newCentroid = newWcs.skyToPixel(origCoord)
+            src.set(self.srcCentroidKey, newCentroid)
+            bbox.include(lsst.geom.Point2I(lsst.geom.Point2I(newCentroid)))
 
         fitter = FitAffineWcsTask()
         fitRes = fitter.fitWcs(
@@ -232,24 +222,30 @@ class SideLoadTestCases:
 
     def testSkyOffset(self):
         """Add an on sky offset"""
-        self.doTestAffine("testSkyOffset", [77, -200], np.array([[1.0, 0.0],
-                                                                 [0.0, 1.0]]))
-        self.doTestAffineReverse("testSkyOffsetRev", [77, -200], np.array([[1.0, 0.0],
-                                                                           [0.0, 1.0]]))
+        self.doTestAffine("testSkyOffset",
+                          [77, -200],
+                          np.array([[1.0, 0.0], [0.0, 1.0]]))
+        self.doTestAffineReverse("testSkyOffsetRev",
+                                 [77, -200],
+                                 np.array([[1.0, 0.0], [0.0, 1.0]]))
 
     def testAffine(self):
         """Add an Affine (shear + scale + rot) distortion"""
-        self.doTestAffine("testAffine", [0, 0], np.array([[0.4, 0.1],
-                                                          [-0.21, 2.0]]))
-        self.doTestAffineReverse("testAffineRev", [0, 0], np.array([[0.4, 0.1],
-                                                                    [-0.21, 2.0]]))
+        self.doTestAffine("testAffine",
+                          [0, 0],
+                          np.array([[0.4, 0.1], [-0.21, 2.0]]))
+        self.doTestAffineReverse("testAffineRev",
+                                 [0, 0],
+                                 np.array([[0.4, 0.1], [-0.21, 2.0]]))
 
     def testAffineAndOffset(self):
         """Add a transform and offset"""
-        self.doTestAffine("testAffineAndOffset", [30, 100], np.array([[0.5, 0.01],
-                                                                      [-0.2, 0.3]]))
-        self.doTestAffineReverse("testAffineAndOffsetRev", [30, 100], np.array([[0.5, 0.01],
-                                                                                [-0.2, 0.3]]))
+        self.doTestAffine("testAffineAndOffset",
+                          [30, 100],
+                          np.array([[0.5, 0.01], [-0.2, 0.3]]))
+        self.doTestAffineReverse("testAffineAndOffsetRev",
+                                 [30, 100],
+                                 np.array([[0.5, 0.01], [-0.2, 0.3]]))
 
 
 # The test classes inherit from two base classes and differ in the match

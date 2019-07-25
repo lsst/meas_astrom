@@ -36,40 +36,51 @@ from .makeMatchStatistics import makeMatchStatisticsInRadians
 from .setMatchDistance import setMatchDistance
 
 
-def _chi_func(x, ref_points, src_pixels, wcs_maker):
+def _chiFunc(x, refPoints, srcPixels, wcsMaker):
     """Function to minimize to fit the shift and rotation in the WCS.
 
     Parameters
     ----------
-    ref_points : `list` of `lsst.afw.geom.SpherePoint`
+    x : `numpy.ndarray`
+        Current fit values to test. Float values in array are:
+
+        - ``bearingTo``: Direction to move the wcs coord in.
+        - ``separation``: Distance along sphere to move wcs coord in.
+        - ``affine0,0``: [0, 0] value of the 2x2 affine transform matrix.
+        - ``affine0,1``: [0, 1] value of the 2x2 affine transform matrix.
+        - ``affine1,0``: [1, 0] value of the 2x2 affine transform matrix.
+        - ``affine1,1``: [1, 1] value of the 2x2 affine transform matrix.
+    refPoints : `list` of `lsst.afw.geom.SpherePoint`
         Reference object on Sky locations.
-    src_pixels : `list` of `lsst.geom.Point2D`
+    srcPixels : `list` of `lsst.geom.Point2D`
         Source object positions on the pixels.
-    wcs_maker : `TransformedSkyWcsMaker`
+    wcsMaker : `TransformedSkyWcsMaker`
         Container class for producing the updated Wcs.
 
     Returns
     -------
-    output_separations : `list` of `float`
+    outputSeparations : `list` of `float`
         Separation between predicted source location and reference location in
         radians.
     """
-    wcs = wcs_maker.makeWcs(x[:2], x[2:].reshape((2, 2)))
+    wcs = wcsMaker.makeWcs(x[:2], x[2:].reshape((2, 2)))
 
-    output_separations = []
+    outputSeparations = []
     # Fit both sky to pixel and pixel to sky to avoid any non-invertible
-    # affine matrixes.
-    for ref, src in zip(ref_points, src_pixels):
-        sky_sep = ref.getTangentPlaneOffset(wcs.pixelToSky(src))
-        output_separations.append(sky_sep[0].asArcseconds())
-        output_separations.append(sky_sep[1].asArcseconds())
-        xy_sep = src - wcs.skyToPixel(ref)
+    # affine matrices.
+    for ref, src in zip(refPoints, srcPixels):
+        skySep = ref.getTangentPlaneOffset(wcs.pixelToSky(src))
+        outputSeparations.append(skySep[0].asArcseconds())
+        outputSeparations.append(skySep[1].asArcseconds())
+        xySep = src - wcs.skyToPixel(ref)
         # Convert the pixel separations to units, arcseconds to match units
         # of sky separation.
-        output_separations.append(xy_sep[0] * wcs.getPixelScale(src).asArcseconds())
-        output_separations.append(xy_sep[1] * wcs.getPixelScale(src).asArcseconds())
+        outputSeparations.append(
+            xySep[0] * wcs.getPixelScale(src).asArcseconds())
+        outputSeparations.append(
+            xySep[1] * wcs.getPixelScale(src).asArcseconds())
 
-    return output_separations
+    return outputSeparations
 
 
 # Keeping this around for now in case any of the fit parameters need to be
@@ -82,6 +93,10 @@ class FitAffineWcsConfig(pexConfig.Config):
 
 class FitAffineWcsTask(pipeBase.Task):
     """Fit a TAN-SIP WCS given a list of reference object/source matches.
+
+    This WCS fitter should be used on top of a cameraGeom distortion model as
+    the model assumes that only a shift the WCS center position and a small
+    affine transform are required.
     """
     ConfigClass = FitAffineWcsConfig
     _DefaultName = "fitAffineWcs"
@@ -145,53 +160,49 @@ class FitAffineWcsTask(pipeBase.Task):
         """
         # Create a data-structure that decomposes the input Wcs frames and
         # appends the new transform.
-        wcs_maker = TransformedSkyWcsMaker(initWcs)
+        wcsMaker = TransformedSkyWcsMaker(initWcs)
 
-        ref_points = []
-        src_pixels = []
-        offset_dir = 0
-        offset_dist = 0
+        refPoints = []
+        srcPixels = []
+        offsetDir = 0
+        offsetDist = 0
         # Grab reference coordinates and source centroids. Compute the average
         # direction and separation between the reference and the sources.
-        # I'm not sure if bearingTo should be computed from the src to ref
-        # or ref to source.
         for match in matches:
-            ref_coord = match.first.getCoord()
-            ref_points.append(ref_coord)
-            src_centroid = match.second.getCentroid()
-            src_pixels.append(src_centroid)
-            src_coord = initWcs.pixelToSky(src_centroid)
-            offset_dir += src_coord.bearingTo(ref_coord).asDegrees()
-            offset_dist += src_coord.separation(ref_coord).asArcseconds()
-        offset_dir /= len(src_pixels)
-        offset_dist /= len(src_pixels)
-        if offset_dir > 180:
-            offset_dir = offset_dir - 360
+            refCoord = match.first.getCoord()
+            refPoints.append(refCoord)
+            srcCentroid = match.second.getCentroid()
+            srcPixels.append(srcCentroid)
+            srcCoord = initWcs.pixelToSky(srcCentroid)
+            offsetDir += srcCoord.bearingTo(refCoord).asDegrees()
+            offsetDist += srcCoord.separation(refCoord).asArcseconds()
+        offsetDir /= len(srcPixels)
+        offsetDist /= len(srcPixels)
+        if offsetDir > 180:
+            offsetDir = offsetDir - 360
         self.log.debug("Initial shift guess: Direction: %.3f, Dist %.3f..." %
-                       (offset_dir, offset_dist))
+                       (offsetDir, offsetDist))
 
         # Best performing fitter in scipy tried so far (vs. default settings in
-        # minimize). Fits all current test cases with a scatter of a most 0.15
-        # arcseconds. exits early because of the xTol value which cannot be
+        # minimize). Exits early because of the xTol value which cannot be
         # disabled in scipy1.2.1. Matrix starting values are non-zero as this
         # results in better fit off-diagonal terms.
-        fit = least_squares(_chi_func,
-                            x0=[offset_dir, offset_dist, 1., 1e-8, 1e-8, 1.],
-                            args=(ref_points,
-                                  src_pixels,
-                                  wcs_maker),
-                            method='dogbox',
-                            bounds=[[-360, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
-                                    [360, np.inf, np.inf, np.inf, np.inf, np.inf]],
-                            ftol=2.3e-16,
-                            gtol=2.31e-16,
-                            xtol=2.3e-16)
+        fit = least_squares(
+            _chiFunc,
+            x0=[offsetDir, offsetDist, 1., 1e-8, 1e-8, 1.],
+            args=(refPoints, srcPixels, wcsMaker),
+            method='dogbox',
+            bounds=[[-360, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+                    [360, np.inf, np.inf, np.inf, np.inf, np.inf]],
+            ftol=2.3e-16,
+            gtol=2.31e-16,
+            xtol=2.3e-16)
         self.log.debug("Best fit: Direction: %.3f, Dist: %.3f, "
                        "Affine matrix: [[%.6f, %.6f], [%.6f, %.6f]]..." %
                        (fit.x[0], fit.x[1],
                         fit.x[2], fit.x[3], fit.x[4], fit.x[5]))
 
-        wcs = wcs_maker.makeWcs(fit.x[:2], fit.x[2:].reshape((2, 2)))
+        wcs = wcsMaker.makeWcs(fit.x[:2], fit.x[2:].reshape((2, 2)))
 
         # Copied from other fit*WcsTasks.
         if refCat is not None:
@@ -228,8 +239,9 @@ class FitAffineWcsTask(pipeBase.Task):
         )
 
 
-class TransformedSkyWcsMaker(object):
-    """Container class for appending a shift/rotation to an input SkyWcs.
+class TransformedSkyWcsMaker():
+    """Convenience class for appending a shifting an input SkyWcs on sky and
+    appending an affine transform.
 
     The class assumes that all frames are sequential and are mapped one to the
     next.
@@ -237,92 +249,91 @@ class TransformedSkyWcsMaker(object):
     Parameters
     ----------
     input_sky_wcs : `lsst.afw.geom.SkyWcs`
-        WCS to decompose and append rotation matrix and shift in on sky
+        WCS to decompose and append affine matrix and shift in on sky
         location to.
     """
 
-    def __init__(self, input_sky_wcs):
-        self.frame_dict = input_sky_wcs.getFrameDict()
+    def __init__(self, inputSkyWcs):
+        self.frameDict = inputSkyWcs.getFrameDict()
 
         # Grab the order of the frames by index.
-        domains = self.frame_dict.getAllDomains()
-        self.frame_idxs = np.sort([self.frame_dict.getIndex(domain)
-                                   for domain in domains])
-        self.frame_min = np.min(self.frame_idxs)
-        self.frame_max = np.max(self.frame_idxs)
+        domains = self.frameDict.getAllDomains()
+        self.frameIdxs = np.sort([self.frameDict.getIndex(domain)
+                                  for domain in domains])
+        self.frameMin = np.min(self.frameIdxs)
+        self.frameMax = np.max(self.frameIdxs)
 
         # Find frame just before the final mapping to sky and store those
         # indices and mappings for later.
-        self.map_from = self.frame_max - 2
-        if self.map_from < self.frame_min:
-            self.map_from = self.frame_min
-        self.map_to = self.frame_max - 1
-        if self.map_to <= self.map_from:
-            self.map_to = self.frame_max
-        self.last_map_before_sky = self.frame_dict.getMapping(
-            self.map_from, self.map_to)
+        self.mapFrom = self.frameMax - 2
+        if self.mapFrom < self.frameMin:
+            self.mapFrom = self.frameMin
+        self.mapTo = self.frameMax - 1
+        if self.mapTo <= self.mapFrom:
+            self.mapTo = self.frameMax
+        self.lastMapBeforeSky = self.frameDict.getMapping(
+            self.mapFrom, self.mapTo)
 
         # Get the original WCS sky location.
 
-        self.origin = input_sky_wcs.getSkyOrigin()
+        self.origin = inputSkyWcs.getSkyOrigin()
 
-    def makeWcs(self, crval_offset, rot_matrix):
-        """Apply a shift and rotation to the WCS internal to this class,
-        a new Wcs with these transforms applied.
+    def makeWcs(self, crvalOffset, affMatrix):
+        """Apply a shift and affine transform to the WCS internal to this
+        class.
+
+        A new SkyWcs with these transforms applied is returns.
 
         Parameters
         ----------
         crval_shift : `numpy.ndarray`, (2,)
             Shift in radians to apply to the Wcs origin/crvals.
-        rot_matrix : 'numpy.ndarray', (3, 3)
-            Rotation matrix to apply to the mapping/transform to add to the
-            WCS. Rotation matrix need not be unitary and can therefor
-            stretch/squish as well as rotate.
+        aff_matrix : 'numpy.ndarray', (3, 3)
+            Affine matrix to apply to the mapping/transform to add to the
+            WCS.
 
         Returns
         -------
-        output_wcs : `lsst.afw.geom.SkyWcs`
-            Wcs with a final shift and rotation applied.
+        outputWcs : `lsst.afw.geom.SkyWcs`
+            Wcs with a final shift and affine transform applied.
         """
         # Create a WCS that only maps from IWC to Sky with the shifted
         # Sky origin position. This is simply the final undistorted tangent
         # plane to sky. The PIXELS to SKY map will be become our IWC to SKY
         # map and gives us our final shift position.
-        iwcs_to_sky_wcs = makeSkyWcs(
+        iwcsToSkyWcs = makeSkyWcs(
             Point2D(0., 0.),
-            self.origin.offset(crval_offset[0] * degrees,
-                               crval_offset[1] * arcseconds),
+            self.origin.offset(crvalOffset[0] * degrees,
+                               crvalOffset[1] * arcseconds),
             np.array([[1., 0.], [0., 1.]]))
-        iwc_to_sky_map = iwcs_to_sky_wcs.getFrameDict().getMapping("PIXELS",
-                                                                   "SKY")
+        iwcToSkyMap = iwcsToSkyWcs.getFrameDict().getMapping("PIXELS", "SKY")
 
-        # Append a simple rotation Matrix transform to the current to the
+        # Append a simple affine Matrix transform to the current to the
         # second to last frame mapping. e.g. the one just before IWC to SKY.
-        new_mapping = self.last_map_before_sky.then(
-            astshim.MatrixMap(rot_matrix))
+        newMapping = self.lastMapBeforeSky.then(astshim.MatrixMap(affMatrix))
 
         # Create a new frame dict starting from the input_sky_wcs's first
         # frame. Append the correct mapping created above and our new on
         # sky location.
-        output_frame_dict = astshim.FrameDict(
-            self.frame_dict.getFrame(self.frame_min))
-        for frame_idx in self.frame_idxs:
-            if frame_idx == self.map_from:
-                output_frame_dict.addFrame(
-                    self.map_from,
-                    new_mapping,
-                    self.frame_dict.getFrame(self.map_to))
-            elif frame_idx >= self.map_to:
+        outputFrameDict = astshim.FrameDict(
+            self.frameDict.getFrame(self.frameMin))
+        for frameIdx in self.frameIdxs:
+            if frameIdx == self.mapFrom:
+                outputFrameDict.addFrame(
+                    self.mapFrom,
+                    newMapping,
+                    self.frameDict.getFrame(self.mapTo))
+            elif frameIdx >= self.mapTo:
                 continue
             else:
-                output_frame_dict.addFrame(
-                    frame_idx,
-                    self.frame_dict.getMapping(frame_idx, frame_idx + 1),
-                    self.frame_dict.getFrame(frame_idx + 1))
+                outputFrameDict.addFrame(
+                    frameIdx,
+                    self.frameDict.getMapping(frameIdx, frameIdx + 1),
+                    self.frameDict.getFrame(frameIdx + 1))
         # Append the final sky frame to the frame dict.
-        output_frame_dict.addFrame(
-            self.frame_max - 1,
-            iwc_to_sky_map,
-            iwcs_to_sky_wcs.getFrameDict().getFrame("SKY"))
+        outputFrameDict.addFrame(
+            self.frameMax - 1,
+            iwcToSkyMap,
+            iwcsToSkyWcs.getFrameDict().getFrame("SKY"))
 
-        return SkyWcs(output_frame_dict)
+        return SkyWcs(outputFrameDict)
