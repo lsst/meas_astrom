@@ -262,6 +262,10 @@ class TransformedSkyWcsMaker():
         self.frameDict = inputSkyWcs.getFrameDict()
 
         # Grab the order of the frames by index.
+        # TODO: DM-20825
+        #    Change the frame the transform is appended to to be explicitly
+        #    the FIELD_ANGLE->IWC transform. Requires related tickets to be
+        #    completed.
         domains = self.frameDict.getAllDomains()
         self.frameIdxs = np.sort([self.frameDict.getIndex(domain)
                                   for domain in domains])
