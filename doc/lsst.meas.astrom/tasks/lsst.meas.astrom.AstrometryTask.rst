@@ -55,8 +55,12 @@ Examples
 .. (such as one from a command-line context and another that uses the Python API)
 .. you can separate each example into a different subsection for clarity.
 
-See :lsst-task:`lsst.pipe.tasks.photoCal.PhotoCalTask`
-.. note:: Pipe task will require conversion before this link is useable.
+See :lsst-task:`lsst.pipe.tasks.photoCal.PhotoCalTask`.
+
+.. note::
+
+   Task documentation is currently in the process of being converted from the old (Doxygen) system to this site.
+   Until that conversion is complete, refer to the `Doxygen documentation for PhotoCalTask <http://doxygen.lsst.codes/stack/doxygen/x_masterDoxyDoc/classlsst_1_1pipe_1_1tasks_1_1photo_cal_1_1_photo_cal_task.html#PhotoCalTask_>`_.
 
 .. _lsst.meas.astrom.AstrometryTask-debug:
 
