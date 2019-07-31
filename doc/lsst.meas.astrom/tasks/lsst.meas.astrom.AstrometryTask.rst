@@ -55,7 +55,8 @@ Examples
 .. (such as one from a command-line context and another that uses the Python API)
 .. you can separate each example into a different subsection for clarity.
 
-See :lsst-task:`lsst.pipe.tasks.photoCal.PhotoCalTask`
+See :lsst-task:`lsst.pipe.tasks.photoCal.PhotoCalTask`.
+
 .. note:: Pipe task will require conversion before this link is useable.
 
 .. _lsst.meas.astrom.AstrometryTask-debug:
