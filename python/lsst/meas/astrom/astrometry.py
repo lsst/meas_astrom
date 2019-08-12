@@ -22,13 +22,34 @@
 
 __all__ = ["AstrometryConfig", "AstrometryTask"]
 
-
+import numpy as np
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
+from lsst.afw.table import Point2DKey
 from .ref_match import RefMatchTask, RefMatchConfig
 from .fitTanSipWcs import FitTanSipWcsTask
 from .display import displayAstrometry
 
+def calculateMatchOffsetVector(matches):
+    """Return the median (x, y) offsets for a matched list
+
+    Specifically, the median between the reference and
+    source catalogues
+
+    Parameters
+    ----------
+    matches : `list` of `lsst.afw.table.ReferenceMatch`
+        List of matched objects
+    """
+
+    refCentroidKey = Point2DKey(matches[0].first.schema["centroid"])
+    sourceCentroidKey = Point2DKey(matches[0].second.schema["slot_Centroid"])
+    dxyArr = np.empty((len(matches), 2))
+    
+    for i, m in enumerate(matches):
+        dxyArr[i] = m.first.get(refCentroidKey) - m.second.get(sourceCentroidKey)
+
+    return np.median(dxyArr[:, 0]), np.median(dxyArr[:, 1])
 
 class AstrometryConfig(RefMatchConfig):
     """Config for AstrometryTask.
@@ -56,6 +77,11 @@ class AstrometryConfig(RefMatchConfig):
         dtype=float,
         default=0.001,
         min=0,
+    )
+    printMedianOffsets = pexConfig.Field(
+        dtype=int,
+        doc="Print (x, y) pixel (catalog - source) offsets in match for iterNum <= printMedianOffsets",
+        default=0,
     )
 
     def setDefaults(self):
@@ -232,6 +258,7 @@ class AstrometryTask(RefMatchTask):
                     wcs=wcs,
                     exposure=exposure,
                     match_tolerance=match_tolerance,
+                    label=f"iteration {iterNum}",
                 )
             except Exception as e:
                 # if we have had a succeessful iteration then use that; otherwise fail
@@ -244,6 +271,15 @@ class AstrometryTask(RefMatchTask):
 
             match_tolerance = tryRes.match_tolerance
             tryMatchDist = self._computeMatchStatsOnSky(tryRes.matches)
+            if iterNum <= self.config.printMedianOffsets:
+                dx, dy = [], []
+                for ref, src, d in tryRes.matches:
+                    offset = wcs.skyToPixel(ref.getCoord()) - src.getCentroid()
+                    dx.append(offset[0])
+                    dy.append(offset[1])
+                self.log.info("Median offset for iteration %d: %.1f %.1f pixels" %
+                              (iterNum, np.median(dx), np.median(dy)))
+
             self.log.debug(
                 "Match and fit WCS iteration %d: found %d matches with scatter = %0.3f +- %0.3f arcsec; "
                 "max match distance = %0.3f arcsec",
@@ -280,7 +316,7 @@ class AstrometryTask(RefMatchTask):
 
     @pipeBase.timeMethod
     def _matchAndFitWcs(self, refCat, sourceCat, goodSourceCat, refFluxField, bbox, wcs, match_tolerance,
-                        exposure=None):
+                        exposure=None, label=None):
         """Match sources to reference objects and fit a WCS.
 
         Parameters
@@ -304,6 +340,8 @@ class AstrometryTask(RefMatchTask):
         exposure : `lsst.afw.image.Exposure`
             exposure whose WCS is to be fit, or None; used only for the debug
             display.
+        label : `str`
+            Extra label for debug display
 
         Returns
         -------
@@ -339,8 +377,11 @@ class AstrometryTask(RefMatchTask):
                 exposure=exposure,
                 bbox=bbox,
                 frame=frame + 1,
-                title="Initial WCS",
+                title="Matched with initial WCS" + ('' if label is None else f' [{label}]'),
             )
+
+        dx, dy = calculateMatchOffsetVector(matchRes.matches)
+        self.log.debug("Median reference - source offsets: (%.1f, %.1f) pixels", dx, dy)
 
         self.log.debug("Fitting WCS")
         fitRes = self.wcsFitter.fitWcs(
@@ -362,7 +403,7 @@ class AstrometryTask(RefMatchTask):
                 exposure=exposure,
                 bbox=bbox,
                 frame=frame + 2,
-                title="Fit TAN-SIP WCS",
+                title="Matched with updated WCS" + ('' if label is None else f' [{label}]'),
             )
 
         return pipeBase.Struct(

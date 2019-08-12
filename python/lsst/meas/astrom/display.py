@@ -68,7 +68,8 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
     - if both exposure and bbox are `None`, no image is displayed
 
     """
-    disp = afwDisplay.getDisplay(frame=frame)
+    disp = afwDisplay.Display(frame=frame)
+    disp.scale('asinh', 'zscale')
 
     if exposure is not None:
         disp.mtv(exposure, title=title)
@@ -109,6 +110,17 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
                   (radArr.mean(), radArr.std(), len(matches)))
 
     if pause:
+        print(f"""Meaning of symbols on display:
+  Red x:    Reference catalogue [{len(refCat)}]
+  Green +:  Source catalogue    [{len(sourceCat)}]""")
+        if distortedCentroidKey is not None:
+            print("""\
+  Green o:  Source position allowing for distortion (with line to undistorted position)""")
+        if matches is not None:
+            print("""\
+  Yellow o: Matched source""")
+
+        print("")
         print("Dropping into debugger to allow inspection of display. Type 'continue' when done.")
         import pdb
         pdb.set_trace()
