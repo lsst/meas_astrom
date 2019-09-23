@@ -7,7 +7,6 @@ setupRequired(pex_config)
 setupRequired(pipe_base)
 setupRequired(utils)
 
-setupRequired(astrometry_net)
 setupRequired(numpy)
 
 setupOptional(matplotlib)
