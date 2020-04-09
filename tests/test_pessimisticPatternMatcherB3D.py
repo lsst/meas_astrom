@@ -295,13 +295,13 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         # arcseconds.
         max_distort = 25.0 / 3600. * __deg_to_rad__
         self.source_obj_array[:, 2] = (
-            self.source_obj_array[:, 2] -
-            max_distort * (self.source_obj_array[:, 2] - min_z) /
-            (max_z - min_z))
+            self.source_obj_array[:, 2]
+            - max_distort * (self.source_obj_array[:, 2] - min_z)
+            / (max_z - min_z))
         # Renomalize the 3 vectors to be unit length.
-        distorted_dists = np.sqrt(self.source_obj_array[:, 0] ** 2 +
-                                  self.source_obj_array[:, 1] ** 2 +
-                                  self.source_obj_array[:, 2] ** 2)
+        distorted_dists = np.sqrt(self.source_obj_array[:, 0] ** 2
+                                  + self.source_obj_array[:, 1] ** 2
+                                  + self.source_obj_array[:, 2] ** 2)
         self.source_obj_array[:, 0] /= distorted_dists
         self.source_obj_array[:, 1] /= distorted_dists
         self.source_obj_array[:, 2] /= distorted_dists

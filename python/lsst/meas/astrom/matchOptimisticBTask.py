@@ -253,9 +253,9 @@ class MatchOptimisticBTask(pipeBase.Task):
         isGood : `bool`
             Source passes CCD edge and saturated tests.
         """
-        return (not source.get(self.edgeKey) and
-                not source.get(self.interpolatedCenterKey) and
-                not source.get(self.saturatedKey))
+        return (not source.get(self.edgeKey)
+                and not source.get(self.interpolatedCenterKey)
+                and not source.get(self.saturatedKey))
 
     @pipeBase.timeMethod
     def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numUsableSources, minMatchedPairs,

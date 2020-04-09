@@ -26,10 +26,10 @@ def main():
     parser.add_option('--prefix', '-p', dest='prefix', default='', help='Plot output filename prefix')
     (opt, args) = parser.parse_args()
 
-    if (opt.dophotometry is False and
-        opt.docorr is False and
-        opt.dodistortion is False and
-            opt.domatches is False):
+    if (opt.dophotometry is False
+        and opt.docorr is False
+        and opt.dodistortion is False
+            and opt.domatches is False):
         plots = None
     else:
         plots = []
