@@ -243,8 +243,8 @@ class MatchPessimisticBTask(pipeBase.Task):
             raise pipeBase.TaskError("No sources are good")
 
         minMatchedPairs = min(self.config.minMatchedPairs,
-                              int(self.config.minFracMatchedPairs *
-                                  min([len(refCat), len(goodSourceCat)])))
+                              int(self.config.minFracMatchedPairs
+                                  * min([len(refCat), len(goodSourceCat)])))
 
         if len(refCat) > self.config.maxRefObjects:
             self.log.warn(
@@ -393,8 +393,8 @@ class MatchPessimisticBTask(pipeBase.Task):
             maxMatchDistArcSecRef = self._get_pair_pattern_statistics(
                 ref_array)
             maxMatchDistArcSec = np.max((
-                self.config.minMatchDistPixels *
-                wcs.getPixelScale().asArcseconds(),
+                self.config.minMatchDistPixels
+                * wcs.getPixelScale().asArcseconds(),
                 np.min((maxMatchDistArcSecSrc,
                         maxMatchDistArcSecRef))))
             match_tolerance.autoMaxMatchDist = geom.Angle(
@@ -403,15 +403,15 @@ class MatchPessimisticBTask(pipeBase.Task):
         # Set configurable defaults when we encounter None type or set
         # state based on previous run of AstrometryTask._matchAndFitWcs.
         if match_tolerance.maxShift is None:
-            maxShiftArcseconds = (self.config.maxOffsetPix *
-                                  wcs.getPixelScale().asArcseconds())
+            maxShiftArcseconds = (self.config.maxOffsetPix
+                                  * wcs.getPixelScale().asArcseconds())
         else:
             # We don't want to clamp down too hard on the allowed shift so
             # we test that the smallest we ever allow is the pixel scale.
             maxShiftArcseconds = np.max(
                 (match_tolerance.maxShift.asArcseconds(),
-                 self.config.minMatchDistPixels *
-                 wcs.getPixelScale().asArcseconds()))
+                 self.config.minMatchDistPixels
+                 * wcs.getPixelScale().asArcseconds()))
 
         # If our tolerances are not set from a previous run, estimate a
         # starting tolerance guess from the statistics of patterns we can
@@ -421,8 +421,8 @@ class MatchPessimisticBTask(pipeBase.Task):
             match_tolerance.maxMatchDist = match_tolerance.autoMaxMatchDist
         else:
             maxMatchDistArcSec = np.max(
-                (self.config.minMatchDistPixels *
-                 wcs.getPixelScale().asArcseconds(),
+                (self.config.minMatchDistPixels
+                 * wcs.getPixelScale().asArcseconds(),
                  np.min((match_tolerance.maxMatchDist.asArcseconds(),
                          match_tolerance.autoMaxMatchDist.asArcseconds()))))
 
@@ -610,15 +610,15 @@ class MatchPessimisticBTask(pipeBase.Task):
         tmp_sort_array = cat_array[flux_args_array]
 
         # Start making patterns.
-        for start_idx in range(cat_array.shape[0] -
-                               self.config.numPointsForShape):
-            pattern_points = tmp_sort_array[start_idx:start_idx +
-                                            self.config.numPointsForShape, :-1]
+        for start_idx in range(cat_array.shape[0]
+                               - self.config.numPointsForShape):
+            pattern_points = tmp_sort_array[start_idx:start_idx
+                                            + self.config.numPointsForShape, :-1]
             pattern_delta = pattern_points[1:, :] - pattern_points[0, :]
             pattern_array[start_idx, :] = np.sqrt(
-                pattern_delta[:, 0] ** 2 +
-                pattern_delta[:, 1] ** 2 +
-                pattern_delta[:, 2] ** 2)
+                pattern_delta[:, 0] ** 2
+                + pattern_delta[:, 1] ** 2
+                + pattern_delta[:, 2] ** 2)
 
             # When we store the length of each spoke in our pattern we
             # sort from shortest to longest so we have a defined space
@@ -638,8 +638,8 @@ class MatchPessimisticBTask(pipeBase.Task):
 
         # We use the two closest patterns to set our tolerance.
         dist_idx = 0
-        dist_tol = (np.degrees(dist_nearest_array[dist_idx]) * 3600. /
-                    (self.config.numPointsForShape - 1.))
+        dist_tol = (np.degrees(dist_nearest_array[dist_idx]) * 3600.
+                    / (self.config.numPointsForShape - 1.))
 
         self.log.debug("Automated tolerance")
         self.log.debug("\tdistance/match tol: %.4f [arcsec]" % dist_tol)

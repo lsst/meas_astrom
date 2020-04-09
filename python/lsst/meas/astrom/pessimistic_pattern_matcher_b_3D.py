@@ -118,11 +118,11 @@ class PessimisticPatternMatcherB:
 
             # Compute the vector deltas for each pair of reference objects.
             # Compute and store the distances.
-            sub_delta_array = (self._reference_array[ref_id + 1:, :] -
-                               ref_obj).astype(np.float32)
-            sub_dist_array = np.sqrt(sub_delta_array[:, 0] ** 2 +
-                                     sub_delta_array[:, 1] ** 2 +
-                                     sub_delta_array[:, 2] ** 2)
+            sub_delta_array = (self._reference_array[ref_id + 1:, :]
+                               - ref_obj).astype(np.float32)
+            sub_dist_array = np.sqrt(sub_delta_array[:, 0] ** 2
+                                     + sub_delta_array[:, 1] ** 2
+                                     + sub_delta_array[:, 2] ** 2)
 
             # Append to our arrays to the output lists for later
             # concatenation.
@@ -463,15 +463,15 @@ class PessimisticPatternMatcherB:
         # Create the delta vectors and distances we will need to assemble the
         # spokes of the pattern.
         src_delta_array = np.empty((len(src_pattern_array) - 1, 3))
-        src_delta_array[:, 0] = (src_pattern_array[1:, 0] -
-                                 src_pattern_array[0, 0])
-        src_delta_array[:, 1] = (src_pattern_array[1:, 1] -
-                                 src_pattern_array[0, 1])
-        src_delta_array[:, 2] = (src_pattern_array[1:, 2] -
-                                 src_pattern_array[0, 2])
-        src_dist_array = np.sqrt(src_delta_array[:, 0]**2 +
-                                 src_delta_array[:, 1]**2 +
-                                 src_delta_array[:, 2]**2)
+        src_delta_array[:, 0] = (src_pattern_array[1:, 0]
+                                 - src_pattern_array[0, 0])
+        src_delta_array[:, 1] = (src_pattern_array[1:, 1]
+                                 - src_pattern_array[0, 1])
+        src_delta_array[:, 2] = (src_pattern_array[1:, 2]
+                                 - src_pattern_array[0, 2])
+        src_dist_array = np.sqrt(src_delta_array[:, 0]**2
+                                 + src_delta_array[:, 1]**2
+                                 + src_delta_array[:, 2]**2)
 
         # Our first test. We search the reference dataset for pairs
         # that have the same length as our first source pairs to with
@@ -505,13 +505,13 @@ class PessimisticPatternMatcherB:
                 if pair_idx == 0:
                     ref_candidates.append(
                         tmp_ref_pair_list[1])
-                    ref_delta = (self._reference_array[tmp_ref_pair_list[1]] -
-                                 ref_center)
+                    ref_delta = (self._reference_array[tmp_ref_pair_list[1]]
+                                 - ref_center)
                 else:
                     ref_candidates.append(
                         tmp_ref_pair_list[0])
-                    ref_delta = (self._reference_array[tmp_ref_pair_list[0]] -
-                                 ref_center)
+                    ref_delta = (self._reference_array[tmp_ref_pair_list[0]]
+                                 - ref_center)
 
                 # For dense fields it will be faster to compute the absolute
                 # rotation this pair suggests first rather than saving it
@@ -704,13 +704,13 @@ class PessimisticPatternMatcherB:
         # Now that we have our shift we apply it to the src delta vector
         # and check the rotation.
         rot_src_delta = np.dot(shift_matrix, src_delta)
-        proj_src_delta = (rot_src_delta -
-                          np.dot(rot_src_delta, ref_center) * ref_center)
-        proj_ref_delta = (ref_delta -
-                          np.dot(ref_delta, ref_center) * ref_center)
-        cos_rot_sq = (np.dot(proj_src_delta, proj_ref_delta) ** 2 /
-                      (np.dot(proj_src_delta, proj_src_delta) *
-                       np.dot(proj_ref_delta, proj_ref_delta)))
+        proj_src_delta = (rot_src_delta
+                          - np.dot(rot_src_delta, ref_center) * ref_center)
+        proj_ref_delta = (ref_delta
+                          - np.dot(ref_delta, ref_center) * ref_center)
+        cos_rot_sq = (np.dot(proj_src_delta, proj_ref_delta) ** 2
+                      / (np.dot(proj_src_delta, proj_src_delta)
+                      * np.dot(proj_ref_delta, proj_ref_delta)))
         # If the rotation isn't in tolerance return None.
         if cos_rot_sq < max_cos_rot_sq:
             return pipeBase.Struct(
@@ -748,9 +748,9 @@ class PessimisticPatternMatcherB:
             [[0., -rot_axis[2], rot_axis[1]],
              [rot_axis[2], 0., -rot_axis[0]],
              [-rot_axis[1], rot_axis[0], 0.]], dtype=np.float64)
-        shift_matrix = (cos_rotation*np.identity(3) +
-                        sin_rotion*rot_cross_matrix +
-                        (1. - cos_rotation)*np.outer(rot_axis, rot_axis))
+        shift_matrix = (cos_rotation*np.identity(3)
+                        + sin_rotion*rot_cross_matrix
+                        + (1. - cos_rotation)*np.outer(rot_axis, rot_axis))
 
         return shift_matrix
 
@@ -815,8 +815,8 @@ class PessimisticPatternMatcherB:
 
         # Plane project the center/first spoke of the source pattern using
         # the center vector of the pattern as normal.
-        proj_src_ctr_delta = (src_delta_array[0] -
-                              np.dot(src_delta_array[0], src_ctr) * src_ctr)
+        proj_src_ctr_delta = (src_delta_array[0]
+                              - np.dot(src_delta_array[0], src_ctr) * src_ctr)
         proj_src_ctr_dist_sq = np.dot(proj_src_ctr_delta, proj_src_ctr_delta)
 
         # Pre-compute the squared length of the projected reference vector.
@@ -829,8 +829,8 @@ class PessimisticPatternMatcherB:
 
             # Given our length tolerance we can use it to compute a tolerance
             # on the angle between our spoke.
-            src_sin_tol = (max_dist_rad /
-                           (src_dist_array[src_idx] + max_dist_rad))
+            src_sin_tol = (max_dist_rad
+                           / (src_dist_array[src_idx] + max_dist_rad))
 
             # Test if the small angle approximation will still hold. This is
             # defined as when sin(theta) ~= theta to within 0.1% of each
@@ -843,17 +843,17 @@ class PessimisticPatternMatcherB:
             # Plane project the candidate source spoke and compute the cosine
             # and sine of the opening angle.
             proj_src_delta = (
-                src_delta_array[src_idx] -
-                np.dot(src_delta_array[src_idx], src_ctr) * src_ctr)
+                src_delta_array[src_idx]
+                - np.dot(src_delta_array[src_idx], src_ctr) * src_ctr)
             geom_dist_src = np.sqrt(
-                np.dot(proj_src_delta, proj_src_delta) *
-                proj_src_ctr_dist_sq)
+                np.dot(proj_src_delta, proj_src_delta)
+                * proj_src_ctr_dist_sq)
 
             # Compute cosine and sine of the delta vector opening angle.
-            cos_theta_src = (np.dot(proj_src_delta, proj_src_ctr_delta) /
-                             geom_dist_src)
-            cross_src = (np.cross(proj_src_delta, proj_src_ctr_delta) /
-                         geom_dist_src)
+            cos_theta_src = (np.dot(proj_src_delta, proj_src_ctr_delta)
+                             / geom_dist_src)
+            cross_src = (np.cross(proj_src_delta, proj_src_ctr_delta)
+                         / geom_dist_src)
             sin_theta_src = np.dot(cross_src, src_ctr)
 
             # Find the reference pairs that include our candidate pattern
@@ -939,24 +939,24 @@ class PessimisticPatternMatcherB:
         # Loop over our candidate reference objects.
         for ref_dist_idx in ref_dist_idx_array:
             # Compute the delta vector from the pattern center.
-            ref_delta = (self._reference_array[ref_id_array[ref_dist_idx]] -
-                         ref_ctr)
+            ref_delta = (self._reference_array[ref_id_array[ref_dist_idx]]
+                         - ref_ctr)
             # Compute the cos between our "center" reference vector and the
             # current reference candidate.
             proj_ref_delta = ref_delta - np.dot(ref_delta, ref_ctr) * ref_ctr
-            geom_dist_ref = np.sqrt(proj_ref_ctr_dist_sq *
-                                    np.dot(proj_ref_delta, proj_ref_delta))
-            cos_theta_ref = (np.dot(proj_ref_delta, proj_ref_ctr_delta) /
-                             geom_dist_ref)
+            geom_dist_ref = np.sqrt(proj_ref_ctr_dist_sq
+                                    * np.dot(proj_ref_delta, proj_ref_delta))
+            cos_theta_ref = (np.dot(proj_ref_delta, proj_ref_ctr_delta)
+                             / geom_dist_ref)
 
             # Make sure we can safely make the comparison in case
             # our "center" and candidate vectors are mostly aligned.
             if cos_theta_ref ** 2 < (1 - src_sin_tol ** 2):
-                cos_sq_comparison = ((cos_theta_src - cos_theta_ref) ** 2 /
-                                     (1 - cos_theta_ref ** 2))
+                cos_sq_comparison = ((cos_theta_src - cos_theta_ref) ** 2
+                                     / (1 - cos_theta_ref ** 2))
             else:
-                cos_sq_comparison = ((cos_theta_src - cos_theta_ref) ** 2 /
-                                     src_sin_tol ** 2)
+                cos_sq_comparison = ((cos_theta_src - cos_theta_ref) ** 2
+                                     / src_sin_tol ** 2)
             # Test the difference of the cosine of the reference angle against
             # the source angle. Assumes that the delta between the two is
             # small.
@@ -966,8 +966,8 @@ class PessimisticPatternMatcherB:
             # The cosine tests the magnitude of the angle but not
             # its direction. To do that we need to know the sine as well.
             # This cross product calculation does that.
-            cross_ref = (np.cross(proj_ref_delta, proj_ref_ctr_delta) /
-                         geom_dist_ref)
+            cross_ref = (np.cross(proj_ref_delta, proj_ref_ctr_delta)
+                         / geom_dist_ref)
             sin_theta_ref = np.dot(cross_ref, ref_ctr)
 
             # Check the value of the cos again to make sure that it is not
@@ -1123,9 +1123,9 @@ class PessimisticPatternMatcherB:
         shifted_pattern_a = np.dot(shift_rot_matrix,
                                    pattern_a.transpose()).transpose()
         tmp_delta_array = shifted_pattern_a - pattern_b
-        tmp_dist_array = (tmp_delta_array[:, 0] ** 2 +
-                          tmp_delta_array[:, 1] ** 2 +
-                          tmp_delta_array[:, 2] ** 2)
+        tmp_dist_array = (tmp_delta_array[:, 0] ** 2
+                          + tmp_delta_array[:, 1] ** 2
+                          + tmp_delta_array[:, 2] ** 2)
         return np.all(tmp_dist_array < max_dist_rad ** 2)
 
     def _test_pattern_lengths(self, test_pattern, max_dist_rad):
@@ -1148,9 +1148,9 @@ class PessimisticPatternMatcherB:
         test : `bool`
             Length tests pass.
         """
-        dists = (test_pattern[:, 0] ** 2 +
-                 test_pattern[:, 1] ** 2 +
-                 test_pattern[:, 2] ** 2)
+        dists = (test_pattern[:, 0] ** 2
+                 + test_pattern[:, 1] ** 2
+                 + test_pattern[:, 2] ** 2)
         return np.all(
             np.logical_and((1 - max_dist_rad) ** 2 < dists,
                            dists < (1 + max_dist_rad) ** 2))
@@ -1184,8 +1184,8 @@ class PessimisticPatternMatcherB:
         for rot_idx in range(max((len(rot_vects) - 1), 0)):
             tmp_dist_list = []
             for vect_idx in range(len(rot_vects[rot_idx]) - 1):
-                tmp_delta_vect = (rot_vects[rot_idx][vect_idx] -
-                                  rot_vects[-1][vect_idx])
+                tmp_delta_vect = (rot_vects[rot_idx][vect_idx]
+                                  - rot_vects[-1][vect_idx])
                 tmp_dist_list.append(
                     np.dot(tmp_delta_vect, tmp_delta_vect))
             if np.all(np.array(tmp_dist_list) < max_dist_rad ** 2):

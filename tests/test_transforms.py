@@ -533,8 +533,8 @@ class ScaledPolynomialTransformFitterTestCase(lsst.utils.tests.TestCase):
             trueRec.set(srcPosKey, truePos)
             measRec = measSrc.addNew()
             covSqrt = np.random.randn(3, 2)
-            cov = (errScaling*(np.dot(covSqrt.transpose(), covSqrt) +
-                   np.diag([1.0, 1.0]))).astype(np.float32)
+            cov = (errScaling*(np.dot(covSqrt.transpose(), covSqrt)
+                   + np.diag([1.0, 1.0]))).astype(np.float32)
             # We don't actually perturb positions according to noise level, as
             # this makes it much harder to test that the result agrees with
             # what we put in.
