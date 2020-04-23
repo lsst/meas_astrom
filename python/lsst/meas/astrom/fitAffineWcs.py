@@ -26,9 +26,9 @@ import astshim
 import numpy as np
 from scipy.optimize import least_squares
 
-from lsst.afw.geom import makeSkyWcs, degrees, arcseconds, radians, SkyWcs
+from lsst.afw.geom import makeSkyWcs, SkyWcs
 import lsst.afw.math
-from lsst.geom import Point2D
+from lsst.geom import Point2D, degrees, arcseconds, radians
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 
