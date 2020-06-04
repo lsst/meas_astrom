@@ -79,7 +79,10 @@ class PessimisticPatternMatcherB:
         self._n_reference = len(self._reference_array)
         self.log = log
 
-        self._build_distances_and_angles()
+        if self._n_reference > 0:
+            self._build_distances_and_angles()
+        else:
+            raise ValueError("No reference objects supplied")
 
     def _build_distances_and_angles(self):
         """Create the data structures we will use to search for our pattern
