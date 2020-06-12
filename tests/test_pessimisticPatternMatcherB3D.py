@@ -316,6 +316,13 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         self.assertTrue(
             np.all(match_struct.distances_rad < 10 / 3600.0 * __deg_to_rad__))
 
+    def testNoReferenceSources(self):
+        """Check that we get a helpful error when no reference objects are
+        supplied.
+        """
+        with self.assertRaisesRegex(ValueError, "No reference objects supplied"):
+            PessimisticPatternMatcherB(np.ndarray((0, 3)), self.log)
+
 
 if __name__ == '__main__':
     unittest.main()
