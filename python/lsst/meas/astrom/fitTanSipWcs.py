@@ -1,10 +1,9 @@
-# This file is part of meas_astrom.
 #
-# Developed for the LSST Data Management System.
-# This product includes software developed by the LSST Project
-# (https://www.lsst.org).
-# See the COPYRIGHT file at the top-level directory of this distribution
-# for details of code ownership.
+# LSST Data Management System
+# Copyright 2008-2016 AURA/LSST.
+#
+# This product includes software developed by the
+# LSST Project (http://www.lsst.org/).
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,8 +15,10 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# You should have received a copy of the LSST License Statement and
+# the GNU General Public License along with this program.  If not,
+# see <https://www.lsstcorp.org/LegalNotices/>.
+#
 
 __all__ = ["FitTanSipWcsTask", "FitTanSipWcsConfig"]
 
@@ -169,6 +170,10 @@ class FitTanSipWcsTask(pipeBase.Task):
         setMatchDistance(matches)
 
         scatterOnSky = sipObject.getScatterOnSky()
+
+        numRejected = rejected.sum()
+        if numRejected > 0:
+            self.log.info(f'Number of rejected matched stars = {numRejected} / {len(matches)}')
 
         if scatterOnSky.asArcseconds() > self.config.maxScatterArcsec:
             raise pipeBase.TaskError(
