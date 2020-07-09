@@ -58,6 +58,7 @@ class JoinMatchListWithCatalogTestCase(unittest.TestCase):
         butler = Butler(refCatDir)
         refObjLoader = LoadIndexedReferenceObjectsTask(butler=butler)
         astrometryConfig = AstrometryTask.ConfigClass()
+        astrometryConfig.doCheckAfterRematch = False
         self.astrom = AstrometryTask(config=astrometryConfig, refObjLoader=refObjLoader)
         self.astrom.log.setLevel(logLevel)
         # Since our sourceSelector is a registry object we have to wait for it to be created

@@ -1,6 +1,6 @@
 #
 # LSST Data Management System
-# Copyright 2008-2016 AURA/LSST.
+# See COPYRIGHT file at the top of the source tree.
 #
 # This product includes software developed by the
 # LSST Project (http://www.lsst.org/).
@@ -12,22 +12,27 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the LSST License Statement and
-# the GNU General Public License along with this program.  If not,
-# see <https://www.lsstcorp.org/LegalNotices/>.
+# the GNU General Public License along with this program. If not,
+# see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
 __all__ = ["AstrometryConfig", "AstrometryTask"]
 
+import copy
 
+import lsst.geom
+import lsst.afw.math as afwMath
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from .ref_match import RefMatchTask, RefMatchConfig
 from .fitTanSipWcs import FitTanSipWcsTask
 from .display import displayAstrometry
+from . import makeMatchStatistics
+from .directMatch import DirectMatchTask
 
 
 class AstrometryConfig(RefMatchConfig):
@@ -57,6 +62,20 @@ class AstrometryConfig(RefMatchConfig):
         default=0.001,
         min=0,
     )
+    doCheckAfterRematch = pexConfig.Field(
+        doc="do double-check WCS fit scatter, rematching to refCat",
+        dtype=bool,
+        default=False,
+    )
+    maxScatterArcsec = pexConfig.Field(
+        doc="maximum permitted rematched scatter",
+        dtype=float,
+        default=10,
+    )
+    rematcher = pexConfig.ConfigurableField(
+        target=DirectMatchTask,
+        doc="simple matcher to confirm fit if doCheckAfterRematch",
+    )
 
     def setDefaults(self):
         # Override the default source selector for astrometry tasks
@@ -68,6 +87,26 @@ class AstrometryConfig(RefMatchConfig):
         # Note that if the matcher is MatchOptimisticBTask, then the
         # default should be self.sourceSelector['matcher'].excludePixelFlags = False
         # However, there is no way to do this automatically.
+
+        self.rematcher.referenceSelection = self.referenceSelector
+        self.rematcher.sourceSelection.fluxLimit.fluxField = \
+            'slot_%sFlux_instFlux' % (self.sourceFluxType)
+        self.rematcher.sourceSelection.signalToNoise.fluxField = \
+            'slot_%sFlux_instFlux' % (self.sourceFluxType)
+        self.rematcher.sourceSelection.signalToNoise.errField = \
+            'slot_%sFlux_instFluxErr' % (self.sourceFluxType)
+        # defaults below chosen to mimic Dominique Boutigny's checkCcdAstrometry script
+        # extra flags to consider for the future: 'base_PixelFlags_flag_cr'
+        #                                         'base_SdssCentroid_flag'
+        self.rematcher.sourceSelection.doFluxLimit = True
+        self.rematcher.sourceSelection.doSignalToNoise = True
+        self.rematcher.sourceSelection.fluxLimit.minimum = 0
+        self.rematcher.sourceSelection.signalToNoise.minimum = 5
+        self.rematcher.sourceSelection.doFlags = True
+        sourceBadFlags = ['base_PixelFlags_flag_edge',
+                          'base_PixelFlags_flag_saturated',
+                          'base_PixelFlags_flag_interpolated']
+        self.rematcher.sourceSelection.flags.bad = sourceBadFlags
 
 
 class AstrometryTask(RefMatchTask):
@@ -101,6 +140,9 @@ class AstrometryTask(RefMatchTask):
             self.usedKey = None
 
         self.makeSubtask("wcsFitter")
+
+        if self.config.doCheckAfterRematch:
+            self.makeSubtask("rematcher", refObjLoader=refObjLoader)
 
     @pipeBase.timeMethod
     def run(self, sourceCat, exposure):
@@ -151,6 +193,16 @@ class AstrometryTask(RefMatchTask):
         else:
             res = self.solve(exposure=exposure, sourceCat=sourceCat)
         return res
+
+    def setRefObjLoader(self, refObjLoader):
+        # Using copy instead of deepcopy to avoid a recursion error in copying
+        # the config in the refObjLoader. The underlying data in refObjLoader
+        # should not be modified, so this should be safe.
+        # Future people: if this task is experiencing errors, look here first!
+        copyRefObjLoader = copy.copy(refObjLoader)
+        super().setRefObjLoader(refObjLoader)
+        if self.config.doCheckAfterRematch:
+            self.rematcher.setRefObjLoader(copyRefObjLoader)
 
     @pipeBase.timeMethod
     def solve(self, exposure, sourceCat):
@@ -263,13 +315,39 @@ class AstrometryTask(RefMatchTask):
 
         self.log.info(
             "Matched and fit WCS in %d iterations; "
-            "found %d matches with scatter = %0.3f +- %0.3f arcsec" %
+            "found %d matches with clipped-mean scatter = %0.3f +- %0.3f arcsec" %
             (iterNum, len(tryRes.matches), tryMatchDist.distMean.asArcseconds(),
                 tryMatchDist.distStdDev.asArcseconds()))
         for m in res.matches:
             if self.usedKey:
                 m.second.set(self.usedKey, True)
         exposure.setWcs(res.wcs)
+
+        # perform a rematching check
+        if self.config.doCheckAfterRematch:
+
+            sourceCatCopy = sourceSelection.sourceCat.copy(deep=True)
+            rematchRes = self.rematcher.run(sourceCatCopy, exposure.getInfo().getFilter().getName())
+
+            if not rematchRes.matches:
+                errMsg = (f'WCS fit failed, no matches to refCat within a match tolerance of '
+                          f'{self.rematcher.config.matchRadius} arcsec')
+                raise pipeBase.TaskError(errMsg)
+
+            distStats = makeMatchStatistics(rematchRes.matches, afwMath.MEANCLIP | afwMath.STDEVCLIP)
+            distMean = distStats.getValue(afwMath.MEANCLIP)*lsst.geom.radians
+            distStdDev = distStats.getValue(afwMath.STDEVCLIP)*lsst.geom.radians
+            self.log.info(
+                "Rematch check found %d matches with clipped-mean scatter = %0.3f +- %0.3f arcsec",
+                len(rematchRes.matches),
+                distMean.asArcseconds(),
+                distStdDev.asArcseconds(),
+            )
+
+            if distMean.asArcseconds() > self.config.maxScatterArcsec:
+                errMsg = (f'WCS fit failed, rematched scatter greater than '
+                          f'{self.config.maxScatterArcsec} arcsec')
+                raise pipeBase.TaskError(errMsg)
 
         return pipeBase.Struct(
             refCat=refSelection.sourceCat,
