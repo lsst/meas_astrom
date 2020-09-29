@@ -25,9 +25,11 @@ __all__ = ["AstrometryConfig", "AstrometryTask"]
 
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
+import lsst.geom as geom
 from .ref_match import RefMatchTask, RefMatchConfig
 from .fitTanSipWcs import FitTanSipWcsTask
 from .display import displayAstrometry
+from .fitAffineWcs import TransformedSkyWcsMaker
 
 
 class AstrometryConfig(RefMatchConfig):
@@ -56,6 +58,48 @@ class AstrometryConfig(RefMatchConfig):
         dtype=float,
         default=0.001,
         min=0,
+    )
+    shiftSize = pexConfig.RangeField(
+        doc="Shift in pixels to impose on the data.",
+        dtype=float,
+        default=0,
+        min=0,
+        max=300,
+    )
+    rotsize = pexConfig.RangeField(
+        doc="Angle in degrees to rotate the boresight.",
+        dtype=float,
+        default=0,
+        min=-180,
+        max=180,
+    )
+    affineXScale = pexConfig.RangeField(
+        doc="Amount to distort unrotated x",
+        dtype=float,
+        default=1,
+        min=1,
+        max=10,
+    )
+    affineYScale = pexConfig.RangeField(
+        doc="Amount to distort unrotated x",
+        dtype=float,
+        default=1,
+        min=1,
+        max=10,
+    )
+    affineXShear = pexConfig.RangeField(
+        doc="Amount to shear the affine matrix",
+        dtype=float,
+        default=0,
+        min=0,
+        max=1,
+    )
+    affineYShear = pexConfig.RangeField(
+        doc="Amount to shear the affine matrix",
+        dtype=float,
+        default=0,
+        min=0,
+        max=1,
     )
 
     def setDefaults(self):
@@ -220,6 +264,18 @@ class AstrometryTask(RefMatchTask):
         res = None
         wcs = expMd.wcs
         match_tolerance = None
+        angle = np.radians(self.config.rotsize)
+        transWcsMaker = TransformedSkyWcsMaker(wcs)
+        rotate = np.array([[np.cos(angle), -np.sin(angle)],
+                           [np.sin(angle), np.cos(angle)]])
+        scale = np.array([[self.config.affineXScale, 0],
+                          [0, self.config.affineYScale]])
+        shear = np.array([[1, self.config.affineXShear],
+                          [self.config.affineYShear, 1]])
+        wcs = transWcsMaker.makeWcs(
+            [np.random.uniform(-180, 180),
+             wcs.getPixelScale().asArcseconds() * self.confg.shiftSize],
+            np.dot(rotate, np.dot(scale, shear)))
         for i in range(self.config.maxIter):
             iterNum = i + 1
             try:
