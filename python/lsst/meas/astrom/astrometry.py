@@ -23,6 +23,8 @@
 __all__ = ["AstrometryConfig", "AstrometryTask"]
 
 
+import numpy as np
+
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 import lsst.geom as geom
@@ -263,7 +265,11 @@ class AstrometryTask(RefMatchTask):
 
         res = None
         wcs = expMd.wcs
+        tmpCoord = wcs.pixelToSky(sourceCat[0].getCentroid())
+        self.log.info("Before Ra: %.8f Dec: %.8f" %
+                      (tmpCoord.getRa().asDegrees(), tmpCoord.getDec().asDegrees()))
         match_tolerance = None
+        shift = wcs.getPixelScale().asArcseconds() * self.config.shiftSize
         angle = np.radians(self.config.rotsize)
         transWcsMaker = TransformedSkyWcsMaker(wcs)
         rotate = np.array([[np.cos(angle), -np.sin(angle)],
@@ -272,10 +278,17 @@ class AstrometryTask(RefMatchTask):
                           [0, self.config.affineYScale]])
         shear = np.array([[1, self.config.affineXShear],
                           [self.config.affineYShear, 1]])
+        matrix = np.dot(rotate, np.dot(scale, shear))
+        self.log.info(f"Test shift in arcseconds: {shift}")
+        self.log.info("Affine Matrix: [[%.5f, %.5f], [%.5f, %.5f]]"
+                      % (matrix[0, 0], matrix[0, 1], matrix[1, 0], matrix[1, 1]))
+
         wcs = transWcsMaker.makeWcs(
-            [np.random.uniform(-180, 180),
-             wcs.getPixelScale().asArcseconds() * self.confg.shiftSize],
-            np.dot(rotate, np.dot(scale, shear)))
+            [np.random.uniform(-180, 180), shift],
+            matrix)
+        tmpCoord = wcs.pixelToSky(sourceCat[0].getCentroid())
+        self.log.info("After Ra: %.8f Dec: %.8f" %
+                      (tmpCoord.getRa().asDegrees(), tmpCoord.getDec().asDegrees()))
         for i in range(self.config.maxIter):
             iterNum = i + 1
             try:
