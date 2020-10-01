@@ -24,6 +24,7 @@ __all__ = ["AstrometryConfig", "AstrometryTask"]
 
 
 import numpy as np
+import pandas as pd
 
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
@@ -102,6 +103,10 @@ class AstrometryConfig(RefMatchConfig):
         default=0,
         min=0,
         max=1,
+    )
+    outputFile = pexConfig.Field(
+        doc="Parquet file to write tweaked wcs info to.",
+        dtype=str,
     )
 
     def setDefaults(self):
@@ -269,8 +274,28 @@ class AstrometryTask(RefMatchTask):
         self.log.info("Before Ra: %.8f Dec: %.8f" %
                       (tmpCoord.getRa().asDegrees(), tmpCoord.getDec().asDegrees()))
         match_tolerance = None
+
+        visitId = exposure.getInfo().getVisitInfo().getExposureId()
+        rng = np.random.default_rng(visitId)
         shift = wcs.getPixelScale().asArcseconds() * self.config.shiftSize
+        shiftAngle = rng.uniform(-180, 180)
         angle = np.radians(self.config.rotsize)
+
+        wcsDict = {"ccdVisit": visitId,
+                   "originRa": wcs.getSkyOrigin().getRa().asDegrees(),
+                   "originDec": wcs.getSkyOrigin().getDec().asDegrees(),
+                   "shift": shift,
+                   "shiftAngle": shiftAngle,
+                   "rot": np.asdegrees(angle),
+                   "affineXScale": self.config.affineXScale,
+                   "affineYScale": self.config.affineYScale,
+                   "affineXShear": self.config.affineXShear,
+                   "affineYShear": self.config.affineYShear,}
+
+        for idx, corner in enumerate(geom.Box2D(exposure.getBBox()).getCorners()):
+            tmpCoord = wcs.pixelToSky(corner)
+            wcsDict[f"startCornerRa{idx}"] = tmpCoord.getRa().asDegrees()
+            wcsDict[f"startCornerDec{idx}"] = tmpCoord.getDec().asDegrees()
         transWcsMaker = TransformedSkyWcsMaker(wcs)
         rotate = np.array([[np.cos(angle), -np.sin(angle)],
                            [np.sin(angle), np.cos(angle)]])
@@ -283,9 +308,12 @@ class AstrometryTask(RefMatchTask):
         self.log.info("Affine Matrix: [[%.5f, %.5f], [%.5f, %.5f]]"
                       % (matrix[0, 0], matrix[0, 1], matrix[1, 0], matrix[1, 1]))
 
-        wcs = transWcsMaker.makeWcs(
-            [np.random.uniform(-180, 180), shift],
-            matrix)
+        wcs = transWcsMaker.makeWcs([shiftAngle, shift], matrix)
+        for idx, corner in enumerate(geom.Box2D(exposure.getBBox()).getCorners()):
+            tmpCoord = wcs.pixelToSky(corner)
+            wcsDict[f"endCornerRa{idx}"] = tmpCoord.getRa().asDegrees()
+            wcsDict[f"endCornerDec{idx}"] = tmpCoord.getDec().asDegrees()
+        wcsDict["fitSuccess"] = False
         tmpCoord = wcs.pixelToSky(sourceCat[0].getCentroid())
         self.log.info("After Ra: %.8f Dec: %.8f" %
                       (tmpCoord.getRa().asDegrees(), tmpCoord.getDec().asDegrees()))
@@ -327,6 +355,7 @@ class AstrometryTask(RefMatchTask):
                     "Max match distance = %0.3f arcsec < %0.3f = config.minMatchDistanceArcSec; "
                     "that's good enough",
                     maxMatchDist.asArcseconds(), self.config.minMatchDistanceArcSec)
+                wcsDict["fitSuccess"] = True
                 break
             match_tolerance.maxMatchDist = maxMatchDist
 
@@ -335,10 +364,15 @@ class AstrometryTask(RefMatchTask):
             "found %d matches with scatter = %0.3f +- %0.3f arcsec" %
             (iterNum, len(tryRes.matches), tryMatchDist.distMean.asArcseconds(),
                 tryMatchDist.distStdDev.asArcseconds()))
+        if iterNum >= self.config.maxIter:
+            wcsDict["fitSuccess"] = True
         for m in res.matches:
             if self.usedKey:
                 m.second.set(self.usedKey, True)
         exposure.setWcs(res.wcs)
+
+        df = pd.DataFrame(data=wcsDict)
+        df.to_parquet(self.config.outputFile)
 
         return pipeBase.Struct(
             refCat=refSelection.sourceCat,
