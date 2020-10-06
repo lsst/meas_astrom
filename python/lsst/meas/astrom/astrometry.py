@@ -25,6 +25,8 @@ __all__ = ["AstrometryConfig", "AstrometryTask"]
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
@@ -107,6 +109,7 @@ class AstrometryConfig(RefMatchConfig):
     outputFile = pexConfig.Field(
         doc="Parquet file to write tweaked wcs info to.",
         dtype=str,
+        default="./wcsTweak.parq"
     )
 
     def setDefaults(self):
@@ -275,7 +278,10 @@ class AstrometryTask(RefMatchTask):
                       (tmpCoord.getRa().asDegrees(), tmpCoord.getDec().asDegrees()))
         match_tolerance = None
 
-        visitId = exposure.getInfo().getVisitInfo().getExposureId()
+        if exposure.getInfo().getVisitInfo() is None:
+            visitId = 1234
+        else:
+            visitId = exposure.getInfo().getVisitInfo().getExposureId()
         rng = np.random.default_rng(visitId)
         shift = wcs.getPixelScale().asArcseconds() * self.config.shiftSize
         shiftAngle = rng.uniform(-180, 180)
@@ -286,7 +292,7 @@ class AstrometryTask(RefMatchTask):
                    "originDec": wcs.getSkyOrigin().getDec().asDegrees(),
                    "shift": shift,
                    "shiftAngle": shiftAngle,
-                   "rot": np.asdegrees(angle),
+                   "rot": self.config.rotsize,
                    "affineXScale": self.config.affineXScale,
                    "affineYScale": self.config.affineYScale,
                    "affineXShear": self.config.affineXShear,
@@ -371,8 +377,10 @@ class AstrometryTask(RefMatchTask):
                 m.second.set(self.usedKey, True)
         exposure.setWcs(res.wcs)
 
-        df = pd.DataFrame(data=wcsDict)
-        df.to_parquet(self.config.outputFile)
+        df = pd.DataFrame(data=[wcsDict])
+        pq.write_to_dataset(pa.Table.from_pandas(df),
+                            root_path=self.config.outputFile,
+                            partition_cols=["ccdVisit"])
 
         return pipeBase.Struct(
             refCat=refSelection.sourceCat,
