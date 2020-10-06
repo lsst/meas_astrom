@@ -14,7 +14,8 @@ for shift in shifts:
                     "--calib /project/morriscb/src/ap_verify_ci_hits2015/defaultRun/calibingested/ "
                     "-C config/procCcdCalibrate.py --id visit=411420^419802^411371 "
                     f"-c calibrate.astrometry.shiftSize={shift:.2f} "
-                    "-c calibrate.astrometry.matcher.maxRotationDeg=6.0",
+                    "-c calibrate.astrometry.matcher.maxRotationDeg=6.0 "
+                    "-c calibrate.astrometry.outputFile=/project/morriscb/src/ap_verify_ci_hits2015/wcsTweak",
                     shell=True)
     job.wait()
 for rot in rots:
@@ -24,7 +25,8 @@ for rot in rots:
                     "--calib /project/morriscb/src/ap_verify_ci_hits2015/defaultRun/calibingested/ "
                     "-C config/procCcdCalibrate.py --id visit=411420^419802^411371 "
                     f"-c calibrate.astrometry.rotsize={rot:.2f} "
-                    "-c calibrate.astrometry.matcher.maxRotationDeg=6.0",
+                    "-c calibrate.astrometry.matcher.maxRotationDeg=6.0 "
+                    "-c calibrate.astrometry.outputFile=/project/morriscb/src/ap_verify_ci_hits2015/wcsTweak",
                     shell=True)
     job.wait()
 for scale in scales:
@@ -34,7 +36,8 @@ for scale in scales:
                     "--calib /project/morriscb/src/ap_verify_ci_hits2015/defaultRun/calibingested/ "
                     "-C config/procCcdCalibrate.py --id visit=411420^419802^411371 "
                     f"-c calibrate.astrometry.affineXScale={scale:.5f} "
-                    "-c calibrate.astrometry.matcher.maxRotationDeg=6.0",
+                    "-c calibrate.astrometry.matcher.maxRotationDeg=6.0 "
+                    "-c calibrate.astrometry.outputFile=/project/morriscb/src/ap_verify_ci_hits2015/wcsTweak",
                     shell=True)
     job.wait()
 for shear in shears:
@@ -44,6 +47,7 @@ for shear in shears:
                     "--calib /project/morriscb/src/ap_verify_ci_hits2015/defaultRun/calibingested/ "
                     "-C config/procCcdCalibrate.py --id visit=411420^419802^411371 "
                     f"-c calibrate.astrometry.affineXShear={shear:.5f} "
-                    "-c calibrate.astrometry.matcher.maxRotationDeg=6.0",
+                    "-c calibrate.astrometry.matcher.maxRotationDeg=6.0 "
+                    "-c calibrate.astrometry.outputFile=/project/morriscb/src/ap_verify_ci_hits2015/wcsTweak",
                     shell=True)
     job.wait()
