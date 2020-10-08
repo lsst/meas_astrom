@@ -343,6 +343,10 @@ class AstrometryTask(RefMatchTask):
                     iterNum -= 1
                     break
                 else:
+                    df = pd.DataFrame(data=[wcsDict])
+                    pq.write_to_dataset(pa.Table.from_pandas(df),
+                                        root_path=self.config.outputFile,
+                                        partition_cols=["ccdVisit"])
                     raise
 
             match_tolerance = tryRes.match_tolerance
