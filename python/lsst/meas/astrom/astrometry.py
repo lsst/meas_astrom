@@ -413,9 +413,9 @@ class AstrometryTask(RefMatchTask):
 
     def _makePandasCat(self, sourceCat, ccdVisit):
         catDf = sourceCat.asAstropy().to_pandas()
-        catDf["ccdVisit"] = visitId
-        catDf["shift"] = self.config.shiftSize,
-        catDf["rot"] = self.config.rotsize,
+        catDf["ccdVisit"] = ccdVisit
+        catDf["shift"] = self.config.shiftSize
+        catDf["rot"] = self.config.rotsize
         catDf["affineXScale"] = self.config.affineXScale
         catDf["affineYScale"] = self.config.affineYScale
         catDf["affineXShear"] = self.config.affineXShear
