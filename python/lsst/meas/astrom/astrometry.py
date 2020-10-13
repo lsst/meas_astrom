@@ -28,6 +28,7 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+import lsst.afw.table as afwTable
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 import lsst.geom as geom
@@ -110,6 +111,11 @@ class AstrometryConfig(RefMatchConfig):
         doc="Parquet file to write tweaked wcs info to.",
         dtype=str,
         default="./wcsTweak.parq"
+    )
+    outputCatalog = pexConfig.Field(
+        doc="Parquet file to write tweaked wcs info to.",
+        dtype=str,
+        default="./wcsTweakCat.parq"
     )
 
     def setDefaults(self):
@@ -291,7 +297,7 @@ class AstrometryTask(RefMatchTask):
                    "originRa": wcs.getSkyOrigin().getRa().asDegrees(),
                    "originDec": wcs.getSkyOrigin().getDec().asDegrees(),
                    "shift": self.config.shiftSize,
-                   "pixScale": wcs.getPixelScale().asArcseconds(), 
+                   "pixScale": wcs.getPixelScale().asArcseconds(),
                    "shiftAngle": shiftAngle,
                    "rot": self.config.rotsize,
                    "affineXScale": self.config.affineXScale,
@@ -348,6 +354,12 @@ class AstrometryTask(RefMatchTask):
                     pq.write_to_dataset(pa.Table.from_pandas(df),
                                         root_path=self.config.outputFile,
                                         partition_cols=["ccdVisit"])
+                    afwTable.updateSourceCoords(wcs, sourceList=sourceCat)
+                    catDf = self._makePandasCat(sourceCat, visitId)
+                    pq.write_to_dataset(
+                        pa.Table.from_pandas(catDf),
+                        root_path=self.config.outputCatalog,
+                        partition_cols=["ccdVisit"])
                     raise
 
             match_tolerance = tryRes.match_tolerance
@@ -387,12 +399,29 @@ class AstrometryTask(RefMatchTask):
                             root_path=self.config.outputFile,
                             partition_cols=["ccdVisit"])
 
+        catDf = self._makePandasCat(sourceCat, visitId)
+        pq.write_to_dataset(pa.Table.from_pandas(catDf),
+                            root_path=self.config.outputCatalog,
+                            partition_cols=["ccdVisit"])
+
         return pipeBase.Struct(
             refCat=refSelection.sourceCat,
             matches=res.matches,
             scatterOnSky=res.scatterOnSky,
             matchMeta=matchMeta,
         )
+
+    def _makePandasCat(self, sourceCat, ccdVisit):
+        catDf = sourceCat.asAstropy().to_pandas()
+        catDf["ccdVisit"] = visitId
+        catDf["shift"] = self.config.shiftSize,
+        catDf["rot"] = self.config.rotsize,
+        catDf["affineXScale"] = self.config.affineXScale
+        catDf["affineYScale"] = self.config.affineYScale
+        catDf["affineXShear"] = self.config.affineXShear
+        catDf["affineYShear"] = self.config.affineYShear
+        return catDf
+
 
     @pipeBase.timeMethod
     def _matchAndFitWcs(self, refCat, sourceCat, goodSourceCat, refFluxField, bbox, wcs, match_tolerance,
