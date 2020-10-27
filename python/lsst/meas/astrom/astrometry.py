@@ -83,28 +83,28 @@ class AstrometryConfig(RefMatchConfig):
         doc="Amount to distort unrotated x",
         dtype=float,
         default=1,
-        min=1,
+        min=0,
         max=10,
     )
     affineYScale = pexConfig.RangeField(
         doc="Amount to distort unrotated x",
         dtype=float,
         default=1,
-        min=1,
+        min=0,
         max=10,
     )
     affineXShear = pexConfig.RangeField(
         doc="Amount to shear the affine matrix",
         dtype=float,
         default=0,
-        min=0,
+        min=-1,
         max=1,
     )
     affineYShear = pexConfig.RangeField(
         doc="Amount to shear the affine matrix",
         dtype=float,
         default=0,
-        min=0,
+        min=-1,
         max=1,
     )
     outputFile = pexConfig.Field(
