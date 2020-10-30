@@ -67,7 +67,7 @@ def linearXDistort(src, frac=.001):
     """
 
     out = src.table.copyRecord(src)
-    out.set(out.table.getCentroidKey().getX(), out.getX()*(1+frac))
+    out.set(out.table.getCentroidSlot().getMeasKey().getX(), out.getX()*(1+frac))
     return out
 
 
@@ -93,8 +93,8 @@ def quadraticDistortX(src, frac=1e-6):
     y = out.getY()
     val = x**2
 
-    out.set(out.table.getCentroidKey().getX(), x + val*frac)
-    out.set(out.table.getCentroidKey().getY(), y)
+    out.set(out.table.getCentroidSlot().getMeasKey().getX(), x + val*frac)
+    out.set(out.table.getCentroidSlot().getMeasKey().getY(), y)
     return out
 
 
@@ -120,8 +120,8 @@ def cubicDistortX(src, frac=1e-9):
     y = out.getY()
     val = x**3
 
-    out.set(out.table.getCentroidKey().getX(), x + val*frac)
-    out.set(out.table.getCentroidKey().getY(), y)
+    out.set(out.table.getCentroidSlot().getMeasKey().getX(), x + val*frac)
+    out.set(out.table.getCentroidSlot().getMeasKey().getY(), y)
     return out
 
 
@@ -146,8 +146,8 @@ def manyTermX(src, frac=1e-9):
     y = out.getY()
     val = x**3 - 2*x**2 + 4*x - 9
 
-    out.set(out.table.getCentroidKey().getX(), x + val*frac)
-    out.set(out.table.getCentroidKey().getY(), y)
+    out.set(out.table.getCentroidSlot().getMeasKey().getX(), x + val*frac)
+    out.set(out.table.getCentroidSlot().getMeasKey().getY(), y)
     return out
 
 
@@ -169,7 +169,7 @@ def linearYDistort(src, frac=.001):
     """
 
     out = src.table.copyRecord(src)
-    out.set(out.table.getCentroidKey().getY(), out.getY()*(1+frac))
+    out.set(out.table.getCentroidSlot().getMeasKey().getY(), out.getY()*(1+frac))
     return out
 
 
@@ -195,8 +195,8 @@ def quadraticDistortY(src, frac=1e-6):
     y = out.getY()
     val = y**2
 
-    out.set(out.table.getCentroidKey().getX(), x)
-    out.set(out.table.getCentroidKey().getY(), y + val*frac)
+    out.set(out.table.getCentroidSlot().getMeasKey().getX(), x)
+    out.set(out.table.getCentroidSlot().getMeasKey().getY(), y + val*frac)
     return out
 
 
@@ -222,8 +222,8 @@ def cubicDistortY(src, frac=1e-9):
     y = out.getY()
     val = x**3
 
-    out.set(out.table.getCentroidKey().getX(), x)
-    out.set(out.table.getCentroidKey().getY(), y + val*frac)
+    out.set(out.table.getCentroidSlot().getMeasKey().getX(), x)
+    out.set(out.table.getCentroidSlot().getMeasKey().getY(), y + val*frac)
     return out
 
 
@@ -247,8 +247,8 @@ def manyTermY(src, frac=1e-9):
     y = out.getY()
     val = y**3 - 2*y**2 + 4*y - 9
 
-    out.set(out.table.getCentroidKey().getX(), x)
-    out.set(out.table.getCentroidKey().getY(), y + val*frac)
+    out.set(out.table.getCentroidSlot().getMeasKey().getX(), x)
+    out.set(out.table.getCentroidSlot().getMeasKey().getY(), y + val*frac)
     return out
 
 
@@ -272,8 +272,8 @@ def crossTerms1(src, frac=1e-11):
     y = out.getY()
     val = x**3 - 2*x**2  # + 4*x - 9
 
-    out.set(out.table.getCentroidKey().getX(), x)
-    out.set(out.table.getCentroidKey().getY(), y + val*frac)
+    out.set(out.table.getCentroidSlot().getMeasKey().getX(), x)
+    out.set(out.table.getCentroidSlot().getMeasKey().getY(), y + val*frac)
     return out
 
 
@@ -297,8 +297,8 @@ def crossTerms2(src, frac=1e-11):
     y = out.getY()
     val = y**3 - 2*y**2 + 4*y - 9
 
-    out.set(out.table.getCentroidKey().getX(), x + val*frac)
-    out.set(out.table.getCentroidKey().getY(), y)
+    out.set(out.table.getCentroidSlot().getMeasKey().getX(), x + val*frac)
+    out.set(out.table.getCentroidSlot().getMeasKey().getY(), y)
     return out
 
 
@@ -324,8 +324,8 @@ def crossTerms3(src, frac=1e-9):
     valx = x**3 - 2*x**2 + 4*x - 9
     valy = y**3 - 2*y**2 + 4*y - 9
 
-    out.set(out.table.getCentroidKey().getX(), x + valy*frac)
-    out.set(out.table.getCentroidKey().getY(), y + valx*frac)
+    out.set(out.table.getCentroidSlot().getMeasKey().getX(), x + valy*frac)
+    out.set(out.table.getCentroidSlot().getMeasKey().getY(), y + valx*frac)
     return out
 
 
@@ -353,8 +353,8 @@ def quadraticDistort(src, frac=1e-6):
     val += 3*x + 4*x*y
     val += x**2
 
-    out.set(out.table.getCentroidKey().getX(), x + val*frac)
-    out.set(out.table.getCentroidKey().getY(), y)
+    out.set(out.table.getCentroidSlot().getMeasKey().getX(), x + val*frac)
+    out.set(out.table.getCentroidSlot().getMeasKey().getY(), y)
     return out
 
 
@@ -377,7 +377,7 @@ def T2DistortX(src, frac=1e-6):
     out = src.table.copyRecord(src)
     x = src.getX()
     val = 2*(x**2) - 1
-    out.set(out.table.getCentroidKey().getX(), x + frac*val)
+    out.set(out.table.getCentroidSlot().getMeasKey().getX(), x + frac*val)
     return out
 
 

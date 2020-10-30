@@ -77,7 +77,7 @@ class TestMatchOptimisticB(unittest.TestCase):
 
         def applyDistortion(src):
             out = src.table.copyRecord(src)
-            out.set(out.table.getCentroidKey(),
+            out.set(out.table.getCentroidSlot().getMeasKey(),
                     pixelsToTanPixels.applyInverse(src.getCentroid()))
             return out
 
@@ -176,7 +176,7 @@ class TestMatchOptimisticB(unittest.TestCase):
         # print("schema=", sourceCat.schema)
 
         # Source x,y positions are ~ (500,1500) x (500,1500)
-        centroidKey = sourceCat.table.getCentroidKey()
+        centroidKey = sourceCat.table.getCentroidSlot().getMeasKey()
         for src in sourceCat:
             adjCentroid = src.get(centroidKey) - lsst.geom.Extent2D(500, 500)
             src.set(centroidKey, adjCentroid)
