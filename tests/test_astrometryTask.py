@@ -49,7 +49,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
                                          cdMatrix=afwGeom.makeCdMatrix(scale=5.1e-5*lsst.geom.degrees))
         self.exposure = afwImage.ExposureF(self.bbox)
         self.exposure.setWcs(self.tanWcs)
-        self.exposure.setFilter(afwImage.Filter("r", True))
+        self.exposure.setFilterLabel(afwImage.FilterLabel(band="r", physical="rTest"))
         butler = Butler(refCatDir)
         self.refObjLoader = LoadIndexedReferenceObjectsTask(butler=butler)
 

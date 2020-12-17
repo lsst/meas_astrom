@@ -248,14 +248,13 @@ class RefMatchTask(pipeBase.Task):
             - ``bbox`` : parent bounding box (`lsst.geom.Box2I`)
             - ``wcs`` : exposure WCS (`lsst.afw.geom.SkyWcs`)
             - ``photoCalib`` : photometric calibration (`lsst.afw.image.PhotoCalib`)
-            - ``filterName`` : name of filter (`str`)
+            - ``filterName`` : name of filter band (`str`)
             - ``epoch`` : date of exposure (`astropy.time.Time`)
 
         """
         exposureInfo = exposure.getInfo()
-        filterName = exposureInfo.getFilter().getName() or None
-        if filterName == "_unknown_":
-            filterName = None
+        filterLabel = exposureInfo.getFilterLabel()
+        filterName = filterLabel.bandLabel if filterLabel is not None else None
         epoch = None
         if exposure.getInfo().hasVisitInfo():
             epochTaiMjd = exposure.getInfo().getVisitInfo().getDate().get(system=DateTime.MJD,
