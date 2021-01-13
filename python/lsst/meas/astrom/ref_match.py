@@ -156,6 +156,7 @@ class RefMatchTask(pipeBase.Task):
             wcs=expMd.wcs,
             filterName=expMd.filterName,
             photoCalib=expMd.photoCalib,
+            epoch=expMd.epoch,
         )
 
         refSelection = self.referenceSelector.run(loadRes.refCat)
@@ -165,6 +166,7 @@ class RefMatchTask(pipeBase.Task):
             wcs=expMd.wcs,
             filterName=expMd.filterName,
             photoCalib=expMd.photoCalib,
+            epoch=expMd.epoch,
         )
 
         matchRes = self.matcher.matchObjectsToSources(
