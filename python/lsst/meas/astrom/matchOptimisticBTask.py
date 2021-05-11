@@ -64,7 +64,7 @@ class MatchOptimisticBConfig(pexConfig.Config):
         doc="Maximum allowed shift of WCS, due to matching (pixel). "
             "When changing this value, the LoadReferenceObjectsConfig.pixelMargin should also be updated.",
         dtype=int,
-        default=300,
+        default=250,
         max=4000,
     )
     maxRotationDeg = pexConfig.RangeField(
