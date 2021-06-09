@@ -1410,7 +1410,7 @@ class PessimisticPatternMatcherB:
         handshake_mask_array : `numpy.ndarray`, (N,)
            Return the array positions where the two match catalogs agree.
         """
-        handshake_mask_array = np.zeros(len(matches_src), dtype=np.bool)
+        handshake_mask_array = np.zeros(len(matches_src), dtype=bool)
 
         for src_match_idx, match in enumerate(matches_src):
             ref_match_idx = np.searchsorted(matches_ref[:, 1], match[1])
