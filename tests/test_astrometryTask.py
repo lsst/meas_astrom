@@ -162,6 +162,17 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         )
         self.assertLess(len(resultsRefSelect.matches), len(results.matches))
 
+        # try again, allowing magnitude outlier rejection.
+        config.doMagnitudeOutlierRejection = True
+        solverMagOutlierRejection = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
+        self.exposure.setWcs(distortedWcs)
+        resultsMagOutlierRejection = solverMagOutlierRejection.run(
+            sourceCat=sourceCat,
+            exposure=self.exposure,
+        )
+        self.assertEqual(len(resultsMagOutlierRejection.matches), len(resultsRefSelect.matches))
+        config.doMagnitudeOutlierRejection = False
+
         # try again, but without fitting the WCS, no reference selector
         config.referenceSelector.doUnresolved = False
         config.forceKnownWcs = True

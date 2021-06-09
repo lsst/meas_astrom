@@ -22,6 +22,8 @@
 
 __all__ = ["AstrometryConfig", "AstrometryTask"]
 
+import numpy as np
+from astropy import units
 
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
@@ -56,6 +58,18 @@ class AstrometryConfig(RefMatchConfig):
         dtype=float,
         default=0.001,
         min=0,
+    )
+    doMagnitudeOutlierRejection = pexConfig.Field(
+        dtype=bool,
+        doc=("If True then a rough zeropoint will be computed from matched sources "
+             "and outliers will be rejected in the iterations."),
+        default=False,
+    )
+    magnitudeOutlierRejectionNSigma = pexConfig.Field(
+        dtype=float,
+        doc=("Number of sigma (measured from the distribution) in magnitude "
+             "for a potential match to be rejected during iteration."),
+        default=3.0,
     )
 
     def setDefaults(self):
@@ -342,9 +356,14 @@ class AstrometryTask(RefMatchTask):
                 title="Initial WCS",
             )
 
+        if self.config.doMagnitudeOutlierRejection:
+            matches = self._removeMagnitudeOutliers(sourceFluxField, refFluxField, matchRes.matches)
+        else:
+            matches = matchRes.matches
+
         self.log.debug("Fitting WCS")
         fitRes = self.wcsFitter.fitWcs(
-            matches=matchRes.matches,
+            matches=matches,
             initWcs=wcs,
             bbox=bbox,
             refCat=refCat,
@@ -358,7 +377,7 @@ class AstrometryTask(RefMatchTask):
             displayAstrometry(
                 refCat=refCat,
                 sourceCat=matchRes.usableSourceCat,
-                matches=matchRes.matches,
+                matches=matches,
                 exposure=exposure,
                 bbox=bbox,
                 frame=frame + 2,
@@ -366,8 +385,52 @@ class AstrometryTask(RefMatchTask):
             )
 
         return pipeBase.Struct(
-            matches=matchRes.matches,
+            matches=matches,
             wcs=fitWcs,
             scatterOnSky=scatterOnSky,
             match_tolerance=matchRes.match_tolerance,
         )
+
+    def _removeMagnitudeOutliers(self, sourceFluxField, refFluxField, matchesIn):
+        """Remove magnitude outliers, computing a simple zeropoint.
+
+        Parameters
+        ----------
+        sourceFluxField : `str`
+            Field in source catalog for fluxes.
+        refFluxField : `str`
+            Field in reference catalog for fluxes.
+        matchesIn : `list` [`lsst.afw.table.ReferenceMatch`]
+            List of source/reference matches input
+
+        Returns
+        -------
+        matchesOut : `list` [`lsst.afw.table.ReferenceMatch`]
+            List of source/reference matches with magnitude
+            outliers removed.
+        """
+        nMatch = len(matchesIn)
+        sourceMag = np.zeros(nMatch)
+        refMag = np.zeros(nMatch)
+        for i, match in enumerate(matchesIn):
+            sourceMag[i] = -2.5*np.log10(match[1][sourceFluxField])
+            refMag[i] = (match[0][refFluxField]*units.nJy).to_value(units.ABmag)
+
+        deltaMag = refMag - sourceMag
+        zp = np.median(deltaMag)
+        # Use median absolute deviation (MAD) for zpSigma
+        # Also require a minimum scatter to prevent floating-point errors from
+        # rejecting objects in zero-noise tests.
+        zpSigma = np.clip(1.4826*np.median(np.abs(deltaMag - zp)), 1e-3, None)
+
+        self.log.debug(f"Rough zeropoint from astrometry matches is {zp:.4f} +/- {zpSigma:.4f}.")
+
+        good, = np.where(np.abs(deltaMag - zp) <= self.config.magnitudeOutlierRejectionNSigma*zpSigma)
+        nOutlier = nMatch - good.size
+        self.log.info(f"Removing {nOutlier} of {nMatch} magnitude outliers.")
+
+        matchesOut = []
+        for matchInd in good:
+            matchesOut.append(matchesIn[matchInd])
+
+        return matchesOut
