@@ -24,6 +24,7 @@ __all__ = ["AstrometryConfig", "AstrometryTask"]
 
 import numpy as np
 from astropy import units
+import scipy.stats
 
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
@@ -68,7 +69,8 @@ class AstrometryConfig(RefMatchConfig):
     magnitudeOutlierRejectionNSigma = pexConfig.Field(
         dtype=float,
         doc=("Number of sigma (measured from the distribution) in magnitude "
-             "for a potential match to be rejected during iteration."),
+             "for a potential reference/source match to be rejected during "
+             "iteration."),
         default=3.0,
     )
 
@@ -397,9 +399,9 @@ class AstrometryTask(RefMatchTask):
         Parameters
         ----------
         sourceFluxField : `str`
-            Field in source catalog for fluxes.
+            Field in source catalog for instrumental fluxes.
         refFluxField : `str`
-            Field in reference catalog for fluxes.
+            Field in reference catalog for fluxes (nJy).
         matchesIn : `list` [`lsst.afw.table.ReferenceMatch`]
             List of source/reference matches input
 
@@ -417,20 +419,28 @@ class AstrometryTask(RefMatchTask):
             refMag[i] = (match[0][refFluxField]*units.nJy).to_value(units.ABmag)
 
         deltaMag = refMag - sourceMag
-        zp = np.median(deltaMag)
-        # Use median absolute deviation (MAD) for zpSigma
+        # Protect against negative fluxes and nans in the reference catalog.
+        goodDelta, = np.where(np.isfinite(deltaMag))
+        zp = np.median(deltaMag[goodDelta])
+        # Use median absolute deviation (MAD) for zpSigma.
         # Also require a minimum scatter to prevent floating-point errors from
         # rejecting objects in zero-noise tests.
-        zpSigma = np.clip(1.4826*np.median(np.abs(deltaMag - zp)), 1e-3, None)
+        zpSigma = np.clip(scipy.stats.median_abs_deviation(deltaMag[goodDelta], scale='normal'),
+                          1e-3,
+                          None)
 
-        self.log.debug(f"Rough zeropoint from astrometry matches is {zp:.4f} +/- {zpSigma:.4f}.")
+        self.log.info("Rough zeropoint from astrometry matches is %.4f +/- %.4f.",
+                      zp, zpSigma)
 
-        good, = np.where(np.abs(deltaMag - zp) <= self.config.magnitudeOutlierRejectionNSigma*zpSigma)
-        nOutlier = nMatch - good.size
-        self.log.info(f"Removing {nOutlier} of {nMatch} magnitude outliers.")
+        goodStars = goodDelta[(np.abs(deltaMag[goodDelta] - zp)
+                               <= self.config.magnitudeOutlierRejectionNSigma*zpSigma)]
+
+        nOutlier = nMatch - goodStars.size
+        self.log.info("Removed %d magnitude outliers out of %d total astrometry matches.",
+                      nOutlier, nMatch)
 
         matchesOut = []
-        for matchInd in good:
+        for matchInd in goodStars:
             matchesOut.append(matchesIn[matchInd])
 
         return matchesOut

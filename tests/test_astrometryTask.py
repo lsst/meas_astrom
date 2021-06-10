@@ -24,6 +24,8 @@ import os.path
 import math
 import unittest
 
+from astropy import units
+import scipy.stats
 import numpy as np
 
 import lsst.utils.tests
@@ -170,7 +172,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
             sourceCat=sourceCat,
             exposure=self.exposure,
         )
-        self.assertEqual(len(resultsMagOutlierRejection.matches), len(resultsRefSelect.matches))
+        self.assertLess(len(resultsMagOutlierRejection.matches), len(resultsRefSelect.matches))
         config.doMagnitudeOutlierRejection = False
 
         # try again, but without fitting the WCS, no reference selector
@@ -222,7 +224,65 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
             src.set(sourceCentroidKey, refObj.get(refCentroidKey))
             src.set(sourceInstFluxKey, refObj.get(refFluxRKey))
             src.set(sourceInstFluxErrKey, refObj.get(refFluxRKey)/100)
+
+        # Deliberately add some outliers to check that the magnitude
+        # outlier rejection code is being run.
+        sourceCat[sourceInstFluxKey][0: 4] *= 1000.0
+
         return sourceCat
+
+
+class TestMagnitudeOutliers(lsst.utils.tests.TestCase):
+    def testMagnitudeOutlierRejection(self):
+        """Test rejection of magnitude outliers.
+
+        This test only tests the outlier rejection, and not any other
+        part of the matching or astrometry fitter.
+        """
+        config = AstrometryTask.ConfigClass()
+        config.doMagnitudeOutlierRejection = True
+        config.magnitudeOutlierRejectionNSigma = 4.0
+        solver = AstrometryTask(config=config, refObjLoader=None)
+
+        nTest = 100
+
+        refSchema = lsst.afw.table.SimpleTable.makeMinimalSchema()
+        refSchema.addField('refFlux', 'F')
+        refCat = lsst.afw.table.SimpleCatalog(refSchema)
+        refCat.resize(nTest)
+
+        srcSchema = lsst.afw.table.SourceTable.makeMinimalSchema()
+        srcSchema.addField('srcFlux', 'F')
+        srcCat = lsst.afw.table.SourceCatalog(srcSchema)
+        srcCat.resize(nTest)
+
+        np.random.seed(12345)
+        refMag = np.full(nTest, 20.0)
+        srcMag = np.random.normal(size=nTest, loc=0.0, scale=1.0)
+
+        # Determine the sigma of the random sample
+        zp = np.median(refMag[: -4] - srcMag[: -4])
+        sigma = scipy.stats.median_abs_deviation(srcMag[: -4], scale='normal')
+
+        # Deliberately alter some magnitudes to be outliers.
+        srcMag[-3] = (config.magnitudeOutlierRejectionNSigma + 0.1)*sigma + (20.0 - zp)
+        srcMag[-4] = -(config.magnitudeOutlierRejectionNSigma + 0.1)*sigma + (20.0 - zp)
+
+        refCat['refFlux'] = (refMag*units.ABmag).to_value(units.nJy)
+        srcCat['srcFlux'] = 10.0**(srcMag/(-2.5))
+
+        # Deliberately poison some reference fluxes.
+        refCat['refFlux'][-1] = np.inf
+        refCat['refFlux'][-2] = np.nan
+
+        matchesIn = []
+        for ref, src in zip(refCat, srcCat):
+            matchesIn.append(lsst.afw.table.ReferenceMatch(first=ref, second=src, distance=0.0))
+
+        matchesOut = solver._removeMagnitudeOutliers('srcFlux', 'refFlux', matchesIn)
+
+        # We should lose the 4 outliers we created.
+        self.assertEqual(len(matchesOut), len(matchesIn) - 4)
 
 
 class MemoryTester(lsst.utils.tests.MemoryTestCase):
