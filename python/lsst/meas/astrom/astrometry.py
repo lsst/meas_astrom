@@ -22,6 +22,9 @@
 
 __all__ = ["AstrometryConfig", "AstrometryTask"]
 
+import numpy as np
+from astropy import units
+import scipy.stats
 
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
@@ -56,6 +59,19 @@ class AstrometryConfig(RefMatchConfig):
         dtype=float,
         default=0.001,
         min=0,
+    )
+    doMagnitudeOutlierRejection = pexConfig.Field(
+        dtype=bool,
+        doc=("If True then a rough zeropoint will be computed from matched sources "
+             "and outliers will be rejected in the iterations."),
+        default=False,
+    )
+    magnitudeOutlierRejectionNSigma = pexConfig.Field(
+        dtype=float,
+        doc=("Number of sigma (measured from the distribution) in magnitude "
+             "for a potential reference/source match to be rejected during "
+             "iteration."),
+        default=3.0,
     )
 
     def setDefaults(self):
@@ -342,9 +358,14 @@ class AstrometryTask(RefMatchTask):
                 title="Initial WCS",
             )
 
+        if self.config.doMagnitudeOutlierRejection:
+            matches = self._removeMagnitudeOutliers(sourceFluxField, refFluxField, matchRes.matches)
+        else:
+            matches = matchRes.matches
+
         self.log.debug("Fitting WCS")
         fitRes = self.wcsFitter.fitWcs(
-            matches=matchRes.matches,
+            matches=matches,
             initWcs=wcs,
             bbox=bbox,
             refCat=refCat,
@@ -358,7 +379,7 @@ class AstrometryTask(RefMatchTask):
             displayAstrometry(
                 refCat=refCat,
                 sourceCat=matchRes.usableSourceCat,
-                matches=matchRes.matches,
+                matches=matches,
                 exposure=exposure,
                 bbox=bbox,
                 frame=frame + 2,
@@ -366,8 +387,60 @@ class AstrometryTask(RefMatchTask):
             )
 
         return pipeBase.Struct(
-            matches=matchRes.matches,
+            matches=matches,
             wcs=fitWcs,
             scatterOnSky=scatterOnSky,
             match_tolerance=matchRes.match_tolerance,
         )
+
+    def _removeMagnitudeOutliers(self, sourceFluxField, refFluxField, matchesIn):
+        """Remove magnitude outliers, computing a simple zeropoint.
+
+        Parameters
+        ----------
+        sourceFluxField : `str`
+            Field in source catalog for instrumental fluxes.
+        refFluxField : `str`
+            Field in reference catalog for fluxes (nJy).
+        matchesIn : `list` [`lsst.afw.table.ReferenceMatch`]
+            List of source/reference matches input
+
+        Returns
+        -------
+        matchesOut : `list` [`lsst.afw.table.ReferenceMatch`]
+            List of source/reference matches with magnitude
+            outliers removed.
+        """
+        nMatch = len(matchesIn)
+        sourceMag = np.zeros(nMatch)
+        refMag = np.zeros(nMatch)
+        for i, match in enumerate(matchesIn):
+            sourceMag[i] = -2.5*np.log10(match[1][sourceFluxField])
+            refMag[i] = (match[0][refFluxField]*units.nJy).to_value(units.ABmag)
+
+        deltaMag = refMag - sourceMag
+        # Protect against negative fluxes and nans in the reference catalog.
+        goodDelta, = np.where(np.isfinite(deltaMag))
+        zp = np.median(deltaMag[goodDelta])
+        # Use median absolute deviation (MAD) for zpSigma.
+        # Also require a minimum scatter to prevent floating-point errors from
+        # rejecting objects in zero-noise tests.
+        zpSigma = np.clip(scipy.stats.median_abs_deviation(deltaMag[goodDelta], scale='normal'),
+                          1e-3,
+                          None)
+
+        self.log.info("Rough zeropoint from astrometry matches is %.4f +/- %.4f.",
+                      zp, zpSigma)
+
+        goodStars = goodDelta[(np.abs(deltaMag[goodDelta] - zp)
+                               <= self.config.magnitudeOutlierRejectionNSigma*zpSigma)]
+
+        nOutlier = nMatch - goodStars.size
+        self.log.info("Removed %d magnitude outliers out of %d total astrometry matches.",
+                      nOutlier, nMatch)
+
+        matchesOut = []
+        for matchInd in goodStars:
+            matchesOut.append(matchesIn[matchInd])
+
+        return matchesOut
