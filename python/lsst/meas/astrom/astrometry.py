@@ -287,6 +287,11 @@ class AstrometryTask(RefMatchTask):
                 m.second.set(self.usedKey, True)
         exposure.setWcs(res.wcs)
 
+        # Record the scatter in the exposure metadata
+        md = exposure.getMetadata()
+        md['SFM_ASTROM_OFFSET_MEAN'] = tryMatchDist.distMean.asArcseconds()
+        md['SFM_ASTROM_OFFSET_STD'] = tryMatchDist.distStdDev.asArcseconds()
+
         return pipeBase.Struct(
             refCat=refSelection.sourceCat,
             matches=res.matches,
