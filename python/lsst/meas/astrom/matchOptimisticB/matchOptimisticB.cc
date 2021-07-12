@@ -47,7 +47,7 @@ static void declareRecordProxy(py::module &mod) {
     cls.def(py::init<std::shared_ptr<afw::table::SimpleRecord>, geom::Point2D const &>(), "record"_a,
             "position"_a);
 
-    // TO DO: decide if we need to wrap operator PTR(lsst::afw::table::SimpleRecord)()
+    // TO DO: decide if we need to wrap operator std::shared_ptr<lsst::afw::table::SimpleRecord>()
 
     cls.def("__eq__", &RecordProxy::operator==, py::is_operator());
     cls.def("__ne__", &RecordProxy::operator!=, py::is_operator());
