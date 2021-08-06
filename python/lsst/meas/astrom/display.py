@@ -75,21 +75,44 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
     elif bbox is not None:
         disp.mtv(exposure=ExposureF(bbox), title=title)
 
+    from lsst.atmospec.utils import getTargetCentroidFromWcs
+    mainSrcXy = getTargetCentroidFromWcs(exposure, exposure.getMetadata()['OBJECT'])
+    # mainSrcXy = getTargetCentroidFromWcs(exposure, 'CD-28 1178')
+    if mainSrcXy:
+        disp.dot("o", *mainSrcXy, size=50, ctype=afwDisplay.MAGENTA)
+    else:
+        mainSrcXy = (-1, -1)  # hacky, but just stick it in a corner so following code remains simple
+        print(f"\nFailed to find {exposure.getMetadata()['OBJECT']} in vizier/simbad\n")
+
+    from lsst.pipe.tasks.quickFrameMeasurement import QuickFrameMeasurementTask, QuickFrameMeasurementTaskConfig
+    qfmTaskConfig = QuickFrameMeasurementTaskConfig()
+    qfmTask = QuickFrameMeasurementTask(config=qfmTaskConfig)
+    result = qfmTask.run(exposure)
+    realX, realY = result.brightestObjCentroid
+    dx = mainSrcXy[0] - realX
+    dy = mainSrcXy[1] - realY
+    print("Green means detected object")
+    print("Red means detected source cat")
+    print("Magenta circle is main source nominal location")
+    print(f"Main source x,y from wcs: {mainSrcXy}")
+    print(f"Main source x,y from QFM: {result.brightestObjCentroid}")
+    print(f"Main source: dx = {dx:.2f}, dy = {dy:.2f}")
+
     with disp.Buffering():
         if refCat is not None:
             refCentroidKey = Point2DKey(refCat.schema["centroid"])
             for refObj in refCat:
                 rx, ry = refObj.get(refCentroidKey)
-                disp.dot("x", rx, ry, size=10, ctype=afwDisplay.RED)
+                disp.dot("x", rx-dx, ry-dy, size=50, ctype=afwDisplay.RED)
 
         if sourceCat is not None:
             sourceCentroidKey = Point2DKey(sourceCat.schema["slot_Centroid"])
             for source in sourceCat:
                 sx, sy = source.get(sourceCentroidKey)
-                disp.dot("+", sx, sy, size=10, ctype=afwDisplay.GREEN)
+                disp.dot("+", sx, sy, size=20, ctype=afwDisplay.GREEN)
                 if distortedCentroidKey is not None:
                     dx, dy = source.get(distortedCentroidKey)
-                    disp.dot("o", dx, dy, size=10, ctype=afwDisplay.GREEN)
+                    disp.dot("o", dx, dy, size=0, ctype=afwDisplay.GREEN)
                     disp.line([(sx, sy), (dx, dy)], ctype=afwDisplay.GREEN)
 
         if matches is not None:
@@ -110,7 +133,10 @@ def displayAstrometry(refCat=None, sourceCat=None, distortedCentroidKey=None, bb
 
     if pause:
         print("Dropping into debugger to allow inspection of display. Type 'continue' when done.")
-        import pdb
+        try:
+            import ipdb as pdb
+        except ImportError:
+            import pdb as pdb
         pdb.set_trace()
 
 
