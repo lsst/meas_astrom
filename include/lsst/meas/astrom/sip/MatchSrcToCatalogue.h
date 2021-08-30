@@ -60,11 +60,11 @@ public:
     typedef std::shared_ptr<MatchSrcToCatalogue const> ConstPtr;
 
     MatchSrcToCatalogue(afw::table::SimpleCatalog const& catSet, afw::table::SourceCatalog const& imgSet,
-                        CONST_PTR(afw::geom::SkyWcs) wcs, geom::Angle dist);
+                        std::shared_ptr<afw::geom::SkyWcs const> wcs, geom::Angle dist);
 
     // Mutators
     void setDist(geom::Angle dist);
-    void setWcs(CONST_PTR(afw::geom::SkyWcs) wcs);
+    void setWcs(std::shared_ptr<afw::geom::SkyWcs const> wcs);
     void setCatSrcSet(afw::table::SimpleCatalog const& catSet);
     void setImgSrcSet(afw::table::SourceCatalog const& srcSet);
 
@@ -77,7 +77,7 @@ private:
     afw::table::SimpleCatalog _catSet;        ///< Copy of input catalog
     afw::table::SourceCatalog _imgSet;        ///< Copy of input catalog
     afw::table::ReferenceMatchVector _match;  /// List of tuples of matching indices
-    CONST_PTR(afw::geom::SkyWcs) _wcs;
+    std::shared_ptr<afw::geom::SkyWcs const> _wcs;
     geom::Angle _dist;  ///< How close must two objects be to match
 
     void _removeOneToMany();

@@ -20,7 +20,7 @@ A wrapper around a SimpleRecord or SourceRecord that allows us to record a pixel
 in a way that is independent of the record type.
 */
 struct RecordProxy {
-    PTR(afw::table::SimpleRecord) record;
+    std::shared_ptr<afw::table::SimpleRecord> record;
     geom::Point2D position;
     mutable bool used;  // set true if this star object has already been used for a match
                         // mutable to allow freezing the fundamental object data using const
@@ -32,7 +32,7 @@ struct RecordProxy {
     /**
     Support implicit conversion to SimpleRecord (discarding the pixel position)
     */
-    operator PTR(afw::table::SimpleRecord)() const { return record; }
+    operator std::shared_ptr<afw::table::SimpleRecord>() const { return record; }
 
     bool operator==(RecordProxy const& other) const { return record == other.record; }
     bool operator!=(RecordProxy const& other) const { return record != other.record; }
@@ -43,7 +43,7 @@ struct RecordProxy {
     @param[in] record  the record to wrap
     @param[in] position  pixel position; this is likely to be an initial guess while fitting a WCS
     */
-    RecordProxy(PTR(afw::table::SimpleRecord) record, geom::Point2D const& position)
+    RecordProxy(std::shared_ptr<afw::table::SimpleRecord> record, geom::Point2D const& position)
             : record(record), position(position) {}
 
     explicit RecordProxy() {}  // default constructor needed so we can call ProxyVector::resize()
