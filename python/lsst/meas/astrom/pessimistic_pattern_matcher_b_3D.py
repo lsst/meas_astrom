@@ -95,15 +95,7 @@ class PessimisticPatternMatcherB:
 
         # Initialize the arrays we will need for quick look up of pairs once
         # have a candidate spoke center.
-        self._pair_id_array = np.empty(
-            (self._n_reference, self._n_reference - 1),
-            dtype=np.uint16)
-        self._pair_dist_array = np.empty(
-            (self._n_reference, self._n_reference - 1),
-            dtype=np.float32)
 
-        # Create empty lists to temporarily store our pair information per
-        # reference object. These will be concatenated into our final arrays.
         sub_id_array_list = []
         sub_dist_array_list = []
 
@@ -113,7 +105,7 @@ class PessimisticPatternMatcherB:
             # Reserve and fill the ids of each reference object pair.
             # 16 bit is safe for the id array as the catalog input from
             # MatchPessimisticB is limited to a max length of 2 ** 16.
-            sub_id_array = np.zeros((self._n_reference - 1 - ref_id, 2),
+            sub_id_array = np.empty((self._n_reference - 1 - ref_id, 2),
                                     dtype=np.uint16)
             sub_id_array[:, 0] = ref_id
             sub_id_array[:, 1] = np.arange(ref_id + 1, self._n_reference,
@@ -121,35 +113,14 @@ class PessimisticPatternMatcherB:
 
             # Compute the vector deltas for each pair of reference objects.
             # Compute and store the distances.
-            sub_delta_array = (self._reference_array[ref_id + 1:, :]
-                               - ref_obj).astype(np.float32)
-            sub_dist_array = np.sqrt(sub_delta_array[:, 0] ** 2
-                                     + sub_delta_array[:, 1] ** 2
-                                     + sub_delta_array[:, 2] ** 2)
+            sub_dist_array = np.sqrt(
+                ((self._reference_array[ref_id + 1:, :]
+                  - ref_obj) ** 2).sum(axis=1)).astype("float32")
 
             # Append to our arrays to the output lists for later
             # concatenation.
             sub_id_array_list.append(sub_id_array)
             sub_dist_array_list.append(sub_dist_array)
-
-            # Fill the pair look up arrays row wise and then column wise.
-            self._pair_id_array[ref_id, ref_id:] = sub_id_array[:, 1]
-            self._pair_dist_array[ref_id, ref_id:] = sub_dist_array
-
-            # Don't fill the array column wise if we are on the last as
-            # these pairs have already been filled by previous
-            # iterations.
-            if ref_id < self._n_reference - 1:
-                self._pair_id_array[ref_id + 1:, ref_id] = ref_id
-                self._pair_dist_array[ref_id + 1:, ref_id] = sub_dist_array
-
-            # Sort each row on distance for fast look up of pairs given
-            # the id of one of the objects in the pair.
-            sorted_pair_dist_args = self._pair_dist_array[ref_id, :].argsort()
-            self._pair_dist_array[ref_id, :] = self._pair_dist_array[
-                ref_id, sorted_pair_dist_args]
-            self._pair_id_array[ref_id, :] = self._pair_id_array[
-                ref_id, sorted_pair_dist_args]
 
         # Concatenate our arrays together.
         unsorted_id_array = np.concatenate(sub_id_array_list)
@@ -160,8 +131,6 @@ class PessimisticPatternMatcherB:
         sorted_dist_args = unsorted_dist_array.argsort()
         self._dist_array = unsorted_dist_array[sorted_dist_args]
         self._id_array = unsorted_id_array[sorted_dist_args]
-
-        return None
 
     def match(self, source_array, n_check, n_match, n_agree,
               max_n_patterns, max_shift, max_rotation, max_dist,
@@ -537,8 +506,15 @@ class PessimisticPatternMatcherB:
                 # Now that we have a candidate first spoke and reference
                 # pattern center, we mask our future search to only those
                 # pairs that contain our candidate reference center.
-                tmp_ref_dist_array = self._pair_dist_array[ref_id]
-                tmp_ref_id_array = self._pair_id_array[ref_id]
+                tmp_ref_id_array = np.arange(len(self._reference_array),
+                                             dtype="uint16")
+                tmp_ref_dist_array = np.sqrt(
+                    ((self._reference_array
+                      - self._reference_array[ref_id])
+                     ** 2).sum(axis=1)).astype("float32")
+                tmp_sorted_args = np.argsort(tmp_ref_dist_array)
+                tmp_ref_id_array = tmp_ref_id_array[tmp_sorted_args]
+                tmp_ref_dist_array = tmp_ref_dist_array[tmp_sorted_args]
 
                 # Now we feed this sub data to match the spokes of
                 # our pattern.
