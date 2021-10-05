@@ -92,10 +92,8 @@ class PessimisticPatternMatcherB:
         reference the position in the input reference catalog and index to
         'index' into the arrays sorted on distance.
         """
-
-        # Initialize the arrays we will need for quick look up of pairs once
-        # have a candidate spoke center.
-
+        # Create empty lists to temporarily store our pair information per
+        # reference object. These will be concatenated into our final arrays.
         sub_id_array_list = []
         sub_dist_array_list = []
 
@@ -106,10 +104,10 @@ class PessimisticPatternMatcherB:
             # 16 bit is safe for the id array as the catalog input from
             # MatchPessimisticB is limited to a max length of 2 ** 16.
             sub_id_array = np.empty((self._n_reference - 1 - ref_id, 2),
-                                    dtype=np.uint16)
+                                    dtype="uint16")
             sub_id_array[:, 0] = ref_id
             sub_id_array[:, 1] = np.arange(ref_id + 1, self._n_reference,
-                                           dtype=np.uint16)
+                                           dtype="uint16")
 
             # Compute the vector deltas for each pair of reference objects.
             # Compute and store the distances.
@@ -1343,14 +1341,14 @@ class PessimisticPatternMatcherB:
             source_array.transpose()).transpose()
 
         ref_matches = np.empty((len(shifted_references), 2),
-                               dtype=np.uint16)
+                               dtype="uint16")
         src_matches = np.empty((len(shifted_sources), 2),
-                               dtype=np.uint16)
+                               dtype="uint16")
 
         ref_matches[:, 1] = np.arange(len(shifted_references),
-                                      dtype=np.uint16)
+                                      dtype="uint16")
         src_matches[:, 0] = np.arange(len(shifted_sources),
-                                      dtype=np.uint16)
+                                      dtype="uint16")
 
         ref_kdtree = cKDTree(self._reference_array)
         src_kdtree = cKDTree(source_array)
