@@ -60,6 +60,16 @@ class AstrometryConfig(RefMatchConfig):
         default=0.001,
         min=0,
     )
+    maxMeanDistanceArcsec = pexConfig.RangeField(
+        doc="Maximum mean on-sky distance (in arcsec) between matched source and rerference "
+            "objects post-fit.  A mean distance greater than this threshold raises a TaskError "
+            "and the WCS fit is considered a failure.  The default is set to the maximum tolerated "
+            "by the external global calibration (e.g. jointcal) step for conceivable recovery.  "
+            "Appropriate value will be dataset and workflow dependent.",
+        dtype=float,
+        default=0.5,
+        min=0,
+    )
     doMagnitudeOutlierRejection = pexConfig.Field(
         dtype=bool,
         doc=("If True then a rough zeropoint will be computed from matched sources "
@@ -187,6 +197,13 @@ class AstrometryTask(RefMatchTask):
             - ``matchMeta`` :  metadata needed to unpersist matches
               (`lsst.daf.base.PropertyList`)
 
+        Raises
+        ------
+        TaskError
+            If the measured mean on-sky distance between the matched source and
+            reference objects is greater than
+            ``self.config.maxMeanDistanceArcsec``.
+
         Notes
         -----
         ignores config.forceKnownWcs
@@ -261,8 +278,8 @@ class AstrometryTask(RefMatchTask):
             match_tolerance = tryRes.match_tolerance
             tryMatchDist = self._computeMatchStatsOnSky(tryRes.matches)
             self.log.debug(
-                "Match and fit WCS iteration %d: found %d matches with scatter = %0.3f +- %0.3f arcsec; "
-                "max match distance = %0.3f arcsec",
+                "Match and fit WCS iteration %d: found %d matches with on-sky distance mean "
+                "= %0.3f +- %0.3f arcsec; max match distance = %0.3f arcsec",
                 iterNum, len(tryRes.matches), tryMatchDist.distMean.asArcseconds(),
                 tryMatchDist.distStdDev.asArcseconds(), tryMatchDist.maxMatchDist.asArcseconds())
 
@@ -279,9 +296,14 @@ class AstrometryTask(RefMatchTask):
 
         self.log.info(
             "Matched and fit WCS in %d iterations; "
-            "found %d matches with scatter = %0.3f +- %0.3f arcsec" %
-            (iterNum, len(tryRes.matches), tryMatchDist.distMean.asArcseconds(),
-                tryMatchDist.distStdDev.asArcseconds()))
+            "found %d matches with on-sky distance mean and scatter = %0.3f +- %0.3f arcsec",
+            iterNum, len(tryRes.matches), tryMatchDist.distMean.asArcseconds(),
+            tryMatchDist.distStdDev.asArcseconds())
+        if tryMatchDist.distMean.asArcseconds() > self.config.maxMeanDistanceArcsec:
+            raise pipeBase.TaskError(
+                "Fatal astrometry failure detected: mean on-sky distance = %0.3f arcsec > %0.3f "
+                "(maxMeanDistanceArcsec)" %
+                (tryMatchDist.distMean.asArcseconds(), self.config.maxMeanDistanceArcsec))
         for m in res.matches:
             if self.usedKey:
                 m.second.set(self.usedKey, True)

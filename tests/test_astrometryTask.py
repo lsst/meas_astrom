@@ -34,6 +34,7 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.meas.base as measBase
+import lsst.pipe.base as pipeBase
 from lsst.daf.persistence import Butler
 from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
 from lsst.meas.astrom import AstrometryTask
@@ -97,6 +98,19 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
             if source.get('calib_astrometry_used'):
                 count += 1
         self.assertEqual(count, len(results.matches))
+
+    def testMaxMeanDistance(self):
+        """If the astrometric fit does not satisfy the maxMeanDistanceArcsec
+        threshold, ensure task raises an lsst.pipe.base.TaskError.
+        """
+        self.exposure.setWcs(self.tanWcs)
+        config = AstrometryTask.ConfigClass()
+        config.maxMeanDistanceArcsec = 0.0  # To ensure a "deemed" WCS failure
+        solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
+        sourceCat = self.makeSourceCat(self.tanWcs, doScatterCentroids=True)
+
+        with self.assertRaisesRegex(pipeBase.TaskError, "Fatal astrometry failure detected"):
+            solver.run(sourceCat=sourceCat, exposure=self.exposure)
 
     def doTest(self, pixelsToTanPixels, order=3):
         """Test using pixelsToTanPixels to distort the source positions
@@ -204,34 +218,25 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         """
         loadRes = self.refObjLoader.loadPixelBox(bbox=self.bbox, wcs=wcs, filterName="r")
         refCat = loadRes.refCat
-        refCentroidKey = afwTable.Point2DKey(refCat.schema["centroid"])
-        refFluxRKey = refCat.schema["r_flux"].asKey()
 
         if sourceSchema is None:
             sourceSchema = afwTable.SourceTable.makeMinimalSchema()
             measBase.SingleFrameMeasurementTask(schema=sourceSchema)  # expand the schema
         sourceCat = afwTable.SourceCatalog(sourceSchema)
-        sourceCentroidKey = afwTable.Point2DKey(sourceSchema["slot_Centroid"])
-        sourceInstFluxKey = sourceSchema["slot_ApFlux_instFlux"].asKey()
-        sourceInstFluxErrKey = sourceSchema["slot_ApFlux_instFluxErr"].asKey()
 
+        sourceCat.resize(len(refCat))
         scatterFactor = 1.0
-        np.random.seed(12345)
-
-        sourceCat.reserve(len(refCat))
-        for refObj in refCat:
-            if doScatterCentroids:  # add some small random offsets to source centroids
-                scatterFactor = np.random.uniform(0.999, 1.001)
-            src = sourceCat.addNew()
-            centroid = refObj.get(refCentroidKey)
-            centroid.scale(scatterFactor)
-            src.set(sourceCentroidKey, centroid)
-            src.set(sourceInstFluxKey, refObj.get(refFluxRKey))
-            src.set(sourceInstFluxErrKey, refObj.get(refFluxRKey)/100)
+        if doScatterCentroids:
+            np.random.seed(12345)
+            scatterFactor = np.random.uniform(0.999, 1.001, len(sourceCat))
+        sourceCat["slot_Centroid_x"] = scatterFactor*refCat["centroid_x"]
+        sourceCat["slot_Centroid_y"] = scatterFactor*refCat["centroid_y"]
+        sourceCat["slot_ApFlux_instFlux"] = refCat["r_flux"]
+        sourceCat["slot_ApFlux_instFluxErr"] = refCat["r_flux"]/100
 
         # Deliberately add some outliers to check that the magnitude
         # outlier rejection code is being run.
-        sourceCat[sourceInstFluxKey][0: 4] *= 1000.0
+        sourceCat["slot_ApFlux_instFlux"][0: 4] *= 1000.0
 
         return sourceCat
 
