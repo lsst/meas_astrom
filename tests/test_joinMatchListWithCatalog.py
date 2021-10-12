@@ -23,6 +23,7 @@
 
 import os
 import unittest
+import logging
 
 import lsst.geom
 from lsst.afw.image import ExposureF
@@ -31,7 +32,6 @@ import lsst.utils.tests
 from lsst.daf.persistence import Butler
 from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
 from lsst.meas.astrom import AstrometryTask
-from lsst.log import Log
 
 
 class JoinMatchListWithCatalogTestCase(unittest.TestCase):
@@ -53,7 +53,7 @@ class JoinMatchListWithCatalogTestCase(unittest.TestCase):
         mi = self.exposure.getMaskedImage()
         mi.assign(smallExposure.getMaskedImage(), smallExposure.getBBox())
 
-        logLevel = Log.INFO
+        logLevel = logging.INFO
         refCatDir = os.path.join(testDir, "data", "sdssrefcat")
         butler = Butler(refCatDir)
         refObjLoader = LoadIndexedReferenceObjectsTask(butler=butler)

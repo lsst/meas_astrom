@@ -59,7 +59,7 @@ class PessimisticPatternMatcherB:
     reference_array : `numpy.ndarray`, (N, 3)
         spherical points x, y, z of to use as reference objects for
         pattern matching.
-    log : `lsst.log.Log`
+    log : `lsst.log.Log` or `logging.Logger`
         Logger for outputting debug info.
 
     Notes

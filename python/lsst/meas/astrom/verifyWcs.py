@@ -24,14 +24,14 @@ __all__ = ["checkMatches"]
 
 
 import numpy as np
+import logging
 
 import lsst.geom
 import lsst.afw.detection as afwDetection
 import lsst.afw.math as afwMath
 import lsst.meas.algorithms as measAlg
-from lsst.log import Log
 
-_LOG = Log.getLogger(__name__)
+_LOG = logging.getLogger(__name__)
 
 
 def checkMatches(srcMatchSet, exposure, log=None):
@@ -44,7 +44,7 @@ def checkMatches(srcMatchSet, exposure, log=None):
         List of matched sources to a reference catalog.
     exposure : `lsst.afw.image.Exposure`
         Image the sources in srcMatchSet were detected/measured in.
-    log : `lsst.log.Log`
+    log : `lsst.log.Log` or `logging.Logger`
         Logger object.
 
     Returns
