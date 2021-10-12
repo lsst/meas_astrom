@@ -31,6 +31,8 @@ import lsst.afw.math as afwMath
 import lsst.meas.algorithms as measAlg
 from lsst.log import Log
 
+_LOG = Log.getLogger(__name__)
+
 
 def checkMatches(srcMatchSet, exposure, log=None):
     """Check astrometric matches and assess Wcs quality by computing statics
@@ -59,7 +61,7 @@ def checkMatches(srcMatchSet, exposure, log=None):
         return {}
 
     if log is None:
-        log = Log.getLogger("meas.astrom.verifyWcs.checkMatches")
+        log = _LOG
 
     im = exposure.getMaskedImage().getImage()
     width, height = im.getWidth(), im.getHeight()
