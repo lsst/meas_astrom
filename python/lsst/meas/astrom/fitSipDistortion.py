@@ -189,10 +189,9 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
             intrinsicScatter = revFitter.updateIntrinsicScatter()
             clippedSigma, nRejected = revFitter.rejectOutliers(self.outlierRejectionCtrl)
             self.log.debug(
-                "Iteration {0}: intrinsic scatter is {1:4.3f} pixels, "
-                "rejected {2} outliers at {3:3.2f} sigma.".format(
-                    nIter+1, intrinsicScatter, nRejected, clippedSigma
-                )
+                "Iteration %s: intrinsic scatter is %4.3f pixels, "
+                "rejected %d outliers at %3.2f sigma.",
+                nIter+1, intrinsicScatter, nRejected, clippedSigma
             )
             if display:
                 displayFrame = self.display(revFitter, exposure=exposure, bbox=bbox,
@@ -235,14 +234,14 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
             self.log.debug("Updating centroids in refCat")
             lsst.afw.table.updateRefCentroids(wcs, refList=refCat)
         else:
-            self.log.warn("Updating reference object centroids in match list; refCat is None")
+            self.log.warning("Updating reference object centroids in match list; refCat is None")
             lsst.afw.table.updateRefCentroids(wcs, refList=[match.first for match in matches])
 
         if sourceCat is not None:
             self.log.debug("Updating coords in sourceCat")
             lsst.afw.table.updateSourceCoords(wcs, sourceList=sourceCat)
         else:
-            self.log.warn("Updating source coords in match list; sourceCat is None")
+            self.log.warning("Updating source coords in match list; sourceCat is None")
             lsst.afw.table.updateSourceCoords(wcs, sourceList=[match.second for match in matches])
 
         self.log.debug("Updating distance in match list")

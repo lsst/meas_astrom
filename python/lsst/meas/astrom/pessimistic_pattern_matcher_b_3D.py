@@ -204,8 +204,8 @@ class PessimisticPatternMatcherB:
             max_dist_rad=None,)
 
         if n_source <= 0:
-            self.log.warn("Source object array is empty. Unable to match. "
-                          "Exiting matcher.")
+            self.log.warning("Source object array is empty. Unable to match. "
+                             "Exiting matcher.")
             return None
 
         # To test if the shifts and rotations we find agree with each other,
@@ -232,7 +232,7 @@ class PessimisticPatternMatcherB:
             if pattern_skip_array is not None and \
                np.any(pattern_skip_array == pattern_idx):
                 self.log.debug(
-                    "Skipping previously matched bad pattern %i..." %
+                    "Skipping previously matched bad pattern %i...",
                     pattern_idx)
                 continue
             # Grab the sources to attempt to create this pattern.
@@ -299,9 +299,9 @@ class PessimisticPatternMatcherB:
             # Convert the observed shift to arcseconds
             shift = np.degrees(np.arccos(cos_shift)) * 3600.
             # Print information to the logger.
-            self.log.debug("Succeeded after %i patterns." % pattern_idx)
-            self.log.debug("\tShift %.4f arcsec" % shift)
-            self.log.debug("\tRotation: %.4f deg" %
+            self.log.debug("Succeeded after %i patterns.", pattern_idx)
+            self.log.debug("\tShift %.4f arcsec", shift)
+            self.log.debug("\tRotation: %.4f deg",
                            np.degrees(np.arcsin(sin_rot)))
 
             # Fill the struct and return.
@@ -314,7 +314,7 @@ class PessimisticPatternMatcherB:
             output_match_struct.max_dist_rad = match_struct.max_dist_rad
             return output_match_struct
 
-        self.log.debug("Failed after %i patterns." % (pattern_idx + 1))
+        self.log.debug("Failed after %i patterns.", pattern_idx + 1)
         return output_match_struct
 
     def _compute_test_vectors(self, source_array):
@@ -338,8 +338,8 @@ class PessimisticPatternMatcherB:
 
         # Get the center of source_array.
         if np.any(np.logical_not(np.isfinite(source_array))):
-            self.log.warn("Input source objects contain non-finite values. "
-                          "This could end badly.")
+            self.log.warning("Input source objects contain non-finite values. "
+                             "This could end badly.")
         center_vect = np.nanmean(source_array, axis=0)
 
         # So that our rotation test works over the full sky we compute
@@ -1154,8 +1154,8 @@ class PessimisticPatternMatcherB:
             test 3 vectors.
         """
 
-        self.log.debug("Comparing pattern %i to previous %i rotations..." %
-                       (rot_vects[-1][-1], len(rot_vects) - 1))
+        self.log.debug("Comparing pattern %i to previous %i rotations...",
+                       rot_vects[-1][-1], len(rot_vects) - 1)
 
         tot_consent = 0
         for rot_idx in range(max((len(rot_vects) - 1), 0)):

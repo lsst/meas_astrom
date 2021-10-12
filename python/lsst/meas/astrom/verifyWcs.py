@@ -96,7 +96,7 @@ def checkMatches(srcMatchSet, exposure, log=None):
         try:
             cellSet.insertCandidate(measAlg.PsfCandidateF(csrc, exposure.getMaskedImage()))
         except Exception as e:
-            log.warn(str(e))
+            log.warning("%s", e)
 
     ncell = len(cellSet.getCellList())
     nobj = np.ndarray(ncell, dtype='i')

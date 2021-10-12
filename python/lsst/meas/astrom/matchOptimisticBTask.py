@@ -170,8 +170,8 @@ class MatchOptimisticBTask(pipeBase.Task):
         numRefObj = len(refCat)
 
         if self.log:
-            self.log.info("filterStars purged %d reference stars, leaving %d stars" %
-                          (preNumObj - numRefObj, numRefObj))
+            self.log.info("filterStars purged %d reference stars, leaving %d stars",
+                          preNumObj - numRefObj, numRefObj)
 
         if match_tolerance is None:
             match_tolerance = MatchTolerance()
@@ -215,9 +215,9 @@ class MatchOptimisticBTask(pipeBase.Task):
         if len(matches) == 0:
             raise RuntimeError("Unable to match sources")
 
-        self.log.info("Matched %d sources" % len(matches))
+        self.log.info("Matched %d sources", len(matches))
         if len(matches) < minMatchedPairs:
-            self.log.warn("Number of matches is smaller than request")
+            self.log.warning("Number of matches is smaller than request")
 
         return pipeBase.Struct(
             matches=matches,
