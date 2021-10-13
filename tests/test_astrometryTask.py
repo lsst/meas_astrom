@@ -77,29 +77,15 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
            if it is passed a schema on initialization.
         """
         self.exposure.setWcs(self.tanWcs)
-        loadRes = self.refObjLoader.loadPixelBox(bbox=self.bbox, wcs=self.tanWcs, filterName="r")
-        refCat = loadRes.refCat
-        refCentroidKey = afwTable.Point2DKey(refCat.schema["centroid"])
-        refFluxRKey = refCat.schema["r_flux"].asKey()
-
-        sourceSchema = afwTable.SourceTable.makeMinimalSchema()
-        measBase.SingleFrameMeasurementTask(schema=sourceSchema)  # expand the schema
         config = AstrometryTask.ConfigClass()
         config.wcsFitter.order = 2
         config.wcsFitter.numRejIter = 0
+
+        sourceSchema = afwTable.SourceTable.makeMinimalSchema()
+        measBase.SingleFrameMeasurementTask(schema=sourceSchema)  # expand the schema
         # schema must be passed to the solver task constructor
         solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=sourceSchema)
-        sourceCat = afwTable.SourceCatalog(sourceSchema)
-        sourceCat.reserve(len(refCat))
-        sourceCentroidKey = afwTable.Point2DKey(sourceSchema["slot_Centroid"])
-        sourceInstFluxKey = sourceSchema["slot_ApFlux_instFlux"].asKey()
-        sourceInstFluxErrKey = sourceSchema["slot_ApFlux_instFluxErr"].asKey()
-
-        for refObj in refCat:
-            src = sourceCat.addNew()
-            src.set(sourceCentroidKey, refObj.get(refCentroidKey))
-            src.set(sourceInstFluxKey, refObj.get(refFluxRKey))
-            src.set(sourceInstFluxErrKey, refObj.get(refFluxRKey)/100)
+        sourceCat = self.makeSourceCat(self.tanWcs, sourceSchema=sourceSchema)
 
         results = solver.run(
             sourceCat=sourceCat,
@@ -203,25 +189,43 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         )
         self.assertLess(len(resultsNoFitRefSelect.matches), len(resultsNoFit.matches))
 
-    def makeSourceCat(self, distortedWcs):
-        """Make a source catalog by reading the position reference stars and distorting the positions
+    def makeSourceCat(self, wcs, sourceSchema=None, doScatterCentroids=False):
+        """Make a source catalog by reading the position reference stars using
+        the proviced WCS.
+
+        Optionally provide a schema for the source catalog (to allow
+        AstrometryTask in the test methods to update it with the
+        "calib_astrometry_used" flag).  Otherwise, a minimal SourceTable
+        schema will be created.
+
+        Optionally, via doScatterCentroids, add some scatter to the centroids
+        assiged to the source catalog (otherwise they will be identical to
+        those of the reference catalog).
         """
-        loadRes = self.refObjLoader.loadPixelBox(bbox=self.bbox, wcs=distortedWcs, filterName="r")
+        loadRes = self.refObjLoader.loadPixelBox(bbox=self.bbox, wcs=wcs, filterName="r")
         refCat = loadRes.refCat
         refCentroidKey = afwTable.Point2DKey(refCat.schema["centroid"])
         refFluxRKey = refCat.schema["r_flux"].asKey()
 
-        sourceSchema = afwTable.SourceTable.makeMinimalSchema()
-        measBase.SingleFrameMeasurementTask(schema=sourceSchema)  # expand the schema
+        if sourceSchema is None:
+            sourceSchema = afwTable.SourceTable.makeMinimalSchema()
+            measBase.SingleFrameMeasurementTask(schema=sourceSchema)  # expand the schema
         sourceCat = afwTable.SourceCatalog(sourceSchema)
         sourceCentroidKey = afwTable.Point2DKey(sourceSchema["slot_Centroid"])
         sourceInstFluxKey = sourceSchema["slot_ApFlux_instFlux"].asKey()
         sourceInstFluxErrKey = sourceSchema["slot_ApFlux_instFluxErr"].asKey()
 
+        scatterFactor = 1.0
+        np.random.seed(12345)
+
         sourceCat.reserve(len(refCat))
         for refObj in refCat:
+            if doScatterCentroids:  # add some small random offsets to source centroids
+                scatterFactor = np.random.uniform(0.999, 1.001)
             src = sourceCat.addNew()
-            src.set(sourceCentroidKey, refObj.get(refCentroidKey))
+            centroid = refObj.get(refCentroidKey)
+            centroid.scale(scatterFactor)
+            src.set(sourceCentroidKey, centroid)
             src.set(sourceInstFluxKey, refObj.get(refFluxRKey))
             src.set(sourceInstFluxErrKey, refObj.get(refFluxRKey)/100)
 
