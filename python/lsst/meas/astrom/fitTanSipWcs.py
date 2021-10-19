@@ -30,6 +30,7 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
+from lsst.utils.timer import timeMethod
 from .setMatchDistance import setMatchDistance
 from .sip import makeCreateWcsWithSip
 
@@ -76,7 +77,7 @@ class FitTanSipWcsTask(pipeBase.Task):
     ConfigClass = FitTanSipWcsConfig
     _DefaultName = "fitWcs"
 
-    @pipeBase.timeMethod
+    @timeMethod
     def fitWcs(self, matches, initWcs, bbox=None, refCat=None, sourceCat=None, exposure=None):
         """Fit a TAN-SIP WCS from a list of reference object/source matches
 

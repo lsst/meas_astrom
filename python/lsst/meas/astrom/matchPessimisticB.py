@@ -6,6 +6,7 @@ import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 import lsst.geom as geom
 import lsst.afw.table as afwTable
+from lsst.utils.timer import timeMethod
 
 from .matchOptimisticBTask import MatchTolerance
 
@@ -184,7 +185,7 @@ class MatchPessimisticBTask(pipeBase.Task):
     def __init__(self, **kwargs):
         pipeBase.Task.__init__(self, **kwargs)
 
-    @pipeBase.timeMethod
+    @timeMethod
     def matchObjectsToSources(self, refCat, sourceCat, wcs, sourceFluxField, refFluxField,
                               match_tolerance=None):
         """Match sources to position reference stars
@@ -314,7 +315,7 @@ class MatchPessimisticBTask(pipeBase.Task):
 
         return outCat
 
-    @pipeBase.timeMethod
+    @timeMethod
     def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numUsableSources,
                  minMatchedPairs, match_tolerance, sourceFluxField, verbose):
         """Implementation of matching sources to position reference objects

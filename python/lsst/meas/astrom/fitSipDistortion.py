@@ -28,6 +28,7 @@ import lsst.geom
 import lsst.afw.image
 import lsst.afw.geom
 import lsst.afw.display
+from lsst.utils.timer import timeMethod
 
 from .scaledPolynomialTransformFitter import ScaledPolynomialTransformFitter, OutlierRejectionControl
 from .sipTransform import SipForwardTransform, SipReverseTransform, makeWcs
@@ -111,7 +112,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
         self.outlierRejectionCtrl.nClipMax = self.config.nClipMax
         self.outlierRejectionCtrl.nSigma = self.config.rejSigma
 
-    @lsst.pipe.base.timeMethod
+    @timeMethod
     def fitWcs(self, matches, initWcs, bbox=None, refCat=None, sourceCat=None, exposure=None):
         """Fit a TAN-SIP WCS from a list of reference object/source matches.
 
