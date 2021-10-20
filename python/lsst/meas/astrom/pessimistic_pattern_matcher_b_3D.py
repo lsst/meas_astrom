@@ -4,6 +4,7 @@ from scipy.optimize import least_squares
 from scipy.spatial import cKDTree
 from scipy.stats import sigmaclip
 
+from .pessimisticPatternMatcherUtils import check_spoke
 import lsst.pipe.base as pipeBase
 
 
@@ -605,7 +606,7 @@ class PessimisticPatternMatcherB:
 
         # If these are equal there are no candidates and we exit.
         if start_idx == end_idx:
-            return []
+            return np.array([], dtype="int")
 
         # Make sure the endpoints of the input array are respected.
         if start_idx < 0:
@@ -839,17 +840,17 @@ class PessimisticPatternMatcherB:
 
             # Test the spokes and return the id of the reference object.
             # Return None if no match is found.
-            ref_id = self._test_spoke(
+            ref_id = check_spoke(
                 cos_theta_src,
                 sin_theta_src,
                 ref_ctr,
-                ref_ctr_id,
                 proj_ref_ctr_delta,
                 proj_ref_ctr_dist_sq,
                 ref_dist_idx_array,
                 ref_id_array,
+                self._reference_array,
                 src_sin_tol)
-            if ref_id is None:
+            if ref_id < 0:
                 n_fail += 1
                 continue
 
@@ -953,14 +954,13 @@ class PessimisticPatternMatcherB:
             else:
                 sin_comparison = \
                     (sin_theta_src - sin_theta_ref) / cos_theta_ref
-
             if abs(sin_comparison) > src_sin_tol:
                 continue
 
             # Return the correct id of the candidate we found.
             return ref_id_array[ref_dist_idx]
 
-        return None
+        return -1
 
     def _create_shift_rot_matrix(self, cos_rot_sq, shift_matrix, src_delta,
                                  ref_ctr, ref_delta):
