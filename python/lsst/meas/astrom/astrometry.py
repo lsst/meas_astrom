@@ -28,6 +28,7 @@ import scipy.stats
 
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
+from lsst.utils.timer import timeMethod
 from .ref_match import RefMatchTask, RefMatchConfig
 from .fitTanSipWcs import FitTanSipWcsTask
 from .display import displayAstrometry
@@ -128,7 +129,7 @@ class AstrometryTask(RefMatchTask):
 
         self.makeSubtask("wcsFitter")
 
-    @pipeBase.timeMethod
+    @timeMethod
     def run(self, sourceCat, exposure):
         """Load reference objects, match sources and optionally fit a WCS.
 
@@ -178,7 +179,7 @@ class AstrometryTask(RefMatchTask):
             res = self.solve(exposure=exposure, sourceCat=sourceCat)
         return res
 
-    @pipeBase.timeMethod
+    @timeMethod
     def solve(self, exposure, sourceCat):
         """Load reference objects overlapping an exposure, match to sources and
         fit a WCS
@@ -321,7 +322,7 @@ class AstrometryTask(RefMatchTask):
             matchMeta=matchMeta,
         )
 
-    @pipeBase.timeMethod
+    @timeMethod
     def _matchAndFitWcs(self, refCat, sourceCat, goodSourceCat, refFluxField, bbox, wcs, match_tolerance,
                         exposure=None):
         """Match sources to reference objects and fit a WCS.

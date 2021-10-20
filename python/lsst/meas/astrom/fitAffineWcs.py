@@ -31,6 +31,7 @@ import lsst.afw.math
 from lsst.geom import Point2D, degrees, arcseconds, radians
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
+from lsst.utils.timer import timeMethod
 
 from .makeMatchStatistics import makeMatchStatisticsInRadians
 from .setMatchDistance import setMatchDistance
@@ -101,7 +102,7 @@ class FitAffineWcsTask(pipeBase.Task):
     ConfigClass = FitAffineWcsConfig
     _DefaultName = "fitAffineWcs"
 
-    @pipeBase.timeMethod
+    @timeMethod
     def fitWcs(self,
                matches,
                initWcs,

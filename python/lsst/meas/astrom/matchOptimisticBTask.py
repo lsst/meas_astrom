@@ -6,6 +6,7 @@ import math
 
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
+from lsst.utils.timer import timeMethod
 
 from .setMatchDistance import setMatchDistance
 from .matchOptimisticB import matchOptimisticB, MatchOptimisticBControl
@@ -126,7 +127,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         """
         return refCat
 
-    @pipeBase.timeMethod
+    @timeMethod
     def matchObjectsToSources(self, refCat, sourceCat, wcs, sourceFluxField, refFluxField,
                               match_tolerance=None):
         """Match sources to position reference stars.
@@ -257,7 +258,7 @@ class MatchOptimisticBTask(pipeBase.Task):
                 and not source.get(self.interpolatedCenterKey)
                 and not source.get(self.saturatedKey))
 
-    @pipeBase.timeMethod
+    @timeMethod
     def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numUsableSources, minMatchedPairs,
                  maxMatchDist, sourceFluxField, verbose):
         """Implementation of matching sources to position reference stars.

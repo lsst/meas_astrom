@@ -31,6 +31,7 @@ import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from lsst.meas.algorithms import ReferenceSourceSelectorTask
 from lsst.meas.algorithms.sourceSelector import sourceSelectorRegistry
+from lsst.utils.timer import timeMethod
 from .matchPessimisticB import MatchPessimisticBTask
 from .display import displayAstrometry
 from . import makeMatchStatistics
@@ -112,7 +113,7 @@ class RefMatchTask(pipeBase.Task):
         """
         self.refObjLoader = refObjLoader
 
-    @pipeBase.timeMethod
+    @timeMethod
     def loadAndMatch(self, exposure, sourceCat):
         """Load reference objects overlapping an exposure and match to sources
         detected on that exposure.
