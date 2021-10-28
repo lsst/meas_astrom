@@ -31,14 +31,21 @@
 #include "lsst/meas/astrom/pessimisticPatternMatcherUtils.h"
 
 namespace py = pybind11;
+using namespace pybind11::literals;
 
 namespace lsst {
 namespace meas {
 namespace astrom {
 
 PYBIND11_MODULE(pessimisticPatternMatcherUtils, mod) {
-    mod.def("check_spoke", &check_spoke,
-            "Test the opening angle between the spokes of our source pattern against the reference.");
+    mod.def("find_candidate_reference_pair_range", &find_candidate_reference_pair_range, "src_dist"_a,
+            "ref_dist_array"_a, "max_dist_rad"_a);
+    mod.def("create_pattern_spokes", &create_pattern_spokes, "src_ctr"_a, "src_delta_array"_a,
+            "src_dist_array"_a, "ref_ctr"_a, "proj_ref_ctr_delta"_a, "ref_dist_array"_a, "ref_id_array"_a,
+            "reference_array"_a, "max_dist_rad"_a, "n_match"_a);
+    mod.def("check_spoke", &check_spoke, "cos_theta_src"_a, "sin_theta_src"_a, "ref_ctr"_a,
+            "proj_ref_ctr_delta"_a, "proj_ref_ctr_dist_sq"_a, "candidate_range"_a, "ref_id_array"_a,
+            "reference_array"_a, "src_sin_tol"_a);
 }
 
 }  // namespace astrom
