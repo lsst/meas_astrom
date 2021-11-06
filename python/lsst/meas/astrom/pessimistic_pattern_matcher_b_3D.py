@@ -92,43 +92,43 @@ class PessimisticPatternMatcherB:
         reference the position in the input reference catalog and index to
         'index' into the arrays sorted on distance.
         """
-        # Create empty lists to temporarily store our pair information per
-        # reference object. These will be concatenated into our final arrays.
-        sub_id_array_list = []
-        sub_dist_array_list = []
+        # Create empty arrays to store our pair information per
+        # reference object.
+        self._dist_array = np.empty(
+            int(self._n_reference * (self._n_reference - 1) / 2),
+            dtype="float32")
+        self._id_array = np.empty(
+            (int(self._n_reference * (self._n_reference - 1) / 2), 2),
+            dtype="uint16")
 
+        startIdx = 0
         # Loop over reference objects storing pair distances and ids.
         for ref_id, ref_obj in enumerate(self._reference_array):
+            # Set the ending slicing index to the correct length for the
+            # pairs we are creating.
+            endIdx = startIdx + self._n_reference - 1 - ref_id
 
             # Reserve and fill the ids of each reference object pair.
             # 16 bit is safe for the id array as the catalog input from
             # MatchPessimisticB is limited to a max length of 2 ** 16.
-            sub_id_array = np.empty((self._n_reference - 1 - ref_id, 2),
-                                    dtype="uint16")
-            sub_id_array[:, 0] = ref_id
-            sub_id_array[:, 1] = np.arange(ref_id + 1, self._n_reference,
-                                           dtype="uint16")
+            self._id_array[startIdx:endIdx, 0] = ref_id
+            self._id_array[startIdx:endIdx, 1] = np.arange(ref_id + 1,
+                                                           self._n_reference,
+                                                           dtype="uint16")
 
             # Compute the vector deltas for each pair of reference objects.
             # Compute and store the distances.
-            sub_dist_array = np.sqrt(
+            self._dist_array[startIdx:endIdx] = np.sqrt(
                 ((self._reference_array[ref_id + 1:, :]
-                  - ref_obj) ** 2).sum(axis=1)).astype("float32")
-
-            # Append to our arrays to the output lists for later
-            # concatenation.
-            sub_id_array_list.append(sub_id_array)
-            sub_dist_array_list.append(sub_dist_array)
-
-        # Concatenate our arrays together.
-        unsorted_id_array = np.concatenate(sub_id_array_list)
-        unsorted_dist_array = np.concatenate(sub_dist_array_list)
+                  - ref_obj) ** 2).sum(axis=1))
+            # Set startIdx of the slice to the end of the previous slice.
+            startIdx = endIdx
 
         # Sort each array on the pair distances for the initial
         # optimistic pattern matcher lookup.
-        sorted_dist_args = unsorted_dist_array.argsort()
-        self._dist_array = unsorted_dist_array[sorted_dist_args]
-        self._id_array = unsorted_id_array[sorted_dist_args]
+        sorted_dist_args = self._dist_array.argsort()
+        self._dist_array = self._dist_array[sorted_dist_args]
+        self._id_array = self._id_array[sorted_dist_args]
 
     def match(self, source_array, n_check, n_match, n_agree,
               max_n_patterns, max_shift, max_rotation, max_dist,
