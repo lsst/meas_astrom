@@ -204,8 +204,7 @@ class PessimisticPatternMatcherB:
             max_dist_rad=None,)
 
         if n_source <= 0:
-            self.log.warning("Source object array is empty. Unable to match. "
-                             "Exiting matcher.")
+            self.log.warning("Source object array is empty. Unable to match. Exiting matcher.")
             return None
 
         # To test if the shifts and rotations we find agree with each other,
