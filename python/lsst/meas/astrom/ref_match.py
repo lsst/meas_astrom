@@ -181,8 +181,8 @@ class RefMatchTask(pipeBase.Task):
 
         distStats = self._computeMatchStatsOnSky(matchRes.matches)
         self.log.info(
-            "Found %d matches with scatter = %0.3f +- %0.3f arcsec; " %
-            (len(matchRes.matches), distStats.distMean.asArcseconds(), distStats.distStdDev.asArcseconds())
+            "Found %d matches with scatter = %0.3f +- %0.3f arcsec; ",
+            len(matchRes.matches), distStats.distMean.asArcseconds(), distStats.distStdDev.asArcseconds()
         )
 
         if debug.display:

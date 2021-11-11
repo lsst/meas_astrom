@@ -37,7 +37,7 @@
 #include "lsst/meas/astrom/makeMatchStatistics.h"
 
 namespace {
-LOG_LOGGER _log = LOG_GET("meas.astrom.sip");
+LOG_LOGGER _log = LOG_GET("lsst.meas.astrom.sip");
 }
 
 namespace lsst {

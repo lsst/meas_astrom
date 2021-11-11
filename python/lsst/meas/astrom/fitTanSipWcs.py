@@ -137,10 +137,8 @@ class FitTanSipWcsTask(pipeBase.Task):
             if rejected.sum() == len(rejected):
                 raise RuntimeError("All matches rejected in iteration %d" % (rej + 1,))
             self.log.debug(
-                "Iteration {0} of astrometry fitting: rejected {1} outliers, "
-                "out of {2} total matches.".format(
-                    rej, rejected.sum(), len(rejected)
-                )
+                "Iteration %d of astrometry fitting: rejected %f outliers, out of %d total matches.",
+                rej, rejected.sum(), len(rejected)
             )
             if debug.plot:
                 print("Plotting fit after rejection iteration %d/%d" % (rej + 1, self.config.numRejIter))
@@ -156,14 +154,14 @@ class FitTanSipWcsTask(pipeBase.Task):
             self.log.debug("Updating centroids in refCat")
             afwTable.updateRefCentroids(wcs, refList=refCat)
         else:
-            self.log.warn("Updating reference object centroids in match list; refCat is None")
+            self.log.warning("Updating reference object centroids in match list; refCat is None")
             afwTable.updateRefCentroids(wcs, refList=[match.first for match in matches])
 
         if sourceCat is not None:
             self.log.debug("Updating coords in sourceCat")
             afwTable.updateSourceCoords(wcs, sourceList=sourceCat)
         else:
-            self.log.warn("Updating source coords in match list; sourceCat is None")
+            self.log.warning("Updating source coords in match list; sourceCat is None")
             afwTable.updateSourceCoords(wcs, sourceList=[match.second for match in matches])
 
         self.log.debug("Updating distance in match list")
@@ -279,7 +277,7 @@ class FitTanSipWcsTask(pipeBase.Task):
         try:
             import matplotlib.pyplot as plt
         except ImportError as e:
-            self.log.warn("Unable to import matplotlib: %s", e)
+            self.log.warning("Unable to import matplotlib: %s", e)
             return
 
         fit = [wcs.skyToPixel(m.first.getCoord()) for m in matches]

@@ -104,19 +104,19 @@ class DirectMatchTask(Task):
         emptyResult = Struct(matches=[], matchMeta=matchMeta)
         sourceSelection = self.sourceSelection.run(catalog)
         if len(sourceSelection.sourceCat) == 0:
-            self.log.warn("No objects selected from %d objects in source catalog", len(catalog))
+            self.log.warning("No objects selected from %d objects in source catalog", len(catalog))
             return emptyResult
         refData = self.refObjLoader.loadSkyCircle(circle.center, circle.radius, filterName, epoch=epoch)
         refCat = refData.refCat
         refSelection = self.referenceSelection.run(refCat)
         if len(refSelection.sourceCat) == 0:
-            self.log.warn("No objects selected from %d objects in reference catalog", len(refCat))
+            self.log.warning("No objects selected from %d objects in reference catalog", len(refCat))
             return emptyResult
         matches = afwTable.matchRaDec(refSelection.sourceCat, sourceSelection.sourceCat,
                                       self.config.matchRadius*arcseconds)
-        self.log.info("Matched %d from %d/%d input and %d/%d reference sources" %
-                      (len(matches), len(sourceSelection.sourceCat), len(catalog),
-                       len(refSelection.sourceCat), len(refCat)))
+        self.log.info("Matched %d from %d/%d input and %d/%d reference sources",
+                      len(matches), len(sourceSelection.sourceCat), len(catalog),
+                      len(refSelection.sourceCat), len(refCat))
         return Struct(matches=matches, matchMeta=matchMeta, refCat=refCat, sourceSelection=sourceSelection,
                       refSelection=refSelection)
 

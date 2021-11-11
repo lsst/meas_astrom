@@ -186,8 +186,8 @@ class FitAffineWcsTask(pipeBase.Task):
         else:
             offsetDir = 0.
         offsetDir *= np.sign(offsetLat)
-        self.log.debug("Initial shift guess: Direction: %.3f, Dist %.3f..." %
-                       (offsetDir, offsetDist))
+        self.log.debug("Initial shift guess: Direction: %.3f, Dist %.3f...",
+                       offsetDir, offsetDist)
 
         # Best performing fitter in scipy tried so far (vs. default settings in
         # minimize). Exits early because of the xTol value which cannot be
@@ -204,9 +204,9 @@ class FitAffineWcsTask(pipeBase.Task):
             gtol=2.31e-16,
             xtol=2.3e-16)
         self.log.debug("Best fit: Direction: %.3f, Dist: %.3f, "
-                       "Affine matrix: [[%.6f, %.6f], [%.6f, %.6f]]..." %
-                       (fit.x[0], fit.x[1],
-                        fit.x[2], fit.x[3], fit.x[4], fit.x[5]))
+                       "Affine matrix: [[%.6f, %.6f], [%.6f, %.6f]]...",
+                       fit.x[0], fit.x[1],
+                       fit.x[2], fit.x[3], fit.x[4], fit.x[5])
 
         wcs = wcsMaker.makeWcs(fit.x[:2], fit.x[2:].reshape((2, 2)))
 
@@ -215,8 +215,7 @@ class FitAffineWcsTask(pipeBase.Task):
             self.log.debug("Updating centroids in refCat")
             lsst.afw.table.updateRefCentroids(wcs, refList=refCat)
         else:
-            self.log.warn("Updating reference object centroids in match list; "
-                          "refCat is None")
+            self.log.warning("Updating reference object centroids in match list; refCat is None")
             lsst.afw.table.updateRefCentroids(
                 wcs,
                 refList=[match.first for match in matches])
@@ -225,8 +224,7 @@ class FitAffineWcsTask(pipeBase.Task):
             self.log.debug("Updating coords in sourceCat")
             lsst.afw.table.updateSourceCoords(wcs, sourceList=sourceCat)
         else:
-            self.log.warn("Updating source coords in match list; sourceCat is "
-                          "None")
+            self.log.warning("Updating source coords in match list; sourceCat is None")
             lsst.afw.table.updateSourceCoords(
                 wcs,
                 sourceList=[match.second for match in matches])
@@ -237,7 +235,7 @@ class FitAffineWcsTask(pipeBase.Task):
                                              lsst.afw.math.MEDIAN)
         scatterOnSky = stats.getValue() * radians
 
-        self.log.debug("In fitter scatter %.4f" % scatterOnSky.asArcseconds())
+        self.log.debug("In fitter scatter %.4f", scatterOnSky.asArcseconds())
 
         return lsst.pipe.base.Struct(
             wcs=wcs,

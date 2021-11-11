@@ -218,9 +218,9 @@ class AstrometryTask(RefMatchTask):
 
         sourceSelection = self.sourceSelector.run(sourceCat)
 
-        self.log.info("Purged %d sources, leaving %d good sources" %
-                      (len(sourceCat) - len(sourceSelection.sourceCat),
-                       len(sourceSelection.sourceCat)))
+        self.log.info("Purged %d sources, leaving %d good sources",
+                      len(sourceCat) - len(sourceSelection.sourceCat),
+                      len(sourceSelection.sourceCat))
 
         loadRes = self.refObjLoader.loadPixelBox(
             bbox=expMd.bbox,
@@ -270,7 +270,7 @@ class AstrometryTask(RefMatchTask):
             except Exception as e:
                 # if we have had a succeessful iteration then use that; otherwise fail
                 if i > 0:
-                    self.log.info("Fit WCS iter %d failed; using previous iteration: %s" % (iterNum, e))
+                    self.log.info("Fit WCS iter %d failed; using previous iteration: %s", iterNum, e)
                     iterNum -= 1
                     break
                 else:

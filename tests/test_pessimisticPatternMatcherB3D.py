@@ -22,12 +22,12 @@
 
 from copy import copy
 import unittest
+import logging
 
 import numpy as np
 
 from lsst.meas.astrom.pessimistic_pattern_matcher_b_3D \
     import PessimisticPatternMatcherB
-from lsst.log import Log
 
 __deg_to_rad__ = np.pi/180
 
@@ -60,7 +60,7 @@ class TestPessimisticPatternMatcherB(unittest.TestCase):
         # shifts to the data in order to test the input and outputs of our
         # matcher.
         self.source_obj_array = copy(self.reference_obj_array)
-        self.log = Log()
+        self.log = logging.getLogger(__name__)
 
     def testConstructPattern(self):
         """ Test that a specified pattern can be found in the reference

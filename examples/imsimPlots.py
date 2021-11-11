@@ -1,13 +1,15 @@
 from optparse import OptionParser
+import logging
 
 import lsst.meas.astrom as measAstrom
-from lsst.log import Log
 import lsst.meas.algorithms.utils as maUtils
 
 import wcsPlots
 import imsimUtils
 
 import numpy as np
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 def main():
@@ -79,8 +81,7 @@ def plotsForField(inButler, keys, fixup, plots=None, prefix=''):
     # ref sources
     W, H = calexp.getWidth(), calexp.getHeight()
 
-    log = Log.getDefaultLogger()
-    log.setLevel(Log.DEBUG)
+    log = logging.getLogger()
 
     kwargs = {}
     if fixup:

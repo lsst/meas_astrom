@@ -248,9 +248,9 @@ class MatchPessimisticBTask(pipeBase.Task):
                                   * min([len(refCat), len(goodSourceCat)])))
 
         if len(refCat) > self.config.maxRefObjects:
-            self.log.warn(
+            self.log.warning(
                 "WARNING: Reference catalog larger that maximum allowed. "
-                "Trimming to %i" % self.config.maxRefObjects)
+                "Trimming to %i", self.config.maxRefObjects)
             trimmedRefCat = self._filterRefCat(refCat, refFluxField)
         else:
             trimmedRefCat = refCat
@@ -272,9 +272,9 @@ class MatchPessimisticBTask(pipeBase.Task):
         if len(matches) == 0:
             raise RuntimeError("Unable to match sources")
 
-        self.log.info("Matched %d sources" % len(matches))
+        self.log.info("Matched %d sources", len(matches))
         if len(matches) < minMatchedPairs:
-            self.log.warn("Number of matches is smaller than request")
+            self.log.warning("Number of matches is smaller than request")
 
         return pipeBase.Struct(
             matches=matches,
@@ -440,9 +440,9 @@ class MatchPessimisticBTask(pipeBase.Task):
                len(sourceCat) < minObjectsForConsensus:
                 numConsensus = 1
 
-        self.log.debug("Current tol maxDist: %.4f arcsec" %
+        self.log.debug("Current tol maxDist: %.4f arcsec",
                        maxMatchDistArcSec)
-        self.log.debug("Current shift: %.4f arcsec" %
+        self.log.debug("Current shift: %.4f arcsec",
                        maxShiftArcseconds)
 
         match_found = False
@@ -643,6 +643,6 @@ class MatchPessimisticBTask(pipeBase.Task):
                     / (self.config.numPointsForShape - 1.))
 
         self.log.debug("Automated tolerance")
-        self.log.debug("\tdistance/match tol: %.4f [arcsec]" % dist_tol)
+        self.log.debug("\tdistance/match tol: %.4f [arcsec]", dist_tol)
 
         return dist_tol

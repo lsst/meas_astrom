@@ -24,12 +24,14 @@ __all__ = ["checkMatches"]
 
 
 import numpy as np
+import logging
 
 import lsst.geom
 import lsst.afw.detection as afwDetection
 import lsst.afw.math as afwMath
 import lsst.meas.algorithms as measAlg
-from lsst.log import Log
+
+_LOG = logging.getLogger(__name__)
 
 
 def checkMatches(srcMatchSet, exposure, log=None):
@@ -42,7 +44,7 @@ def checkMatches(srcMatchSet, exposure, log=None):
         List of matched sources to a reference catalog.
     exposure : `lsst.afw.image.Exposure`
         Image the sources in srcMatchSet were detected/measured in.
-    log : `lsst.log.Log`
+    log : `lsst.log.Log` or `logging.Logger`
         Logger object.
 
     Returns
@@ -59,7 +61,7 @@ def checkMatches(srcMatchSet, exposure, log=None):
         return {}
 
     if log is None:
-        log = Log.getLogger("meas.astrom.verifyWcs.checkMatches")
+        log = _LOG
 
     im = exposure.getMaskedImage().getImage()
     width, height = im.getWidth(), im.getHeight()
@@ -94,7 +96,7 @@ def checkMatches(srcMatchSet, exposure, log=None):
         try:
             cellSet.insertCandidate(measAlg.PsfCandidateF(csrc, exposure.getMaskedImage()))
         except Exception as e:
-            log.warn(str(e))
+            log.warning("%s", e)
 
     ncell = len(cellSet.getCellList())
     nobj = np.ndarray(ncell, dtype='i')
