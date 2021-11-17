@@ -6,4 +6,5 @@ scripts.BasicSConscript.pybind11([
     "polynomialTransform",
     "scaledPolynomialTransformFitter",
     "sipTransform",
+    "pessimisticPatternMatcherUtils",
 ], addUnderscore=False)
