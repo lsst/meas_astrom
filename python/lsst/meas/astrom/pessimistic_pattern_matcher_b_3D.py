@@ -4,7 +4,8 @@ from scipy.optimize import least_squares
 from scipy.spatial import cKDTree
 from scipy.stats import sigmaclip
 
-from .pessimisticPatternMatcherUtils import check_spoke
+from .pessimisticPatternMatcherUtils import (find_candidate_reference_pair_range,
+                                             create_pattern_spokes,)
 import lsst.pipe.base as pipeBase
 
 
@@ -446,11 +447,39 @@ class PessimisticPatternMatcherB:
         # Our first test. We search the reference dataset for pairs
         # that have the same length as our first source pairs to with
         # plus/minus the max_dist tolerance.
-        ref_dist_index_array = self._find_candidate_reference_pairs(
+
+        # TODO: DM-32299 Convert all code below and subsiquent functions to
+        # C++.
+        candidate_range = find_candidate_reference_pair_range(
             src_dist_array[0], self._dist_array, max_dist_rad)
 
+        def generate_ref_dist_indexes(low, high):
+            """Generator to loop outward from the midpoint between two values.
+
+            Parameters
+            ----------
+            low : `int`
+                Minimum of index range.
+            high : `int`
+                Maximum of index range.
+
+            Yields
+            ------
+            index : `int`
+                Current index.
+            """
+            mid = (high + low) // 2
+            for idx in range(high - low):
+                if idx%2 == 0:
+                    mid += idx
+                    yield mid
+                else:
+                    mid -= idx
+                    yield mid
+
         # Start our loop over the candidate reference objects.
-        for ref_dist_idx in ref_dist_index_array:
+        for ref_dist_idx in generate_ref_dist_indexes(candidate_range[0],
+                                                      candidate_range[1]):
             # We have two candidates for which reference object corresponds
             # with the source at the center of our pattern. As such we loop
             # over and test both possibilities.
@@ -516,21 +545,20 @@ class PessimisticPatternMatcherB:
 
                 # Now we feed this sub data to match the spokes of
                 # our pattern.
-                pattern_spoke_struct = self._create_pattern_spokes(
+                pattern_spokes = create_pattern_spokes(
                     src_pattern_array[0], src_delta_array, src_dist_array,
-                    self._reference_array[ref_id], ref_id, proj_ref_ctr_delta,
-                    tmp_ref_dist_array, tmp_ref_id_array, max_dist_rad,
-                    n_match)
+                    self._reference_array[ref_id], proj_ref_ctr_delta,
+                    tmp_ref_dist_array, tmp_ref_id_array, self._reference_array,
+                    max_dist_rad, n_match)
 
                 # If we don't find enough candidates we can continue to the
                 # next reference center pair.
-                if len(pattern_spoke_struct.ref_spoke_list) < n_match - 2 or \
-                   len(pattern_spoke_struct.src_spoke_list) < n_match - 2:
+                if len(pattern_spokes) < n_match - 2:
                     continue
 
                 # If we have the right number of matched ids we store these.
-                ref_candidates.extend(pattern_spoke_struct.ref_spoke_list)
-                src_candidates.extend(pattern_spoke_struct.src_spoke_list)
+                ref_candidates.extend([cand[0] for cand in pattern_spokes])
+                src_candidates.extend([cand[1] for cand in pattern_spokes])
 
                 # We can now create our full rotation matrix for both the
                 # shift and rotation. Reminder shift, aligns the pattern
@@ -570,55 +598,6 @@ class PessimisticPatternMatcherB:
                     return output_matched_pattern
 
         return output_matched_pattern
-
-    def _find_candidate_reference_pairs(self, src_dist, ref_dist_array,
-                                        max_dist_rad):
-        """Wrap numpy.searchsorted to find the range of reference spokes
-        within a spoke distance tolerance of our source spoke.
-
-        Returns an array sorted from the smallest absolute delta distance
-        between source and reference spoke length. This sorting increases the
-        speed for the pattern search greatly.
-
-        Parameters
-        ----------
-        src_dist : `float`
-            float value of the distance we would like to search for in
-            the reference array in radians.
-        ref_dist_array : `numpy.ndarray`, (N,)
-            sorted array of distances in radians.
-        max_dist_rad : `float`
-            maximum plus/minus search to find in the reference array in
-            radians.
-
-        Return
-        ------
-        tmp_diff_array : `numpy.ndarray`, (N,)
-            indices lookup into the input ref_dist_array sorted by the
-            difference in value to the src_dist from absolute value
-            smallest to largest.
-        """
-        # Find the index of the minimum and maximum values that satisfy
-        # the tolerance.
-        start_idx = np.searchsorted(ref_dist_array, src_dist - max_dist_rad)
-        end_idx = np.searchsorted(ref_dist_array, src_dist + max_dist_rad,
-                                  side='right')
-
-        # If these are equal there are no candidates and we exit.
-        if start_idx == end_idx:
-            return np.array([], dtype="int")
-
-        # Make sure the endpoints of the input array are respected.
-        if start_idx < 0:
-            start_idx = 0
-        if end_idx > ref_dist_array.shape[0]:
-            end_idx = ref_dist_array.shape[0]
-
-        # Now we sort the indices from smallest absolute delta dist difference
-        # to the largest and return the vector. This step greatly increases
-        # the speed of the algorithm.
-        tmp_diff_array = np.fabs(ref_dist_array[start_idx:end_idx] - src_dist)
-        return tmp_diff_array.argsort() + start_idx
 
     def _test_rotation(self, src_center, ref_center, src_delta, ref_delta,
                        cos_shift, max_cos_rot_sq):
@@ -730,237 +709,6 @@ class PessimisticPatternMatcherB:
                         + (1. - cos_rotation)*np.outer(rot_axis, rot_axis))
 
         return shift_matrix
-
-    def _create_pattern_spokes(self, src_ctr, src_delta_array, src_dist_array,
-                               ref_ctr, ref_ctr_id, proj_ref_ctr_delta,
-                               ref_dist_array, ref_id_array, max_dist_rad,
-                               n_match):
-        """ Create the individual spokes that make up the pattern now that the
-        shift and rotation are within tolerance.
-
-        If we can't create a valid pattern we exit early.
-
-        Parameters
-        ----------
-        src_ctr : `numpy.ndarray`, (3,)
-            3 vector of the source pinwheel center
-        src_delta_array : `numpy.ndarray`, (N, 3)
-            Array of 3 vector deltas between the source center and the pairs
-            that make up the remaining spokes of the pinwheel
-        src_dist_array : `numpy.ndarray`, (N, 3)
-            Array of the distances of each src_delta in the pinwheel
-        ref_ctr : `numpy.ndarray`, (3,)
-            3 vector of the candidate reference center
-        ref_ctr_id : `int`
-            id of the ref_ctr in the master reference array
-        proj_ref_ctr_delta : `numpy.ndarray`, (3,)
-            Plane projected 3 vector formed from the center point of the
-            candidate pin-wheel and the second point in the pattern to create
-            the first spoke pair. This is the candidate pair that was matched
-            in the main _construct_pattern_and_shift_rot_matrix loop
-        ref_dist_array : `numpy.ndarray`, (N,)
-            Array of vector distances for each of the reference pairs
-        ref_id_array : `numpy.ndarray`, (N,)
-            Array of id lookups into the master reference array that our
-            center id object is paired with.
-        max_dist_rad : `float`
-            Maximum search distance
-        n_match : `int`
-            Number of source deltas that must be matched into the reference
-            deltas in order to consider this a successful pattern match.
-
-        Returns
-        -------
-        output_spokes : `lsst.pipe.base.Struct`
-            Result struct with components:
-
-            - ``ref_spoke_list`` : list of ints specifying ids into the master
-              reference array (`list` of `int`).
-            - ``src_spoke_list`` : list of ints specifying indices into the
-              current source pattern that is being tested (`list` of `int`).
-        """
-        # Struct where we will be putting our results.
-        output_spokes = pipeBase.Struct(
-            ref_spoke_list=[],
-            src_spoke_list=[],)
-
-        # Counter for number of spokes we failed to find a reference
-        # candidate for. We break the loop if we haven't found enough.
-        n_fail = 0
-        ref_spoke_list = []
-        src_spoke_list = []
-
-        # Plane project the center/first spoke of the source pattern using
-        # the center vector of the pattern as normal.
-        proj_src_ctr_delta = (src_delta_array[0]
-                              - np.dot(src_delta_array[0], src_ctr) * src_ctr)
-        proj_src_ctr_dist_sq = np.dot(proj_src_ctr_delta, proj_src_ctr_delta)
-
-        # Pre-compute the squared length of the projected reference vector.
-        proj_ref_ctr_dist_sq = np.dot(proj_ref_ctr_delta, proj_ref_ctr_delta)
-
-        # Loop over the source pairs.
-        for src_idx in range(1, len(src_dist_array)):
-            if n_fail > len(src_dist_array) - (n_match - 1):
-                break
-
-            # Given our length tolerance we can use it to compute a tolerance
-            # on the angle between our spoke.
-            src_sin_tol = (max_dist_rad
-                           / (src_dist_array[src_idx] + max_dist_rad))
-
-            # Test if the small angle approximation will still hold. This is
-            # defined as when sin(theta) ~= theta to within 0.1% of each
-            # other. If the implied opening angle is too large we set it to
-            # the 0.1% threshold.
-            max_sin_tol = 0.0447
-            if src_sin_tol > max_sin_tol:
-                src_sin_tol = max_sin_tol
-
-            # Plane project the candidate source spoke and compute the cosine
-            # and sine of the opening angle.
-            proj_src_delta = (
-                src_delta_array[src_idx]
-                - np.dot(src_delta_array[src_idx], src_ctr) * src_ctr)
-            geom_dist_src = np.sqrt(
-                np.dot(proj_src_delta, proj_src_delta)
-                * proj_src_ctr_dist_sq)
-
-            # Compute cosine and sine of the delta vector opening angle.
-            cos_theta_src = (np.dot(proj_src_delta, proj_src_ctr_delta)
-                             / geom_dist_src)
-            cross_src = (np.cross(proj_src_delta, proj_src_ctr_delta)
-                         / geom_dist_src)
-            sin_theta_src = np.dot(cross_src, src_ctr)
-
-            # Find the reference pairs that include our candidate pattern
-            # center and sort them in increasing delta
-            ref_dist_idx_array = self._find_candidate_reference_pairs(
-                src_dist_array[src_idx], ref_dist_array, max_dist_rad)
-
-            # Test the spokes and return the id of the reference object.
-            # Return None if no match is found.
-            ref_id = check_spoke(
-                cos_theta_src,
-                sin_theta_src,
-                ref_ctr,
-                proj_ref_ctr_delta,
-                proj_ref_ctr_dist_sq,
-                ref_dist_idx_array,
-                ref_id_array,
-                self._reference_array,
-                src_sin_tol)
-            if ref_id < 0:
-                n_fail += 1
-                continue
-
-            # Append the successful indices to our list. The src_idx needs
-            # an extra iteration to skip the first and second source objects.
-            ref_spoke_list.append(ref_id)
-            src_spoke_list.append(src_idx + 1)
-            # If we found enough reference objects we can return early. This is
-            # n_match - 2 as we already have 2 source objects matched into the
-            # reference data.
-            if len(ref_spoke_list) >= n_match - 2:
-                # Set the struct data and return the struct.
-                output_spokes.ref_spoke_list = ref_spoke_list
-                output_spokes.src_spoke_list = src_spoke_list
-                return output_spokes
-
-        return output_spokes
-
-    def _test_spoke(self, cos_theta_src, sin_theta_src, ref_ctr, ref_ctr_id,
-                    proj_ref_ctr_delta, proj_ref_ctr_dist_sq,
-                    ref_dist_idx_array, ref_id_array, src_sin_tol):
-        """Test the opening angle between the first spoke of our pattern
-        for the source object against the reference object.
-
-        This method makes heavy use of the small angle approximation to perform
-        the comparison.
-
-        Parameters
-        ----------
-        cos_theta_src : `float`
-            Cosine of the angle between the current candidate source spoke and
-            the first spoke.
-        sin_theta_src : `float`
-            Sine of the angle between the current candidate source spoke and
-            the first spoke.
-        ref_ctr : `numpy.ndarray`, (3,)
-            3 vector of the candidate reference center
-        ref_ctr_id : `int`
-            id lookup of the ref_ctr into the master reference array
-        proj_ref_ctr_delta : `float`
-            Plane projected first spoke in the reference pattern using the
-            pattern center as normal.
-        proj_ref_ctr_dist_sq : `float`
-            Squared length of the projected vector.
-        ref_dist_idx_array : `numpy.ndarray`, (N,)
-            Indices sorted by the delta distance between the source
-            spoke we are trying to test and the candidate reference
-            spokes.
-        ref_id_array : `numpy.ndarray`, (N,)
-            Array of id lookups into the master reference array that our
-            center id object is paired with.
-        src_sin_tol : `float`
-            Sine of tolerance allowed between source and reference spoke
-            opening angles.
-
-        Returns
-        -------
-        id : `int`
-            If we can not find a candidate spoke we return `None` else we
-            return an int id into the master reference array.
-        """
-
-        # Loop over our candidate reference objects.
-        for ref_dist_idx in ref_dist_idx_array:
-            # Compute the delta vector from the pattern center.
-            ref_delta = (self._reference_array[ref_id_array[ref_dist_idx]]
-                         - ref_ctr)
-            # Compute the cos between our "center" reference vector and the
-            # current reference candidate.
-            proj_ref_delta = ref_delta - np.dot(ref_delta, ref_ctr) * ref_ctr
-            geom_dist_ref = np.sqrt(proj_ref_ctr_dist_sq
-                                    * np.dot(proj_ref_delta, proj_ref_delta))
-            cos_theta_ref = (np.dot(proj_ref_delta, proj_ref_ctr_delta)
-                             / geom_dist_ref)
-
-            # Make sure we can safely make the comparison in case
-            # our "center" and candidate vectors are mostly aligned.
-            if cos_theta_ref ** 2 < (1 - src_sin_tol ** 2):
-                cos_sq_comparison = ((cos_theta_src - cos_theta_ref) ** 2
-                                     / (1 - cos_theta_ref ** 2))
-            else:
-                cos_sq_comparison = ((cos_theta_src - cos_theta_ref) ** 2
-                                     / src_sin_tol ** 2)
-            # Test the difference of the cosine of the reference angle against
-            # the source angle. Assumes that the delta between the two is
-            # small.
-            if cos_sq_comparison > src_sin_tol ** 2:
-                continue
-
-            # The cosine tests the magnitude of the angle but not
-            # its direction. To do that we need to know the sine as well.
-            # This cross product calculation does that.
-            cross_ref = (np.cross(proj_ref_delta, proj_ref_ctr_delta)
-                         / geom_dist_ref)
-            sin_theta_ref = np.dot(cross_ref, ref_ctr)
-
-            # Check the value of the cos again to make sure that it is not
-            # near zero.
-            if abs(cos_theta_src) < src_sin_tol:
-                sin_comparison = (sin_theta_src - sin_theta_ref) / src_sin_tol
-            else:
-                sin_comparison = \
-                    (sin_theta_src - sin_theta_ref) / cos_theta_ref
-            if abs(sin_comparison) > src_sin_tol:
-                continue
-
-            # Return the correct id of the candidate we found.
-            return ref_id_array[ref_dist_idx]
-
-        return -1
 
     def _create_shift_rot_matrix(self, cos_rot_sq, shift_matrix, src_delta,
                                  ref_ctr, ref_delta):
