@@ -38,16 +38,16 @@ namespace meas {
 namespace astrom {
 
 PYBIND11_MODULE(pessimisticPatternMatcherUtils, mod) {
-    mod.def("find_candidate_reference_pair_range", &find_candidate_reference_pair_range, "src_dist"_a,
-            "ref_dist_array"_a, "max_dist_rad"_a);
-    mod.def("create_pattern_spokes", &create_pattern_spokes, "src_ctr"_a, "src_delta_array"_a,
-            "src_dist_array"_a, "ref_ctr"_a, "proj_ref_ctr_delta"_a, "ref_dist_array"_a, "ref_id_array"_a,
-            "reference_array"_a, "max_dist_rad"_a, "n_match"_a);
-    mod.def("check_spoke", &check_spoke, "cos_theta_src"_a, "sin_theta_src"_a, "ref_ctr"_a,
-            "proj_ref_ctr_delta"_a, "proj_ref_ctr_dist_sq"_a, "candidate_range"_a, "ref_id_array"_a,
-            "reference_array"_a, "src_sin_tol"_a);
+    py::class_<PatternResult>(mod, "PatternResult")
+            .def_readonly("candidate_pairs", &PatternResult::candidate_pairs)
+            .def_readonly("shift_rot_matrix", &PatternResult::shift_rot_matrix)
+            .def_readonly("cos_shift", &PatternResult::cos_shift)
+            .def_readonly("sin_rot", &PatternResult::sin_rot)
+            .def_readonly("success", &PatternResult::success);
+    mod.def("construct_pattern_and_shift_rot_matrix", &construct_pattern_and_shift_rot_matrix,
+            "src_pattern_array"_a, "src_delta_array"_a, "src_dist_array"_a, "dist_array"_a, "id_array"_a,
+            "reference_array"_a, "n_match"_a, "max_cos_theta_shift"_a, "max_cos_rot_sq"_a, "max_dist_rad"_a);
 }
-
 }  // namespace astrom
 }  // namespace meas
 }  // namespace lsst
