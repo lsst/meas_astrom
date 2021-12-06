@@ -31,6 +31,8 @@ from . import sip
 from .ref_match import *
 from .astrometry import *
 from .approximateWcs import *
+from .match_probabilistic_task import *
+from .matcher_probabilistic import *
 from .matchPessimisticB import *
 from .setMatchDistance import *
 from .display import *
