@@ -156,7 +156,6 @@ class RefMatchTask(pipeBase.Task):
             bbox=expMd.bbox,
             wcs=expMd.wcs,
             filterName=expMd.filterName,
-            photoCalib=expMd.photoCalib,
             epoch=expMd.epoch,
         )
 
@@ -166,7 +165,6 @@ class RefMatchTask(pipeBase.Task):
             bbox=expMd.bbox,
             wcs=expMd.wcs,
             filterName=expMd.filterName,
-            photoCalib=expMd.photoCalib,
             epoch=expMd.epoch,
         )
 
