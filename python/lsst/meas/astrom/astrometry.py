@@ -92,8 +92,8 @@ class AstrometryConfig(RefMatchConfig):
         self.sourceSelector.name = "matcher"
         self.sourceSelector["matcher"].sourceFluxType = self.sourceFluxType
 
-        # Note that if the matcher is MatchOptimisticBTask, then the
-        # default should be self.sourceSelector['matcher'].excludePixelFlags = False
+        # Note that if the matcher is MatchOptimisticBTask, then the default
+        # should be self.sourceSelector['matcher'].excludePixelFlags = False
         # However, there is no way to do this automatically.
 
 
