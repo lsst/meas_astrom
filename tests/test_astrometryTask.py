@@ -20,6 +20,7 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
+import logging
 import os.path
 import math
 import unittest
@@ -35,7 +36,6 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.meas.base as measBase
-import lsst.pipe.base as pipeBase
 from lsst.meas.algorithms.testUtils import MockReferenceObjectLoaderFromFiles
 from lsst.meas.astrom import AstrometryTask
 
@@ -99,18 +99,37 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
                 count += 1
         self.assertEqual(count, len(results.matches))
 
-    def testMaxMeanDistance(self):
-        """If the astrometric fit does not satisfy the maxMeanDistanceArcsec
-        threshold, ensure task raises an lsst.pipe.base.TaskError.
+    def testWcsFailure(self):
+        """In the case of a failed WCS fit, test that the exposure's WCS is set
+           to None and the coord_ra & coord_dec columns are set to nan in the
+           source catalog.
         """
         self.exposure.setWcs(self.tanWcs)
         config = AstrometryTask.ConfigClass()
-        config.maxMeanDistanceArcsec = 0.0  # To ensure a "deemed" WCS failure
-        solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
-        sourceCat = self.makeSourceCat(self.tanWcs, doScatterCentroids=True)
-
-        with self.assertRaisesRegex(pipeBase.TaskError, "Fatal astrometry failure detected"):
-            solver.run(sourceCat=sourceCat, exposure=self.exposure)
+        config.wcsFitter.order = 2
+        config.wcsFitter.maxScatterArcsec = 0.0  # To ensure a WCS failure
+        sourceSchema = afwTable.SourceTable.makeMinimalSchema()
+        measBase.SingleFrameMeasurementTask(schema=sourceSchema)  # expand the schema
+        # schema must be passed to the solver task constructor
+        solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=sourceSchema)
+        sourceCat = self.makeSourceCat(self.tanWcs, sourceSchema=sourceSchema, doScatterCentroids=True)
+        with self.assertLogs(level=logging.WARNING) as cm:
+            results = solver.run(
+                sourceCat=sourceCat,
+                exposure=self.exposure,
+            )
+            logOutput = ";".join(cm.output)
+            self.assertIn("WCS fit failed.", logOutput)
+            self.assertIn("Setting exposure's WCS to None and coord_ra & coord_dec cols in sourceCat to nan.",
+                          logOutput)
+        # Check that matches is set to None, the sourceCat coord cols are all
+        # set to nan and that the WCS attached to the exposure is set to None.
+        self.assertTrue(results.matches is None)
+        self.assertTrue(np.all(np.isnan(sourceCat["coord_ra"])))
+        self.assertTrue(np.all(np.isnan(sourceCat["coord_dec"])))
+        self.assertTrue(self.exposure.getWcs() is None)
+        self.assertTrue(results.scatterOnSky is None)
+        self.assertTrue(results.matches is None)
 
     def doTest(self, pixelsToTanPixels, order=3):
         """Test using pixelsToTanPixels to distort the source positions
