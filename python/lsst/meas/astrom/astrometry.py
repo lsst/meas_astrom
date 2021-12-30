@@ -143,7 +143,6 @@ class AstrometryTask(RefMatchTask):
             The following are read only:
 
             - bbox
-            - photoCalib (may be absent)
             - filter (may be unset)
             - detector (if wcs is pure tangent; may be absent)
 
@@ -226,7 +225,6 @@ class AstrometryTask(RefMatchTask):
             bbox=expMd.bbox,
             wcs=expMd.wcs,
             filterName=expMd.filterName,
-            photoCalib=expMd.photoCalib,
             epoch=expMd.epoch,
         )
 
@@ -236,7 +234,6 @@ class AstrometryTask(RefMatchTask):
             bbox=expMd.bbox,
             wcs=expMd.wcs,
             filterName=expMd.filterName,
-            photoCalib=expMd.photoCalib,
             epoch=expMd.epoch,
         )
 
