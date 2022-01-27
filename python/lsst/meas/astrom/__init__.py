@@ -34,6 +34,7 @@ from .approximateWcs import *
 from .match_probabilistic_task import *
 from .matcher_probabilistic import *
 from .matchPessimisticB import *
+from .pessimistic_pattern_matcher_b_3D import *
 from .setMatchDistance import *
 from .display import *
 from .approximateWcs import *

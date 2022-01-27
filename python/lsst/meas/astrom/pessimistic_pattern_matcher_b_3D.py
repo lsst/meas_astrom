@@ -1,4 +1,6 @@
 
+__all__ = ["PessimisticPatternMatcherB"]
+
 import numpy as np
 from scipy.optimize import least_squares
 from scipy.spatial import cKDTree
@@ -54,7 +56,7 @@ def _rotation_matrix_chi_sq(flattened_rot_matrix,
 
 class PessimisticPatternMatcherB:
     """Class implementing a pessimistic version of Optimistic Pattern Matcher
-    B (OPMb) from Tabur 2007. See `DMTN-031 <http://ls.st/DMTN-031`_
+    B (OPMb) from `Tabur (2007)`_, as described in `DMTN-031`_
 
     Parameters
     ----------
@@ -73,7 +75,10 @@ class PessimisticPatternMatcherB:
     the correct shift and rotation for matching before exiting. The original
     behavior of OPMb can be recovered simply. Patterns matched between the
     input datasets are n-spoked pinwheels created from n+1 points. Refer to
-    DMTN #031 for more details. http://github.com/lsst-dm/dmtn-031
+    `DMTN-031`_ for more details.
+
+    .. _Tabur (2007): https://doi.org/10.1071/AS07028
+    .. _DMTN-031: https://dmtn-031.lsst.io/
     """
 
     def __init__(self, reference_array, log):
@@ -192,7 +197,6 @@ class PessimisticPatternMatcherB:
             - ``shift`` : Magnitude for the shift between the source and reference
               objects in arcseconds. None if no match found (`float`).
         """
-
         # Given our input source_array we sort on magnitude.
         sorted_source_array = source_array[source_array[:, -1].argsort(), :3]
         n_source = len(sorted_source_array)
@@ -336,7 +340,6 @@ class PessimisticPatternMatcherB:
             the code finds to test for agreement from different patterns
             when the code is running in pessimistic mode.
         """
-
         # Get the center of source_array.
         if np.any(np.logical_not(np.isfinite(source_array))):
             self.log.warning("Input source objects contain non-finite values. "
@@ -376,6 +379,7 @@ class PessimisticPatternMatcherB:
         """Test an input source pattern against the reference catalog.
         Returns the candidate matched patterns and their
         implied rotation matrices or None.
+
         Parameters
         ----------
         src_pattern_array : `numpy.ndarray`, (N, 3)
@@ -393,10 +397,12 @@ class PessimisticPatternMatcherB:
             pair distances to consider the reference pair a candidate for
             the source pair. Also sets the tolerance between the opening
             angles of the spokes when compared to the reference.
+
         Return
         -------
         output_matched_pattern : `lsst.pipe.base.Struct`
             Result struct with components:
+
             - ``ref_candidates`` : ids of the matched pattern in the internal
               reference_array object (`list` of `int`).
             - ``src_candidates`` : Pattern ids of the sources matched
@@ -428,23 +434,22 @@ class PessimisticPatternMatcherB:
                                  + src_delta_array[:, 1]**2
                                  + src_delta_array[:, 2]**2)
 
-        cpp_result = construct_pattern_and_shift_rot_matrix(
+        pattern_result = construct_pattern_and_shift_rot_matrix(
             src_pattern_array, src_delta_array, src_dist_array,
             self._dist_array, self._id_array, self._reference_array, n_match,
             max_cos_theta_shift, max_cos_rot_sq, max_dist_rad)
 
-        if cpp_result.success:
-            candidate_array = np.array(cpp_result.candidate_pairs)
-            shift_rot_matrix = np.array(cpp_result.shift_rot_matrix).reshape(3, 3).transpose()
+        if pattern_result.success:
+            candidate_array = np.array(pattern_result.candidate_pairs)
             fit_shift_rot_matrix = self._intermediate_verify(
                 src_pattern_array[candidate_array[:, 1]],
                 self._reference_array[candidate_array[:, 0]],
-                shift_rot_matrix, max_dist_rad)
+                pattern_result.shift_rot_matrix, max_dist_rad)
             return pipeBase.Struct(ref_candidates=candidate_array[:, 0].tolist(),
                                    src_candidates=candidate_array[:, 1].tolist(),
                                    shift_rot_matrix=fit_shift_rot_matrix,
-                                   cos_shift=cpp_result.cos_shift,
-                                   sin_rot=cpp_result.sin_rot)
+                                   cos_shift=pattern_result.cos_shift,
+                                   sin_rot=pattern_result.sin_rot)
         return pipeBase.Struct(ref_candidates=[],
                                src_candidates=[],
                                shift_rot_matrix=None,
@@ -457,6 +462,7 @@ class PessimisticPatternMatcherB:
         Rotate the matches references into the source frame and test their
         distances against tolerance. Only return true if all points are within
         tolerance.
+
         Parameters
         ----------
         src_pattern : `numpy.ndarray`, (N,3)
@@ -470,10 +476,11 @@ class PessimisticPatternMatcherB:
             onto the frame of the reference objects
         max_dist_rad : `float`
             Maximum distance allowed to consider two objects the same.
+
         Returns
         -------
         fit_shift_rot_matrix : `numpy.ndarray`, (3,3)
-           Return the fitted shift/rotation matrix if all of the points in our
+           Fitted shift/rotation matrix if all of the points in our
            source pattern are within max_dist_rad of their matched reference
            objects. Returns None if this criteria is not satisfied.
         """
@@ -509,6 +516,7 @@ class PessimisticPatternMatcherB:
                                           sin_rotion):
         """Construct a generalized 3D rotation matrix about a given
         axis.
+
         Parameters
         ----------
         rot_axis : `numpy.ndarray`, (3,)
@@ -517,12 +525,12 @@ class PessimisticPatternMatcherB:
             cosine of the rotation angle.
         sin_rotation : `float`
             sine of the rotation angle.
+
         Return
         ------
         shift_matrix : `numpy.ndarray`, (3, 3)
             3x3 spherical, rotation matrix.
         """
-
         rot_cross_matrix = np.array(
             [[0., -rot_axis[2], rot_axis[1]],
              [rot_axis[2], 0., -rot_axis[0]],
@@ -619,7 +627,6 @@ class PessimisticPatternMatcherB:
             Number of candidate rotations that agree for all of the rotated
             test 3 vectors.
         """
-
         self.log.debug("Comparing pattern %i to previous %i rotations...",
                        rot_vects[-1][-1], len(rot_vects) - 1)
 
@@ -845,10 +852,11 @@ class PessimisticPatternMatcherB:
         matches_ref : `numpy.ndarray`, (N, 2)
             int array of nearest neighbor matches between shifted and
             rotated source objects matched into the references.
+
         Return
         ------
         handshake_mask_array : `numpy.ndarray`, (N,)
-           Return the array positions where the two match catalogs agree.
+            Array positions where the two match catalogs agree.
         """
         handshake_mask_array = np.zeros(len(matches_src), dtype=bool)
 

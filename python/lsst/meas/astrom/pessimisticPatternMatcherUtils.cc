@@ -25,6 +25,7 @@
 
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
+#include "pybind11/eigen.h"
 #include "numpy/arrayobject.h"
 #include "ndarray/pybind11.h"
 
@@ -48,6 +49,7 @@ PYBIND11_MODULE(pessimisticPatternMatcherUtils, mod) {
             "src_pattern_array"_a, "src_delta_array"_a, "src_dist_array"_a, "dist_array"_a, "id_array"_a,
             "reference_array"_a, "n_match"_a, "max_cos_theta_shift"_a, "max_cos_rot_sq"_a, "max_dist_rad"_a);
 }
+
 }  // namespace astrom
 }  // namespace meas
 }  // namespace lsst

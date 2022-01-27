@@ -1,4 +1,7 @@
 
+__all__ = ["MatchPessimisticBTask", "MatchPessimisticBConfig",
+           "MatchTolerancePessimistic"]
+
 import numpy as np
 from scipy.spatial import cKDTree
 
@@ -11,9 +14,6 @@ from lsst.utils.timer import timeMethod
 from .matchOptimisticBTask import MatchTolerance
 
 from .pessimistic_pattern_matcher_b_3D import PessimisticPatternMatcherB
-
-__all__ = ["MatchPessimisticBTask", "MatchPessimisticBConfig",
-           "MatchTolerancePessimistic"]
 
 
 class MatchTolerancePessimistic(MatchTolerance):

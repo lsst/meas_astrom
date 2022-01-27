@@ -25,34 +25,85 @@
 
 #include <Eigen/Dense>
 #include <ndarray.h>
+#include <cmath>
 
 namespace lsst {
 namespace meas {
 namespace astrom {
 
+/**
+ * Result of construct_pattern_and_shift_rot_matrix(), containing the matched sources, rotation matrix, and
+ * a success flag.
+ */
 struct PatternResult {
+    /// Default construction is for failed fits.
+    PatternResult() : candidate_pairs(), shift_rot_matrix(), cos_shift(), sin_rot(), success(false) {}
+    /// Constructor for successsful fits.
+    PatternResult(std::vector<std::pair<uint16_t, uint16_t>> const& candidate_pairs,
+                  Eigen::Matrix3d const& shift_rot_matrix, double cos_shift, double sin_rot)
+            : candidate_pairs(candidate_pairs),
+              shift_rot_matrix(shift_rot_matrix),
+              cos_shift(cos_shift),
+              sin_rot(sin_rot),
+              success(true) {}
+    /// Candidate pairs for this match pattern.
     std::vector<std::pair<uint16_t, uint16_t>> candidate_pairs;
-    std::vector<double> shift_rot_matrix;
+    /// Rotation matrix to match the patterns.
+    Eigen::Matrix3d shift_rot_matrix;
+    /// Rotations that make up the matrix (default NaN).
     double cos_shift;
     double sin_rot;
-    bool success = false;
+    /// Was the algorithm successful?
+    bool success;
 };
 
+/**
+ * Result of test_rotation(), containing the rotation matrix and success flag.
+ */
 struct RotationTestResult {
+    /// Default construction is for failed tests.
+    RotationTestResult() : cos_rot_sq(), proj_ref_ctr_delta(), shift_matrix(), success(false) {}
+    /// Constructor for successsful tests.
+    RotationTestResult(double cos_rot_sq, Eigen::Vector3d const& proj_ref_ctr_delta,
+                       Eigen::Matrix3d const& shift_matrix)
+            : cos_rot_sq(cos_rot_sq),
+              proj_ref_ctr_delta(proj_ref_ctr_delta),
+              shift_matrix(shift_matrix),
+              success(true) {}
+    /**
+     * Magnitude of the rotation needed to align the two patterns after their centers are shifted
+     * on top of each other.
+     */
     double cos_rot_sq;
     Eigen::Vector3d proj_ref_ctr_delta;
-    Eigen::Matrix<double, 3, 3> shift_matrix;
-    bool success = false;
+    /// Rotation matrix describing the shift needed to align the source and candidate reference center.
+    Eigen::Matrix3d shift_matrix;
+    /// Was the algorithm successful?
+    bool success;
 };
 
+/**
+ * Result of create_sorted_arrays(), containing the sorted distances and array indexes.
+ */
 struct SortedArrayResult {
+    /// Sorted distances between center of a candidate and all reference objects.
     std::vector<float> dists;
+    /**
+     * Index locations of the pair with the given distance in the reference array.
+     *
+     * Note that this is a uint16 to reduce the memory required for the reference index array.
+     */
     std::vector<uint16_t> ids;
 };
 
+/**
+ * Result of create_shift_rot_matrix() containing the rotation matrix and rotation angle.
+ */
 struct ShiftRotMatrixResult {
+    /// Rotation that makes up the matrix.
     double sin_rot;
-    Eigen::Matrix<double, 3, 3> shift_rot_matrix;
+    /// Spherical rotation matrix.
+    Eigen::Matrix3d shift_rot_matrix;
 };
 
 /**
@@ -61,7 +112,6 @@ struct ShiftRotMatrixResult {
  * @param[in] src_pattern_array Sub selection of source 3 vectors to create a
  *     pattern from.
  * @param[in] src_delta_array Deltas of pairs from the source pattern center.
- *     (idx=0).
  * @param[in] src_dist_array Distances of the pairs in src_delta_array.
  * @param[in] dist_array Set of all distances between pairs of reference
  *     objects.
@@ -78,48 +128,32 @@ struct ShiftRotMatrixResult {
  *     and reference pair distances to consider the reference pair a candidate
  *     for the source pair. Also sets the tolerance between the opening angles
  *     of the spokes when compared to the reference.
- * @return Struct containing: candidate pairs for this matched pattern; the
- *     rotation matrix to match the patterns, the implied rotations to create
- *     the matrix, a boolean representing success of the algorithm.
+ * @returns The result of the pattern matching.
  */
 PatternResult construct_pattern_and_shift_rot_matrix(
         ndarray::Array<double, 2, 1> src_pattern_array, ndarray::Array<double, 2, 1> src_delta_array,
         ndarray::Array<double, 1, 1> src_dist_array, ndarray::Array<float, 1, 1> dist_array,
-        ndarray::Array<uint16_t, 2, 1> id_array, ndarray::Array<double, 2, 1> reference_array, int n_match,
+        ndarray::Array<uint16_t, 2, 1> id_array, ndarray::Array<double, 2, 1> reference_array, size_t n_match,
         double max_cos_theta_shift, double max_cos_rot_sq, double max_dist_rad);
 
+///@{
 /**
  * Find the range of reference pairs within the distance tolerance of our
  * source pair spoke.
- *
- * Returns the min and max index spanning src_dist +/- max_dist_rad.
  *
  * @param[in] src_dist Value of the distance we would like to search for in
  *     the reference array in radians.
  * @param[in] ref_dist_array sorted array of distances in radians.
  * @param[in] max_dist_rad maximum plus/minus search to find in the reference
  *     array in radians.
- * @return pair of indices for the min and max range of indices to search.
+ * @returns pair of indices for the min and max range of indices spanning src_dist +/- max_dist_rad to search.
  */
 std::pair<size_t, size_t> find_candidate_reference_pair_range(
         float src_dist, ndarray::Array<float, 1, 1> const& ref_dist_array, double max_dist_rad);
-/**
- * Find the range of reference pairs within the distance tolerance of our
- * source pair spoke.
- *
- * Returns the min and max index spanning src_dist +/- max_dist_rad.
- *
- * @param[in] src_dist float value of the distance we would like to search for
- *     in the reference array in radians.
- * @param[in] ref_dist_array sorted array of distances in radians.
- * @param[in] max_dist_rad maximum plus/minus search to find in the reference
- *     array in radians.
- * @return pair of indices for the min and max range of indices spanning +/-
- *     max_dist_rad.
- */
 std::pair<size_t, size_t> find_candidate_reference_pair_range(float src_dist,
                                                               std::vector<float> const& ref_dist_array,
                                                               double max_dist_rad);
+///@}
 
 /**
  * Test if the rotation implied between the source pattern and reference
@@ -136,10 +170,7 @@ std::pair<size_t, size_t> find_candidate_reference_pair_range(float src_dist,
  * @param[in] cos_shift Cosine of the angle between the source and reference
  *     candidate centers.
  * @param[in] max_cos_rot_sq Maximum allowed rotation of the pinwheel pattern.
- * @return Struct containing the magnitude of the rotation needed to align the
-        two patterns after their centers are shifted on top of each and the
-        rotation matrix describing the shift needed to align the source and
-        candidate reference center.
+ * @returns Result of the test rotation.
  */
 RotationTestResult test_rotation(ndarray::Array<double, 1, 1> const& src_center,
                                  ndarray::Array<double, 1, 1> const& ref_center,
@@ -149,13 +180,11 @@ RotationTestResult test_rotation(ndarray::Array<double, 1, 1> const& src_center,
 
 /**
  * Create arrays sorted on the distance between the center of this
- * candidate reference object and the all reference objects.
+ * candidate reference object and all the reference objects.
  *
  * @param[in] ref_center Center point of the candidate pattern.
  * @param[in] reference_array Array of all reference object points.
- * @return Struct containing to vectors. First is the sorted distances and
- * second is the index locations of the pair that creates those distances in
- * reference_array.
+ * @returns Sorted distances and indexes of reference objects.
  */
 SortedArrayResult create_sorted_arrays(ndarray::Array<double, 1, 1> const& ref_center,
                                        ndarray::Array<double, 2, 1> const& reference_array);
@@ -184,7 +213,7 @@ SortedArrayResult create_sorted_arrays(ndarray::Array<double, 1, 1> const& ref_c
  * @param[in] max_dist_rad Maximum search radius for distances.
  * @param[in] n_match Number of source deltas that must be matched into the
  *     reference deltas in order to consider this a successful pattern match.
- * @return Return pairs of reference ids and their matched src ids.
+ * @returns Return pairs of reference ids and their matched src ids.
  */
 std::vector<std::pair<size_t, size_t>> create_pattern_spokes(
         ndarray::Array<double, 1, 1> const& src_ctr, ndarray::Array<double, 2, 1> const& src_delta_array,
@@ -194,7 +223,7 @@ std::vector<std::pair<size_t, size_t>> create_pattern_spokes(
         double max_dist_rad, size_t n_match);
 
 /**
- * Create the final part of our spherical rotation matrix.
+ * Create the complete spherical rotation matrix.
  *
  * @param[in] cos_rot_sq cosine of the rotation needed to align our source and
  *     reference candidate patterns.
@@ -206,10 +235,9 @@ std::vector<std::pair<size_t, size_t>> create_pattern_spokes(
  *     our reference pattern.
  * @param[in] ref_delta 3 vector delta made by the first pair of the reference
  *     pattern.
- * @return Struct containing constructed matrix and implied rotation.
+ * @returns Struct containing constructed matrix and implied rotation.
  */
-ShiftRotMatrixResult create_shift_rot_matrix(double cos_rot_sq,
-                                             Eigen::Matrix<double, 3, 3> const& shift_matrix,
+ShiftRotMatrixResult create_shift_rot_matrix(double cos_rot_sq, Eigen::Matrix3d const& shift_matrix,
                                              ndarray::Array<double, 1, 1> const& src_delta,
                                              ndarray::Array<double, 1, 1> const& ref_ctr,
                                              ndarray::Array<double, 1, 1> const& ref_delta);
@@ -220,13 +248,13 @@ ShiftRotMatrixResult create_shift_rot_matrix(double cos_rot_sq,
  * param[in] rot_axis 3 vector defining the axis to rotate about.
  * param[in] cos_rotation cosine of the rotation angle.
  * param[in] sin_rotion sine of the rotation angle.
- * @return 3x3 spherical, rotation matrix.
+ * @returns 3x3 spherical, rotation matrix.
  */
-Eigen::Matrix<double, 3, 3> create_spherical_rotation_matrix(Eigen::Vector3d const& rot_axis,
-                                                             double cos_rotation, double sin_rotion);
+Eigen::Matrix3d create_spherical_rotation_matrix(Eigen::Vector3d const& rot_axis, double cos_rotation,
+                                                 double sin_rotion);
 
 /**
- * Test the input rotation matrix against one input pattern and a second one.
+ * Test the input rotation matrix by comparing the rotated src pattern to the ref pattern.
  *
  * If every point in the pattern after rotation is within a distance of
  * max_dist_rad to its candidate point in the other pattern, we return True.
@@ -239,13 +267,11 @@ Eigen::Matrix<double, 3, 3> create_spherical_rotation_matrix(Eigen::Vector3d con
  *     objects and rotates them onto the frame of the reference objects.
  * @param[in] max_dist_rad Maximum distance allowed to consider two objects the
  *     same.
- * @param[in] n_match Number of points making up a pattern.
- * @return Comparison passes.
+ * @returns Whether or not the rotation matrix gives results within tolerances.
  */
 bool intermediate_verify_comparison(std::vector<Eigen::Vector3d> const& src_pattern,
                                     std::vector<Eigen::Vector3d> const& ref_pattern,
-                                    Eigen::Matrix<double, 3, 3> const& shift_rot_matrix, double max_dist_rad,
-                                    int n_match);
+                                    Eigen::Matrix3d const& shift_rot_matrix, double max_dist_rad);
 
 /**
  * Check the opening angle between the first spoke of our pattern for the
@@ -273,7 +299,7 @@ bool intermediate_verify_comparison(std::vector<Eigen::Vector3d> const& src_patt
  *     of all reference objects.
  * @param[in] src_sin_tol Sine of tolerance allowed between source and
  *     reference spoke opening angles.
- * @return ID of the candidate reference object successfully matched or -1 if
+ * @returns ID of the candidate reference object successfully matched or -1 if
  *     no match is found.
  */
 int check_spoke(double cos_theta_src, double sin_theta_src, ndarray::Array<double, 1, 1> const& ref_ctr,
