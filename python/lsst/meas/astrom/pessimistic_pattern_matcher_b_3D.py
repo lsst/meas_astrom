@@ -1,12 +1,34 @@
+# This file is part of meas_astrom.
+#
+# Developed for the LSST Data Management System.
+# This product includes software developed by the LSST Project
+# (https://www.lsst.org).
+# See the COPYRIGHT file at the top-level directory of this distribution
+# for details of code ownership.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+__all__ = ["PessimisticPatternMatcherB"]
 
 import numpy as np
 from scipy.optimize import least_squares
 from scipy.spatial import cKDTree
 from scipy.stats import sigmaclip
 
-from .pessimisticPatternMatcherUtils import (find_candidate_reference_pair_range,
-                                             create_pattern_spokes,)
 import lsst.pipe.base as pipeBase
+
+from .pessimisticPatternMatcherUtils import construct_pattern_and_shift_rot_matrix
 
 
 def _rotation_matrix_chi_sq(flattened_rot_matrix,
@@ -54,7 +76,7 @@ def _rotation_matrix_chi_sq(flattened_rot_matrix,
 
 class PessimisticPatternMatcherB:
     """Class implementing a pessimistic version of Optimistic Pattern Matcher
-    B (OPMb) from Tabur 2007. See `DMTN-031 <http://ls.st/DMTN-031`_
+    B (OPMb) from `Tabur (2007)`_, as described in `DMTN-031`_
 
     Parameters
     ----------
@@ -73,7 +95,10 @@ class PessimisticPatternMatcherB:
     the correct shift and rotation for matching before exiting. The original
     behavior of OPMb can be recovered simply. Patterns matched between the
     input datasets are n-spoked pinwheels created from n+1 points. Refer to
-    DMTN #031 for more details. http://github.com/lsst-dm/dmtn-031
+    `DMTN-031`_ for more details.
+
+    .. _Tabur (2007): https://doi.org/10.1071/AS07028
+    .. _DMTN-031: https://dmtn-031.lsst.io/
     """
 
     def __init__(self, reference_array, log):
@@ -192,7 +217,6 @@ class PessimisticPatternMatcherB:
             - ``shift`` : Magnitude for the shift between the source and reference
               objects in arcseconds. None if no match found (`float`).
         """
-
         # Given our input source_array we sort on magnitude.
         sorted_source_array = source_array[source_array[:, -1].argsort(), :3]
         n_source = len(sorted_source_array)
@@ -336,7 +360,6 @@ class PessimisticPatternMatcherB:
             the code finds to test for agreement from different patterns
             when the code is running in pessimistic mode.
         """
-
         # Get the center of source_array.
         if np.any(np.logical_not(np.isfinite(source_array))):
             self.log.warning("Input source objects contain non-finite values. "
@@ -374,7 +397,6 @@ class PessimisticPatternMatcherB:
                                                 n_match, max_cos_theta_shift,
                                                 max_cos_rot_sq, max_dist_rad):
         """Test an input source pattern against the reference catalog.
-
         Returns the candidate matched patterns and their
         implied rotation matrices or None.
 
@@ -419,18 +441,6 @@ class PessimisticPatternMatcherB:
               shifted source pattern to the reference pattern. `None` if no match
               found (`float`).
         """
-
-        # Create our place holder variables for the matched sources and
-        # references. The source list starts with the 0th and first indexed
-        # objects as we are guaranteed to use those and these define both
-        # the shift and rotation of the final pattern.
-        output_matched_pattern = pipeBase.Struct(
-            ref_candidates=[],
-            src_candidates=[],
-            shift_rot_matrix=None,
-            cos_shift=None,
-            sin_rot=None)
-
         # Create the delta vectors and distances we will need to assemble the
         # spokes of the pattern.
         src_delta_array = np.empty((len(src_pattern_array) - 1, 3))
@@ -444,323 +454,31 @@ class PessimisticPatternMatcherB:
                                  + src_delta_array[:, 1]**2
                                  + src_delta_array[:, 2]**2)
 
-        # Our first test. We search the reference dataset for pairs
-        # that have the same length as our first source pairs to with
-        # plus/minus the max_dist tolerance.
+        pattern_result = construct_pattern_and_shift_rot_matrix(
+            src_pattern_array, src_delta_array, src_dist_array,
+            self._dist_array, self._id_array, self._reference_array, n_match,
+            max_cos_theta_shift, max_cos_rot_sq, max_dist_rad)
 
-        # TODO: DM-32299 Convert all code below and subsiquent functions to
-        # C++.
-        candidate_range = find_candidate_reference_pair_range(
-            src_dist_array[0], self._dist_array, max_dist_rad)
-
-        def generate_ref_dist_indexes(low, high):
-            """Generator to loop outward from the midpoint between two values.
-
-            Parameters
-            ----------
-            low : `int`
-                Minimum of index range.
-            high : `int`
-                Maximum of index range.
-
-            Yields
-            ------
-            index : `int`
-                Current index.
-            """
-            mid = (high + low) // 2
-            for idx in range(high - low):
-                if idx%2 == 0:
-                    mid += idx
-                    yield mid
-                else:
-                    mid -= idx
-                    yield mid
-
-        # Start our loop over the candidate reference objects.
-        for ref_dist_idx in generate_ref_dist_indexes(candidate_range[0],
-                                                      candidate_range[1]):
-            # We have two candidates for which reference object corresponds
-            # with the source at the center of our pattern. As such we loop
-            # over and test both possibilities.
-            tmp_ref_pair_list = self._id_array[ref_dist_idx]
-            for pair_idx, ref_id in enumerate(tmp_ref_pair_list):
-                src_candidates = [0, 1]
-                ref_candidates = []
-                shift_rot_matrix = None
-                cos_shift = None
-                sin_rot = None
-                # Test the angle between our candidate ref center and the
-                # source center of our pattern. This angular distance also
-                # defines the shift we will later use.
-                ref_center = self._reference_array[ref_id]
-                cos_shift = np.dot(src_pattern_array[0], ref_center)
-                if cos_shift < max_cos_theta_shift:
-                    continue
-
-                # We can now append this one as a candidate.
-                ref_candidates.append(ref_id)
-                # Test to see which reference object to use in the pair.
-                if pair_idx == 0:
-                    ref_candidates.append(
-                        tmp_ref_pair_list[1])
-                    ref_delta = (self._reference_array[tmp_ref_pair_list[1]]
-                                 - ref_center)
-                else:
-                    ref_candidates.append(
-                        tmp_ref_pair_list[0])
-                    ref_delta = (self._reference_array[tmp_ref_pair_list[0]]
-                                 - ref_center)
-
-                # For dense fields it will be faster to compute the absolute
-                # rotation this pair suggests first rather than saving it
-                # after all the spokes are found. We then compute the cos^2
-                # of the rotation and first part of the rotation matrix from
-                # source to reference frame.
-                test_rot_struct = self._test_rotation(
-                    src_pattern_array[0], ref_center, src_delta_array[0],
-                    ref_delta, cos_shift, max_cos_rot_sq)
-                if test_rot_struct.cos_rot_sq is None or \
-                   test_rot_struct.proj_ref_ctr_delta is None or \
-                   test_rot_struct.shift_matrix is None:
-                    continue
-
-                # Get the data from the return struct.
-                cos_rot_sq = test_rot_struct.cos_rot_sq
-                proj_ref_ctr_delta = test_rot_struct.proj_ref_ctr_delta
-                shift_matrix = test_rot_struct.shift_matrix
-
-                # Now that we have a candidate first spoke and reference
-                # pattern center, we mask our future search to only those
-                # pairs that contain our candidate reference center.
-                tmp_ref_id_array = np.arange(len(self._reference_array),
-                                             dtype="uint16")
-                tmp_ref_dist_array = np.sqrt(
-                    ((self._reference_array
-                      - self._reference_array[ref_id])
-                     ** 2).sum(axis=1)).astype("float32")
-                tmp_sorted_args = np.argsort(tmp_ref_dist_array)
-                tmp_ref_id_array = tmp_ref_id_array[tmp_sorted_args]
-                tmp_ref_dist_array = tmp_ref_dist_array[tmp_sorted_args]
-
-                # Now we feed this sub data to match the spokes of
-                # our pattern.
-                pattern_spokes = create_pattern_spokes(
-                    src_pattern_array[0], src_delta_array, src_dist_array,
-                    self._reference_array[ref_id], proj_ref_ctr_delta,
-                    tmp_ref_dist_array, tmp_ref_id_array, self._reference_array,
-                    max_dist_rad, n_match)
-
-                # If we don't find enough candidates we can continue to the
-                # next reference center pair.
-                if len(pattern_spokes) < n_match - 2:
-                    continue
-
-                # If we have the right number of matched ids we store these.
-                ref_candidates.extend([cand[0] for cand in pattern_spokes])
-                src_candidates.extend([cand[1] for cand in pattern_spokes])
-
-                # We can now create our full rotation matrix for both the
-                # shift and rotation. Reminder shift, aligns the pattern
-                # centers, rotation rotates the spokes on top of each other.
-                shift_rot_struct = self._create_shift_rot_matrix(
-                    cos_rot_sq, shift_matrix, src_delta_array[0],
-                    self._reference_array[ref_id], ref_delta)
-                # If we fail to create the rotation matrix, continue to the
-                # next objects.
-                if shift_rot_struct.sin_rot is None or \
-                   shift_rot_struct.shift_rot_matrix is None:
-                    continue
-
-                # Get the data from the return struct.
-                sin_rot = shift_rot_struct.sin_rot
-                shift_rot_matrix = shift_rot_struct.shift_rot_matrix
-
-                # Now that we have enough candidates we test to see if it
-                # passes intermediate verify. This shifts and rotates the
-                # source pattern into the reference frame and then tests that
-                # each source/reference object pair is within max_dist. It also
-                # tests the opposite rotation that is reference to source
-                # frame.
-                fit_shift_rot_matrix = self._intermediate_verify(
-                    src_pattern_array[src_candidates],
-                    self._reference_array[ref_candidates],
-                    shift_rot_matrix, max_dist_rad)
-
-                if fit_shift_rot_matrix is not None:
-                    # Fill the struct and return.
-                    output_matched_pattern.ref_candidates = ref_candidates
-                    output_matched_pattern.src_candidates = src_candidates
-                    output_matched_pattern.shift_rot_matrix = \
-                        fit_shift_rot_matrix
-                    output_matched_pattern.cos_shift = cos_shift
-                    output_matched_pattern.sin_rot = sin_rot
-                    return output_matched_pattern
-
-        return output_matched_pattern
-
-    def _test_rotation(self, src_center, ref_center, src_delta, ref_delta,
-                       cos_shift, max_cos_rot_sq):
-        """ Test if the rotation implied between the source
-        pattern and reference pattern is within tolerance. To test this
-        we need to create the first part of our spherical rotation matrix
-        which we also return for use later.
-
-        Parameters
-        ----------
-        src_center : `numpy.ndarray`, (N, 3)
-            pattern.
-        ref_center : `numpy.ndarray`, (N, 3)
-            3 vector defining the center of the candidate reference pinwheel
-            pattern.
-        src_delta : `numpy.ndarray`, (N, 3)
-            3 vector delta between the source pattern center and the end of
-            the pinwheel spoke.
-        ref_delta : `numpy.ndarray`, (N, 3)
-            3 vector delta of the candidate matched reference pair
-        cos_shift : `float`
-            Cosine of the angle between the source and reference candidate
-            centers.
-        max_cos_rot_sq : `float`
-            candidate reference pair after shifting the centers on top of each
-            other. The function will return None if the rotation implied is
-            greater than max_cos_rot_sq.
-
-        Returns
-        -------
-        result : `lsst.pipe.base.Struct`
-            Result struct with components:
-
-            - ``cos_rot_sq`` :  magnitude of the rotation needed to align the
-              two patterns after their centers are shifted on top of each
-              other. `None` if rotation test fails (`float`).
-            - ``shift_matrix`` : 3x3 rotation matrix describing the shift needed to
-            align the source and candidate reference center. `None` if rotation
-            test fails (`numpy.ndarray`, (N, 3)).
-        """
-
-        # Make sure the sine is a real number.
-        if cos_shift > 1.0:
-            cos_shift = 1.
-        elif cos_shift < -1.0:
-            cos_shift = -1.
-        sin_shift = np.sqrt(1 - cos_shift ** 2)
-
-        # If the sine of our shift is zero we only need to use the identity
-        # matrix for the shift. Else we construct the rotation matrix for
-        # shift.
-        if sin_shift > 0:
-            rot_axis = np.cross(src_center, ref_center)
-            rot_axis /= sin_shift
-            shift_matrix = self._create_spherical_rotation_matrix(
-                rot_axis, cos_shift, sin_shift)
-        else:
-            shift_matrix = np.identity(3)
-
-        # Now that we have our shift we apply it to the src delta vector
-        # and check the rotation.
-        rot_src_delta = np.dot(shift_matrix, src_delta)
-        proj_src_delta = (rot_src_delta
-                          - np.dot(rot_src_delta, ref_center) * ref_center)
-        proj_ref_delta = (ref_delta
-                          - np.dot(ref_delta, ref_center) * ref_center)
-        cos_rot_sq = (np.dot(proj_src_delta, proj_ref_delta) ** 2
-                      / (np.dot(proj_src_delta, proj_src_delta)
-                      * np.dot(proj_ref_delta, proj_ref_delta)))
-        # If the rotation isn't in tolerance return None.
-        if cos_rot_sq < max_cos_rot_sq:
-            return pipeBase.Struct(
-                cos_rot_sq=None,
-                proj_ref_ctr_delta=None,
-                shift_matrix=None,)
-        # Return the rotation angle, the plane projected reference vector,
-        # and the first half of the full shift and rotation matrix.
-        return pipeBase.Struct(
-            cos_rot_sq=cos_rot_sq,
-            proj_ref_ctr_delta=proj_ref_delta,
-            shift_matrix=shift_matrix,)
-
-    def _create_spherical_rotation_matrix(self, rot_axis, cos_rotation,
-                                          sin_rotion):
-        """Construct a generalized 3D rotation matrix about a given
-        axis.
-
-        Parameters
-        ----------
-        rot_axis : `numpy.ndarray`, (3,)
-            3 vector defining the axis to rotate about.
-        cos_rotation : `float`
-            cosine of the rotation angle.
-        sin_rotation : `float`
-            sine of the rotation angle.
-
-        Return
-        ------
-        shift_matrix : `numpy.ndarray`, (3, 3)
-            3x3 spherical, rotation matrix.
-        """
-
-        rot_cross_matrix = np.array(
-            [[0., -rot_axis[2], rot_axis[1]],
-             [rot_axis[2], 0., -rot_axis[0]],
-             [-rot_axis[1], rot_axis[0], 0.]], dtype=np.float64)
-        shift_matrix = (cos_rotation*np.identity(3)
-                        + sin_rotion*rot_cross_matrix
-                        + (1. - cos_rotation)*np.outer(rot_axis, rot_axis))
-
-        return shift_matrix
-
-    def _create_shift_rot_matrix(self, cos_rot_sq, shift_matrix, src_delta,
-                                 ref_ctr, ref_delta):
-        """ Create the final part of our spherical rotation matrix.
-
-        Parameters
-        ----------
-        cos_rot_sq : `float`
-            cosine of the rotation needed to align our source and reference
-            candidate patterns.
-        shift_matrix : `numpy.ndarray`, (3, 3)
-            3x3 rotation matrix for shifting the source pattern center on top
-            of the candidate reference pattern center.
-        src_delta : `numpy.ndarray`, (3,)
-            3 vector delta of representing the first spoke of the source
-            pattern
-        ref_ctr : `numpy.ndarray`, (3,)
-            3 vector on the unit-sphere representing the center of our
-            reference pattern.
-        ref_delta : `numpy.ndarray`, (3,)
-            3 vector delta made by the first pair of the reference pattern.
-
-        Returns
-        -------
-        result : `lsst.pipe.base.Struct`
-            Result struct with components:
-
-            - ``sin_rot`` : float sine of the amount of rotation between the
-              source and reference pattern. We use sine here as it is
-              signed and tells us the chirality of the rotation (`float`).
-            - ``shift_rot_matrix`` : float array representing the 3x3 rotation
-              matrix that takes the source pattern and shifts and rotates
-              it to align with the reference pattern (`numpy.ndarray`, (3,3)).
-        """
-        cos_rot = np.sqrt(cos_rot_sq)
-        rot_src_delta = np.dot(shift_matrix, src_delta)
-        delta_dot_cross = np.dot(np.cross(rot_src_delta, ref_delta), ref_ctr)
-
-        sin_rot = np.sign(delta_dot_cross) * np.sqrt(1 - cos_rot_sq)
-        rot_matrix = self._create_spherical_rotation_matrix(
-            ref_ctr, cos_rot, sin_rot)
-
-        shift_rot_matrix = np.dot(rot_matrix, shift_matrix)
-
-        return pipeBase.Struct(
-            sin_rot=sin_rot,
-            shift_rot_matrix=shift_rot_matrix,)
+        if pattern_result.success:
+            candidate_array = np.array(pattern_result.candidate_pairs)
+            fit_shift_rot_matrix = self._intermediate_verify(
+                src_pattern_array[candidate_array[:, 1]],
+                self._reference_array[candidate_array[:, 0]],
+                pattern_result.shift_rot_matrix, max_dist_rad)
+            return pipeBase.Struct(ref_candidates=candidate_array[:, 0].tolist(),
+                                   src_candidates=candidate_array[:, 1].tolist(),
+                                   shift_rot_matrix=fit_shift_rot_matrix,
+                                   cos_shift=pattern_result.cos_shift,
+                                   sin_rot=pattern_result.sin_rot)
+        return pipeBase.Struct(ref_candidates=[],
+                               src_candidates=[],
+                               shift_rot_matrix=None,
+                               cos_shift=None,
+                               sin_rot=None)
 
     def _intermediate_verify(self, src_pattern, ref_pattern, shift_rot_matrix,
                              max_dist_rad):
         """ Perform an intermediate verify step.
-
         Rotate the matches references into the source frame and test their
         distances against tolerance. Only return true if all points are within
         tolerance.
@@ -782,7 +500,7 @@ class PessimisticPatternMatcherB:
         Returns
         -------
         fit_shift_rot_matrix : `numpy.ndarray`, (3,3)
-           Return the fitted shift/rotation matrix if all of the points in our
+           Fitted shift/rotation matrix if all of the points in our
            source pattern are within max_dist_rad of their matched reference
            objects. Returns None if this criteria is not satisfied.
         """
@@ -813,6 +531,35 @@ class PessimisticPatternMatcherB:
                 return fit_shift_rot_matrix
 
         return None
+
+    def _create_spherical_rotation_matrix(self, rot_axis, cos_rotation,
+                                          sin_rotion):
+        """Construct a generalized 3D rotation matrix about a given
+        axis.
+
+        Parameters
+        ----------
+        rot_axis : `numpy.ndarray`, (3,)
+            3 vector defining the axis to rotate about.
+        cos_rotation : `float`
+            cosine of the rotation angle.
+        sin_rotation : `float`
+            sine of the rotation angle.
+
+        Return
+        ------
+        shift_matrix : `numpy.ndarray`, (3, 3)
+            3x3 spherical, rotation matrix.
+        """
+        rot_cross_matrix = np.array(
+            [[0., -rot_axis[2], rot_axis[1]],
+             [rot_axis[2], 0., -rot_axis[0]],
+             [-rot_axis[1], rot_axis[0], 0.]], dtype=np.float64)
+        shift_matrix = (cos_rotation*np.identity(3)
+                        + sin_rotion*rot_cross_matrix
+                        + (1. - cos_rotation)*np.outer(rot_axis, rot_axis))
+
+        return shift_matrix
 
     def _intermediate_verify_comparison(self, pattern_a, pattern_b,
                                         shift_rot_matrix, max_dist_rad):
@@ -900,7 +647,6 @@ class PessimisticPatternMatcherB:
             Number of candidate rotations that agree for all of the rotated
             test 3 vectors.
         """
-
         self.log.debug("Comparing pattern %i to previous %i rotations...",
                        rot_vects[-1][-1], len(rot_vects) - 1)
 
@@ -1126,10 +872,11 @@ class PessimisticPatternMatcherB:
         matches_ref : `numpy.ndarray`, (N, 2)
             int array of nearest neighbor matches between shifted and
             rotated source objects matched into the references.
+
         Return
         ------
         handshake_mask_array : `numpy.ndarray`, (N,)
-           Return the array positions where the two match catalogs agree.
+            Array positions where the two match catalogs agree.
         """
         handshake_mask_array = np.zeros(len(matches_src), dtype=bool)
 
