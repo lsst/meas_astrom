@@ -24,7 +24,7 @@ import unittest
 import lsst.utils.tests
 
 import lsst.afw.geom as afwGeom
-from lsst.meas.astrom import MatchProbabilisticConfig, MatchProbabilisticTask
+from lsst.meas.astrom import ConvertCatalogCoordinatesConfig, MatchProbabilisticConfig, MatchProbabilisticTask
 
 import numpy as np
 import pandas as pd
@@ -37,7 +37,8 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
         dec = np.array([-0.15, 0.15, 0, 0.15, -0.15])
         mag_g = np.array([23., 24., 25., 25.5, 26.])
         mag_r = mag_g + [0.5, -0.2, -0.8, -0.5, -1.5]
-        zeropoint = MatchProbabilisticConfig.mag_zeropoint_ref.default
+        coord_format = ConvertCatalogCoordinatesConfig
+        zeropoint = coord_format.mag_zeropoint_ref.default
         fluxes = tuple(-0.4*10**(mag - zeropoint) for mag in (mag_g, mag_r))
         eps_coord = np.full_like(ra, lsst.geom.Angle(0.2, lsst.geom.arcseconds).asDegrees())
         eps_flux = np.full_like(eps_coord, 10)
@@ -45,8 +46,8 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
 
         columns_flux = ['flux_g', 'flux_r']
         columns_ref_meas = [
-            MatchProbabilisticConfig.column_ref_coord1.default,
-            MatchProbabilisticConfig.column_ref_coord2.default,
+            coord_format.column_ref_coord1.default,
+            coord_format.column_ref_coord2.default,
         ] + columns_flux
 
         data_ref = {
@@ -58,8 +59,8 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
         self.catalog_ref = pd.DataFrame(data=data_ref)
 
         columns_target_meas = [
-            MatchProbabilisticConfig.column_target_coord1.default,
-            MatchProbabilisticConfig.column_target_coord2.default,
+            coord_format.column_target_coord1.default,
+            coord_format.column_target_coord2.default,
         ] + columns_flux
         columns_target_err = [f'{column}Err' for column in columns_target_meas]
 
