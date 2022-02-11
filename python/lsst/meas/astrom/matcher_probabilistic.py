@@ -450,6 +450,8 @@ class MatcherProbabilistic:
         })
 
         catalog_out_target = pd.DataFrame({
+            'match_candidate': target.extras.select if target.extras.select is not None else (
+                np.ones(target.extras.n, dtype=bool)),
             'match_row': target_row_match,
         })
 
