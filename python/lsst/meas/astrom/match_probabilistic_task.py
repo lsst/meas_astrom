@@ -30,7 +30,13 @@ import numpy as np
 import pandas as pd
 from typing import Dict, Set, Tuple
 
-__all__ = ['MatchProbabilisticTask']
+__all__ = ['MatchProbabilisticTask', 'radec_to_xy']
+
+
+def radec_to_xy(ra_vec, dec_vec, factor, wcs: afwGeom.SkyWcs):
+    radec_true = [geom.SpherePoint(ra * factor, dec * factor, geom.degrees)
+                  for ra, dec in zip(ra_vec, dec_vec)]
+    return wcs.skyToPixel(radec_true)
 
 
 class MatchProbabilisticTask(pipeBase.Task):
@@ -93,7 +99,7 @@ class MatchProbabilisticTask(pipeBase.Task):
             flux_tot = np.nansum(catalog_ref.loc[:, config.columns_ref_flux].values, axis=1)
             catalog_ref['flux_total'] = flux_tot
             if config.mag_brightest_ref != -np.inf or config.mag_faintest_ref != np.inf:
-                mag_tot = -2.5 * np.log10(flux_tot) + config.mag_zeropoint_ref
+                mag_tot = -2.5*np.log10(flux_tot) + config.coord_format.mag_zeropoint_ref
                 select_mag = (mag_tot >= config.mag_brightest_ref) & (
                     mag_tot <= config.mag_faintest_ref)
             else:
@@ -102,16 +108,6 @@ class MatchProbabilisticTask(pipeBase.Task):
                 select_ref = select_mag
             else:
                 select_ref &= select_mag
-
-        if config.coords_ref_to_convert:
-            ra_ref, dec_ref = [catalog_ref[column] for column in config.coords_ref_to_convert.keys()]
-            factor = config.coords_ref_factor
-            radec_true = [geom.SpherePoint(ra*factor, dec*factor, geom.degrees)
-                          for ra, dec in zip(ra_ref, dec_ref)]
-            xy_true = wcs.skyToPixel(radec_true)
-
-            for idx_coord, column_out in enumerate(config.coords_ref_to_convert.values()):
-                catalog_ref[column_out] = np.array([xy[idx_coord] for xy in xy_true])
 
         select_additional = (len(config.columns_target_select_true)
                              + len(config.columns_target_select_false)) > 0
@@ -133,6 +129,8 @@ class MatchProbabilisticTask(pipeBase.Task):
             select_target=select_target,
             logger=logger,
             logging_n_rows=logging_n_rows,
+            wcs=wcs,
+            radec_to_xy_func=radec_to_xy,
         )
 
         return catalog_out_ref, catalog_out_target, exceptions
