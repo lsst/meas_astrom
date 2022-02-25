@@ -426,12 +426,19 @@ class MatcherProbabilistic:
         config = self.config
 
         # Transform any coordinates, if required
+        # Note: The returned objects contain the original catalogs, as well as
+        # transformed coordinates, and the selection of sources for matching.
+        # These might be identical to the arrays passed as kwargs, but that
+        # depends on config settings.
+        # For the rest of this function, the selection arrays will be used,
+        # but the indices of the original, unfiltered catalog will also be
+        # output, so some further indexing steps are needed.
         ref, target = config.coord_format.format_catalogs(
             catalog_ref=catalog_ref, catalog_target=catalog_target,
             select_ref=select_ref, select_target=select_target, **kwargs
         )
 
-        n_ref_match, n_target_match = (len(x) for x in (ref.extras.indices, target.extras.indices))
+        n_ref_select = len(ref.extras.indices)
 
         match_dist_max = config.match_dist_max
         coords_spherical = config.coord_format.coords_spherical
@@ -439,28 +446,29 @@ class MatcherProbabilistic:
             match_dist_max = np.radians(match_dist_max / 3600.)
 
         # Convert ra/dec sky coordinates to spherical vectors for accurate distances
-        if coords_spherical:
-            vec_ref = _radec_to_xyz(ref.coord1, ref.coord2)
-            vec_target = _radec_to_xyz(target.coord1, target.coord2)
-        else:
-            vec_ref = np.vstack((ref.coord1, ref.coord2))
-            vec_target = np.vstack((target.coord1, target.coord2))
+        func_convert = _radec_to_xyz if coords_spherical else np.vstack
+        vec_ref, vec_target = (
+            func_convert(cat.coord1[cat.extras.select], cat.coord2[cat.extras.select])
+            for cat in (ref, target)
+        )
 
         # Generate K-d tree to compute distances
         logger.info('Generating cKDTree with match_n_max=%d', config.match_n_max)
         tree_obj = cKDTree(vec_target)
 
-        scores, idxs_target = tree_obj.query(
+        scores, idxs_target_select = tree_obj.query(
             vec_ref,
             distance_upper_bound=match_dist_max,
             k=config.match_n_max,
         )
-        n_matches = np.sum(idxs_target != n_target_match, axis=1)
+
+        n_target_select = len(target.extras.indices)
+        n_matches = np.sum(idxs_target_select != n_target_select, axis=1)
         n_matched_max = np.sum(n_matches == config.match_n_max)
         if n_matched_max > 0:
             logger.warning(
-                '%d/%d (%.2f%%) true objects have n_matches=n_match_max(%d)',
-                n_matched_max, n_ref_match, 100.*n_matched_max/n_ref_match, config.match_n_max
+                '%d/%d (%.2f%%) selected true objects have n_matches=n_match_max(%d)',
+                n_matched_max, n_ref_select, 100.*n_matched_max/n_ref_select, config.match_n_max
             )
 
         # Pre-allocate outputs
@@ -475,36 +483,42 @@ class MatcherProbabilistic:
         # Note: it won't actually be a total flux if bands overlap significantly
         # (or it might define a filter with >100% efficiency
         column_order = (
-            catalog_ref.loc[ref.extras.indices, config.column_order].values
+            catalog_ref.loc[ref.extras.select, config.column_order].values
             if config.column_order is not None else
-            np.nansum(catalog_ref.loc[ref.extras.indices, config.columns_ref_flux].values, axis=1)
+            np.nansum(catalog_ref.loc[ref.extras.select, config.columns_ref_flux].values, axis=1)
         )
         order = np.argsort(column_order if config.order_ascending else -column_order)
 
-        indices = ref.extras.indices[order]
-        idxs_target = idxs_target[order]
-        n_indices = len(indices)
+        # Need the original reference row indices for output
+        idx_orig_ref, idx_orig_target = (np.argwhere(cat.extras.select) for cat in (ref, target))
 
         # Retrieve required columns, including any converted ones (default to original column name)
         columns_convert = config.coord_format.coords_ref_to_convert
         if columns_convert is None:
             columns_convert = {}
-        data_ref = catalog_ref.loc[indices, [columns_convert.get(column, column)
-                                             for column in config.columns_ref_meas]]
+        data_ref = catalog_ref.loc[
+            ref.extras.indices[order],
+            [columns_convert.get(column, column) for column in config.columns_ref_meas]
+        ]
         data_target = catalog_target.loc[target.extras.select, config.columns_target_meas]
         errors_target = catalog_target.loc[target.extras.select, config.columns_target_err]
 
         exceptions = {}
-        matched_target = set()
+        # The kdTree uses len(inputs) as a sentinel value for no match
+        matched_target = {n_target_select, }
 
         t_begin = time.process_time()
 
-        logger.info('Matching n_indices=%d/%d', n_indices, len(catalog_ref))
-        for index_n, index_row in enumerate(indices):
+        logger.info('Matching n_indices=%d/%d', len(order), len(catalog_ref))
+        for index_n, index_row_select in enumerate(order):
+            index_row = idx_orig_ref[index_row_select]
             ref_candidate_match[index_row] = True
-            found = idxs_target[index_n, :]
+            found = idxs_target_select[index_row_select, :]
             # Select match candidates from nearby sources not already matched
-            found = [x for x in found[found != n_target_match] if x not in matched_target]
+            # Note: set lookup is apparently fast enough that this is a few percent faster than:
+            # found = [x for x in found[found != n_target_select] if x not in matched_target]
+            # ... at least for ~1M sources
+            found = [x for x in found if x not in matched_target]
             n_found = len(found)
             if n_found > 0:
                 # This is an ndarray of n_found rows x len(data_ref/target) columns
@@ -521,14 +535,15 @@ class MatcherProbabilistic:
                         chisq_sum = np.zeros(n_found, dtype=float)
                         chisq_sum[chisq_good] = np.nansum(chi[chisq_good, :] ** 2, axis=1)
                         idx_chisq_min = np.nanargmin(chisq_sum / n_finite)
-                        idx_match = found[idx_chisq_min]
                         ref_match_meas_finite[index_row] = n_finite[idx_chisq_min]
                         ref_match_count[index_row] = len(chisq_good)
                         ref_chisq[index_row] = chisq_sum[idx_chisq_min]
-                        row_target = target.extras.indices[idx_match]
+                        idx_match_select = found[idx_chisq_min]
+                        row_target = target.extras.indices[idx_match_select]
                         ref_row_match[index_row] = row_target
+
                         target_row_match[row_target] = index_row
-                        matched_target.add(idx_match)
+                        matched_target.add(idx_match_select)
                     except Exception as error:
                         # Can't foresee any exceptions, but they shouldn't prevent
                         # matching subsequent sources
@@ -538,7 +553,7 @@ class MatcherProbabilistic:
                 t_elapsed = time.process_time() - t_begin
                 logger.info(
                     'Processed %d/%d in %.2fs at sort value=%.3f',
-                    index_n + 1, n_indices, t_elapsed, column_order[order[index_n]],
+                    index_n + 1, n_ref_select, t_elapsed, column_order[order[index_n]],
                 )
 
         catalog_out_ref = pd.DataFrame({
