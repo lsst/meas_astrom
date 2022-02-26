@@ -43,6 +43,7 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
         eps_coord = np.full_like(ra, lsst.geom.Angle(0.2, lsst.geom.arcseconds).asDegrees())
         eps_flux = np.full_like(eps_coord, 10)
         flags = np.ones_like(eps_coord, dtype=bool)
+        name_index = 'index'
 
         columns_flux = ['flux_g', 'flux_r']
         columns_ref_meas = [
@@ -51,6 +52,7 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
         ] + columns_flux
 
         data_ref = {
+            name_index: np.arange(len(ra)),
             columns_ref_meas[0]: ra[::-1],
             columns_ref_meas[1]: dec[::-1],
             columns_flux[0]: fluxes[0][::-1],
@@ -65,6 +67,7 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
         columns_target_err = [f'{column}Err' for column in columns_target_meas]
 
         data_target = {
+            name_index: np.arange(len(ra)),
             columns_target_meas[0]: ra + eps_coord,
             columns_target_meas[1]: dec + eps_coord,
             f'{columns_target_meas[0]}Err': eps_coord,
@@ -81,8 +84,10 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
         self.task = MatchProbabilisticTask(config=MatchProbabilisticConfig(
             columns_ref_flux=columns_flux,
             columns_ref_meas=columns_ref_meas,
+            columns_ref_copy=[name_index],
             columns_target_meas=columns_target_meas,
             columns_target_err=columns_target_err,
+            columns_target_copy=[name_index],
         ))
         self.wcs = afwGeom.makeSkyWcs(crpix=lsst.geom.Point2D(9000, 9000),
                                       crval=lsst.geom.SpherePoint(180., 0., lsst.geom.degrees),
@@ -95,6 +100,11 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
         del self.wcs
 
     def test_MatchProbabilisticTask(self):
+        for (columns, catalog) in (
+            (self.task.columns_in_ref, self.catalog_ref),
+            (self.task.columns_in_target, self.catalog_target),
+        ):
+            self.assertTrue(all((column in catalog.columns for column in columns)))
         result = self.task.run(
             catalog_ref=self.catalog_ref,
             catalog_target=self.catalog_target,

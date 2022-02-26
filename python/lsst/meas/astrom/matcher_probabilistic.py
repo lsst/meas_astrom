@@ -210,6 +210,8 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
 
         Returns
         -------
+        compcat_ref, compcat_target : `ComparableCatalog`
+            Comparable catalogs corresponding to the input reference and target.
 
         """
         convert_ref = self.coords_ref_to_convert
@@ -234,7 +236,7 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
             (catalog_target, extras_target, (self.column_target_coord1, self.column_target_coord2), False),
         ):
             coord1, coord2 = (
-                _mul_column(catalog.loc[:, column].values, extras.coordinate_factor)
+                _mul_column(catalog[column], extras.coordinate_factor)
                 for column in (column1, column2)
             )
             if convert:
@@ -261,19 +263,24 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
 class MatchProbabilisticConfig(pexConfig.Config):
     """Configuration for the MatchProbabilistic matcher.
     """
-    column_order = pexConfig.Field(
+    column_ref_order = pexConfig.Field(
         dtype=str,
         default=None,
         optional=True,
-        doc="Column to sort fit by. Derived from columns_ref_flux if not set.",
+        doc="Name of column in reference catalog specifying order for matching."
+            " Derived from columns_ref_flux if not set.",
     )
 
     @property
     def columns_in_ref(self) -> Set[str]:
-        columns_all = [x for x in self.columns_ref_flux]
+        columns_all = [
+            self.coord_format.column_ref_coord1,
+            self.coord_format.column_ref_coord2,
+        ]
         for columns in (
-            [self.coord_format.column_ref_coord1, self.coord_format.column_ref_coord2],
-            self.columns_ref_meas,
+                self.columns_ref_flux,
+                self.columns_ref_meas,
+                self.columns_ref_copy,
         ):
             columns_all.extend(columns)
 
@@ -281,16 +288,27 @@ class MatchProbabilisticConfig(pexConfig.Config):
 
     @property
     def columns_in_target(self) -> Set[str]:
-        columns_all = [self.coord_format.column_target_coord1, self.coord_format.column_target_coord2]
+        columns_all = [
+            self.coord_format.column_target_coord1,
+            self.coord_format.column_target_coord2,
+        ]
         for columns in (
             self.columns_target_meas,
             self.columns_target_err,
             self.columns_target_select_false,
             self.columns_target_select_true,
+            self.columns_target_copy,
         ):
             columns_all.extend(columns)
         return set(columns_all)
 
+    columns_ref_copy = pexConfig.ListField(
+        dtype=str,
+        default=[],
+        listCheck=lambda x: len(set(x)) == len(x),
+        optional=True,
+        doc='Reference table columns to copy unchanged into both match tables',
+    )
     columns_ref_flux = pexConfig.ListField(
         dtype=str,
         default=[],
@@ -302,6 +320,13 @@ class MatchProbabilisticConfig(pexConfig.Config):
         dtype=str,
         doc='The reference table columns to compute match likelihoods from '
             '(usually centroids and fluxes/magnitudes)',
+    )
+    columns_target_copy = pexConfig.ListField(
+        dtype=str,
+        default=[],
+        listCheck=lambda x: len(set(x)) == len(x),
+        optional=True,
+        doc='Target table columns to copy unchanged into both match tables',
     )
     columns_target_meas = pexConfig.ListField(
         dtype=str,
@@ -329,13 +354,13 @@ class MatchProbabilisticConfig(pexConfig.Config):
         dtype=float,
         default=-np.inf,
         doc='Bright magnitude cutoff for selecting reference sources to match.'
-            ' Ignored if column_order is None.'
+            ' Ignored if column_ref_order is None.'
     )
     mag_faintest_ref = pexConfig.Field(
         dtype=float,
         default=np.Inf,
         doc='Faint magnitude cutoff for selecting reference sources to match.'
-            ' Ignored if column_order is None.'
+            ' Ignored if column_ref_order is None.'
     )
     match_dist_max = pexConfig.Field(
         dtype=float,
@@ -359,9 +384,19 @@ class MatchProbabilisticConfig(pexConfig.Config):
         dtype=bool,
         default=False,
         optional=True,
-        doc='Whether to order reference match candidates in ascending order of column_order '
+        doc='Whether to order reference match candidates in ascending order of column_ref_order '
             '(should be False if the column is a flux and True if it is a magnitude.',
     )
+
+
+def default_value(dtype):
+    if dtype == str:
+        return ''
+    elif dtype == np.signedinteger:
+        return np.Inf
+    elif dtype == np.unsignedinteger:
+        return -np.Inf
+    return None
 
 
 class MatcherProbabilistic:
@@ -435,8 +470,21 @@ class MatcherProbabilistic:
         # output, so some further indexing steps are needed.
         ref, target = config.coord_format.format_catalogs(
             catalog_ref=catalog_ref, catalog_target=catalog_target,
-            select_ref=select_ref, select_target=select_target, **kwargs
+            select_ref=select_ref, select_target=select_target,
+            **kwargs
         )
+
+        # If no order is specified, take nansum of all flux columns for a 'total flux'
+        # Note: it won't actually be a total flux if bands overlap significantly
+        # (or it might define a filter with >100% efficiency
+        # Also, this is done on the original dataframe as it's harder to accomplish
+        # just with a recarray
+        column_order = (
+            catalog_ref.loc[ref.extras.select, config.column_ref_order]
+            if config.column_ref_order is not None else
+            np.nansum(catalog_ref.loc[ref.extras.select, config.columns_ref_flux], axis=1)
+        )
+        order = np.argsort(column_order if config.order_ascending else -column_order)
 
         n_ref_select = len(ref.extras.indices)
 
@@ -474,20 +522,10 @@ class MatcherProbabilistic:
         # Pre-allocate outputs
         target_row_match = np.full(target.extras.n, np.nan, dtype=np.int64)
         ref_candidate_match = np.zeros(ref.extras.n, dtype=bool)
-        ref_row_match = np.full(ref.extras.n, np.nan, dtype=int)
-        ref_match_count = np.zeros(ref.extras.n, dtype=int)
-        ref_match_meas_finite = np.zeros(ref.extras.n, dtype=int)
+        ref_row_match = np.full(ref.extras.n, np.nan, dtype=np.int64)
+        ref_match_count = np.zeros(ref.extras.n, dtype=np.int32)
+        ref_match_meas_finite = np.zeros(ref.extras.n, dtype=np.int32)
         ref_chisq = np.full(ref.extras.n, np.nan, dtype=float)
-
-        # If no order is specified, take nansum of all flux columns for a 'total flux'
-        # Note: it won't actually be a total flux if bands overlap significantly
-        # (or it might define a filter with >100% efficiency
-        column_order = (
-            catalog_ref.loc[ref.extras.select, config.column_order].values
-            if config.column_order is not None else
-            np.nansum(catalog_ref.loc[ref.extras.select, config.columns_ref_flux].values, axis=1)
-        )
-        order = np.argsort(column_order if config.order_ascending else -column_order)
 
         # Need the original reference row indices for output
         idx_orig_ref, idx_orig_target = (np.argwhere(cat.extras.select) for cat in (ref, target))
@@ -496,12 +534,11 @@ class MatcherProbabilistic:
         columns_convert = config.coord_format.coords_ref_to_convert
         if columns_convert is None:
             columns_convert = {}
-        data_ref = catalog_ref.loc[
-            ref.extras.indices[order],
+        data_ref = ref.catalog[
             [columns_convert.get(column, column) for column in config.columns_ref_meas]
-        ]
-        data_target = catalog_target.loc[target.extras.select, config.columns_target_meas]
-        errors_target = catalog_target.loc[target.extras.select, config.columns_target_err]
+        ].iloc[ref.extras.indices[order]]
+        data_target = target.catalog[config.columns_target_meas][target.extras.select]
+        errors_target = target.catalog[config.columns_target_err][target.extras.select]
 
         exceptions = {}
         # The kdTree uses len(inputs) as a sentinel value for no match
@@ -509,7 +546,7 @@ class MatcherProbabilistic:
 
         t_begin = time.process_time()
 
-        logger.info('Matching n_indices=%d/%d', len(order), len(catalog_ref))
+        logger.info('Matching n_indices=%d/%d', len(order), len(ref.catalog))
         for index_n, index_row_select in enumerate(order):
             index_row = idx_orig_ref[index_row_select]
             ref_candidate_match[index_row] = True
@@ -556,18 +593,55 @@ class MatcherProbabilistic:
                     index_n + 1, n_ref_select, t_elapsed, column_order[order[index_n]],
                 )
 
-        catalog_out_ref = pd.DataFrame({
+        data_ref = {
             'match_candidate': ref_candidate_match,
             'match_row': ref_row_match,
             'match_count': ref_match_count,
             'match_chisq': ref_chisq,
             'match_n_chisq_finite': ref_match_meas_finite,
-        })
-
-        catalog_out_target = pd.DataFrame({
+        }
+        data_target = {
             'match_candidate': target.extras.select if target.extras.select is not None else (
                 np.ones(target.extras.n, dtype=bool)),
             'match_row': target_row_match,
-        })
+        }
+
+        for (columns, out_original, out_matched, in_original, in_matched, matches) in (
+            (
+                self.config.columns_ref_copy,
+                data_ref,
+                data_target,
+                ref,
+                target,
+                target_row_match,
+            ),
+            (
+                self.config.columns_target_copy,
+                data_target,
+                data_ref,
+                target,
+                ref,
+                ref_row_match,
+            ),
+        ):
+            matched = matches >= 0
+            idx_matched = matches[matched]
+
+            for column in columns:
+                values = in_original.catalog[column]
+                out_original[column] = values
+                dtype = in_original.catalog[column].dtype
+                if dtype == object:
+                    types = list(set((type(x) for x in values)))
+                    if len(types) != 1:
+                        raise RuntimeError(f'Column {column} dtype={dtype} has multiple types={types}')
+                    dtype = types[0]
+
+                column_match = np.full(in_matched.extras.n, default_value(dtype), dtype=dtype)
+                column_match[matched] = in_original.catalog[column][idx_matched]
+                out_matched[f'match_{column}'] = column_match
+
+        catalog_out_ref = pd.DataFrame(data_ref)
+        catalog_out_target = pd.DataFrame(data_target)
 
         return catalog_out_ref, catalog_out_target, exceptions

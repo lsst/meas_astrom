@@ -47,11 +47,11 @@ class MatchProbabilisticTask(pipeBase.Task):
 
     @property
     def columns_in_ref(self) -> Set[str]:
-        return self.config.columns_in_ref()
+        return self.config.columns_in_ref
 
     @property
     def columns_in_target(self) -> Set[str]:
-        return self.config.columns_in_target()
+        return self.config.columns_in_target
 
     def match(
         self,
@@ -95,7 +95,7 @@ class MatchProbabilisticTask(pipeBase.Task):
 
         config = self.config
 
-        if config.column_order is None:
+        if config.column_ref_order is None:
             flux_tot = np.nansum(catalog_ref.loc[:, config.columns_ref_flux].values, axis=1)
             catalog_ref['flux_total'] = flux_tot
             if config.mag_brightest_ref != -np.inf or config.mag_faintest_ref != np.inf:
@@ -163,6 +163,8 @@ class MatchProbabilisticTask(pipeBase.Task):
             A struct with output_ref and output_target attribute containing the
             output matched catalogs, as well as a dict
         """
+        catalog_ref.reset_index(inplace=True)
+        catalog_target.reset_index(inplace=True)
         catalog_ref, catalog_target, exceptions = self.match(catalog_ref, catalog_target, wcs=wcs, **kwargs)
         return pipeBase.Struct(cat_output_ref=catalog_ref, cat_output_target=catalog_target,
                                exceptions=exceptions)
