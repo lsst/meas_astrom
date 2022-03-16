@@ -34,7 +34,7 @@ __all__ = ['MatchProbabilisticTask', 'radec_to_xy']
 
 
 def radec_to_xy(ra_vec, dec_vec, factor, wcs: afwGeom.SkyWcs):
-    radec_true = [geom.SpherePoint(ra * factor, dec * factor, geom.degrees)
+    radec_true = [geom.SpherePoint(ra*factor, dec*factor, geom.degrees)
                   for ra, dec in zip(ra_vec, dec_vec)]
     return wcs.skyToPixel(radec_true)
 
