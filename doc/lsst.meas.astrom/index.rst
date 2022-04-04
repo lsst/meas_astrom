@@ -6,7 +6,17 @@
 lsst.meas.astrom
 ################
 
-.. Paragraph that describes what this Python module does and links to related modules and frameworks.
+Tasks and methods for finding an astrometric solution, including:
+
+- `~lsst.meas.astrom.AstrometryTask` compute an astrometric solution for a set of sources detected
+    on an Exposure
+
+Default subtasks used by `~lsst.meas.astrom.AstrometryTask`:
+
+- `~lsst.meas.astrom.MatchOptimisticBTask` match sources to reference objects
+- `~lsst.meas.astrom.FitTanSipWcsTask` fit a TAN-SIP WCS given a list of matches of sources
+    and reference objects
+
 
 .. .. _lsst.meas.astrom-using:
 
@@ -19,8 +29,6 @@ lsst.meas.astrom
 ..    :maxdepth: 1
 
 .. _lsst.meas.astrom-contributing:
-
-Tasks and methods for finding an astrometric solution.
 
 Contributing
 ============
