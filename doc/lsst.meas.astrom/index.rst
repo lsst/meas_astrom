@@ -46,14 +46,6 @@ You can find Jira issues for this module under `here <https://jira.lsstcorp.org/
 Task reference
 ==============
 
-.. _lsst.meas.astrom-command-line-tasks:
-
-Command-line tasks
-------------------
-
-.. lsst-cmdlinetasks::
-   :root: lsst.meas.astrom
-
 .. _lsst.meas.astrom-tasks:
 
 Tasks
@@ -65,12 +57,12 @@ Tasks
 
 .. _lsst.meas.astrom-configs:
 
-Configurations
---------------
+.. Configurations
+.. --------------
 
-.. lsst-configs::
-   :root: lsst.meas.astrom
-   :toctree: configs
+.. .. lsst-configs::
+..    :root: lsst.meas.astrom
+..    :toctree: configs
 
 .. _lsst.meas.astrom-pyapi:
 
