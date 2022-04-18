@@ -1,0 +1,220 @@
+needCalibRegistry: false
+
+levels:
+  skyTile: visit
+  tract: patch
+
+defaultLevel: visit
+
+defaultSubLevels: {}
+
+# exposures and datasets which are needed for all of the mappers are defined
+# in the obs_base package (in either exposures.yaml or datasets.yaml).
+# Where a modification to such a dataset is required for a particular camera,
+# (e.g., for a template or specialized python type), the modification will
+# appear below as a partial dataset definition.
+
+exposures:
+  raw:
+    template: raw/raw_v%(visit)d_f%(filter)s.fits.gz
+  rawAndFlat:
+    assembler: lsst.obs.test.RawAndFlatAssembler
+    composite:
+      flat:
+        datasetType: flat
+      raw:
+        datasetType: raw
+    disassembler: lsst.obs.test.RawAndFlatDisassembler
+    python: lsst.obs.test.RawAndFlatContainer
+  postISRCCD:
+    template: postISRCCD/postISRCCD_v%(visit)d_f%(filter)s.fits
+  icExp:
+    template: icExp/icExp_v%(visit)d_f%(filter)s.fits
+  calexp:
+    template: calexp/calexp_v%(visit)d_f%(filter)s.fits
+  wcs:
+    template: wcs/v%(visit)d_f%(filter)s.wcs.fits
+  fcr:
+    level: Ccd
+    persistable: ExposureI
+    python: lsst.afw.image.ExposureI
+    storage: FitsStorage
+    tables:
+    - raw
+    - raw_visit
+    - raw_skyTile
+    template: fcr/v%(visit)d_f%(filter)s.fcr.fits
+
+calibrations:
+  defects:
+    level: Ccd
+    persistable: BaseCatalog
+    python: lsst.ip.isr.Defects
+    storage: FitsCatalogStorage
+    tables: defects
+    template: defects/defects.fits
+  bias:
+    level: Ccd
+    persistable: ExposureF
+    python: lsst.afw.image.ExposureF
+    storage: FitsStorage
+    template: bias/bias.fits.gz
+  dark:
+    level: Ccd
+    persistable: ExposureF
+    python: lsst.afw.image.ExposureF
+    storage: FitsStorage
+    template: dark/dark.fits.gz
+  flat:
+    columns: filter
+    level: Ccd
+    persistable: ExposureF
+    python: lsst.afw.image.ExposureF
+    reference: raw
+    storage: FitsStorage
+    template: flat/flat_f%(filter)s.fits.gz
+  fringe:
+    columns: filter
+    level: Ccd
+    persistable: ExposureF
+    python: lsst.afw.image.ExposureF
+    reference: raw
+    storage: FitsStorage
+    template: fringe/fringe_f%(filter)s.fits.gz
+
+datasets:
+  rawMetadataDirect:  # metadata associated with raw, but not using _md hooks
+    template: raw/raw_v%(visit)d_f%(filter)s.fits.gz
+    python: lsst.daf.base.PropertyList
+    persistable: PropertyList
+    storage: FitsStorage
+  test_config:
+    persistable: Config
+    python: lsst.obs.test.TestConfig
+    storage: ConfigStorage
+    tables:
+    - raw
+    - raw_skyTile
+    template: config/test.py
+  test_metadata:
+    persistable: PropertySet
+    python: lsst.daf.base.PropertySet
+    storage: YamlStorage
+    tables:
+    - raw
+    - raw_skyTile
+    template: test/v%(visit)d_f%(filter)s.yaml
+  ampExposureId:
+    persistable: ignored
+    python: lsst.daf.base.PropertySet
+    storage: ignored:ampExposureId
+    tables: raw
+    template: ignored
+  ampExposureId_bits:
+    persistable: ignored
+    python: lsst.daf.base.PropertySet
+    storage: ignored:ampExposureId_bits
+    tables: raw
+    template: ignored
+  ccdExposureId:
+    storage: ignored:ccdExposureId
+  ccdExposureId_bits:
+    storage: ignored:ccdExposureId_bits
+  icExpBackground:
+    template: icExp/icExpBackground_v%(visit)d_f%(filter)s.fits
+  calexpBackground:
+    template: calexp/v%(visit)d/bkgd.fits
+  icSrc:
+    template: icSrc/v%(visit)d_f%(filter)s.fits
+  srcMatch:
+    template: srcMatch/v%(visit)d_f%(filter)s.fits
+  forced_src:
+    persistable: SourceCatalog
+    template: forced/%(tract)d/v%(visit)d_f%(filter)s.fits
+  forced_config:
+    persistable: Config
+    python: lsst.meas.base.forcedCcd.ForcedCcdMeasurementConfig
+    storage: ConfigStorage
+    tables:
+    - raw
+    - raw_skyTile
+    template: config/forced.py
+  forced_metadata:
+    persistable: PropertySet
+    python: lsst.daf.base.PropertySet
+    storage: YamlStorage
+    tables:
+    - raw
+    - raw_skyTile
+    template: forced_metadata/v%(visit)d_f%(filter)s.yaml
+  forced_schema:
+    persistable: ignored
+    python: lsst.afw.table.SourceCatalog
+    storage: FitsCatalogStorage
+    tables:
+    - raw
+    - raw_skyTile
+    template: schema/forced.fits
+  src:
+    template: src/v%(visit)d_f%(filter)s.fits
+  transformed_src:
+    persistable: ignored
+    python: lsst.afw.table.BaseCatalog
+    storage: FitsCatalogStorage
+    tables:
+    - raw
+    - raw_skyTile
+    template: transformed_src/v%(visit)d_f%(filter)s.fits
+  transformed_src_schema:
+    persistable: ignored
+  Mosaic_metadata:
+    persistable: PropertySet
+    python: lsst.daf.base.PropertySet
+    storage: YamlStorage
+    tables:
+    - raw
+    - raw_skyTile
+    template: metadata/Mosaic.yaml
+  processCcd_metadata:
+    template: processCcd_metadata/v%(visit)d_f%(filter)s.yaml
+  isr_config:
+    python: lsst.ip.isr.IsrTaskConfig
+  isr_metadata:
+    template: isr_metadata/v%(visit)d_f%(filter)s.yaml
+  characterizeImage_metadata:
+    template: characterizeImage_metadata/v%(visit)d_f%(filter)s.yaml
+  calibrate_metadata:
+    template: calibrate_metadata/v%(visit)d_f%(filter)s.yaml
+  transformSrcMeasurement_metadata:
+    persistable: PropertySet
+    python: lsst.daf.base.PropertySet
+    storage: YamlStorage
+    tables:
+    - raw
+    - raw_skyTile
+    template: transformSrcMeasurement_metadata/v%(visit)d_f%(filter)s.yaml
+  other_photo_astro_ref:
+    persistable: SourceCatalog
+    python: lsst.afw.table.SourceCatalog
+    storage: FitsCatalogStorage
+    table: ignored
+    template: outher_photo_astro_ref/%(pixel_id)s.fits
+  deepDiff_metadata:
+    template: deepDiff/v%(visit)d_metadata_f%(filter)s.yaml
+  deepDiff_diaSrc:
+    template: deepDiff/v%(visit)d_diaSrc_f%(filter)s.fits
+  deepDiff_kernelSrc:
+    template: deepDiff/v%(visit)d_kernelSrc_f%(filter)s.fits
+  apPipe_metadata:
+    template: apPipe_metadata/v%(visit)d_f%(filter)s.yaml
+  apdb_marker:
+    template: apdb/v%(visit)d_f%(filter)s.py
+  test_plot:
+    template: test_plot/v%(visit)d_f%(filter)s.png
+    persistable: ignored
+    python: matplotlib.figure.Figure
+    storage: MatplotlibStorage
+  ossThumb:
+    template: thumbs/oss_v%(visit)d_f%(filter)s.png
+  flattenedThumb:
+    template: thumbs/flattened_v%(visit)d_f%(filter)s.png
