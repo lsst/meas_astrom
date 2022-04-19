@@ -24,6 +24,7 @@
 import os
 import sys
 import unittest
+import glob
 
 import numpy as np
 
@@ -31,8 +32,8 @@ import lsst.utils.tests
 import lsst.meas.astrom
 import lsst.geom
 
-from lsst.daf.persistence import Butler
-from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
+from lsst.meas.algorithms.testUtils import MockLoadReferenceObjects
+
 
 RefCatDir = os.path.join(os.path.dirname(__file__), "data", "sdssrefcat")
 
@@ -42,21 +43,20 @@ class DirectMatchTestCase(lsst.utils.tests.TestCase):
 
     def setUp(self):
         np.random.seed(12345)
-        self.butler = Butler(RefCatDir)
-        refObjLoader = LoadIndexedReferenceObjectsTask(butler=self.butler)
+        filenames = sorted(glob.glob(os.path.join(RefCatDir, 'ref_cats', 'cal_ref_cat', '??????.fits')))
+        self.refObjLoader = MockLoadReferenceObjects(filenames, convert=True)
         center = lsst.geom.SpherePoint(215.5, 53.0, lsst.geom.degrees)
         radius = 0.5*lsst.geom.degrees
         self.filter = "r"
-        self.references = refObjLoader.loadSkyCircle(center, radius, self.filter).refCat
+        self.references = self.refObjLoader.loadSkyCircle(center, radius, self.filter).refCat
 
     def tearDown(self):
-        del self.butler
+        del self.refObjLoader
         del self.references
 
     def checkMatching(self, catalog):
         config = lsst.meas.astrom.DirectMatchConfig()
-        config.refObjLoader.retarget(LoadIndexedReferenceObjectsTask)
-        task = lsst.meas.astrom.DirectMatchTask(config=config, butler=self.butler)
+        task = lsst.meas.astrom.DirectMatchTask(config=config, refObjLoader=self.refObjLoader)
         results = task.run(catalog, self.filter)
 
         self.assertEqual(len(results.matches), len(catalog))
