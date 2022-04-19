@@ -23,6 +23,7 @@
 import os.path
 import math
 import unittest
+import glob
 
 from astropy import units
 import scipy.stats
@@ -35,8 +36,7 @@ import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.meas.base as measBase
 import lsst.pipe.base as pipeBase
-from lsst.daf.persistence import Butler
-from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
+from lsst.meas.algorithms.testUtils import MockReferenceObjectLoaderFromFiles
 from lsst.meas.astrom import AstrometryTask
 
 
@@ -53,8 +53,8 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         self.exposure = afwImage.ExposureF(self.bbox)
         self.exposure.setWcs(self.tanWcs)
         self.exposure.setFilterLabel(afwImage.FilterLabel(band="r", physical="rTest"))
-        butler = Butler(refCatDir)
-        self.refObjLoader = LoadIndexedReferenceObjectsTask(butler=butler)
+        filenames = sorted(glob.glob(os.path.join(refCatDir, 'ref_cats', 'cal_ref_cat', '??????.fits')))
+        self.refObjLoader = MockReferenceObjectLoaderFromFiles(filenames, htmLevel=8)
 
     def tearDown(self):
         del self.tanWcs
