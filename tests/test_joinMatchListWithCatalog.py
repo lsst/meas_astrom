@@ -24,13 +24,13 @@
 import os
 import unittest
 import logging
+import glob
 
 import lsst.geom
 from lsst.afw.image import ExposureF
 from lsst.afw.table import packMatches, SourceCatalog
 import lsst.utils.tests
-from lsst.daf.persistence import Butler
-from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
+from lsst.meas.algorithms.testUtils import MockReferenceObjectLoaderFromFiles
 from lsst.meas.astrom import AstrometryTask
 
 
@@ -55,8 +55,8 @@ class JoinMatchListWithCatalogTestCase(unittest.TestCase):
 
         logLevel = logging.INFO
         refCatDir = os.path.join(testDir, "data", "sdssrefcat")
-        butler = Butler(refCatDir)
-        refObjLoader = LoadIndexedReferenceObjectsTask(butler=butler)
+        filenames = sorted(glob.glob(os.path.join(refCatDir, 'ref_cats', 'cal_ref_cat', '??????.fits')))
+        refObjLoader = MockReferenceObjectLoaderFromFiles(filenames, htmLevel=8)
         astrometryConfig = AstrometryTask.ConfigClass()
         self.astrom = AstrometryTask(config=astrometryConfig, refObjLoader=refObjLoader)
         self.astrom.log.setLevel(logLevel)
