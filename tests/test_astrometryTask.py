@@ -52,7 +52,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
                                          cdMatrix=afwGeom.makeCdMatrix(scale=5.1e-5*lsst.geom.degrees))
         self.exposure = afwImage.ExposureF(self.bbox)
         self.exposure.setWcs(self.tanWcs)
-        self.exposure.setFilterLabel(afwImage.FilterLabel(band="r", physical="rTest"))
+        self.exposure.setFilter(afwImage.FilterLabel(band="r", physical="rTest"))
         filenames = sorted(glob.glob(os.path.join(refCatDir, 'ref_cats', 'cal_ref_cat', '??????.fits')))
         self.refObjLoader = MockReferenceObjectLoaderFromFiles(filenames, htmLevel=8)
 

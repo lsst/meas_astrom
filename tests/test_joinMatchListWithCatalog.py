@@ -48,7 +48,7 @@ class JoinMatchListWithCatalogTestCase(unittest.TestCase):
         smallExposure = ExposureF(os.path.join(testDir, "v695833-e0-c000-a00.sci.fits"))
         self.exposure = ExposureF(self.bbox)
         self.exposure.setWcs(smallExposure.getWcs())
-        self.exposure.setFilterLabel(smallExposure.getFilterLabel())
+        self.exposure.setFilter(smallExposure.getFilter())
         # copy the pixels we can, in case the user wants a debug display
         mi = self.exposure.getMaskedImage()
         mi.assign(smallExposure.getMaskedImage(), smallExposure.getBBox())
