@@ -252,7 +252,7 @@ class RefMatchTask(pipeBase.Task):
 
         """
         exposureInfo = exposure.getInfo()
-        filterLabel = exposureInfo.getFilterLabel()
+        filterLabel = exposureInfo.getFilter()
         filterName = filterLabel.bandLabel if filterLabel is not None else None
         epoch = None
         if exposure.getInfo().hasVisitInfo():
