@@ -644,13 +644,21 @@ class MatcherProbabilistic:
                 values = in_original.catalog[column]
                 out_original[column] = values
                 dtype = in_original.catalog[column].dtype
+
+                # Pandas object columns can have mixed types - check for that
                 if dtype == object:
                     types = list(set((type(x) for x in values)))
                     if len(types) != 1:
                         raise RuntimeError(f'Column {column} dtype={dtype} has multiple types={types}')
                     dtype = types[0]
 
-                column_match = np.full(in_matched.extras.n, default_value(dtype), dtype=dtype)
+                value_fill = default_value(dtype)
+
+                # Without this, the dtype would be '<U1' for an empty Unicode string
+                if dtype == str:
+                    dtype = f'<U{max(len(x) for x in values)}'
+
+                column_match = np.full(in_matched.extras.n, value_fill, dtype=dtype)
                 column_match[matched] = in_original.catalog[column][idx_matched]
                 out_matched[f'match_{column}'] = column_match
 
