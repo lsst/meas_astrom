@@ -281,6 +281,8 @@ class MatchProbabilisticConfig(pexConfig.Config):
         for columns in (
                 self.columns_ref_flux,
                 self.columns_ref_meas,
+                self.columns_ref_select_false,
+                self.columns_ref_select_true,
                 self.columns_ref_copy,
         ):
             columns_all.extend(columns)
@@ -321,6 +323,16 @@ class MatchProbabilisticConfig(pexConfig.Config):
         dtype=str,
         doc='The reference table columns to compute match likelihoods from '
             '(usually centroids and fluxes/magnitudes)',
+    )
+    columns_ref_select_true = pexConfig.ListField(
+        dtype=str,
+        default=tuple(),
+        doc='Reference table columns to require to be True for selecting sources',
+    )
+    columns_ref_select_false = pexConfig.ListField(
+        dtype=str,
+        default=tuple(),
+        doc='Reference table columns to require to be False for selecting sources',
     )
     columns_target_copy = pexConfig.ListField(
         dtype=str,
