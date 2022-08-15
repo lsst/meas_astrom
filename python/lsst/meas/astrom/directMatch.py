@@ -1,6 +1,8 @@
 
 __all__ = ["DirectMatchConfig", "DirectMatchTask", "DirectMatchConfigWithoutLoader"]
 
+import warnings
+
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import Task, Struct
 from lsst.meas.algorithms import (LoadIndexedReferenceObjectsTask, ScienceSourceSelectorTask,
@@ -31,8 +33,8 @@ class DirectMatchTask(Task):
 
     Parameters
     ----------
-    butler : `lsst.daf.persistence.Butler`
-        Data butler containing the relevant reference catalog data.
+    butler : `None`
+        Compatibility parameter. Should not be used.
     refObjLoader : `lsst.meas.algorithms.LoadReferenceObjectsTask` or `None`
         For loading reference objects.
     **kwargs
@@ -49,12 +51,9 @@ class DirectMatchTask(Task):
                 if not isinstance(self.config, DirectMatchConfig):
                     raise RuntimeError("DirectMatchTask must be initialized with DirectMatchConfig "
                                        "if a refObjLoader is not supplied at initialization")
-                self.makeSubtask("refObjLoader", butler=butler)
-            else:
-                self.refObjLoader = None
-
-        else:
-            self.refObjLoader = refObjLoader
+                warnings.warn("The 'butler' parameter is no longer used and can be safely removed.",
+                              category=FutureWarning, stacklevel=2)
+        self.refObjLoader = refObjLoader
         self.makeSubtask("sourceSelection")
         self.makeSubtask("referenceSelection")
 
