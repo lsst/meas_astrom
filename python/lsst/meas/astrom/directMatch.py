@@ -1,6 +1,8 @@
 
 __all__ = ["DirectMatchConfig", "DirectMatchTask", "DirectMatchConfigWithoutLoader"]
 
+import warnings
+
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import Task, Struct
 from lsst.meas.algorithms import (LoadIndexedReferenceObjectsTask, ScienceSourceSelectorTask,
@@ -31,9 +33,9 @@ class DirectMatchTask(Task):
 
     Parameters
     ----------
-    butler : `lsst.daf.persistence.Butler`
-        Data butler containing the relevant reference catalog data.
-    refObjLoader : `lsst.meas.algorithms.LoadReferenceObjectsTask` or `None`
+    butler : `None`
+        Compatibility parameter. Should not be used.
+    refObjLoader : `lsst.meas.algorithms.ReferenceObjectLoader` or `None`
         For loading reference objects.
     **kwargs
         Other keyword arguments required for instantiating a Task (such as
@@ -49,12 +51,9 @@ class DirectMatchTask(Task):
                 if not isinstance(self.config, DirectMatchConfig):
                     raise RuntimeError("DirectMatchTask must be initialized with DirectMatchConfig "
                                        "if a refObjLoader is not supplied at initialization")
-                self.makeSubtask("refObjLoader", butler=butler)
-            else:
-                self.refObjLoader = None
-
-        else:
-            self.refObjLoader = refObjLoader
+                warnings.warn("The 'butler' parameter is no longer used and can be safely removed.",
+                              category=FutureWarning, stacklevel=2)
+        self.refObjLoader = refObjLoader
         self.makeSubtask("sourceSelection")
         self.makeSubtask("referenceSelection")
 
@@ -63,13 +62,8 @@ class DirectMatchTask(Task):
 
         Parameters
         ----------
-        refObjLoader
-            An instance of a reference object loader, either a
-            `lsst.meas.algorithms.LoadReferenceObjectsTask` task or a
-            `lsst.meas.algorithms.ReferenceObjectLoader` instance. A task can
-            be used as a subtask and is generally used in gen2 middleware. The
-            class is designed to be used with gen3 middleware and is
-            initialized outside the normal task framework.
+        refObjLoader : `lsst.meas.algorithms.ReferenceObjectLoader`
+            An instance of a reference object loader.
         """
         self.refObjLoader = refObjLoader
 
