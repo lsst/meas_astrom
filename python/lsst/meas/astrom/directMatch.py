@@ -35,7 +35,7 @@ class DirectMatchTask(Task):
     ----------
     butler : `None`
         Compatibility parameter. Should not be used.
-    refObjLoader : `lsst.meas.algorithms.LoadReferenceObjectsTask` or `None`
+    refObjLoader : `lsst.meas.algorithms.ReferenceObjectLoader` or `None`
         For loading reference objects.
     **kwargs
         Other keyword arguments required for instantiating a Task (such as
@@ -62,13 +62,8 @@ class DirectMatchTask(Task):
 
         Parameters
         ----------
-        refObjLoader
-            An instance of a reference object loader, either a
-            `lsst.meas.algorithms.LoadReferenceObjectsTask` task or a
-            `lsst.meas.algorithms.ReferenceObjectLoader` instance. A task can
-            be used as a subtask and is generally used in gen2 middleware. The
-            class is designed to be used with gen3 middleware and is
-            initialized outside the normal task framework.
+        refObjLoader : `lsst.meas.algorithms.ReferenceObjectLoader`
+            An instance of a reference object loader.
         """
         self.refObjLoader = refObjLoader
 
