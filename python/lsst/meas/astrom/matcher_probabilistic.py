@@ -166,6 +166,7 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
     )
     coords_ref_to_convert = pexConfig.DictField(
         default=None,
+        optional=True,
         keytype=str,
         itemtype=str,
         dictCheck=lambda x: len(x) == 2,
