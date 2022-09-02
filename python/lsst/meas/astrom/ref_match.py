@@ -249,21 +249,18 @@ class RefMatchTask(pipeBase.Task):
             - ``photoCalib`` : photometric calibration (`lsst.afw.image.PhotoCalib`)
             - ``filterName`` : name of filter band (`str`)
             - ``epoch`` : date of exposure (`astropy.time.Time`)
-
         """
-        exposureInfo = exposure.getInfo()
-        filterLabel = exposureInfo.getFilter()
+        filterLabel = exposure.info.getFilter()
         filterName = filterLabel.bandLabel if filterLabel is not None else None
         epoch = None
-        if exposure.getInfo().hasVisitInfo():
-            epochTaiMjd = exposure.getInfo().getVisitInfo().getDate().get(system=DateTime.MJD,
-                                                                          scale=DateTime.TAI)
+        if exposure.info.hasVisitInfo():
+            epochTaiMjd = exposure.visitInfo.date.get(system=DateTime.MJD, scale=DateTime.TAI)
             epoch = astropy.time.Time(epochTaiMjd, scale="tai", format="mjd")
 
         return pipeBase.Struct(
             bbox=exposure.getBBox(),
-            wcs=exposureInfo.getWcs(),
-            photoCalib=exposureInfo.getPhotoCalib(),
+            wcs=exposure.info.getWcs(),
+            photoCalib=exposure.info.getPhotoCalib(),
             filterName=filterName,
             epoch=epoch,
         )
