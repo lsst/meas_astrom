@@ -28,7 +28,7 @@ from .matcher_probabilistic import MatchProbabilisticConfig, MatcherProbabilisti
 import logging
 import numpy as np
 import pandas as pd
-from typing import Dict, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 __all__ = ['MatchProbabilisticTask', 'radec_to_xy']
 
@@ -44,6 +44,40 @@ class MatchProbabilisticTask(pipeBase.Task):
     """
     ConfigClass = MatchProbabilisticConfig
     _DefaultName = "matchProbabilistic"
+
+    @staticmethod
+    def _apply_select_bool(
+        catalog: pd.DataFrame,
+        columns_true: List[str],
+        columns_false: List[str],
+        selection: Optional[np.array],
+    ) -> np.array:
+        """ Apply additional boolean selection columns.
+
+        catalog : `pandas.DataFrame`
+            The catalog to select from.
+        columns_true : `list` [`str`]
+            Columns that must be True for selection.
+        columns_false : `list` [`str`]
+            Columns that must be False for selection.
+        selection : `numpy.array`
+            A prior selection array. Default all true.
+
+        Returns
+        -------
+        selection : `numpy.array`
+            The final selection array.
+
+        """
+        select_additional = (len(columns_true) + len(columns_false)) > 0
+        if select_additional:
+            if selection is None:
+                selection = np.ones(len(catalog), dtype=bool)
+            for column in columns_true:
+                selection &= catalog[column].values
+            for column in columns_false:
+                selection &= ~catalog[column].values
+        return selection
 
     @property
     def columns_in_ref(self) -> Set[str]:
@@ -109,15 +143,18 @@ class MatchProbabilisticTask(pipeBase.Task):
             else:
                 select_ref &= select_mag
 
-        select_additional = (len(config.columns_target_select_true)
-                             + len(config.columns_target_select_false)) > 0
-        if select_additional:
-            if select_target is None:
-                select_target = np.ones(len(catalog_target), dtype=bool)
-            for column in config.columns_target_select_true:
-                select_target &= catalog_target[column].values
-            for column in config.columns_target_select_false:
-                select_target &= ~catalog_target[column].values
+        select_ref = self._apply_select_bool(
+            catalog=catalog_ref,
+            columns_true=config.columns_ref_select_true,
+            columns_false=config.columns_ref_select_false,
+            selection=select_ref
+        )
+        select_target = self._apply_select_bool(
+            catalog=catalog_target,
+            columns_true=config.columns_target_select_true,
+            columns_false=config.columns_target_select_false,
+            selection=select_target
+        )
 
         logger.info('Beginning MatcherProbabilistic.match with %d/%d ref sources selected vs %d/%d target',
                     np.sum(select_ref), len(select_ref), np.sum(select_target), len(select_target))
