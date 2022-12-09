@@ -29,7 +29,7 @@ import lsst.utils.tests
 import lsst.geom
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
-from lsst.meas.algorithms import LoadReferenceObjectsTask
+from lsst.meas.algorithms import convertReferenceCatalog
 from lsst.meas.base import SingleFrameMeasurementTask
 from lsst.meas.astrom import FitAffineWcsTask, TransformedSkyWcsMaker
 
@@ -58,8 +58,8 @@ class BaseTestCase:
         This is a separate function so data can be reloaded if fitting more than once
         (each time a WCS is fit it may update the source catalog, reference catalog and match list)
         """
-        refSchema = LoadReferenceObjectsTask.makeMinimalSchema(
-            filterNameList=["r"], addIsPhotometric=True, addCentroid=True)
+        refSchema = convertReferenceCatalog._makeSchema(filterNameList=["r"], addIsPhotometric=True,
+                                                        addCentroid=True)
         self.refCat = afwTable.SimpleCatalog(refSchema)
         srcSchema = afwTable.SourceTable.makeMinimalSchema()
         SingleFrameMeasurementTask(schema=srcSchema)

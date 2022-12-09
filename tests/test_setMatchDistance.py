@@ -38,7 +38,7 @@ import lsst.utils.tests
 import lsst.geom
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
-from lsst.meas.algorithms import LoadReferenceObjectsTask
+from lsst.meas.algorithms import convertReferenceCatalog
 from lsst.meas.base import SingleFrameMeasurementTask
 from lsst.meas.astrom import setMatchDistance
 
@@ -72,7 +72,7 @@ class BaseTestCase(unittest.TestCase):
         N = 5
 
         if self.MatchClass == afwTable.ReferenceMatch:
-            refSchema = LoadReferenceObjectsTask.makeMinimalSchema(
+            refSchema = convertReferenceCatalog._makeSchema(
                 filterNameList=["r"], addIsPhotometric=True)
             self.refCat = afwTable.SimpleCatalog(refSchema)
         elif self.MatchClass == afwTable.SourceMatch:
