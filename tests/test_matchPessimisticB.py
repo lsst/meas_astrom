@@ -31,7 +31,7 @@ import lsst.geom
 import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.utils.tests
-from lsst.meas.algorithms import LoadReferenceObjectsTask
+from lsst.meas.algorithms import convertReferenceCatalog
 import lsst.meas.astrom.sip.genDistortedImage as distort
 import lsst.meas.astrom as measAstrom
 
@@ -253,8 +253,7 @@ class TestMatchPessimisticB(unittest.TestCase):
     def computePosRefCatalog(self, sourceCat):
         """Generate a position reference catalog from a source catalog
         """
-        minimalPosRefSchema = LoadReferenceObjectsTask.makeMinimalSchema(filterNameList=["r"],
-                                                                         addCentroid=True)
+        minimalPosRefSchema = convertReferenceCatalog._makeSchema(filterNameList=["r"], addCentroid=True)
         refCat = afwTable.SimpleCatalog(minimalPosRefSchema)
         refCat.reserve(len(sourceCat))
         for source in sourceCat:

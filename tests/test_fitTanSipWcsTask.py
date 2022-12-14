@@ -40,7 +40,7 @@ import lsst.geom
 import lsst.afw.geom as afwGeom
 from lsst.afw.geom.wcsUtils import makeTanSipMetadata
 import lsst.afw.table as afwTable
-from lsst.meas.algorithms import LoadReferenceObjectsTask
+from lsst.meas.algorithms import convertReferenceCatalog
 from lsst.meas.base import SingleFrameMeasurementTask
 from lsst.meas.astrom import FitTanSipWcsTask, setMatchDistance
 from lsst.meas.astrom.sip import makeCreateWcsWithSip
@@ -74,8 +74,8 @@ class BaseTestCase:
         (each time a WCS is fit it may update the source catalog, reference catalog and match list)
         """
         if self.MatchClass == afwTable.ReferenceMatch:
-            refSchema = LoadReferenceObjectsTask.makeMinimalSchema(
-                filterNameList=["r"], addIsPhotometric=True, addCentroid=True)
+            refSchema = convertReferenceCatalog._makeSchema(filterNameList=["r"], addIsPhotometric=True,
+                                                            addCentroid=True)
             self.refCat = afwTable.SimpleCatalog(refSchema)
         elif self.MatchClass == afwTable.SourceMatch:
             refSchema = afwTable.SourceTable.makeMinimalSchema()
