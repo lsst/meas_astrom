@@ -20,6 +20,7 @@
  * see <https://www.lsstcorp.org/LegalNotices/>.
  */
 #include "pybind11/pybind11.h"
+#include "lsst/cpputils/python.h"
 #include "pybind11/stl.h"
 
 #include <memory>
@@ -39,74 +40,77 @@ namespace astrom {
 
 namespace {
 
-static void declarePolynomialTransform(py::module &mod) {
-    py::class_<PolynomialTransform, std::shared_ptr<PolynomialTransform>> cls(mod, "PolynomialTransform");
+void declarePolynomialTransform(lsst::cpputils::python::WrapperCollection &wrappers) {
+    using PyPolynomialTransform = py::class_<PolynomialTransform, std::shared_ptr<PolynomialTransform>>;
 
-    cls.def(py::init<ndarray::Array<double const, 2, 0> const &,
-                     ndarray::Array<double const, 2, 0> const &>(),
-            "xCoeffs"_a, "yCoeffs"_a);
-    cls.def(py::init<PolynomialTransform const &>(), "other"_a);
+    wrappers.wrapType(PyPolynomialTransform(wrappers.module, "PolynomialTransform"), [](auto &mod, auto &cls) {
+        cls.def(py::init<ndarray::Array<double const, 2, 0> const &,
+                        ndarray::Array<double const, 2, 0> const &>(),
+                "xCoeffs"_a, "yCoeffs"_a);
+        cls.def(py::init<PolynomialTransform const &>(), "other"_a);
 
-    cls.def_static("convert",
-                   (PolynomialTransform(*)(ScaledPolynomialTransform const &)) & PolynomialTransform::convert,
-                   "other"_a);
-    cls.def_static("convert",
-                   (PolynomialTransform(*)(SipForwardTransform const &)) & PolynomialTransform::convert,
-                   "other"_a);
-    cls.def_static("convert",
-                   (PolynomialTransform(*)(SipReverseTransform const &)) & PolynomialTransform::convert,
-                   "other"_a);
+        cls.def_static("convert",
+                       (PolynomialTransform(*)(ScaledPolynomialTransform const &)) &PolynomialTransform::convert,
+                       "other"_a);
+        cls.def_static("convert",
+                       (PolynomialTransform(*)(SipForwardTransform const &)) &PolynomialTransform::convert,
+                       "other"_a);
+        cls.def_static("convert",
+                       (PolynomialTransform(*)(SipReverseTransform const &)) &PolynomialTransform::convert,
+                       "other"_a);
 
-    cls.def("__call__", &PolynomialTransform::operator(), "in"_a);
+        cls.def("__call__", &PolynomialTransform::operator(), "in"_a);
 
-    cls.def("getOrder", &PolynomialTransform::getOrder);
-    cls.def("getXCoeffs", &PolynomialTransform::getXCoeffs);
-    cls.def("getYCoeffs", &PolynomialTransform::getYCoeffs);
-    cls.def("linearize", &PolynomialTransform::linearize);
+        cls.def("getOrder", &PolynomialTransform::getOrder);
+        cls.def("getXCoeffs", &PolynomialTransform::getXCoeffs);
+        cls.def("getYCoeffs", &PolynomialTransform::getYCoeffs);
+        cls.def("linearize", &PolynomialTransform::linearize);
+    });
 }
 
-static void declareScaledPolynomialTransform(py::module &mod) {
-    py::class_<ScaledPolynomialTransform, std::shared_ptr<ScaledPolynomialTransform>> cls(
-            mod, "ScaledPolynomialTransform");
+void declareScaledPolynomialTransform(lsst::cpputils::python::WrapperCollection &wrappers) {
+    using PyClass = py::class_<ScaledPolynomialTransform, std::shared_ptr<ScaledPolynomialTransform>>;
 
-    cls.def(py::init<PolynomialTransform const &, geom::AffineTransform const &,
-                     geom::AffineTransform const &>(),
-            "poly"_a, "inputScaling"_a, "outputScalingInverse"_a);
-    cls.def(py::init<ScaledPolynomialTransform const &>(), "other"_a);
+    wrappers.wrapType(PyClass(wrappers.module, "ScaledPolynomialTransform"), [](auto &mod, auto &cls) {
+        cls.def(py::init<PolynomialTransform const &, geom::AffineTransform const &,
+                        geom::AffineTransform const &>(),
+                "poly"_a, "inputScaling"_a, "outputScalingInverse"_a);
+        cls.def(py::init<ScaledPolynomialTransform const &>(), "other"_a);
 
-    cls.def_static(
-            "convert",
-            (ScaledPolynomialTransform(*)(PolynomialTransform const &)) & ScaledPolynomialTransform::convert,
-            "other"_a);
-    cls.def_static(
-            "convert",
-            (ScaledPolynomialTransform(*)(SipForwardTransform const &)) & ScaledPolynomialTransform::convert,
-            "other"_a);
-    cls.def_static(
-            "convert",
-            (ScaledPolynomialTransform(*)(SipReverseTransform const &)) & ScaledPolynomialTransform::convert,
-            "other"_a);
+        cls.def_static(
+                "convert",
+                (ScaledPolynomialTransform(*)(PolynomialTransform const &)) &ScaledPolynomialTransform::convert,
+                "other"_a);
+        cls.def_static(
+                "convert",
+                (ScaledPolynomialTransform(*)(SipForwardTransform const &)) &ScaledPolynomialTransform::convert,
+                "other"_a);
+        cls.def_static(
+                "convert",
+                (ScaledPolynomialTransform(*)(SipReverseTransform const &)) &ScaledPolynomialTransform::convert,
+                "other"_a);
 
-    cls.def("__call__", &ScaledPolynomialTransform::operator(), "in"_a);
+        cls.def("__call__", &ScaledPolynomialTransform::operator(), "in"_a);
 
-    cls.def("getPoly", &ScaledPolynomialTransform::getPoly, py::return_value_policy::reference_internal);
-    cls.def("getInputScaling", &ScaledPolynomialTransform::getInputScaling,
-            py::return_value_policy::reference_internal);
-    cls.def("getOutputScalingInverse", &ScaledPolynomialTransform::getOutputScalingInverse,
-            py::return_value_policy::reference_internal);
-    cls.def("linearize", &ScaledPolynomialTransform::linearize);
+        cls.def("getPoly", &ScaledPolynomialTransform::getPoly, py::return_value_policy::reference_internal);
+        cls.def("getInputScaling", &ScaledPolynomialTransform::getInputScaling,
+                py::return_value_policy::reference_internal);
+        cls.def("getOutputScalingInverse", &ScaledPolynomialTransform::getOutputScalingInverse,
+                py::return_value_policy::reference_internal);
+        cls.def("linearize", &ScaledPolynomialTransform::linearize);
+    });
 }
 
 }  // namespace
 
-PYBIND11_MODULE(polynomialTransform, mod) {
-    declarePolynomialTransform(mod);
-    declareScaledPolynomialTransform(mod);
+void wrapPolynomialTransform(lsst::cpputils::python::WrapperCollection &wrappers){
+    declarePolynomialTransform(wrappers);
+    declareScaledPolynomialTransform(wrappers);
 
-    mod.def("compose",
+    wrappers.module.def("compose",
             (PolynomialTransform(*)(geom::AffineTransform const &, PolynomialTransform const &)) & compose,
             "t1"_a, "t2"_a);
-    mod.def("compose",
+    wrappers.module.def("compose",
             (PolynomialTransform(*)(PolynomialTransform const &, geom::AffineTransform const &)) & compose,
             "t1"_a, "t2"_a);
 }

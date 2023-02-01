@@ -1,10 +1,15 @@
 # -*- python -*-
 from lsst.sconsUtils import scripts
-scripts.BasicSConscript.pybind11([
-    "makeMatchStatistics",
-    "matchOptimisticB/matchOptimisticB",
-    "polynomialTransform",
-    "scaledPolynomialTransformFitter",
-    "sipTransform",
-    "pessimisticPatternMatcherUtils",
-], addUnderscore=False)
+scripts.BasicSConscript.python(['_meas_astromLib'], [
+    '_meas_astromLib.cc',
+    'makeMatchStatistics.cc',
+    'matchOptimisticB/matchOptimisticB.cc',
+    'polynomialTransform.cc',
+    'scaledPolynomialTransformFitter.cc',
+    'sipTransform.cc',
+    'pessimisticPatternMatcherUtils.cc',
+    'sip/createWcsWithSip.cc',
+    'sip/leastSqFitter1d.cc',
+    'sip/leastSqFitter2d.cc',
+    'sip/matchSrcToCatalogue.cc'
+])

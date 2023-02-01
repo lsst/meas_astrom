@@ -20,10 +20,10 @@
  * see <https://www.lsstcorp.org/LegalNotices/>.
  */
 #include "pybind11/pybind11.h"
+#include "lsst/cpputils/python.h"
 #include "pybind11/stl.h"
 
 #include <memory>
-#include <vector>
 
 #include "lsst/geom/Angle.h"
 #include "lsst/afw/geom/SkyWcs.h"
@@ -38,19 +38,20 @@ namespace meas {
 namespace astrom {
 namespace sip {
 
-PYBIND11_MODULE(matchSrcToCatalogue, mod) {
-    py::class_<MatchSrcToCatalogue> cls(mod, "MatchSrcToCatalogue");
+void wrapMatchSrcToCatalogue(lsst::cpputils::python::WrapperCollection &wrappers){
+    using PyClass = py::class_<MatchSrcToCatalogue>;
+    wrappers.wrapType(PyClass(wrappers.module, "MatchSrcToCatalogue"), [](auto &mod, auto &cls) {
+        cls.def(py::init<afw::table::SimpleCatalog const &, afw::table::SourceCatalog const &,
+                        std::shared_ptr<afw::geom::SkyWcs const>, geom::Angle>(),
+                "catSet"_a, "imgSet"_a, "wcs"_a, "dist"_a);
 
-    cls.def(py::init<afw::table::SimpleCatalog const &, afw::table::SourceCatalog const &,
-                     std::shared_ptr<afw::geom::SkyWcs const>, geom::Angle>(),
-            "catSet"_a, "imgSet"_a, "wcs"_a, "dist"_a);
-
-    cls.def("setDist", &MatchSrcToCatalogue::setDist, "dist"_a);
-    cls.def("setWcs", &MatchSrcToCatalogue::setWcs, "wcs"_a);
-    cls.def("setCatSrcSet", &MatchSrcToCatalogue::setCatSrcSet, "catSet"_a);
-    cls.def("setImgSrcSet", &MatchSrcToCatalogue::setImgSrcSet, "srcSet"_a);
-    cls.def("findMatches", &MatchSrcToCatalogue::findMatches);
-    cls.def("getMatches", &MatchSrcToCatalogue::getMatches);
+        cls.def("setDist", &MatchSrcToCatalogue::setDist, "dist"_a);
+        cls.def("setWcs", &MatchSrcToCatalogue::setWcs, "wcs"_a);
+        cls.def("setCatSrcSet", &MatchSrcToCatalogue::setCatSrcSet, "catSet"_a);
+        cls.def("setImgSrcSet", &MatchSrcToCatalogue::setImgSrcSet, "srcSet"_a);
+        cls.def("findMatches", &MatchSrcToCatalogue::findMatches);
+        cls.def("getMatches", &MatchSrcToCatalogue::getMatches);
+    });
 }
 
 }  // namespace sip

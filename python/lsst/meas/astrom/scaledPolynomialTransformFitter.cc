@@ -20,9 +20,9 @@
  * see <https://www.lsstcorp.org/LegalNotices/>.
  */
 #include "pybind11/pybind11.h"
+#include "lsst/cpputils/python.h"
 #include "pybind11/stl.h"
 
-#include <vector>
 
 #include "lsst/pex/config/python.h"  // defines LSST_DECLARE_CONTROL_FIELD
 #include "lsst/afw/table/Match.h"
@@ -36,41 +36,45 @@ namespace meas {
 namespace astrom {
 namespace {
 
-static void declareOutlierRejectionControl(py::module& mod) {
-    py::class_<OutlierRejectionControl> cls(mod, "OutlierRejectionControl");
+void declareOutlierRejectionControl(lsst::cpputils::python::WrapperCollection &wrappers) {
+    using PyOutlierRejectionControl = py::class_<OutlierRejectionControl>;
 
-    cls.def(py::init<>());
+    wrappers.wrapType(PyOutlierRejectionControl(wrappers.module, "OutlierRejectionControl"), [](auto &mod, auto &cls) {
+        cls.def(py::init<>());
 
-    LSST_DECLARE_CONTROL_FIELD(cls, OutlierRejectionControl, nSigma);
-    LSST_DECLARE_CONTROL_FIELD(cls, OutlierRejectionControl, nClipMin);
-    LSST_DECLARE_CONTROL_FIELD(cls, OutlierRejectionControl, nClipMax);
+        LSST_DECLARE_CONTROL_FIELD(cls, OutlierRejectionControl, nSigma);
+        LSST_DECLARE_CONTROL_FIELD(cls, OutlierRejectionControl, nClipMin);
+        LSST_DECLARE_CONTROL_FIELD(cls, OutlierRejectionControl, nClipMax);
+    });
 }
 
-static void declareScaledPolynomialTransformFitter(py::module& mod) {
-    py::class_<ScaledPolynomialTransformFitter> cls(mod, "ScaledPolynomialTransformFitter");
+void declareScaledPolynomialTransformFitter(lsst::cpputils::python::WrapperCollection &wrappers) {
+    using PyClass = py::class_<ScaledPolynomialTransformFitter>;
 
-    cls.def_static("fromMatches", &ScaledPolynomialTransformFitter::fromMatches);
-    cls.def_static("fromGrid", &ScaledPolynomialTransformFitter::fromGrid);
-    cls.def("fit", &ScaledPolynomialTransformFitter::fit, "order"_a = -1);
-    cls.def("updateModel", &ScaledPolynomialTransformFitter::updateModel);
-    cls.def("updateIntrinsicScatter", &ScaledPolynomialTransformFitter::updateIntrinsicScatter);
-    cls.def("getIntrinsicScatter", &ScaledPolynomialTransformFitter::getIntrinsicScatter);
-    cls.def("rejectOutliers", &ScaledPolynomialTransformFitter::rejectOutliers, "ctrl"_a);
-    cls.def("getData", &ScaledPolynomialTransformFitter::getData,
-            py::return_value_policy::reference_internal);
-    cls.def("getTransform", &ScaledPolynomialTransformFitter::getTransform, py::return_value_policy::copy);
-    cls.def("getPoly", &ScaledPolynomialTransformFitter::getPoly, py::return_value_policy::copy);
-    cls.def("getInputScaling", &ScaledPolynomialTransformFitter::getInputScaling,
-            py::return_value_policy::copy);
-    cls.def("getOutputScaling", &ScaledPolynomialTransformFitter::getOutputScaling,
-            py::return_value_policy::copy);
+    wrappers.wrapType(PyClass(wrappers.module, "ScaledPolynomialTransformFitter"), [](auto &mod, auto &cls) {
+        cls.def_static("fromMatches", &ScaledPolynomialTransformFitter::fromMatches);
+        cls.def_static("fromGrid", &ScaledPolynomialTransformFitter::fromGrid);
+        cls.def("fit", &ScaledPolynomialTransformFitter::fit, "order"_a = -1);
+        cls.def("updateModel", &ScaledPolynomialTransformFitter::updateModel);
+        cls.def("updateIntrinsicScatter", &ScaledPolynomialTransformFitter::updateIntrinsicScatter);
+        cls.def("getIntrinsicScatter", &ScaledPolynomialTransformFitter::getIntrinsicScatter);
+        cls.def("rejectOutliers", &ScaledPolynomialTransformFitter::rejectOutliers, "ctrl"_a);
+        cls.def("getData", &ScaledPolynomialTransformFitter::getData,
+                py::return_value_policy::reference_internal);
+        cls.def("getTransform", &ScaledPolynomialTransformFitter::getTransform, py::return_value_policy::copy);
+        cls.def("getPoly", &ScaledPolynomialTransformFitter::getPoly, py::return_value_policy::copy);
+        cls.def("getInputScaling", &ScaledPolynomialTransformFitter::getInputScaling,
+                py::return_value_policy::copy);
+        cls.def("getOutputScaling", &ScaledPolynomialTransformFitter::getOutputScaling,
+                py::return_value_policy::copy);
+    });
 }
 
 }  // namespace
 
-PYBIND11_MODULE(scaledPolynomialTransformFitter, mod) {
-    declareOutlierRejectionControl(mod);
-    declareScaledPolynomialTransformFitter(mod);
+void wrapScaledPolynomialTransformFitter(lsst::cpputils::python::WrapperCollection &wrappers){
+    declareOutlierRejectionControl(wrappers);
+    declareScaledPolynomialTransformFitter(wrappers);
 }
 
 }  // namespace astrom

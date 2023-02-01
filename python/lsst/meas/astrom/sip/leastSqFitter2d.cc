@@ -20,6 +20,7 @@
  * see <https://www.lsstcorp.org/LegalNotices/>.
  */
 #include "pybind11/pybind11.h"
+#include "lsst/cpputils/python.h"
 #include "pybind11/eigen.h"
 #include "pybind11/stl.h"
 
@@ -39,26 +40,27 @@ namespace sip {
 namespace {
 
 template <typename FittingFunc>
-static void declareLeastSqFitter2d(py::module &mod, std::string const &name) {
-    py::class_<LeastSqFitter2d<FittingFunc>, std::shared_ptr<LeastSqFitter2d<FittingFunc>>> cls(mod,
-                                                                                                name.c_str());
+void declareLeastSqFitter2d(lsst::cpputils::python::WrapperCollection &wrappers, std::string const &name) {
+    using PyLeastSqFitter2d = py::class_<LeastSqFitter2d<FittingFunc>, std::shared_ptr<LeastSqFitter2d<FittingFunc>>>;
 
-    cls.def(py::init<std::vector<double> const &, std::vector<double> const &, std::vector<double> const &,
-                     std::vector<double> const &, int>(),
-            "x"_a, "y"_a, "z"_a, "s"_a, "order"_a);
+    wrappers.wrapType(PyLeastSqFitter2d(wrappers.module, name.c_str()), [](auto &mod, auto &cls) {
+        cls.def(py::init<std::vector<double> const &, std::vector<double> const &, std::vector<double> const &,
+                        std::vector<double> const &, int>(),
+                "x"_a, "y"_a, "z"_a, "s"_a, "order"_a);
 
-    cls.def("getParams", &LeastSqFitter2d<FittingFunc>::getParams);
-    cls.def("getErrors", &LeastSqFitter2d<FittingFunc>::getErrors);
-    cls.def("valueAt", &LeastSqFitter2d<FittingFunc>::valueAt, "x"_a, "y"_a);
-    cls.def("residuals", &LeastSqFitter2d<FittingFunc>::residuals);
-    cls.def("getChiSq", &LeastSqFitter2d<FittingFunc>::getChiSq);
-    cls.def("getReducedChiSq", &LeastSqFitter2d<FittingFunc>::getReducedChiSq);
+        cls.def("getParams", &LeastSqFitter2d<FittingFunc>::getParams);
+        cls.def("getErrors", &LeastSqFitter2d<FittingFunc>::getErrors);
+        cls.def("valueAt", &LeastSqFitter2d<FittingFunc>::valueAt, "x"_a, "y"_a);
+        cls.def("residuals", &LeastSqFitter2d<FittingFunc>::residuals);
+        cls.def("getChiSq", &LeastSqFitter2d<FittingFunc>::getChiSq);
+        cls.def("getReducedChiSq", &LeastSqFitter2d<FittingFunc>::getReducedChiSq);
+    });
 }
 
 }  // namespace
 
-PYBIND11_MODULE(leastSqFitter2d, mod) {
-    declareLeastSqFitter2d<afw::math::PolynomialFunction1<double>>(mod, "LeastSqFitter2dPoly");
+void wrapLeastSqFitter2d(lsst::cpputils::python::WrapperCollection &wrappers){
+    declareLeastSqFitter2d<afw::math::PolynomialFunction1<double>>(wrappers, "LeastSqFitter2dPoly");
 }
 
 }  // namespace sip

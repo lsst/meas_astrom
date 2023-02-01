@@ -1,8 +1,0 @@
-## -*- python -*-
-from lsst.sconsUtils import scripts
-scripts.BasicSConscript.pybind11([
-    "leastSqFitter1d",
-    "leastSqFitter2d",
-    "createWcsWithSip",
-    "matchSrcToCatalogue",
-], addUnderscore=False)

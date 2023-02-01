@@ -20,6 +20,7 @@
  * see <https://www.lsstcorp.org/LegalNotices/>.
  */
 #include "pybind11/pybind11.h"
+#include "lsst/cpputils/python.h"
 #include "pybind11/stl.h"
 
 #include <memory>
@@ -37,72 +38,75 @@ namespace meas {
 namespace astrom {
 namespace {
 
-static void declareRecordProxy(py::module &mod) {
-    py::class_<RecordProxy, std::shared_ptr<RecordProxy>> cls(mod, "RecordProxy");
+void declareRecordProxy(lsst::cpputils::python::WrapperCollection &wrappers) {
+    using PyRecordProxy = py::class_<RecordProxy, std::shared_ptr<RecordProxy>> ;
+    wrappers.wrapType(PyRecordProxy(wrappers.module, "RecordProxy"), [](auto &mod, auto &cls) {
+        cls.def_readwrite("record", &RecordProxy::record);
+        cls.def_readwrite("position", &RecordProxy::position);
+        cls.def_readwrite("used", &RecordProxy::used);
 
-    cls.def_readwrite("record", &RecordProxy::record);
-    cls.def_readwrite("position", &RecordProxy::position);
-    cls.def_readwrite("used", &RecordProxy::used);
+        cls.def(py::init<std::shared_ptr<afw::table::SimpleRecord>, geom::Point2D const &>(), "record"_a,
+                "position"_a);
 
-    cls.def(py::init<std::shared_ptr<afw::table::SimpleRecord>, geom::Point2D const &>(), "record"_a,
-            "position"_a);
+        // TO DO: decide if we need to wrap operator std::shared_ptr<lsst::afw::table::SimpleRecord>()
 
-    // TO DO: decide if we need to wrap operator std::shared_ptr<lsst::afw::table::SimpleRecord>()
+        cls.def("__eq__", &RecordProxy::operator==, py::is_operator());
+        cls.def("__ne__", &RecordProxy::operator!=, py::is_operator());
 
-    cls.def("__eq__", &RecordProxy::operator==, py::is_operator());
-    cls.def("__ne__", &RecordProxy::operator!=, py::is_operator());
-
-    cls.def("getX", &RecordProxy::getX);
-    cls.def("getY", &RecordProxy::getY);
+        cls.def("getX", &RecordProxy::getX);
+        cls.def("getY", &RecordProxy::getY);
+    });
 }
 
-static void declareProxyPair(py::module &mod) {
-    py::class_<ProxyPair, std::shared_ptr<ProxyPair>> cls(mod, "ProxyPair");
+void declareProxyPair(lsst::cpputils::python::WrapperCollection &wrappers) {
+    using PyProxyPair =  py::class_<ProxyPair, std::shared_ptr<ProxyPair>>;
+    wrappers.wrapType(PyProxyPair(wrappers.module, "ProxyPair"), [](auto &mod, auto &cls) {
+        cls.def_readwrite("first", &ProxyPair::first);
+        cls.def_readwrite("second", &ProxyPair::second);
+        cls.def_readwrite("distance", &ProxyPair::distance);
+        cls.def_readwrite("pa", &ProxyPair::pa);
 
-    cls.def_readwrite("first", &ProxyPair::first);
-    cls.def_readwrite("second", &ProxyPair::second);
-    cls.def_readwrite("distance", &ProxyPair::distance);
-    cls.def_readwrite("pa", &ProxyPair::pa);
-
-    cls.def(py::init<RecordProxy const &, RecordProxy const &>(), "s1"_a, "s2"_a);
+        cls.def(py::init<RecordProxy const &, RecordProxy const &>(), "s1"_a, "s2"_a);
+    });
 }
 
-static void declareMatchOptimisticBControl(py::module &mod) {
-    py::class_<MatchOptimisticBControl> cls(mod, "MatchOptimisticBControl");
+void declareMatchOptimisticBControl(lsst::cpputils::python::WrapperCollection &wrappers) {
+    using PyMatchOptimisticBControl =     py::class_<MatchOptimisticBControl>;
+    wrappers.wrapType(PyMatchOptimisticBControl(wrappers.module, "MatchOptimisticBControl"), [](auto &mod, auto &cls) {
+        cls.def(py::init<>());
 
-    cls.def(py::init<>());
+        LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, refFluxField);
+        LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, sourceFluxField);
+        LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, numBrightStars);
+        LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, minMatchedPairs);
+        LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, matchingAllowancePix);
+        LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, maxOffsetPix);
+        LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, maxRotationDeg);
+        LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, allowedNonperpDeg);
+        LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, numPointsForShape);
+        LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, maxDeterminant);
 
-    LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, refFluxField);
-    LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, sourceFluxField);
-    LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, numBrightStars);
-    LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, minMatchedPairs);
-    LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, matchingAllowancePix);
-    LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, maxOffsetPix);
-    LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, maxRotationDeg);
-    LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, allowedNonperpDeg);
-    LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, numPointsForShape);
-    LSST_DECLARE_CONTROL_FIELD(cls, MatchOptimisticBControl, maxDeterminant);
-
-    cls.def("validate", &MatchOptimisticBControl::validate);
+        cls.def("validate", &MatchOptimisticBControl::validate);
+    });
 }
 
 }  // namespace
 
-PYBIND11_MODULE(matchOptimisticB, mod) {
-    declareRecordProxy(mod);
-    declareProxyPair(mod);
-    declareMatchOptimisticBControl(mod);
+void wrapMatchOptimisticB(lsst::cpputils::python::WrapperCollection &wrappers){
+    declareRecordProxy(wrappers);
+    declareProxyPair(wrappers);
+    declareMatchOptimisticBControl(wrappers);
 
-    mod.def("makeProxies",
+    wrappers.module.def("makeProxies",
             (ProxyVector(*)(afw::table::SourceCatalog const &, afw::geom::SkyWcs const &,
                             afw::geom::SkyWcs const &)) &
                     makeProxies,
             "sourceCat"_a, "distortedWcs"_a, "tanWcs"_a);
-    mod.def("makeProxies",
+    wrappers.module.def("makeProxies",
             (ProxyVector(*)(afw::table::SimpleCatalog const &, afw::geom::SkyWcs const &)) & makeProxies,
             "posRefCat"_a, "tanWcs"_a);
 
-    mod.def("matchOptimisticB", &matchOptimisticB, "posRefCat"_a, "sourceCat"_a, "control"_a, "wcs"_a,
+    wrappers.module.def("matchOptimisticB", &matchOptimisticB, "posRefCat"_a, "sourceCat"_a, "control"_a, "wcs"_a,
             "posRefBegInd"_a = 0, "verbose"_a = false);
 }
 

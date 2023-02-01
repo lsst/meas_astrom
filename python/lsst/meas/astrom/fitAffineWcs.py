@@ -33,7 +33,7 @@ import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from lsst.utils.timer import timeMethod
 
-from .makeMatchStatistics import makeMatchStatisticsInRadians
+from ._meas_astromLib import makeMatchStatisticsInRadians
 from .setMatchDistance import setMatchDistance
 
 

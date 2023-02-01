@@ -20,6 +20,7 @@
  * see <https://www.lsstcorp.org/LegalNotices/>.
  */
 #include "pybind11/pybind11.h"
+#include "lsst/cpputils/python.h"
 #include "pybind11/eigen.h"
 #include "pybind11/stl.h"
 
@@ -43,35 +44,37 @@ namespace sip {
 namespace {
 
 template <typename MatchT>
-static void declareCreateWcsWithSip(py::module &mod, std::string const &name) {
-    py::class_<CreateWcsWithSip<MatchT>, std::shared_ptr<CreateWcsWithSip<MatchT>>> cls(mod, name.c_str());
+void declareCreateWcsWithSip(lsst::cpputils::python::WrapperCollection &wrappers, std::string const &name) {
+    using PyCreateWcsWithSip = py::class_<CreateWcsWithSip<MatchT>, std::shared_ptr<CreateWcsWithSip<MatchT>>>;
 
-    cls.def(py::init<std::vector<MatchT> const &, afw::geom::SkyWcs const &, int const, geom::Box2I const &,
-                     int const>(),
-            "matches"_a, "linearWcs"_a, "order"_a, "bbox"_a = geom::Box2I(), "ngrid"_a = 0);
+    wrappers.wrapType(PyCreateWcsWithSip(wrappers.module, name.c_str()), [](auto &mod, auto &cls) {
+        cls.def(py::init<std::vector<MatchT> const &, afw::geom::SkyWcs const &, int const, geom::Box2I const &,
+                        int const>(),
+                "matches"_a, "linearWcs"_a, "order"_a, "bbox"_a = geom::Box2I(), "ngrid"_a = 0);
 
-    cls.def("getNewWcs", &CreateWcsWithSip<MatchT>::getNewWcs);
-    cls.def("getScatterInPixels", &CreateWcsWithSip<MatchT>::getScatterInPixels);
-    cls.def("getScatterOnSky", &CreateWcsWithSip<MatchT>::getScatterOnSky);
-    cls.def("getLinearScatterInPixels", &CreateWcsWithSip<MatchT>::getLinearScatterInPixels);
-    cls.def("getLinearScatterOnSky", &CreateWcsWithSip<MatchT>::getLinearScatterOnSky);
-    cls.def("getOrder", &CreateWcsWithSip<MatchT>::getOrder);
-    cls.def("getNPoints", &CreateWcsWithSip<MatchT>::getNPoints);
-    cls.def("getNGrid", &CreateWcsWithSip<MatchT>::getNGrid);
-    cls.def("getSipA", &CreateWcsWithSip<MatchT>::getSipA, py::return_value_policy::copy);
-    cls.def("getSipB", &CreateWcsWithSip<MatchT>::getSipB, py::return_value_policy::copy);
-    cls.def("getSipAp", &CreateWcsWithSip<MatchT>::getSipAp, py::return_value_policy::copy);
-    cls.def("getSipBp", &CreateWcsWithSip<MatchT>::getSipBp, py::return_value_policy::copy);
+        cls.def("getNewWcs", &CreateWcsWithSip<MatchT>::getNewWcs);
+        cls.def("getScatterInPixels", &CreateWcsWithSip<MatchT>::getScatterInPixels);
+        cls.def("getScatterOnSky", &CreateWcsWithSip<MatchT>::getScatterOnSky);
+        cls.def("getLinearScatterInPixels", &CreateWcsWithSip<MatchT>::getLinearScatterInPixels);
+        cls.def("getLinearScatterOnSky", &CreateWcsWithSip<MatchT>::getLinearScatterOnSky);
+        cls.def("getOrder", &CreateWcsWithSip<MatchT>::getOrder);
+        cls.def("getNPoints", &CreateWcsWithSip<MatchT>::getNPoints);
+        cls.def("getNGrid", &CreateWcsWithSip<MatchT>::getNGrid);
+        cls.def("getSipA", &CreateWcsWithSip<MatchT>::getSipA, py::return_value_policy::copy);
+        cls.def("getSipB", &CreateWcsWithSip<MatchT>::getSipB, py::return_value_policy::copy);
+        cls.def("getSipAp", &CreateWcsWithSip<MatchT>::getSipAp, py::return_value_policy::copy);
+        cls.def("getSipBp", &CreateWcsWithSip<MatchT>::getSipBp, py::return_value_policy::copy);
 
-    mod.def("makeCreateWcsWithSip", &makeCreateWcsWithSip<MatchT>, "matches"_a, "linearWcs"_a, "order"_a,
-            "bbox"_a = geom::Box2I(), "ngrid"_a = 0);
+        mod.def("makeCreateWcsWithSip", &makeCreateWcsWithSip<MatchT>, "matches"_a, "linearWcs"_a, "order"_a,
+                "bbox"_a = geom::Box2I(), "ngrid"_a = 0);
+    });
 }
 
 }  // namespace
 
-PYBIND11_MODULE(createWcsWithSip, mod) {
-    declareCreateWcsWithSip<afw::table::ReferenceMatch>(mod, "CreateWcsWithSipReferenceMatch");
-    declareCreateWcsWithSip<afw::table::SourceMatch>(mod, "CreateWcsWithSipSourceMatch");
+void wrapCreateWcsWithSip(lsst::cpputils::python::WrapperCollection &wrappers){
+    declareCreateWcsWithSip<afw::table::ReferenceMatch>(wrappers, "CreateWcsWithSipReferenceMatch");
+    declareCreateWcsWithSip<afw::table::SourceMatch>(wrappers, "CreateWcsWithSipSourceMatch");
 }
 
 }  // namespace sip
