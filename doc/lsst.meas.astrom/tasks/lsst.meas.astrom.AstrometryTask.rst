@@ -45,29 +45,12 @@ Configuration fields
 
 .. lsst-task-config-fields:: lsst.meas.astrom.AstrometryTask
 
-.. _lsst.meas.astrom.AstrometryTask-examples:
-
-Examples
-========
-
-.. Add a brief example here.
-.. If there are multiple examples
-.. (such as one from a command-line context and another that uses the Python API)
-.. you can separate each example into a different subsection for clarity.
-
-See :lsst-task:`lsst.pipe.tasks.photoCal.PhotoCalTask`.
-
-.. note::
-
-   Task documentation is currently in the process of being converted from the old (Doxygen) system to this site.
-   Until that conversion is complete, refer to the `Doxygen documentation for PhotoCalTask <http://doxygen.lsst.codes/stack/doxygen/x_masterDoxyDoc/classlsst_1_1pipe_1_1tasks_1_1photo_cal_1_1_photo_cal_task.html#PhotoCalTask_>`_.
-
 .. _lsst.meas.astrom.AstrometryTask-debug:
 
 Debugging
 =========
 
-The `lsst.pipe.base.cmdLineTask.CmdLineTask` command line task interface supports a flag -d to import debug.py from your PYTHONPATH; see `lsstDebug` for more about debug.py files.
+The `lsst.pipe.base.cmdLineTask.CmdLineTask` command line task interface supports a flag -d to import debug.py from your PYTHONPATH; see :ref:`lsstDebug` for more about debug.py files.
 
 The available variables in AstrometryTask are
 
@@ -90,4 +73,4 @@ To investigate the meas_astrom_astrometry_Debug, put something like
 
     lsstDebug.Info = DebugInfo
 
-into your debug.py file and run this task with the --debug flag.
+into your debug.py file and run this task with the ``--debug`` flag.
