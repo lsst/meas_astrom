@@ -89,7 +89,7 @@ Enabling DEBUG-level logging on this task will report the number of
 outliers rejected and the current estimate of intrinsic scatter at each
 iteration.
 
-FitSipDistortionTask also supports the following lsstDebug variables to
+FitSipDistortionTask also supports the following :ref:`lsstDebug` variables to
 control diagnostic displays:
 
 - FitSipDistortionTask.display: if True, enable display diagnostics.

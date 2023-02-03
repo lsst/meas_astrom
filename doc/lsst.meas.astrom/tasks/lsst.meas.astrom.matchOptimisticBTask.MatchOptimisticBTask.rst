@@ -51,28 +51,12 @@ Configuration fields
 
 .. lsst-task-config-fields:: lsst.meas.astrom.matchOptimisticBTask.MatchOptimisticBTask
 
-.. _lsst.meas.astrom.matchOptimisticBTask.MatchOptimisticBTask-examples:
-
-Examples
-========
-
-.. Add a brief example here.
-.. If there are multiple examples
-.. (such as one from a command-line context and another that uses the Python API)
-.. you can separate each example into a different subsection for clarity.
-
-MatchOptimisticBTask is a subtask of AstrometryTask, which is called by
-PhotoCalTask.
-
-See :lsst-task:`lsst.pipe.tasks.photoCal.PhotoCalTask`
-.. note:: Pipe task will require conversion before this link is useable.
-
 .. _lsst.meas.astrom.matchOptimisticBTask.MatchOptimisticBTask-debug:
 
 Debugging
 =========
 
-The `lsst.pipe.base.cmdLineTask.CmdLineTask` command line task interface supports a flag -d to import debug.py from your PYTHONPATH; see `lsstDebug` for more about debug.py files.
+The `lsst.pipe.base.cmdLineTask.CmdLineTask` command line task interface supports a flag -d to import debug.py from your PYTHONPATH; see :ref:`lsstDebug` for more about debug.py files.
 
 The available variables in MatchOptimisticB are
 
@@ -95,4 +79,4 @@ To investigate the meas_astrom_astrometry_Debug, put something like
 
     lsstDebug.Info = DebugInfo
 
-into your debug.py file and run this task with the --debug flag.
+into your debug.py file and run this task with the ``--debug`` flag.
