@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from ._meas_astromLib import *
+from ._measAstromLib import *
 from .matchOptimisticBTask import *
 from . import sip
 

@@ -1,7 +1,7 @@
 # -*- python -*-
 from lsst.sconsUtils import scripts
-scripts.BasicSConscript.python(['_meas_astromLib'], [
-    '_meas_astromLib.cc',
+scripts.BasicSConscript.python(['_measAstromLib'], [
+    '_measAstromLib.cc',
     'makeMatchStatistics.cc',
     'matchOptimisticB/matchOptimisticB.cc',
     'polynomialTransform.cc',

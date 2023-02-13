@@ -28,7 +28,7 @@ from scipy.stats import sigmaclip
 
 import lsst.pipe.base as pipeBase
 
-from ._meas_astromLib import construct_pattern_and_shift_rot_matrix
+from ._measAstromLib import construct_pattern_and_shift_rot_matrix
 
 
 def _rotation_matrix_chi_sq(flattened_rot_matrix,

@@ -21,7 +21,9 @@
 #
 
 import lsst.afw.geom  # for Box2I
-from .._meas_astromLib import *
 
+from .._measAstromLib import (CreateWcsWithSipReferenceMatch,
+                              CreateWcsWithSipSourceMatch, LeastSqFitter1dPoly,
+                              LeastSqFitter2dPoly, MatchSrcToCatalogue, makeCreateWcsWithSip)
 from .genDistortedImage import *
 from .sourceMatchStatistics import *

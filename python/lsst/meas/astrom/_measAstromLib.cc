@@ -22,7 +22,7 @@ void wrapMatchOptimisticB(WrapperCollection &wrappers);
 void wrapMakeMatchStatistics(WrapperCollection &wrappers);
 void wrapPessimisticPatternMatcherUtils(WrapperCollection &wrappers);
 
-PYBIND11_MODULE(_meas_astromLib, mod) {
+PYBIND11_MODULE(_measAstromLib, mod) {
     WrapperCollection wrappers(mod, "lsst.meas.astrom");
 
     wrappers.addInheritanceDependency("lsst.afw.math");
