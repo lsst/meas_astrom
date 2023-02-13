@@ -20,6 +20,7 @@
  * see <https://www.lsstcorp.org/LegalNotices/>.
  */
 #include "pybind11/pybind11.h"
+#include "lsst/cpputils/python.h"
 #include "pybind11/stl.h"
 
 #include "lsst/meas/astrom/makeMatchStatistics.h"
@@ -33,7 +34,7 @@ namespace astrom {
 namespace {
 
 template <typename MatchT>
-static void declareMakeMatchStatistics(py::module& mod) {
+void declareMakeMatchStatistics(py::module& mod) {
     mod.def("makeMatchStatistics", &makeMatchStatistics<MatchT>, "matchList"_a, "flags"_a,
             "sctrl"_a = afw::math::StatisticsControl());
     mod.def("makeMatchStatisticsInPixels", &makeMatchStatisticsInPixels<MatchT>, "wcs"_a, "matchList"_a,
@@ -44,9 +45,8 @@ static void declareMakeMatchStatistics(py::module& mod) {
 
 }  // namespace
 
-PYBIND11_MODULE(makeMatchStatistics, mod) {
-    py::module::import("lsst.afw.math");
-
+void wrapMakeMatchStatistics(lsst::cpputils::python::WrapperCollection &wrappers){
+    auto &mod = wrappers.module;
 
     declareMakeMatchStatistics<afw::table::ReferenceMatch>(mod);
     declareMakeMatchStatistics<afw::table::SourceMatch>(mod);

@@ -24,9 +24,9 @@
  */
 
 #include "pybind11/pybind11.h"
+#include "lsst/cpputils/python.h"
 #include "pybind11/stl.h"
 #include "pybind11/eigen.h"
-#include "numpy/arrayobject.h"
 #include "ndarray/pybind11.h"
 
 #include "lsst/meas/astrom/pessimisticPatternMatcherUtils.h"
@@ -38,16 +38,17 @@ namespace lsst {
 namespace meas {
 namespace astrom {
 
-PYBIND11_MODULE(pessimisticPatternMatcherUtils, mod) {
-    py::class_<PatternResult>(mod, "PatternResult")
-            .def_readonly("candidate_pairs", &PatternResult::candidate_pairs)
-            .def_readonly("shift_rot_matrix", &PatternResult::shift_rot_matrix)
-            .def_readonly("cos_shift", &PatternResult::cos_shift)
-            .def_readonly("sin_rot", &PatternResult::sin_rot)
-            .def_readonly("success", &PatternResult::success);
-    mod.def("construct_pattern_and_shift_rot_matrix", &construct_pattern_and_shift_rot_matrix,
-            "src_pattern_array"_a, "src_delta_array"_a, "src_dist_array"_a, "dist_array"_a, "id_array"_a,
-            "reference_array"_a, "n_match"_a, "max_cos_theta_shift"_a, "max_cos_rot_sq"_a, "max_dist_rad"_a);
+void wrapPessimisticPatternMatcherUtils(lsst::cpputils::python::WrapperCollection &wrappers){
+    wrappers.wrapType(py::class_<PatternResult>(wrappers.module, "PatternResult"), [](auto &mod, auto &cls) {
+        cls.def_readonly("candidate_pairs", &PatternResult::candidate_pairs);
+        cls.def_readonly("shift_rot_matrix", &PatternResult::shift_rot_matrix);
+        cls.def_readonly("cos_shift", &PatternResult::cos_shift);
+        cls.def_readonly("sin_rot", &PatternResult::sin_rot);
+        cls.def_readonly("success", &PatternResult::success);
+        mod.def("construct_pattern_and_shift_rot_matrix", &construct_pattern_and_shift_rot_matrix,
+                "src_pattern_array"_a, "src_delta_array"_a, "src_dist_array"_a, "dist_array"_a, "id_array"_a,
+                "reference_array"_a, "n_match"_a, "max_cos_theta_shift"_a, "max_cos_rot_sq"_a, "max_dist_rad"_a);
+    });
 }
 
 }  // namespace astrom

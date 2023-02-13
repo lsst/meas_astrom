@@ -1,2 +1,2 @@
 
-from .matchOptimisticB import *
+from .._measAstromLib import MatchOptimisticBControl, ProxyPair, RecordProxy, makeProxies, matchOptimisticB

@@ -30,9 +30,10 @@ import lsst.afw.geom
 import lsst.afw.display
 from lsst.utils.timer import timeMethod
 
-from .scaledPolynomialTransformFitter import ScaledPolynomialTransformFitter, OutlierRejectionControl
-from .sipTransform import SipForwardTransform, SipReverseTransform, makeWcs
-from .makeMatchStatistics import makeMatchStatisticsInRadians
+from ._measAstromLib import (OutlierRejectionControl,
+                             ScaledPolynomialTransformFitter,
+                             SipForwardTransform, SipReverseTransform,
+                             makeMatchStatisticsInRadians, makeWcs)
 
 from .setMatchDistance import setMatchDistance
 
