@@ -200,7 +200,7 @@ class MatchPessimisticBTask(pipeBase.Task):
     """
 
     ConfigClass = MatchPessimisticBConfig
-    _DefaultName = "matchObjectsToSources"
+    _DefaultName = "matchPessimisticB"
 
     def __init__(self, **kwargs):
         pipeBase.Task.__init__(self, **kwargs)
