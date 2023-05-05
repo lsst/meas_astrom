@@ -267,6 +267,15 @@ class MatchPessimisticBTask(pipeBase.Task):
                               int(self.config.minFracMatchedPairs
                                   * min([len(refCat), len(goodSourceCat)])))
 
+        if len(goodSourceCat) <= self.config.numPointsForShape:
+            msg = (f"Not enough catalog objects ({len(goodSourceCat)}) to make a "
+                   f"shape for the matcher (need {self.config.numPointsForShape}).")
+            raise RuntimeError(msg)
+        if len(refCat) <= self.config.numPointsForShape:
+            msg = (f"Not enough refcat objects ({len(refCat)}) to make a "
+                   f"shape for the matcher (need {self.config.numPointsForShape}).")
+            raise RuntimeError(msg)
+
         if len(refCat) > self.config.maxRefObjects:
             self.log.warning(
                 "WARNING: Reference catalog larger that maximum allowed. "
