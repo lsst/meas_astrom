@@ -66,6 +66,15 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         """
         self.doTest(afwGeom.makeIdentityTransform())
 
+    def testNoSourceSelector(self):
+        """Test fit with no distortion, with no source selector.
+        """
+        config = AstrometryTask.ConfigClass()
+        config.wcsFitter.order = 2
+        config.wcsFitter.numRejIter = 0
+        config.doSourceSelection = False
+        self.doTest(afwGeom.makeIdentityTransform(), config=config)
+
     def testRadial(self):
         """Test fit with radial distortion
 
@@ -131,16 +140,17 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         self.assertTrue(results.scatterOnSky is None)
         self.assertTrue(results.matches is None)
 
-    def doTest(self, pixelsToTanPixels, order=3):
+    def doTest(self, pixelsToTanPixels, order=3, config=None):
         """Test using pixelsToTanPixels to distort the source positions
         """
         distortedWcs = afwGeom.makeModifiedWcs(pixelTransform=pixelsToTanPixels, wcs=self.tanWcs,
                                                modifyActualPixels=False)
         self.exposure.setWcs(distortedWcs)
         sourceCat = self.makeSourceCat(distortedWcs)
-        config = AstrometryTask.ConfigClass()
-        config.wcsFitter.order = order
-        config.wcsFitter.numRejIter = 0
+        if config is None:
+            config = AstrometryTask.ConfigClass()
+            config.wcsFitter.order = order
+            config.wcsFitter.numRejIter = 0
         solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
         results = solver.run(
             sourceCat=sourceCat,

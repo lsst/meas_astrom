@@ -54,8 +54,9 @@ class DirectMatchTestCase(lsst.utils.tests.TestCase):
         del self.refObjLoader
         del self.references
 
-    def checkMatching(self, catalog):
-        config = lsst.meas.astrom.DirectMatchConfig()
+    def checkMatching(self, catalog, config=None):
+        if config is None:
+            config = lsst.meas.astrom.DirectMatchConfig()
         task = lsst.meas.astrom.DirectMatchTask(config=config, refObjLoader=self.refObjLoader)
         results = task.run(catalog, self.filter)
 
@@ -84,6 +85,12 @@ class DirectMatchTestCase(lsst.utils.tests.TestCase):
         ra += offset/cosDec*np.random.uniform(-1.0, 1.0, num)
         dec += offset*np.random.uniform(-1.0, 1.0, num)
         self.checkMatching(references)
+
+    def testNoSourceSelection(self):
+        """Same results with source selector disabled."""
+        config = lsst.meas.astrom.DirectMatchConfig()
+        config.doSourceSelection = False
+        self.checkMatching(self.references, config=config)
 
 
 class DirectMatchMemoryTestCase(lsst.utils.tests.MemoryTestCase):

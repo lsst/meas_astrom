@@ -50,9 +50,16 @@ class RefMatchConfig(pexConfig.Config):
         default=2,
         min=0,
     )
+    doSourceSelection = pexConfig.Field(
+        dtype=bool,
+        doc="Select sources to be matched with `sourceSelector`?"
+            " Set to False if you want to use exactly the sources that are passed in.",
+        default=True
+    )
     sourceSelector = sourceSelectorRegistry.makeField(
         doc="How to select sources for cross-matching.",
         default="science",
+        optional=True
     )
     referenceSelector = pexConfig.ConfigurableField(
         target=ReferenceSourceSelectorTask,
@@ -100,7 +107,8 @@ class RefMatchTask(pipeBase.Task):
                                    "the configured sourceFluxType")
 
         self.makeSubtask("matcher")
-        self.makeSubtask("sourceSelector")
+        if self.config.doSourceSelection:
+            self.makeSubtask("sourceSelector")
         self.makeSubtask("referenceSelector")
 
     def setRefObjLoader(self, refObjLoader):
@@ -148,7 +156,12 @@ class RefMatchTask(pipeBase.Task):
 
         expMd = self._getExposureMetadata(exposure)
 
-        sourceSelection = self.sourceSelector.run(sourceCat)
+        if self.config.doSourceSelection:
+            sourceSelection = self.sourceSelector.run(sourceCat)
+            catalog = sourceSelection.sourceCat
+        else:
+            sourceSelection = None
+            catalog = sourceCat
 
         sourceFluxField = "slot_%sFlux_instFlux" % (self.config.sourceFluxType)
 
@@ -170,7 +183,7 @@ class RefMatchTask(pipeBase.Task):
 
         matchRes = self.matcher.matchObjectsToSources(
             refCat=refSelection.sourceCat,
-            sourceCat=sourceSelection.sourceCat,
+            sourceCat=catalog,
             wcs=expMd.wcs,
             sourceFluxField=sourceFluxField,
             refFluxField=loadRes.fluxField,
@@ -187,7 +200,7 @@ class RefMatchTask(pipeBase.Task):
             frame = int(debug.frame)
             displayAstrometry(
                 refCat=refSelection.sourceCat,
-                sourceCat=sourceSelection.sourceCat,
+                sourceCat=catalog,
                 matches=matchRes.matches,
                 exposure=exposure,
                 bbox=expMd.bbox,
