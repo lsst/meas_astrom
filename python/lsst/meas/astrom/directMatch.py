@@ -41,7 +41,8 @@ class DirectMatchTask(Task):
     butler : `None`
         Compatibility parameter. Should not be used.
     refObjLoader : `lsst.meas.algorithms.ReferenceObjectLoader` or `None`
-        For loading reference objects.
+        A reference object loader object; gen3 pipeline tasks will pass `None`
+        and call `setRefObjLoader` in `runQuantum`.
     **kwargs
         Other keyword arguments required for instantiating a Task (such as
         ``config``).

@@ -86,14 +86,15 @@ class RefMatchTask(pipeBase.Task):
     Parameters
     ----------
     refObjLoader : `lsst.meas.algorithms.ReferenceLoader`
-        A reference object loader object
+        A reference object loader object; gen3 pipeline tasks will pass `None`
+        and call `setRefObjLoader` in `runQuantum`.
     **kwargs
         additional keyword arguments for pipe_base `lsst.pipe.base.Task`
     """
     ConfigClass = RefMatchConfig
     _DefaultName = "calibrationBaseClass"
 
-    def __init__(self, refObjLoader, **kwargs):
+    def __init__(self, refObjLoader=None, **kwargs):
         pipeBase.Task.__init__(self, **kwargs)
         if refObjLoader:
             self.refObjLoader = refObjLoader
