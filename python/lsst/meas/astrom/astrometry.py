@@ -113,8 +113,8 @@ class AstrometryTask(RefMatchTask):
     schema : `lsst.afw.table.Schema`
         Used to set "calib_astrometry_used" flag in output source catalog.
     **kwargs
-        additional keyword arguments for pipe_base
-        `lsst.pipe.base.Task.__init__`
+        Additional keyword arguments for pipe_base
+        `lsst.pipe.base.Task.__init__`.
     """
     ConfigClass = AstrometryConfig
     _DefaultName = "astrometricSolver"
