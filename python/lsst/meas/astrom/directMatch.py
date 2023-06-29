@@ -3,9 +3,9 @@ __all__ = ["DirectMatchConfig", "DirectMatchTask", "DirectMatchConfigWithoutLoad
 
 import warnings
 
-from lsst.pex.config import Config, Field, ConfigurableField
+from lsst.pex.config import Config, Field, ConfigurableField, ConfigField
 from lsst.pipe.base import Task, Struct
-from lsst.meas.algorithms import (LoadReferenceObjectsTask, ScienceSourceSelectorTask,
+from lsst.meas.algorithms import (LoadReferenceObjectsConfig, ScienceSourceSelectorTask,
                                   ReferenceSourceSelectorTask)
 import lsst.afw.table as afwTable
 from lsst.geom import arcseconds, averageSpherePoint
@@ -25,7 +25,8 @@ class DirectMatchConfigWithoutLoader(Config):
 class DirectMatchConfig(DirectMatchConfigWithoutLoader):
     """Configuration for `DirectMatchTask`.
     """
-    refObjLoader = ConfigurableField(target=LoadReferenceObjectsTask, doc="Load reference objects")
+    refObjLoader = ConfigField(dtype=LoadReferenceObjectsConfig,
+                               doc="Configuration of reference object loader")
 
 
 class DirectMatchTask(Task):
