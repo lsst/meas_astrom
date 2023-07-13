@@ -24,64 +24,17 @@ __all__ = ["FitAffineWcsTask", "FitAffineWcsConfig", "TransformedSkyWcsMaker"]
 
 import astshim
 import numpy as np
-from scipy.optimize import least_squares
+from scipy.linalg import lstsq
 
 from lsst.afw.geom import makeSkyWcs, SkyWcs
 import lsst.afw.math
-from lsst.geom import Point2D, degrees, arcseconds, radians
+from lsst.geom import Point2D, radians
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from lsst.utils.timer import timeMethod
 
 from ._measAstromLib import makeMatchStatisticsInRadians
 from .setMatchDistance import setMatchDistance
-
-
-def _chiFunc(x, refPoints, srcPixels, wcsMaker):
-    """Function to minimize to fit the shift and rotation in the WCS.
-
-    Parameters
-    ----------
-    x : `numpy.ndarray`
-        Current fit values to test. Float values in array are:
-
-        - ``bearingTo``: Direction to move the wcs coord in.
-        - ``separation``: Distance along sphere to move wcs coord in.
-        - ``affine0,0``: [0, 0] value of the 2x2 affine transform matrix.
-        - ``affine0,1``: [0, 1] value of the 2x2 affine transform matrix.
-        - ``affine1,0``: [1, 0] value of the 2x2 affine transform matrix.
-        - ``affine1,1``: [1, 1] value of the 2x2 affine transform matrix.
-    refPoints : `list` of `lsst.afw.geom.SpherePoint`
-        Reference object on Sky locations.
-    srcPixels : `list` of `lsst.geom.Point2D`
-        Source object positions on the pixels.
-    wcsMaker : `TransformedSkyWcsMaker`
-        Container class for producing the updated Wcs.
-
-    Returns
-    -------
-    outputSeparations : `list` of `float`
-        Separation between predicted source location and reference location in
-        radians.
-    """
-    wcs = wcsMaker.makeWcs(x[:2], x[2:].reshape((2, 2)))
-
-    outputSeparations = []
-    # Fit both sky to pixel and pixel to sky to avoid any non-invertible
-    # affine matrices.
-    for ref, src in zip(refPoints, srcPixels):
-        skySep = ref.getTangentPlaneOffset(wcs.pixelToSky(src))
-        outputSeparations.append(skySep[0].asArcseconds())
-        outputSeparations.append(skySep[1].asArcseconds())
-        xySep = src - wcs.skyToPixel(ref)
-        # Convert the pixel separations to units, arcseconds to match units
-        # of sky separation.
-        outputSeparations.append(
-            xySep[0] * wcs.getPixelScale(src).asArcseconds())
-        outputSeparations.append(
-            xySep[1] * wcs.getPixelScale(src).asArcseconds())
-
-    return outputSeparations
 
 
 # Keeping this around for now in case any of the fit parameters need to be
@@ -163,52 +116,62 @@ class FitAffineWcsTask(pipeBase.Task):
         # appends the new transform.
         wcsMaker = TransformedSkyWcsMaker(initWcs)
 
-        refPoints = []
-        srcPixels = []
-        offsetLong = 0
-        offsetLat = 0
-        # Grab reference coordinates and source centroids. Compute the average
-        # direction and separation between the reference and the sources.
-        for match in matches:
+        # Grab the initial transformations going back from sky coordinates
+        # and forward from pixel coordinates.
+        back = wcsMaker.frameDict.getMapping(wcsMaker.frameMax, wcsMaker.frameMax-1)
+        forward = wcsMaker.lastMapBeforeSky
+
+        # Create containers for the data going into the Affine fit. This will
+        # be done by approximating the solution to  Ax=b where x will be the
+        # affine parameters and a linear shift. The approximate solution is
+        # calculated using a least squares minimization of the Ax=b equation.
+        #
+        # This is looking to find the affine transform of the following form:
+        # [x', y'] = [[a, b], [c, d]] [x, y] + [s, t]
+        #
+        # where a,b,c,d are the parameters of the affine transform, and s,t
+        # are linear shift parameters.
+        #
+        # To solve for these unknown parameters the unknown matrix x in the
+        # equation Ax=b will be of the form:
+        # [a, b, c, d, s, t].
+        #
+        # This implies that each constraining point will correspond to two rows
+        # in the A matrix in the following form:
+        # [x_i, y_i, 0, 0, 1, 0]
+        # [0, 0, x_i, y_i, 0, 1].
+        #
+        # The corresponding output points in the b vector will have the form:
+        # [x'_i, y'_i, x'_(i+i), y'_(i+1)....]
+        A = np.zeros((len(matches)*2, 6), dtype=float)
+        b = np.empty(len(matches)*2, dtype=float)
+
+        # Constant terms related to the shift in x and and y parameters.
+        A[::2, 4] = 1
+        A[1::2, 5] = 1
+
+        # loop over each of the matches and populate the matrices.
+        for i, match in enumerate(matches):
             refCoord = match.first.getCoord()
-            refPoints.append(refCoord)
+            b[i*2:i*2+2] = back.applyForward(refCoord)
+
             srcCentroid = match.second.getCentroid()
-            srcPixels.append(srcCentroid)
-            srcCoord = initWcs.pixelToSky(srcCentroid)
-            deltaLong, deltaLat = srcCoord.getTangentPlaneOffset(refCoord)
-            offsetLong += deltaLong.asArcseconds()
-            offsetLat += deltaLat.asArcseconds()
-        offsetLong /= len(srcPixels)
-        offsetLat /= len(srcPixels)
-        offsetDist = np.sqrt(offsetLong ** 2 + offsetLat ** 2)
-        if offsetDist > 0.:
-            offsetDir = np.degrees(np.arccos(offsetLong / offsetDist))
-        else:
-            offsetDir = 0.
-        offsetDir *= np.sign(offsetLat)
-        self.log.debug("Initial shift guess: Direction: %.3f, Dist %.3f...",
-                       offsetDir, offsetDist)
+            val = forward.applyForward(srcCentroid)
+            A[i*2, :2] = val
+            A[i*2+1, 2:4] = val
 
-        # Best performing fitter in scipy tried so far (vs. default settings in
-        # minimize). Exits early because of the xTol value which cannot be
-        # disabled in scipy1.2.1. Matrix starting values are non-zero as this
-        # results in better fit off-diagonal terms.
-        fit = least_squares(
-            _chiFunc,
-            x0=[offsetDir, offsetDist, 1., 1e-8, 1e-8, 1.],
-            args=(refPoints, srcPixels, wcsMaker),
-            method='dogbox',
-            bounds=[[-360, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
-                    [360, np.inf, np.inf, np.inf, np.inf, np.inf]],
-            ftol=2.3e-16,
-            gtol=2.31e-16,
-            xtol=2.3e-16)
-        self.log.debug("Best fit: Direction: %.3f, Dist: %.3f, "
+        # solve for the affine and shift parameters
+        # The lapack_driver parameter is set to the quickest routine tested for
+        # this application at the time of writing.
+        fit = lstsq(A, b, lapack_driver='gelsy')[0]
+
+        self.log.debug("Linear shift in x: %.3f, y: %.3f, "
                        "Affine matrix: [[%.6f, %.6f], [%.6f, %.6f]]...",
-                       fit.x[0], fit.x[1],
-                       fit.x[2], fit.x[3], fit.x[4], fit.x[5])
+                       fit[4], fit[5],
+                       fit[0], fit[1], fit[2], fit[3])
 
-        wcs = wcsMaker.makeWcs(fit.x[:2], fit.x[2:].reshape((2, 2)))
+        # create the final wcs
+        wcs = wcsMaker.makeWcs(fit[4:], fit[:4].reshape((2, 2)))
 
         # Copied from other fit*WcsTasks.
         if refCat is not None:
@@ -286,7 +249,7 @@ class TransformedSkyWcsMaker():
 
         self.origin = inputSkyWcs.getSkyOrigin()
 
-    def makeWcs(self, crvalOffset, affMatrix):
+    def makeWcs(self, linearShift, affMatrix):
         """Apply a shift and affine transform to the WCS internal to this
         class.
 
@@ -294,8 +257,9 @@ class TransformedSkyWcsMaker():
 
         Parameters
         ----------
-        crval_shift : `numpy.ndarray`, (2,)
-            Shift in radians to apply to the Wcs origin/crvals.
+        linearShift : `numpy.ndarray`, (2,)
+            A linear shift to apply at the same time as applying the affine
+            matrix transform.
         aff_matrix : 'numpy.ndarray', (3, 3)
             Affine matrix to apply to the mapping/transform to add to the
             WCS.
@@ -311,14 +275,14 @@ class TransformedSkyWcsMaker():
         # map and gives us our final shift position.
         iwcsToSkyWcs = makeSkyWcs(
             Point2D(0., 0.),
-            self.origin.offset(crvalOffset[0] * degrees,
-                               crvalOffset[1] * arcseconds),
+            self.origin,
             np.array([[1., 0.], [0., 1.]]))
         iwcToSkyMap = iwcsToSkyWcs.getFrameDict().getMapping("PIXELS", "SKY")
 
         # Append a simple affine Matrix transform to the current to the
         # second to last frame mapping. e.g. the one just before IWC to SKY.
         newMapping = self.lastMapBeforeSky.then(astshim.MatrixMap(affMatrix))
+        newMapping = newMapping.then(astshim.ShiftMap(linearShift))
 
         # Create a new frame dict starting from the input_sky_wcs's first
         # frame. Append the correct mapping created above and our new on
