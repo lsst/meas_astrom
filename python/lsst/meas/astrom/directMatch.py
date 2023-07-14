@@ -14,12 +14,6 @@ class DirectMatchConfigWithoutLoader(Config):
     ``refObjLoader`` will be passed to this task.
     """
     matchRadius = Field(dtype=float, default=0.25, doc="Matching radius, arcsec")
-    doSourceSelection = Field(
-        dtype=bool,
-        doc="Select sources to be matched with `sourceSelector`?"
-        " Set to False if you want to use exactly the sources that are passed in.",
-        default=True,
-    )
     sourceSelection = ConfigurableField(target=ScienceSourceSelectorTask,
                                         doc="Selection of science sources")
     referenceSelection = ConfigurableField(target=ReferenceSourceSelectorTask,
@@ -53,8 +47,7 @@ class DirectMatchTask(Task):
     def __init__(self, refObjLoader=None, **kwargs):
         Task.__init__(self, **kwargs)
         self.refObjLoader = refObjLoader
-        if self.config.doSourceSelection:
-            self.makeSubtask("sourceSelection")
+        self.makeSubtask("sourceSelection")
         self.makeSubtask("referenceSelection")
 
     def setRefObjLoader(self, refObjLoader):
@@ -95,27 +88,21 @@ class DirectMatchTask(Task):
             raise RuntimeError("Running matcher task with no refObjLoader set in __ini__ or setRefObjLoader")
         circle = self.calculateCircle(catalog)
         matchMeta = self.refObjLoader.getMetadataCircle(circle.center, circle.radius, filterName, epoch=epoch)
-
         emptyResult = Struct(matches=[], matchMeta=matchMeta)
-        if self.config.doSourceSelection:
-            sourceSelection = self.sourceSelection.run(catalog)
-            if len(sourceSelection.sourceCat) == 0:
-                self.log.warning("No objects selected from %d objects in source catalog", len(catalog))
-                return emptyResult
-            sourceCat = sourceSelection.sourceCat
-        else:
-            sourceSelection = None
-            sourceCat = catalog
-
+        sourceSelection = self.sourceSelection.run(catalog)
+        if len(sourceSelection.sourceCat) == 0:
+            self.log.warning("No objects selected from %d objects in source catalog", len(catalog))
+            return emptyResult
         refData = self.refObjLoader.loadSkyCircle(circle.center, circle.radius, filterName, epoch=epoch)
         refCat = refData.refCat
         refSelection = self.referenceSelection.run(refCat)
         if len(refSelection.sourceCat) == 0:
             self.log.warning("No objects selected from %d objects in reference catalog", len(refCat))
             return emptyResult
-        matches = afwTable.matchRaDec(refSelection.sourceCat, sourceCat, self.config.matchRadius*arcseconds)
+        matches = afwTable.matchRaDec(refSelection.sourceCat, sourceSelection.sourceCat,
+                                      self.config.matchRadius*arcseconds)
         self.log.info("Matched %d from %d/%d input and %d/%d reference sources",
-                      len(matches), len(sourceCat), len(catalog),
+                      len(matches), len(sourceSelection.sourceCat), len(catalog),
                       len(refSelection.sourceCat), len(refCat))
         return Struct(matches=matches, matchMeta=matchMeta, refCat=refCat, sourceSelection=sourceSelection,
                       refSelection=refSelection)

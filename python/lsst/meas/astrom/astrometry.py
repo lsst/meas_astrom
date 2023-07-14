@@ -216,14 +216,11 @@ class AstrometryTask(RefMatchTask):
 
         expMd = self._getExposureMetadata(exposure)
 
-        if self.config.doSourceSelection:
-            sourceSelection = self.sourceSelector.run(sourceCat)
-            self.log.info("Purged %d sources, leaving %d good sources",
-                          len(sourceCat) - len(sourceSelection.sourceCat),
-                          len(sourceSelection.sourceCat))
-            catalog = sourceSelection.sourceCat
-        else:
-            catalog = sourceCat
+        sourceSelection = self.sourceSelector.run(sourceCat)
+
+        self.log.info("Purged %d sources, leaving %d good sources",
+                      len(sourceCat) - len(sourceSelection.sourceCat),
+                      len(sourceSelection.sourceCat))
 
         loadRes = self.refObjLoader.loadPixelBox(
             bbox=expMd.bbox,
@@ -245,7 +242,7 @@ class AstrometryTask(RefMatchTask):
             frame = int(debug.frame)
             displayAstrometry(
                 refCat=refSelection.sourceCat,
-                sourceCat=catalog,
+                sourceCat=sourceSelection.sourceCat,
                 exposure=exposure,
                 bbox=expMd.bbox,
                 frame=frame,
@@ -263,7 +260,7 @@ class AstrometryTask(RefMatchTask):
                     tryRes = self._matchAndFitWcs(
                         refCat=refSelection.sourceCat,
                         sourceCat=sourceCat,
-                        goodSourceCat=catalog,
+                        goodSourceCat=sourceSelection.sourceCat,
                         refFluxField=loadRes.fluxField,
                         bbox=expMd.bbox,
                         wcs=wcs,
