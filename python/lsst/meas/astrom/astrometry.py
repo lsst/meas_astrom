@@ -108,18 +108,19 @@ class AstrometryTask(RefMatchTask):
     Parameters
     ----------
     refObjLoader : `lsst.meas.algorithms.ReferenceLoader`
-        A reference object loader object
+        A reference object loader object; gen3 pipeline tasks will pass `None`
+        and call `setRefObjLoader` in `runQuantum`.
     schema : `lsst.afw.table.Schema`
         Used to set "calib_astrometry_used" flag in output source catalog.
     **kwargs
-        additional keyword arguments for pipe_base
-        `lsst.pipe.base.Task.__init__`
+        Additional keyword arguments for pipe_base
+        `lsst.pipe.base.Task.__init__`.
     """
     ConfigClass = AstrometryConfig
     _DefaultName = "astrometricSolver"
 
-    def __init__(self, refObjLoader, schema=None, **kwargs):
-        RefMatchTask.__init__(self, refObjLoader, **kwargs)
+    def __init__(self, refObjLoader=None, schema=None, **kwargs):
+        RefMatchTask.__init__(self, refObjLoader=refObjLoader, **kwargs)
 
         if schema is not None:
             self.usedKey = schema.addField("calib_astrometry_used", type="Flag",

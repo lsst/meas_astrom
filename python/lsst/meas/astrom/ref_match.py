@@ -65,7 +65,6 @@ class RefMatchConfig(pexConfig.Config):
     )
 
     def setDefaults(self):
-        self.sourceSelector.name = "science"
         self.sourceSelector['science'].fluxLimit.fluxField = \
             'slot_%sFlux_instFlux' % (self.sourceFluxType)
         self.sourceSelector['science'].signalToNoise.fluxField = \
@@ -80,14 +79,15 @@ class RefMatchTask(pipeBase.Task):
     Parameters
     ----------
     refObjLoader : `lsst.meas.algorithms.ReferenceLoader`
-        A reference object loader object
+        A reference object loader object; gen3 pipeline tasks will pass `None`
+        and call `setRefObjLoader` in `runQuantum`.
     **kwargs
-        additional keyword arguments for pipe_base `lsst.pipe.base.Task`
+        Additional keyword arguments for pipe_base `lsst.pipe.base.Task`.
     """
     ConfigClass = RefMatchConfig
     _DefaultName = "calibrationBaseClass"
 
-    def __init__(self, refObjLoader, **kwargs):
+    def __init__(self, refObjLoader=None, **kwargs):
         pipeBase.Task.__init__(self, **kwargs)
         if refObjLoader:
             self.refObjLoader = refObjLoader
@@ -104,12 +104,12 @@ class RefMatchTask(pipeBase.Task):
         self.makeSubtask("referenceSelector")
 
     def setRefObjLoader(self, refObjLoader):
-        """Sets the reference object loader for the task
+        """Sets the reference object loader for the task.
 
         Parameters
         ----------
         refObjLoader
-            An instance of a reference object loader task or class
+            An instance of a reference object loader task or class.
         """
         self.refObjLoader = refObjLoader
 

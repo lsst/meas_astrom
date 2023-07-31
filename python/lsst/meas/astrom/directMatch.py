@@ -1,8 +1,6 @@
 
 __all__ = ["DirectMatchConfig", "DirectMatchTask", "DirectMatchConfigWithoutLoader"]
 
-import warnings
-
 from lsst.pex.config import Config, Field, ConfigurableField, ConfigField
 from lsst.pipe.base import Task, Struct
 from lsst.meas.algorithms import (LoadReferenceObjectsConfig, ScienceSourceSelectorTask,
@@ -37,7 +35,8 @@ class DirectMatchTask(Task):
     butler : `None`
         Compatibility parameter. Should not be used.
     refObjLoader : `lsst.meas.algorithms.ReferenceObjectLoader` or `None`
-        For loading reference objects.
+        A reference object loader object; gen3 pipeline tasks will pass `None`
+        and call `setRefObjLoader` in `runQuantum`.
     **kwargs
         Other keyword arguments required for instantiating a Task (such as
         ``config``).
@@ -45,15 +44,8 @@ class DirectMatchTask(Task):
     ConfigClass = DirectMatchConfig
     _DefaultName = "directMatch"
 
-    def __init__(self, butler=None, refObjLoader=None, **kwargs):
+    def __init__(self, refObjLoader=None, **kwargs):
         Task.__init__(self, **kwargs)
-        if not refObjLoader:
-            if butler:
-                if not isinstance(self.config, DirectMatchConfig):
-                    raise RuntimeError("DirectMatchTask must be initialized with DirectMatchConfig "
-                                       "if a refObjLoader is not supplied at initialization")
-                warnings.warn("The 'butler' parameter is no longer used and can be safely removed.",
-                              category=FutureWarning, stacklevel=2)
         self.refObjLoader = refObjLoader
         self.makeSubtask("sourceSelection")
         self.makeSubtask("referenceSelection")
