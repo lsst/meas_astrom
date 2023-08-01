@@ -45,7 +45,7 @@ namespace {
 
 template <typename MatchT>
 void declareCreateWcsWithSip(lsst::cpputils::python::WrapperCollection &wrappers, std::string const &name) {
-    using PyCreateWcsWithSip = py::class_<CreateWcsWithSip<MatchT>, std::shared_ptr<CreateWcsWithSip<MatchT>>>;
+    using PyCreateWcsWithSip = py::class_<CreateWcsWithSip<MatchT>>;
 
     wrappers.wrapType(PyCreateWcsWithSip(wrappers.module, name.c_str()), [](auto &mod, auto &cls) {
         cls.def(py::init<std::vector<MatchT> const &, afw::geom::SkyWcs const &, int const, geom::Box2I const &,
