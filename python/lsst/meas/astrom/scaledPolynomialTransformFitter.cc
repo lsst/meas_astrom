@@ -49,7 +49,7 @@ void declareOutlierRejectionControl(lsst::cpputils::python::WrapperCollection &w
 }
 
 void declareScaledPolynomialTransformFitter(lsst::cpputils::python::WrapperCollection &wrappers) {
-    using PyClass = py::class_<ScaledPolynomialTransformFitter>;
+    using PyClass = py::classh<ScaledPolynomialTransformFitter>;
 
     wrappers.wrapType(PyClass(wrappers.module, "ScaledPolynomialTransformFitter"), [](auto &mod, auto &cls) {
         cls.def_static("fromMatches", &ScaledPolynomialTransformFitter::fromMatches);

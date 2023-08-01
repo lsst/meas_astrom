@@ -41,7 +41,7 @@ namespace astrom {
 namespace {
 
 void declarePolynomialTransform(lsst::cpputils::python::WrapperCollection &wrappers) {
-    using PyPolynomialTransform = py::class_<PolynomialTransform, std::shared_ptr<PolynomialTransform>>;
+    using PyPolynomialTransform = py::classh<PolynomialTransform>;
 
     wrappers.wrapType(PyPolynomialTransform(wrappers.module, "PolynomialTransform"), [](auto &mod, auto &cls) {
         cls.def(py::init<ndarray::Array<double const, 2, 0> const &,
@@ -69,7 +69,7 @@ void declarePolynomialTransform(lsst::cpputils::python::WrapperCollection &wrapp
 }
 
 void declareScaledPolynomialTransform(lsst::cpputils::python::WrapperCollection &wrappers) {
-    using PyClass = py::class_<ScaledPolynomialTransform, std::shared_ptr<ScaledPolynomialTransform>>;
+    using PyClass = py::classh<ScaledPolynomialTransform>;
 
     wrappers.wrapType(PyClass(wrappers.module, "ScaledPolynomialTransform"), [](auto &mod, auto &cls) {
         cls.def(py::init<PolynomialTransform const &, geom::AffineTransform const &,
