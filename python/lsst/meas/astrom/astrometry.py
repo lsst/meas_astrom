@@ -75,7 +75,7 @@ class AstrometryConfig(RefMatchConfig):
         dtype=bool,
         doc=("If True then a rough zeropoint will be computed from matched sources "
              "and outliers will be rejected in the iterations."),
-        default=False,
+        default=True,
     )
     magnitudeOutlierRejectionNSigma = pexConfig.Field(
         dtype=float,
