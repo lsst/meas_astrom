@@ -88,7 +88,7 @@ struct MatchOptimisticBControl {
     MatchOptimisticBControl()
             : refFluxField("r_flux"),
               sourceFluxField("slot_ApFlux_instFlux"),
-              numBrightStars(100),
+              numBrightStars(150),
               minMatchedPairs(50),
               matchingAllowancePix(10.0),
               maxOffsetPix(300),
