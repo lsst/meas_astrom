@@ -29,6 +29,7 @@ import scipy.stats
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from lsst.utils.timer import timeMethod
+from lsst.afw.table import CoordKey
 from .ref_match import RefMatchTask, RefMatchConfig
 from .fitTanSipWcs import FitTanSipWcsTask
 from .display import displayAstrometry
@@ -125,6 +126,7 @@ class AstrometryTask(RefMatchTask):
         if schema is not None:
             self.usedKey = schema.addField("calib_astrometry_used", type="Flag",
                                            doc="set if source was used in astrometric calibration")
+            CoordKey.addErrorFields(schema)
         else:
             self.usedKey = None
 

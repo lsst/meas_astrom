@@ -241,6 +241,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         if sourceSchema is None:
             sourceSchema = afwTable.SourceTable.makeMinimalSchema()
             measBase.SingleFrameMeasurementTask(schema=sourceSchema)  # expand the schema
+            afwTable.CoordKey.addErrorFields(sourceSchema)
         sourceCat = afwTable.SourceCatalog(sourceSchema)
 
         sourceCat.resize(len(refCat))
