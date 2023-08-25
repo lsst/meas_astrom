@@ -126,7 +126,6 @@ class AstrometryTask(RefMatchTask):
         if schema is not None:
             self.usedKey = schema.addField("calib_astrometry_used", type="Flag",
                                            doc="set if source was used in astrometric calibration")
-            CoordKey.addErrorFields(schema)
         else:
             self.usedKey = None
 
