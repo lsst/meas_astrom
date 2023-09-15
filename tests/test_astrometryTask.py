@@ -83,6 +83,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         config.wcsFitter.numRejIter = 0
 
         sourceSchema = afwTable.SourceTable.makeMinimalSchema()
+        afwTable.CoordKey.addErrorFields(sourceSchema)
         measBase.SingleFrameMeasurementTask(schema=sourceSchema)  # expand the schema
         # schema must be passed to the solver task constructor
         solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=sourceSchema)
@@ -241,6 +242,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         if sourceSchema is None:
             sourceSchema = afwTable.SourceTable.makeMinimalSchema()
             measBase.SingleFrameMeasurementTask(schema=sourceSchema)  # expand the schema
+            afwTable.CoordKey.addErrorFields(sourceSchema)
         sourceCat = afwTable.SourceCatalog(sourceSchema)
 
         sourceCat.resize(len(refCat))
