@@ -82,10 +82,10 @@ class MatchPessimisticBConfig(pexConfig.Config):
     """Configuration for MatchPessimisticBTask
     """
     numBrightStars = pexConfig.RangeField(
-        doc="Number of bright stars to use. Sets the max number of patterns "
+        doc="Maximum number of bright stars to use. Sets the max number of patterns "
             "that can be tested.",
         dtype=int,
-        default=200,
+        default=150,
         min=2,
     )
     minMatchedPairs = pexConfig.RangeField(

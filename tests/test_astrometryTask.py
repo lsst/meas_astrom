@@ -142,6 +142,8 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         config = AstrometryTask.ConfigClass()
         config.wcsFitter.order = order
         config.wcsFitter.numRejIter = 0
+        # This test is from before rough magnitude rejection was implemented.
+        config.doMagnitudeOutlierRejection = False
         solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
         results = solver.run(
             sourceCat=sourceCat,

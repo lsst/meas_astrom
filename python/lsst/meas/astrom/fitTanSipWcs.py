@@ -137,7 +137,7 @@ class FitTanSipWcsTask(pipeBase.Task):
             if rejected.sum() == len(rejected):
                 raise RuntimeError("All matches rejected in iteration %d" % (rej + 1,))
             self.log.debug(
-                "Iteration %d of astrometry fitting: rejected %f outliers, out of %d total matches.",
+                "Iteration %d of astrometry fitting: rejected %d outliers, out of %d total matches.",
                 rej, rejected.sum(), len(rejected)
             )
             if debug.plot:

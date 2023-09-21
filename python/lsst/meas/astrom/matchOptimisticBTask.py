@@ -41,9 +41,9 @@ class MatchOptimisticBConfig(pexConfig.Config):
         min=0,
     )
     numBrightStars = pexConfig.RangeField(
-        doc="Number of bright stars to use",
+        doc="Maximum number of bright stars to use in fit.",
         dtype=int,
-        default=50,
+        default=150,
         min=2,
     )
     minMatchedPairs = pexConfig.RangeField(
