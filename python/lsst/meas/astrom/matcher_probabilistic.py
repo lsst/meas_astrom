@@ -315,7 +315,6 @@ class MatchProbabilisticConfig(pexConfig.Config):
     columns_ref_flux = pexConfig.ListField(
         dtype=str,
         default=[],
-        listCheck=lambda x: len(set(x)) == len(x),
         optional=True,
         doc="List of reference flux columns to nansum total magnitudes from if column_order is None",
     )
