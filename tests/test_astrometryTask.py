@@ -81,13 +81,10 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         config = AstrometryTask.ConfigClass()
         config.wcsFitter.order = 2
         config.wcsFitter.numRejIter = 0
-
-        sourceSchema = afwTable.SourceTable.makeMinimalSchema()
-        afwTable.CoordKey.addErrorFields(sourceSchema)
-        measBase.SingleFrameMeasurementTask(schema=sourceSchema)  # expand the schema
+        schema = self._makeSourceCatalogSchema()
         # schema must be passed to the solver task constructor
-        solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=sourceSchema)
-        sourceCat = self.makeSourceCat(self.tanWcs, sourceSchema=sourceSchema)
+        solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=schema)
+        sourceCat = self.makeSourceCat(self.tanWcs, schema)
 
         results = solver.run(
             sourceCat=sourceCat,
@@ -109,11 +106,12 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         config = AstrometryTask.ConfigClass()
         config.wcsFitter.order = 2
         config.wcsFitter.maxScatterArcsec = 0.0  # To ensure a WCS failure
-        sourceSchema = afwTable.SourceTable.makeMinimalSchema()
-        measBase.SingleFrameMeasurementTask(schema=sourceSchema)  # expand the schema
+
+        schema = self._makeSourceCatalogSchema()
         # schema must be passed to the solver task constructor
-        solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=sourceSchema)
-        sourceCat = self.makeSourceCat(self.tanWcs, sourceSchema=sourceSchema, doScatterCentroids=True)
+        solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=schema)
+        sourceCat = self.makeSourceCat(self.tanWcs, schema, doScatterCentroids=True)
+
         with self.assertLogs(level=logging.WARNING) as cm:
             results = solver.run(
                 sourceCat=sourceCat,
@@ -138,7 +136,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         distortedWcs = afwGeom.makeModifiedWcs(pixelTransform=pixelsToTanPixels, wcs=self.tanWcs,
                                                modifyActualPixels=False)
         self.exposure.setWcs(distortedWcs)
-        sourceCat = self.makeSourceCat(distortedWcs)
+        sourceCat = self.makeSourceCat(distortedWcs, self._makeSourceCatalogSchema())
         config = AstrometryTask.ConfigClass()
         config.wcsFitter.order = order
         config.wcsFitter.numRejIter = 0
@@ -225,14 +223,22 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         )
         self.assertLess(len(resultsNoFitRefSelect.matches), len(resultsNoFit.matches))
 
-    def makeSourceCat(self, wcs, sourceSchema=None, doScatterCentroids=False):
+    @staticmethod
+    def _makeSourceCatalogSchema():
+        """Return a catalog schema with all necessary fields added.
+        """
+        schema = afwTable.SourceTable.makeMinimalSchema()
+        measBase.SingleFrameMeasurementTask(schema=schema)  # expand the schema
+        afwTable.CoordKey.addErrorFields(schema)
+        schema.addField("deblend_nChild", type=np.int32,
+                        doc="Number of children this object has (defaults to 0)")
+        schema.addField("detect_isPrimary", type=np.int32,
+                        doc="true if source has no children and is not a sky source")
+        return schema
+
+    def makeSourceCat(self, wcs, schema, doScatterCentroids=False):
         """Make a source catalog by reading the position reference stars using
         the proviced WCS.
-
-        Optionally provide a schema for the source catalog (to allow
-        AstrometryTask in the test methods to update it with the
-        "calib_astrometry_used" flag).  Otherwise, a minimal SourceTable
-        schema will be created.
 
         Optionally, via doScatterCentroids, add some scatter to the centroids
         assiged to the source catalog (otherwise they will be identical to
@@ -241,11 +247,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         loadRes = self.refObjLoader.loadPixelBox(bbox=self.bbox, wcs=wcs, filterName="r")
         refCat = loadRes.refCat
 
-        if sourceSchema is None:
-            sourceSchema = afwTable.SourceTable.makeMinimalSchema()
-            measBase.SingleFrameMeasurementTask(schema=sourceSchema)  # expand the schema
-            afwTable.CoordKey.addErrorFields(sourceSchema)
-        sourceCat = afwTable.SourceCatalog(sourceSchema)
+        sourceCat = afwTable.SourceCatalog(schema)
 
         sourceCat.resize(len(refCat))
         scatterFactor = 1.0
@@ -256,6 +258,8 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         sourceCat["slot_Centroid_y"] = scatterFactor*refCat["centroid_y"]
         sourceCat["slot_ApFlux_instFlux"] = refCat["r_flux"]
         sourceCat["slot_ApFlux_instFluxErr"] = refCat["r_flux"]/100
+        # All of these sources are primary.
+        sourceCat['detect_isPrimary'] = 1
 
         # Deliberately add some outliers to check that the magnitude
         # outlier rejection code is being run.
