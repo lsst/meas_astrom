@@ -436,7 +436,7 @@ class AstrometryTask(RefMatchTask):
                 exposure=exposure,
                 bbox=bbox,
                 frame=frame + 2,
-                title="Fit TAN-SIP WCS",
+                title=f"Fitter: {self.wcsFitter._DefaultName}",
             )
 
         return pipeBase.Struct(

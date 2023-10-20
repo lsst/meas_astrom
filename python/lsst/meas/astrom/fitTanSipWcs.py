@@ -75,7 +75,7 @@ class FitTanSipWcsTask(pipeBase.Task):
     """Fit a TAN-SIP WCS given a list of reference object/source matches.
     """
     ConfigClass = FitTanSipWcsConfig
-    _DefaultName = "fitWcs"
+    _DefaultName = "fitTanSipWcs"
 
     @timeMethod
     def fitWcs(self, matches, initWcs, bbox=None, refCat=None, sourceCat=None, exposure=None):
