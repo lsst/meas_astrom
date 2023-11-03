@@ -256,14 +256,14 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
             scatterFactor = np.random.uniform(0.999, 1.001, len(sourceCat))
         sourceCat["slot_Centroid_x"] = scatterFactor*refCat["centroid_x"]
         sourceCat["slot_Centroid_y"] = scatterFactor*refCat["centroid_y"]
-        sourceCat["slot_ApFlux_instFlux"] = refCat["r_flux"]
-        sourceCat["slot_ApFlux_instFluxErr"] = refCat["r_flux"]/100
+        sourceCat["slot_PsfFlux_instFlux"] = refCat["r_flux"]
+        sourceCat["slot_PsfFlux_instFluxErr"] = refCat["r_flux"]/100
         # All of these sources are primary.
         sourceCat['detect_isPrimary'] = 1
 
         # Deliberately add some outliers to check that the magnitude
         # outlier rejection code is being run.
-        sourceCat["slot_ApFlux_instFlux"][0: 4] *= 1000.0
+        sourceCat["slot_PsfFlux_instFlux"][0: 4] *= 1000.0
 
         return sourceCat
 

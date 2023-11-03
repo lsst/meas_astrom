@@ -87,7 +87,7 @@ class AstrometryConfig(RefMatchConfig):
 
     def setDefaults(self):
         # Override the default source selector for astrometry tasks
-        self.sourceFluxType = "Ap"
+        self.sourceFluxType = "Psf"
         # Configured to match the deprecated "matcher" selector: isolated,
         # SN > 40, some bad flags, valid centroids.
         self.sourceSelector["science"].doSignalToNoise = True

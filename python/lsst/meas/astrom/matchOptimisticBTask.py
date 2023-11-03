@@ -37,7 +37,7 @@ class MatchOptimisticBConfig(pexConfig.Config):
         doc="Maximum separation between reference objects and sources "
         "beyond which they will not be considered a match (arcsec)",
         dtype=float,
-        default=3,
+        default=2.0,
         min=0,
     )
     numBrightStars = pexConfig.RangeField(
@@ -77,7 +77,7 @@ class MatchOptimisticBConfig(pexConfig.Config):
     allowedNonperpDeg = pexConfig.RangeField(
         doc="Allowed non-perpendicularity of x and y (degree)",
         dtype=float,
-        default=3.0,
+        default=0.2,
         max=45.0,
     )
     numPointsForShape = pexConfig.Field(
