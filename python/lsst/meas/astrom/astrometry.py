@@ -492,8 +492,6 @@ class AstrometryTask(RefMatchTask):
         self.log.info("Removed %d magnitude outliers out of %d total astrometry matches.",
                       nOutlier, nMatch)
 
-        matchesOut = []
-        for matchInd in goodStars:
-            matchesOut.append(matchesIn[matchInd])
+        matchesOut = [matchesIn[idx] for idx in goodStars]
 
         return matchesOut
