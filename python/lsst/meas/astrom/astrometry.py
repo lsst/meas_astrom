@@ -1,9 +1,10 @@
+# This file is part of meas_astrom.
 #
-# LSST Data Management System
-# Copyright 2008-2016 AURA/LSST.
-#
-# This product includes software developed by the
-# LSST Project (http://www.lsst.org/).
+# Developed for the LSST Data Management System.
+# This product includes software developed by the LSST Project
+# (https://www.lsst.org).
+# See the COPYRIGHT file at the top-level directory of this distribution
+# for details of code ownership.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,10 +16,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
-# You should have received a copy of the LSST License Statement and
-# the GNU General Public License along with this program.  If not,
-# see <https://www.lsstcorp.org/LegalNotices/>.
-#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 __all__ = ["AstrometryConfig", "AstrometryTask"]
 
@@ -87,14 +86,21 @@ class AstrometryConfig(RefMatchConfig):
 
     def setDefaults(self):
         # Override the default source selector for astrometry tasks
-        self.sourceFluxType = "Ap"
-
-        self.sourceSelector.name = "matcher"
-        self.sourceSelector["matcher"].sourceFluxType = self.sourceFluxType
-
-        # Note that if the matcher is MatchOptimisticBTask, then the default
-        # should be self.sourceSelector['matcher'].excludePixelFlags = False
-        # However, there is no way to do this automatically.
+        self.sourceFluxType = "Psf"
+        # Configured to match the deprecated "matcher" selector: isolated,
+        # SN > 40, some bad flags, valid centroids.
+        self.sourceSelector["science"].doSignalToNoise = True
+        self.sourceSelector["science"].signalToNoise.minimum = 40
+        self.sourceSelector["science"].signalToNoise.fluxField = f"slot_{self.sourceFluxType}Flux_instFlux"
+        self.sourceSelector["science"].signalToNoise.errField = f"slot_{self.sourceFluxType}Flux_instFluxErr"
+        self.sourceSelector["science"].doFlags = True
+        self.sourceSelector["science"].flags.bad = ["base_PixelFlags_flag_edge",
+                                                    "base_PixelFlags_flag_interpolatedCenter",
+                                                    "base_PixelFlags_flag_saturated",
+                                                    "base_SdssCentroid_flag",
+                                                    ]
+        self.sourceSelector["science"].doRequirePrimary = True
+        self.sourceSelector["science"].doIsolated = True
 
 
 class AstrometryTask(RefMatchTask):
@@ -429,7 +435,7 @@ class AstrometryTask(RefMatchTask):
                 exposure=exposure,
                 bbox=bbox,
                 frame=frame + 2,
-                title="Fit TAN-SIP WCS",
+                title=f"Fitter: {self.wcsFitter._DefaultName}",
             )
 
         return pipeBase.Struct(
@@ -485,8 +491,6 @@ class AstrometryTask(RefMatchTask):
         self.log.info("Removed %d magnitude outliers out of %d total astrometry matches.",
                       nOutlier, nMatch)
 
-        matchesOut = []
-        for matchInd in goodStars:
-            matchesOut.append(matchesIn[matchInd])
+        matchesOut = [matchesIn[idx] for idx in goodStars]
 
         return matchesOut
