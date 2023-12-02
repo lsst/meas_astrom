@@ -57,16 +57,22 @@ class RefMatchConfig(pexConfig.Config):
     sourceFluxType = pexConfig.Field(
         dtype=str,
         doc="Source flux type to use in source selection.",
-        default='Calib'
+        default='Psf'
     )
 
     def setDefaults(self):
-        self.sourceSelector['science'].fluxLimit.fluxField = \
-            'slot_%sFlux_instFlux' % (self.sourceFluxType)
-        self.sourceSelector['science'].signalToNoise.fluxField = \
-            'slot_%sFlux_instFlux' % (self.sourceFluxType)
-        self.sourceSelector['science'].signalToNoise.errField = \
-            'slot_%sFlux_instFluxErr' % (self.sourceFluxType)
+        # Configured to match the deprecated "matcher" selector:
+        # SN > 40, some bad flags, valid centroids.
+        self.sourceSelector["science"].doSignalToNoise = True
+        self.sourceSelector["science"].signalToNoise.minimum = 40
+        self.sourceSelector["science"].signalToNoise.fluxField = f"slot_{self.sourceFluxType}Flux_instFlux"
+        self.sourceSelector["science"].signalToNoise.errField = f"slot_{self.sourceFluxType}Flux_instFluxErr"
+        self.sourceSelector["science"].doFlags = True
+        self.sourceSelector["science"].flags.bad = ["base_PixelFlags_flag_edge",
+                                                    "base_PixelFlags_flag_interpolatedCenter",
+                                                    "base_PixelFlags_flag_saturated",
+                                                    "base_SdssCentroid_flag",
+                                                    ]
 
 
 class RefMatchTask(pipeBase.Task):
