@@ -37,7 +37,7 @@ import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.meas.base as measBase
 from lsst.meas.algorithms.testUtils import MockReferenceObjectLoaderFromFiles
-from lsst.meas.astrom import AstrometryTask
+from lsst.meas.astrom import astrometry
 
 
 class TestAstrometricSolver(lsst.utils.tests.TestCase):
@@ -78,12 +78,12 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
            if it is passed a schema on initialization.
         """
         self.exposure.setWcs(self.tanWcs)
-        config = AstrometryTask.ConfigClass()
+        config = astrometry.AstrometryTask.ConfigClass()
         config.wcsFitter.order = 2
         config.wcsFitter.numRejIter = 0
         schema = self._makeSourceCatalogSchema()
         # schema must be passed to the solver task constructor
-        solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=schema)
+        solver = astrometry.AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=schema)
         sourceCat = self.makeSourceCat(self.tanWcs, schema)
 
         results = solver.run(
@@ -103,13 +103,13 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
            source catalog.
         """
         self.exposure.setWcs(self.tanWcs)
-        config = AstrometryTask.ConfigClass()
+        config = astrometry.AstrometryTask.ConfigClass()
         config.wcsFitter.order = 2
         config.wcsFitter.maxScatterArcsec = 0.0  # To ensure a WCS failure
 
         schema = self._makeSourceCatalogSchema()
         # schema must be passed to the solver task constructor
-        solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=schema)
+        solver = astrometry.AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=schema)
         sourceCat = self.makeSourceCat(self.tanWcs, schema, doScatterCentroids=True)
 
         with self.assertLogs(level=logging.WARNING) as cm:
@@ -137,12 +137,12 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
                                                modifyActualPixels=False)
         self.exposure.setWcs(distortedWcs)
         sourceCat = self.makeSourceCat(distortedWcs, self._makeSourceCatalogSchema())
-        config = AstrometryTask.ConfigClass()
+        config = astrometry.AstrometryTask.ConfigClass()
         config.wcsFitter.order = order
         config.wcsFitter.numRejIter = 0
         # This test is from before rough magnitude rejection was implemented.
         config.doMagnitudeOutlierRejection = False
-        solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
+        solver = astrometry.AstrometryTask(config=config, refObjLoader=self.refObjLoader)
         results = solver.run(
             sourceCat=sourceCat,
             exposure=self.exposure,
@@ -176,7 +176,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         # try again, invoking the reference selector
         config.referenceSelector.doUnresolved = True
         config.referenceSelector.unresolved.name = 'resolved'
-        solverRefSelect = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
+        solverRefSelect = astrometry.AstrometryTask(config=config, refObjLoader=self.refObjLoader)
         self.exposure.setWcs(distortedWcs)
         resultsRefSelect = solverRefSelect.run(
             sourceCat=sourceCat,
@@ -186,7 +186,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
 
         # try again, allowing magnitude outlier rejection.
         config.doMagnitudeOutlierRejection = True
-        solverMagOutlierRejection = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
+        solverMagOutlierRejection = astrometry.AstrometryTask(config=config, refObjLoader=self.refObjLoader)
         self.exposure.setWcs(distortedWcs)
         resultsMagOutlierRejection = solverMagOutlierRejection.run(
             sourceCat=sourceCat,
@@ -198,7 +198,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         # try again, but without fitting the WCS, no reference selector
         config.referenceSelector.doUnresolved = False
         config.forceKnownWcs = True
-        solverNoFit = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
+        solverNoFit = astrometry.AstrometryTask(config=config, refObjLoader=self.refObjLoader)
         self.exposure.setWcs(distortedWcs)
         resultsNoFit = solverNoFit.run(
             sourceCat=sourceCat,
@@ -216,7 +216,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         # try once again, without fitting the WCS, with the reference selector
         # (this goes through a different code path)
         config.referenceSelector.doUnresolved = True
-        solverNoFitRefSelect = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
+        solverNoFitRefSelect = astrometry.AstrometryTask(config=config, refObjLoader=self.refObjLoader)
         resultsNoFitRefSelect = solverNoFitRefSelect.run(
             sourceCat=sourceCat,
             exposure=self.exposure,
@@ -267,6 +267,19 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
 
         return sourceCat
 
+    def testFail(self):
+        task = astrometry.AstrometryTask()
+        with self.assertRaises(astrometry.AstrometryFailure):
+            exception = astrometry.AstrometryFailure()
+            task.fail(exception, self.exposure)
+        self.assertIsNone(self.exposure.wcs)
+
+    def testBadAstrometry(self):
+        """Test that an appropriately informative exception is raised for a
+        bad quality fit.
+        """
+        self.fail('bha')
+
 
 class TestMagnitudeOutliers(lsst.utils.tests.TestCase):
     def testMagnitudeOutlierRejection(self):
@@ -275,10 +288,10 @@ class TestMagnitudeOutliers(lsst.utils.tests.TestCase):
         This test only tests the outlier rejection, and not any other
         part of the matching or astrometry fitter.
         """
-        config = AstrometryTask.ConfigClass()
+        config = astrometry.AstrometryTask.ConfigClass()
         config.doMagnitudeOutlierRejection = True
         config.magnitudeOutlierRejectionNSigma = 4.0
-        solver = AstrometryTask(config=config, refObjLoader=None)
+        solver = astrometry.AstrometryTask(config=config, refObjLoader=None)
 
         nTest = 100
 
