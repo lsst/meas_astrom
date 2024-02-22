@@ -19,7 +19,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["AstrometryConfig", "AstrometryTask"]
+__all__ = ["AstrometryConfig", "AstrometryTask", "AstrometryError",
+           "AstrometryFailure", "BadAstrometryFit"]
 
 import numpy as np
 from astropy import units
@@ -31,6 +32,42 @@ from lsst.utils.timer import timeMethod
 from .ref_match import RefMatchTask, RefMatchConfig
 from .fitTanSipWcs import FitTanSipWcsTask
 from .display import displayAstrometry
+
+
+class AstrometryError(pipeBase.RepeatableQuantumError):
+    """Parent class for failures in astrometric fitting."""
+    def __init__(self, *, msg, nMatches, iterations):
+        super.__init__()
+        self.nMatches = nMatches
+        self.iterations = iterations
+
+    @property
+    def metadata(self):
+        return {"nMatches": self.nMatches,
+                "iterations": self.iterations
+                }
+
+
+class AstrometryFailure(AstrometryError):
+    """Raised if the astrometry fitter fails."""
+    def __init__(self, *args):
+        super.__init__(msg="Failed to fit astrometry.", *args)
+
+
+class BadAstrometryFit(AstrometryError):
+    """Raised if the quality of the astrometric fit is worse than some
+    threshold.
+    """
+    def __init__(self, *args, quality, **kwargs):
+        msg = "Poor quality astrometric fit."
+        super.__init__(msg=msg, *args, **kwargs)
+        self.quality = quality
+
+    @property
+    def metadata(self):
+        temp = super.metadata()
+        temp["quality"] = self.quality
+        return temp
 
 
 class AstrometryConfig(RefMatchConfig):
@@ -262,27 +299,27 @@ class AstrometryTask(RefMatchTask):
         for i in range(self.config.maxIter):
             if not fitFailed:
                 iterNum = i + 1
-                try:
-                    tryRes = self._matchAndFitWcs(
-                        refCat=refSelection.sourceCat,
-                        sourceCat=sourceCat,
-                        goodSourceCat=sourceSelection.sourceCat,
-                        refFluxField=loadRes.fluxField,
-                        bbox=expMd.bbox,
-                        wcs=wcs,
-                        exposure=exposure,
-                        match_tolerance=match_tolerance,
-                    )
-                except Exception as e:
-                    # If we have had a succeessful iteration then use that;
-                    # otherwise fail.
-                    if i > 0:
-                        self.log.info("Fit WCS iter %d failed; using previous iteration: %s", iterNum, e)
-                        iterNum -= 1
-                        break
-                    else:
-                        self.log.info("Fit WCS iter %d failed: %s" % (iterNum, e))
-                        fitFailed = True
+                # try:
+                tryRes = self._matchAndFitWcs(
+                    refCat=refSelection.sourceCat,
+                    sourceCat=sourceCat,
+                    goodSourceCat=sourceSelection.sourceCat,
+                    refFluxField=loadRes.fluxField,
+                    bbox=expMd.bbox,
+                    wcs=wcs,
+                    exposure=exposure,
+                    match_tolerance=match_tolerance,
+                )
+                # except Exception as e:
+                #     # If we have had a succeessful iteration then use that;
+                #     # otherwise fail.
+                #     if i > 0:
+                #         self.log.info("Fit WCS iter %d failed; using previous iteration: %s", iterNum, e)
+                #         iterNum -= 1
+                #         break
+                #     else:
+                #         self.log.info("Fit WCS iter %d failed: %s" % (iterNum, e))
+                #         fitFailed = True
 
             if not fitFailed:
                 match_tolerance = tryRes.match_tolerance
@@ -313,7 +350,9 @@ class AstrometryTask(RefMatchTask):
                 self.log.info("Assigning as a fit failure: mean on-sky distance = %0.3f arcsec > %0.3f "
                               "(maxMeanDistanceArcsec)" % (tryMatchDist.distMean.asArcseconds(),
                                                            self.config.maxMeanDistanceArcsec))
-                fitFailed = True
+
+                exception = BadAstrometryFit(nMatches=len(tryRes.matches), iterations=iterNum)
+                self._fail(exception, exposure)
 
         if fitFailed:
             self.log.warning("WCS fit failed.  Setting exposure's WCS to None and coord_ra & coord_dec "
@@ -421,6 +460,8 @@ class AstrometryTask(RefMatchTask):
             initWcs=wcs,
             bbox=bbox,
             refCat=refCat,
+            # TODO: why is this not `goodSourceCat`?
+            # Answer: because `fitWcs` calls `updateSourceCoords`: should it?
             sourceCat=sourceCat,
             exposure=exposure,
         )
@@ -494,3 +535,24 @@ class AstrometryTask(RefMatchTask):
         matchesOut = [matchesIn[idx] for idx in goodStars]
 
         return matchesOut
+
+    def _fail(self, exception, exposure):
+        """Emit appropriate messages and clear the exposure WCS due to a
+        failure, and raise.
+
+        Parameters
+        ----------
+        exception : `AstrometryError`
+            Description
+        exposure : `lsst.afw.image.Exposure`
+            Description
+
+        Raises
+        ------
+        AstrometryError
+            Passed in ``exception`` is raised after messages and cleanup are
+            complete.
+        """
+        self.log.warning(exception.msg)
+        exposure.setWcs(None)
+        raise exception
