@@ -618,7 +618,7 @@ class MatcherProbabilistic:
             'match_row': target_row_match,
         }
 
-        for (columns, out_original, out_matched, in_original, in_matched, matches) in (
+        for (columns, out_original, out_matched, in_original, in_matched, matches, name_cat) in (
             (
                 self.config.columns_ref_copy,
                 data_ref,
@@ -626,6 +626,7 @@ class MatcherProbabilistic:
                 ref,
                 target,
                 target_row_match,
+                "reference",
             ),
             (
                 self.config.columns_target_copy,
@@ -634,10 +635,12 @@ class MatcherProbabilistic:
                 target,
                 ref,
                 ref_row_match,
+                "target",
             ),
         ):
             matched = matches >= 0
             idx_matched = matches[matched]
+            logger.info('Matched %d/%d %s sources', np.sum(matched), len(matched), name_cat)
 
             for column in columns:
                 values = in_original.catalog[column]
