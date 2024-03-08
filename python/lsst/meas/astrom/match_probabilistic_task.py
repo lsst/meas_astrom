@@ -30,18 +30,20 @@ import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional, Set, Tuple
 
-__all__ = ['MatchProbabilisticTask', 'radec_to_xy']
+__all__ = ["MatchProbabilisticTask", "radec_to_xy"]
 
 
 def radec_to_xy(ra_vec, dec_vec, factor, wcs: afwGeom.SkyWcs):
-    radec_true = [geom.SpherePoint(ra*factor, dec*factor, geom.degrees)
-                  for ra, dec in zip(ra_vec, dec_vec)]
+    radec_true = [
+        geom.SpherePoint(ra*factor, dec*factor, geom.degrees)
+        for ra, dec in zip(ra_vec, dec_vec)
+    ]
     return wcs.skyToPixel(radec_true)
 
 
 class MatchProbabilisticTask(pipeBase.Task):
-    """Run MatchProbabilistic on a reference and target catalog covering the same tract.
-    """
+    """Run MatchProbabilistic on a reference and target catalog covering the same tract."""
+
     ConfigClass = MatchProbabilisticConfig
     _DefaultName = "matchProbabilistic"
 
@@ -52,7 +54,7 @@ class MatchProbabilisticTask(pipeBase.Task):
         columns_false: List[str],
         selection: Optional[np.array],
     ) -> np.array:
-        """ Apply additional boolean selection columns.
+        """Apply additional boolean selection columns.
 
         catalog : `pandas.DataFrame`
             The catalog to select from.
@@ -130,12 +132,17 @@ class MatchProbabilisticTask(pipeBase.Task):
         config = self.config
 
         if config.column_ref_order is None:
-            flux_tot = np.nansum(catalog_ref.loc[:, config.columns_ref_flux].values, axis=1)
-            catalog_ref['flux_total'] = flux_tot
+            flux_tot = np.nansum(
+                catalog_ref.loc[:, config.columns_ref_flux].values, axis=1
+            )
+            catalog_ref["flux_total"] = flux_tot
             if config.mag_brightest_ref != -np.inf or config.mag_faintest_ref != np.inf:
-                mag_tot = -2.5*np.log10(flux_tot) + config.coord_format.mag_zeropoint_ref
+                mag_tot = (
+                    -2.5 * np.log10(flux_tot) + config.coord_format.mag_zeropoint_ref
+                )
                 select_mag = (mag_tot >= config.mag_brightest_ref) & (
-                    mag_tot <= config.mag_faintest_ref)
+                    mag_tot <= config.mag_faintest_ref
+                )
             else:
                 select_mag = np.isfinite(flux_tot)
             if select_ref is None:
@@ -147,17 +154,22 @@ class MatchProbabilisticTask(pipeBase.Task):
             catalog=catalog_ref,
             columns_true=config.columns_ref_select_true,
             columns_false=config.columns_ref_select_false,
-            selection=select_ref
+            selection=select_ref,
         )
         select_target = self._apply_select_bool(
             catalog=catalog_target,
             columns_true=config.columns_target_select_true,
             columns_false=config.columns_target_select_false,
-            selection=select_target
+            selection=select_target,
         )
 
-        logger.info('Beginning MatcherProbabilistic.match with %d/%d ref sources selected vs %d/%d target',
-                    np.sum(select_ref), len(select_ref), np.sum(select_target), len(select_target))
+        logger.info(
+            "Beginning MatcherProbabilistic.match with %d/%d ref sources selected vs %d/%d target",
+            np.sum(select_ref),
+            len(select_ref),
+            np.sum(select_target),
+            len(select_target),
+        )
 
         catalog_out_ref, catalog_out_target, exceptions = self.matcher.match(
             catalog_ref,
@@ -202,9 +214,14 @@ class MatchProbabilisticTask(pipeBase.Task):
         """
         catalog_ref.reset_index(inplace=True)
         catalog_target.reset_index(inplace=True)
-        catalog_ref, catalog_target, exceptions = self.match(catalog_ref, catalog_target, wcs=wcs, **kwargs)
-        return pipeBase.Struct(cat_output_ref=catalog_ref, cat_output_target=catalog_target,
-                               exceptions=exceptions)
+        catalog_ref, catalog_target, exceptions = self.match(
+            catalog_ref, catalog_target, wcs=wcs, **kwargs
+        )
+        return pipeBase.Struct(
+            cat_output_ref=catalog_ref,
+            cat_output_target=catalog_target,
+            exceptions=exceptions,
+        )
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
