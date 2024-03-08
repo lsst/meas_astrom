@@ -400,6 +400,24 @@ class MatchProbabilisticConfig(pexConfig.Config):
             '(should be False if the column is a flux and True if it is a magnitude.',
     )
 
+    def validate(self):
+        super().validate()
+        n_ref_meas = len(self.columns_ref_meas)
+        n_target_meas = len(self.columns_target_meas)
+        n_target_err = len(self.columns_target_err)
+        match_n_finite_min = self.match_n_finite_min
+        errors = []
+        if n_target_meas != n_ref_meas:
+            errors.append(f"{len(self.columns_target_meas)=} != {len(self.columns_ref_meas)=}")
+        if n_target_err != n_ref_meas:
+            errors.append(f"{len(self.columns_target_err)=} != {len(self.columns_ref_meas)=}")
+        if not (n_ref_meas >= match_n_finite_min):
+            errors.append(
+                f"{len(self.columns_ref_meas)=} !>= {self.match_n_finite_min=}, no matches possible"
+            )
+        if errors:
+            raise ValueError("\n".join(errors))
+
 
 def default_value(dtype):
     if dtype == str:
