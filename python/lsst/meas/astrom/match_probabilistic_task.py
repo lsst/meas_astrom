@@ -76,9 +76,12 @@ class MatchProbabilisticTask(pipeBase.Task):
             if selection is None:
                 selection = np.ones(len(catalog), dtype=bool)
             for column in columns_true:
-                selection &= catalog[column].values
+                # This is intended for boolean columns, so the behaviour for non-boolean is not obvious
+                # More config options and/or using a ConfigurableActionField might be best
+                values = catalog[column].values
+                selection &= (np.isfinite(values) & (values != 0))
             for column in columns_false:
-                selection &= ~catalog[column].values
+                selection &= (catalog[column].values == 0)
         return selection
 
     @property
