@@ -493,6 +493,7 @@ class MatcherProbabilistic:
         if logger is None:
             logger = logger_default
 
+        t_init = time.process_time()
         config = self.config
 
         # Transform any coordinates, if required
@@ -686,6 +687,12 @@ class MatcherProbabilistic:
                 column_match = np.full(in_matched.extras.n, value_fill, dtype=dtype)
                 column_match[matched] = in_original.catalog[column][idx_matched]
                 out_matched[f'match_{column}'] = column_match
+
+        logger.info(
+            'Completed match disambiguating in %.2fs (total %.2fs)',
+            time.process_time() - t_begin,
+            time.process_time() - t_init,
+        )
 
         catalog_out_ref = pd.DataFrame(data_ref)
         catalog_out_target = pd.DataFrame(data_target)
