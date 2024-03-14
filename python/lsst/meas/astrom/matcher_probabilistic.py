@@ -388,6 +388,7 @@ class MatchProbabilisticConfig(pexConfig.Config):
         default=10,
         optional=True,
         doc='Maximum number of spatial matches to consider (in ascending distance order).',
+        check=lambda x: x >= 1,
     )
     match_n_finite_min = pexConfig.Field(
         dtype=int,
