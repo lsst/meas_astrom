@@ -564,7 +564,7 @@ class MatcherProbabilistic:
         ref_chisq = np.full(ref.extras.n, np.nan, dtype=float)
 
         # Need the original reference row indices for output
-        idx_orig_ref, idx_orig_target = (np.argwhere(cat.extras.select) for cat in (ref, target))
+        idx_orig_ref, idx_orig_target = (np.argwhere(cat.extras.select)[:, 0] for cat in (ref, target))
 
         # Retrieve required columns, including any converted ones (default to original column name)
         columns_convert = config.coord_format.coords_ref_to_convert
@@ -579,21 +579,45 @@ class MatcherProbabilistic:
         exceptions = {}
         # The kdTree uses len(inputs) as a sentinel value for no match
         matched_target = {n_target_select, }
+        index_ref = idx_orig_ref[order]
+        # Fill in the candidate column
+        ref_candidate_match[index_ref] = True
 
+        # Count this as the time when disambiguation begins
         t_begin = time.process_time()
 
-        logger.info('Matching n_indices=%d/%d', len(order), len(ref.catalog))
+        # Exclude unmatched sources
+        matched_ref = idxs_target_select[order, 0] != n_target_select
+        order = order[matched_ref]
+        idx_first = idxs_target_select[order, 0]
+        chi_0 = (data_target.iloc[idx_first].values - data_ref.iloc[matched_ref].values)/(
+            errors_target.iloc[idx_first].values)
+        chi_finite_0 = np.isfinite(chi_0)
+        n_finite_0 = np.sum(chi_finite_0, axis=1)
+        chi_0[~chi_finite_0] = 0
+        chisq_sum_0 = np.sum(chi_0*chi_0, axis=1)
+
+        logger.info('Disambiguating %d/%d matches/targets', len(order), len(ref.catalog))
         for index_n, index_row_select in enumerate(order):
             index_row = idx_orig_ref[index_row_select]
-            ref_candidate_match[index_row] = True
             found = idxs_target_select[index_row_select, :]
-            # Select match candidates from nearby sources not already matched
-            # Note: set lookup is apparently fast enough that this is a few percent faster than:
-            # found = [x for x in found[found != n_target_select] if x not in matched_target]
-            # ... at least for ~1M sources
-            found = [x for x in found if x not in matched_target]
-            n_found = len(found)
-            if n_found > 0:
+            # Unambiguous match, short-circuit some evaluations
+            if (found[1] == n_target_select) and (found[0] not in matched_target):
+                n_finite = n_finite_0[index_n]
+                if not (n_finite >= config.match_n_finite_min):
+                    continue
+                idx_chisq_min = 0
+                n_matched = 1
+                chisq_sum = chisq_sum_0[index_n]
+            else:
+                # Select match candidates from nearby sources not already matched
+                # Note: set lookup is apparently fast enough that this is a few percent faster than:
+                # found = [x for x in found[found != n_target_select] if x not in matched_target]
+                # ... at least for ~1M sources
+                found = [x for x in found if x not in matched_target]
+                n_found = len(found)
+                if n_found == 0:
+                    continue
                 # This is an ndarray of n_found rows x len(data_ref/target) columns
                 chi = (
                     (data_target.iloc[found].values - data_ref.iloc[index_n].values)
@@ -603,24 +627,28 @@ class MatcherProbabilistic:
                 n_finite = np.sum(finite, axis=1)
                 # Require some number of finite chi_sq to match
                 chisq_good = n_finite >= config.match_n_finite_min
-                if np.any(chisq_good):
-                    try:
-                        chisq_sum = np.zeros(n_found, dtype=float)
-                        chisq_sum[chisq_good] = np.nansum(chi[chisq_good, :] ** 2, axis=1)
-                        idx_chisq_min = np.nanargmin(chisq_sum / n_finite)
-                        ref_match_meas_finite[index_row] = n_finite[idx_chisq_min]
-                        ref_match_count[index_row] = len(chisq_good)
-                        ref_chisq[index_row] = chisq_sum[idx_chisq_min]
-                        idx_match_select = found[idx_chisq_min]
-                        row_target = target.extras.indices[idx_match_select]
-                        ref_row_match[index_row] = row_target
+                if not any(chisq_good):
+                    continue
+                try:
+                    chisq_sum = np.zeros(n_found, dtype=float)
+                    chisq_sum[chisq_good] = np.nansum(chi[chisq_good, :] ** 2, axis=1)
+                    idx_chisq_min = np.nanargmin(chisq_sum / n_finite)
+                    n_finite = n_finite[idx_chisq_min]
+                    n_matched = len(chisq_good)
+                    chisq_sum = chisq_sum[idx_chisq_min]
+                except Exception as error:
+                    # Can't foresee any exceptions, but they shouldn't prevent
+                    # matching subsequent sources
+                    exceptions[index_row] = error
+            ref_match_meas_finite[index_row] = n_finite
+            ref_match_count[index_row] = n_matched
+            ref_chisq[index_row] = chisq_sum
+            idx_match_select = found[idx_chisq_min]
+            row_target = target.extras.indices[idx_match_select]
+            ref_row_match[index_row] = row_target
 
-                        target_row_match[row_target] = index_row
-                        matched_target.add(idx_match_select)
-                    except Exception as error:
-                        # Can't foresee any exceptions, but they shouldn't prevent
-                        # matching subsequent sources
-                        exceptions[index_row] = error
+            target_row_match[row_target] = index_row
+            matched_target.add(idx_match_select)
 
             if logging_n_rows and ((index_n + 1) % logging_n_rows == 0):
                 t_elapsed = time.process_time() - t_begin
