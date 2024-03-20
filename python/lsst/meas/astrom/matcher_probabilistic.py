@@ -279,13 +279,15 @@ class MatchProbabilisticConfig(pexConfig.Config):
             self.coord_format.column_ref_coord2,
         ]
         for columns in (
-                self.columns_ref_flux,
-                self.columns_ref_meas,
-                self.columns_ref_select_false,
-                self.columns_ref_select_true,
-                self.columns_ref_copy,
+            self.columns_ref_flux,
+            self.columns_ref_meas,
+            self.columns_ref_select_false,
+            self.columns_ref_select_true,
+            self.columns_ref_copy,
         ):
             columns_all.extend(columns)
+        if self.column_ref_order:
+            columns_all.append(self.column_ref_order)
 
         return set(columns_all)
 
