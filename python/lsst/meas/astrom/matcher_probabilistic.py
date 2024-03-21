@@ -392,7 +392,7 @@ class MatchProbabilisticConfig(pexConfig.Config):
     )
     match_n_finite_min = pexConfig.Field(
         dtype=int,
-        default=3,
+        default=2,
         optional=True,
         doc='Minimum number of columns with a finite value to measure match likelihood',
     )
