@@ -279,13 +279,15 @@ class MatchProbabilisticConfig(pexConfig.Config):
             self.coord_format.column_ref_coord2,
         ]
         for columns in (
-                self.columns_ref_flux,
-                self.columns_ref_meas,
-                self.columns_ref_select_false,
-                self.columns_ref_select_true,
-                self.columns_ref_copy,
+            self.columns_ref_flux,
+            self.columns_ref_meas,
+            self.columns_ref_select_false,
+            self.columns_ref_select_true,
+            self.columns_ref_copy,
         ):
             columns_all.extend(columns)
+        if self.column_ref_order:
+            columns_all.append(self.column_ref_order)
 
         return set(columns_all)
 
@@ -399,6 +401,24 @@ class MatchProbabilisticConfig(pexConfig.Config):
         doc='Whether to order reference match candidates in ascending order of column_ref_order '
             '(should be False if the column is a flux and True if it is a magnitude.',
     )
+
+    def validate(self):
+        super().validate()
+        n_ref_meas = len(self.columns_ref_meas)
+        n_target_meas = len(self.columns_target_meas)
+        n_target_err = len(self.columns_target_err)
+        match_n_finite_min = self.match_n_finite_min
+        errors = []
+        if n_target_meas != n_ref_meas:
+            errors.append(f"{len(self.columns_target_meas)=} != {len(self.columns_ref_meas)=}")
+        if n_target_err != n_ref_meas:
+            errors.append(f"{len(self.columns_target_err)=} != {len(self.columns_ref_meas)=}")
+        if not (n_ref_meas >= match_n_finite_min):
+            errors.append(
+                f"{len(self.columns_ref_meas)=} !>= {self.match_n_finite_min=}, no matches possible"
+            )
+        if errors:
+            raise ValueError("\n".join(errors))
 
 
 def default_value(dtype):
@@ -618,7 +638,7 @@ class MatcherProbabilistic:
             'match_row': target_row_match,
         }
 
-        for (columns, out_original, out_matched, in_original, in_matched, matches) in (
+        for (columns, out_original, out_matched, in_original, in_matched, matches, name_cat) in (
             (
                 self.config.columns_ref_copy,
                 data_ref,
@@ -626,6 +646,7 @@ class MatcherProbabilistic:
                 ref,
                 target,
                 target_row_match,
+                "reference",
             ),
             (
                 self.config.columns_target_copy,
@@ -634,10 +655,12 @@ class MatcherProbabilistic:
                 target,
                 ref,
                 ref_row_match,
+                "target",
             ),
         ):
             matched = matches >= 0
             idx_matched = matches[matched]
+            logger.info('Matched %d/%d %s sources', np.sum(matched), len(matched), name_cat)
 
             for column in columns:
                 values = in_original.catalog[column]
