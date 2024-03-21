@@ -28,6 +28,7 @@ import logging
 import numpy as np
 import pandas as pd
 from scipy.spatial import cKDTree
+from smatch.matcher import Matcher
 import time
 from typing import Callable, Set
 
@@ -279,13 +280,15 @@ class MatchProbabilisticConfig(pexConfig.Config):
             self.coord_format.column_ref_coord2,
         ]
         for columns in (
-                self.columns_ref_flux,
-                self.columns_ref_meas,
-                self.columns_ref_select_false,
-                self.columns_ref_select_true,
-                self.columns_ref_copy,
+            self.columns_ref_flux,
+            self.columns_ref_meas,
+            self.columns_ref_select_false,
+            self.columns_ref_select_true,
+            self.columns_ref_copy,
         ):
             columns_all.extend(columns)
+        if self.column_ref_order:
+            columns_all.append(self.column_ref_order)
 
         return set(columns_all)
 
@@ -385,10 +388,11 @@ class MatchProbabilisticConfig(pexConfig.Config):
         default=10,
         optional=True,
         doc='Maximum number of spatial matches to consider (in ascending distance order).',
+        check=lambda x: x >= 1,
     )
     match_n_finite_min = pexConfig.Field(
         dtype=int,
-        default=3,
+        default=2,
         optional=True,
         doc='Minimum number of columns with a finite value to measure match likelihood',
     )
@@ -399,6 +403,24 @@ class MatchProbabilisticConfig(pexConfig.Config):
         doc='Whether to order reference match candidates in ascending order of column_ref_order '
             '(should be False if the column is a flux and True if it is a magnitude.',
     )
+
+    def validate(self):
+        super().validate()
+        n_ref_meas = len(self.columns_ref_meas)
+        n_target_meas = len(self.columns_target_meas)
+        n_target_err = len(self.columns_target_err)
+        match_n_finite_min = self.match_n_finite_min
+        errors = []
+        if n_target_meas != n_ref_meas:
+            errors.append(f"{len(self.columns_target_meas)=} != {len(self.columns_ref_meas)=}")
+        if n_target_err != n_ref_meas:
+            errors.append(f"{len(self.columns_target_err)=} != {len(self.columns_ref_meas)=}")
+        if not (n_ref_meas >= match_n_finite_min):
+            errors.append(
+                f"{len(self.columns_ref_meas)=} !>= {self.match_n_finite_min=}, no matches possible"
+            )
+        if errors:
+            raise ValueError("\n".join(errors))
 
 
 def default_value(dtype):
@@ -428,14 +450,14 @@ class MatcherProbabilistic:
         self.config = config
 
     def match(
-            self,
-            catalog_ref: pd.DataFrame,
-            catalog_target: pd.DataFrame,
-            select_ref: np.array = None,
-            select_target: np.array = None,
-            logger: logging.Logger = None,
-            logging_n_rows: int = None,
-            **kwargs
+        self,
+        catalog_ref: pd.DataFrame,
+        catalog_target: pd.DataFrame,
+        select_ref: np.array = None,
+        select_target: np.array = None,
+        logger: logging.Logger = None,
+        logging_n_rows: int = None,
+        **kwargs
     ):
         """Match catalogs.
 
@@ -470,6 +492,7 @@ class MatcherProbabilistic:
         if logger is None:
             logger = logger_default
 
+        t_init = time.process_time()
         config = self.config
 
         # Transform any coordinates, if required
@@ -500,27 +523,39 @@ class MatcherProbabilistic:
 
         n_ref_select = len(ref.extras.indices)
 
-        match_dist_max = config.match_dist_max
         coords_spherical = config.coord_format.coords_spherical
-        if coords_spherical:
-            match_dist_max = np.radians(match_dist_max / 3600.)
-
-        # Convert ra/dec sky coordinates to spherical vectors for accurate distances
-        func_convert = _radec_to_xyz if coords_spherical else np.vstack
-        vec_ref, vec_target = (
-            func_convert(cat.coord1[cat.extras.select], cat.coord2[cat.extras.select])
+        coords_ref, coords_target = (
+            (cat.coord1[cat.extras.select], cat.coord2[cat.extras.select])
             for cat in (ref, target)
         )
 
         # Generate K-d tree to compute distances
         logger.info('Generating cKDTree with match_n_max=%d', config.match_n_max)
-        tree_obj = cKDTree(vec_target)
 
-        scores, idxs_target_select = tree_obj.query(
-            vec_ref,
-            distance_upper_bound=match_dist_max,
-            k=config.match_n_max,
-        )
+        if coords_spherical:
+            match_dist_max = config.match_dist_max/3600.
+            with Matcher(coords_target[0], coords_target[1]) as matcher:
+                idxs_target_select = matcher.query_knn(
+                    coords_ref[0], coords_ref[1],
+                    distance_upper_bound=match_dist_max,
+                    k=config.match_n_max,
+                )
+        # Call scipy for non-spherical case
+        # The spherical case won't trigger, but the implementation is left for comparison, if needed
+        else:
+            match_dist_max = np.radians(config.match_dist_max/3600.)
+            # Convert ra/dec sky coordinates to spherical vectors for accurate distances
+            func_convert = _radec_to_xyz if coords_spherical else np.vstack
+            vec_ref, vec_target = (
+                func_convert(coords[0], coords[1])
+                for coords in (coords_ref, coords_target)
+            )
+            tree_obj = cKDTree(vec_target)
+            _, idxs_target_select = tree_obj.query(
+                vec_ref,
+                distance_upper_bound=match_dist_max,
+                k=config.match_n_max,
+            )
 
         n_target_select = len(target.extras.indices)
         n_matches = np.sum(idxs_target_select != n_target_select, axis=1)
@@ -540,7 +575,7 @@ class MatcherProbabilistic:
         ref_chisq = np.full(ref.extras.n, np.nan, dtype=float)
 
         # Need the original reference row indices for output
-        idx_orig_ref, idx_orig_target = (np.argwhere(cat.extras.select) for cat in (ref, target))
+        idx_orig_ref, idx_orig_target = (np.argwhere(cat.extras.select)[:, 0] for cat in (ref, target))
 
         # Retrieve required columns, including any converted ones (default to original column name)
         columns_convert = config.coord_format.coords_ref_to_convert
@@ -555,21 +590,45 @@ class MatcherProbabilistic:
         exceptions = {}
         # The kdTree uses len(inputs) as a sentinel value for no match
         matched_target = {n_target_select, }
+        index_ref = idx_orig_ref[order]
+        # Fill in the candidate column
+        ref_candidate_match[index_ref] = True
 
+        # Count this as the time when disambiguation begins
         t_begin = time.process_time()
 
-        logger.info('Matching n_indices=%d/%d', len(order), len(ref.catalog))
+        # Exclude unmatched sources
+        matched_ref = idxs_target_select[order, 0] != n_target_select
+        order = order[matched_ref]
+        idx_first = idxs_target_select[order, 0]
+        chi_0 = (data_target.iloc[idx_first].values - data_ref.iloc[matched_ref].values)/(
+            errors_target.iloc[idx_first].values)
+        chi_finite_0 = np.isfinite(chi_0)
+        n_finite_0 = np.sum(chi_finite_0, axis=1)
+        chi_0[~chi_finite_0] = 0
+        chisq_sum_0 = np.sum(chi_0*chi_0, axis=1)
+
+        logger.info('Disambiguating %d/%d matches/targets', len(order), len(ref.catalog))
         for index_n, index_row_select in enumerate(order):
             index_row = idx_orig_ref[index_row_select]
-            ref_candidate_match[index_row] = True
             found = idxs_target_select[index_row_select, :]
-            # Select match candidates from nearby sources not already matched
-            # Note: set lookup is apparently fast enough that this is a few percent faster than:
-            # found = [x for x in found[found != n_target_select] if x not in matched_target]
-            # ... at least for ~1M sources
-            found = [x for x in found if x not in matched_target]
-            n_found = len(found)
-            if n_found > 0:
+            # Unambiguous match, short-circuit some evaluations
+            if (found[1] == n_target_select) and (found[0] not in matched_target):
+                n_finite = n_finite_0[index_n]
+                if not (n_finite >= config.match_n_finite_min):
+                    continue
+                idx_chisq_min = 0
+                n_matched = 1
+                chisq_sum = chisq_sum_0[index_n]
+            else:
+                # Select match candidates from nearby sources not already matched
+                # Note: set lookup is apparently fast enough that this is a few percent faster than:
+                # found = [x for x in found[found != n_target_select] if x not in matched_target]
+                # ... at least for ~1M sources
+                found = [x for x in found if x not in matched_target]
+                n_found = len(found)
+                if n_found == 0:
+                    continue
                 # This is an ndarray of n_found rows x len(data_ref/target) columns
                 chi = (
                     (data_target.iloc[found].values - data_ref.iloc[index_n].values)
@@ -579,24 +638,28 @@ class MatcherProbabilistic:
                 n_finite = np.sum(finite, axis=1)
                 # Require some number of finite chi_sq to match
                 chisq_good = n_finite >= config.match_n_finite_min
-                if np.any(chisq_good):
-                    try:
-                        chisq_sum = np.zeros(n_found, dtype=float)
-                        chisq_sum[chisq_good] = np.nansum(chi[chisq_good, :] ** 2, axis=1)
-                        idx_chisq_min = np.nanargmin(chisq_sum / n_finite)
-                        ref_match_meas_finite[index_row] = n_finite[idx_chisq_min]
-                        ref_match_count[index_row] = len(chisq_good)
-                        ref_chisq[index_row] = chisq_sum[idx_chisq_min]
-                        idx_match_select = found[idx_chisq_min]
-                        row_target = target.extras.indices[idx_match_select]
-                        ref_row_match[index_row] = row_target
+                if not any(chisq_good):
+                    continue
+                try:
+                    chisq_sum = np.zeros(n_found, dtype=float)
+                    chisq_sum[chisq_good] = np.nansum(chi[chisq_good, :] ** 2, axis=1)
+                    idx_chisq_min = np.nanargmin(chisq_sum / n_finite)
+                    n_finite = n_finite[idx_chisq_min]
+                    n_matched = len(chisq_good)
+                    chisq_sum = chisq_sum[idx_chisq_min]
+                except Exception as error:
+                    # Can't foresee any exceptions, but they shouldn't prevent
+                    # matching subsequent sources
+                    exceptions[index_row] = error
+            ref_match_meas_finite[index_row] = n_finite
+            ref_match_count[index_row] = n_matched
+            ref_chisq[index_row] = chisq_sum
+            idx_match_select = found[idx_chisq_min]
+            row_target = target.extras.indices[idx_match_select]
+            ref_row_match[index_row] = row_target
 
-                        target_row_match[row_target] = index_row
-                        matched_target.add(idx_match_select)
-                    except Exception as error:
-                        # Can't foresee any exceptions, but they shouldn't prevent
-                        # matching subsequent sources
-                        exceptions[index_row] = error
+            target_row_match[row_target] = index_row
+            matched_target.add(idx_match_select)
 
             if logging_n_rows and ((index_n + 1) % logging_n_rows == 0):
                 t_elapsed = time.process_time() - t_begin
@@ -618,7 +681,7 @@ class MatcherProbabilistic:
             'match_row': target_row_match,
         }
 
-        for (columns, out_original, out_matched, in_original, in_matched, matches) in (
+        for (columns, out_original, out_matched, in_original, in_matched, matches, name_cat) in (
             (
                 self.config.columns_ref_copy,
                 data_ref,
@@ -626,6 +689,7 @@ class MatcherProbabilistic:
                 ref,
                 target,
                 target_row_match,
+                "reference",
             ),
             (
                 self.config.columns_target_copy,
@@ -634,10 +698,12 @@ class MatcherProbabilistic:
                 target,
                 ref,
                 ref_row_match,
+                "target",
             ),
         ):
             matched = matches >= 0
             idx_matched = matches[matched]
+            logger.info('Matched %d/%d %s sources', np.sum(matched), len(matched), name_cat)
 
             for column in columns:
                 values = in_original.catalog[column]
@@ -660,6 +726,12 @@ class MatcherProbabilistic:
                 column_match = np.full(in_matched.extras.n, value_fill, dtype=dtype)
                 column_match[matched] = in_original.catalog[column][idx_matched]
                 out_matched[f'match_{column}'] = column_match
+
+        logger.info(
+            'Completed match disambiguating in %.2fs (total %.2fs)',
+            time.process_time() - t_begin,
+            time.process_time() - t_init,
+        )
 
         catalog_out_ref = pd.DataFrame(data_ref)
         catalog_out_target = pd.DataFrame(data_target)
