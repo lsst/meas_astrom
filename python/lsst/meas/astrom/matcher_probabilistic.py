@@ -28,6 +28,7 @@ import logging
 import numpy as np
 import pandas as pd
 from scipy.spatial import cKDTree
+from smatch.matcher import Matcher
 import time
 from typing import Callable, Set
 
@@ -451,14 +452,14 @@ class MatcherProbabilistic:
         self.config = config
 
     def match(
-            self,
-            catalog_ref: pd.DataFrame,
-            catalog_target: pd.DataFrame,
-            select_ref: np.array = None,
-            select_target: np.array = None,
-            logger: logging.Logger = None,
-            logging_n_rows: int = None,
-            **kwargs
+        self,
+        catalog_ref: pd.DataFrame,
+        catalog_target: pd.DataFrame,
+        select_ref: np.array = None,
+        select_target: np.array = None,
+        logger: logging.Logger = None,
+        logging_n_rows: int = None,
+        **kwargs
     ):
         """Match catalogs.
 
@@ -524,27 +525,39 @@ class MatcherProbabilistic:
 
         n_ref_select = len(ref.extras.indices)
 
-        match_dist_max = config.match_dist_max
         coords_spherical = config.coord_format.coords_spherical
-        if coords_spherical:
-            match_dist_max = np.radians(match_dist_max / 3600.)
-
-        # Convert ra/dec sky coordinates to spherical vectors for accurate distances
-        func_convert = _radec_to_xyz if coords_spherical else np.vstack
-        vec_ref, vec_target = (
-            func_convert(cat.coord1[cat.extras.select], cat.coord2[cat.extras.select])
+        coords_ref, coords_target = (
+            (cat.coord1[cat.extras.select], cat.coord2[cat.extras.select])
             for cat in (ref, target)
         )
 
         # Generate K-d tree to compute distances
         logger.info('Generating cKDTree with match_n_max=%d', config.match_n_max)
-        tree_obj = cKDTree(vec_target)
 
-        scores, idxs_target_select = tree_obj.query(
-            vec_ref,
-            distance_upper_bound=match_dist_max,
-            k=config.match_n_max,
-        )
+        if coords_spherical:
+            match_dist_max = config.match_dist_max/3600.
+            with Matcher(coords_target[0], coords_target[1]) as matcher:
+                idxs_target_select = matcher.query_knn(
+                    coords_ref[0], coords_ref[1],
+                    distance_upper_bound=match_dist_max,
+                    k=config.match_n_max,
+                )
+        # Call scipy for non-spherical case
+        # The spherical case won't trigger, but the implementation is left for comparison, if needed
+        else:
+            match_dist_max = np.radians(config.match_dist_max/3600.)
+            # Convert ra/dec sky coordinates to spherical vectors for accurate distances
+            func_convert = _radec_to_xyz if coords_spherical else np.vstack
+            vec_ref, vec_target = (
+                func_convert(coords[0], coords[1])
+                for coords in (coords_ref, coords_target)
+            )
+            tree_obj = cKDTree(vec_target)
+            _, idxs_target_select = tree_obj.query(
+                vec_ref,
+                distance_upper_bound=match_dist_max,
+                k=config.match_n_max,
+            )
 
         n_target_select = len(target.extras.indices)
         n_matches = np.sum(idxs_target_select != n_target_select, axis=1)
