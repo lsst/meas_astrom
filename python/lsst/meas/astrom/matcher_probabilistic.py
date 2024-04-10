@@ -79,6 +79,7 @@ class CatalogExtras:
         A numpy boolean array of the same length as catalog to be used for
         target selection.
     """
+
     n: int
     indices: np.array
     select: np.array
@@ -109,6 +110,7 @@ class ComparableCatalog:
     extras : `CatalogExtras`
         Extra cached (meta)data for the `catalog`.
     """
+
     catalog: pd.DataFrame
     column_coord1: str
     column_coord2: str
@@ -118,8 +120,8 @@ class ComparableCatalog:
 
 
 class ConvertCatalogCoordinatesConfig(pexConfig.Config):
-    """Configuration for the MatchProbabilistic matcher.
-    """
+    """Configuration for the MatchProbabilistic matcher."""
+
     column_ref_coord1 = pexConfig.Field(
         dtype=str,
         default='ra',
@@ -213,7 +215,6 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
         -------
         compcat_ref, compcat_target : `ComparableCatalog`
             Comparable catalogs corresponding to the input reference and target.
-
         """
         convert_ref = self.coords_ref_to_convert
         if convert_ref and not callable(radec_to_xy_func):
@@ -262,14 +263,14 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
 
 
 class MatchProbabilisticConfig(pexConfig.Config):
-    """Configuration for the MatchProbabilistic matcher.
-    """
+    """Configuration for the MatchProbabilistic matcher."""
+
     column_ref_order = pexConfig.Field(
         dtype=str,
         default=None,
         optional=True,
-        doc="Name of column in reference catalog specifying order for matching."
-            " Derived from columns_ref_flux if not set.",
+        doc='Name of column in reference catalog specifying order for matching'
+            ' Derived from columns_ref_flux if not set.',
     )
 
     @property
@@ -439,6 +440,7 @@ class MatcherProbabilistic:
     config: `MatchProbabilisticConfig`
         A configuration instance.
     """
+
     config: MatchProbabilisticConfig
 
     def __init__(
@@ -646,7 +648,7 @@ class MatcherProbabilistic:
                 ref,
                 target,
                 target_row_match,
-                "reference",
+                'reference',
             ),
             (
                 self.config.columns_target_copy,
@@ -655,7 +657,7 @@ class MatcherProbabilistic:
                 target,
                 ref,
                 ref_row_match,
-                "target",
+                'target',
             ),
         ):
             matched = matches >= 0
