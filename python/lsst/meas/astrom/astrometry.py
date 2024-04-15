@@ -220,7 +220,7 @@ class AstrometryTask(RefMatchTask):
         import lsstDebug
         debug = lsstDebug.Info(__name__)
 
-        expMd = self._getExposureMetadata(exposure)
+        epoch = exposure.visitInfo.date.toAstropy()
 
         sourceSelection = self.sourceSelector.run(sourceCat)
 
@@ -228,20 +228,20 @@ class AstrometryTask(RefMatchTask):
                       len(sourceCat) - len(sourceSelection.sourceCat),
                       len(sourceSelection.sourceCat))
 
-        loadRes = self.refObjLoader.loadPixelBox(
-            bbox=expMd.bbox,
-            wcs=expMd.wcs,
-            filterName=expMd.filterName,
-            epoch=expMd.epoch,
+        loadResult = self.refObjLoader.loadPixelBox(
+            bbox=exposure.getBBox(),
+            wcs=exposure.wcs,
+            filterName=exposure.filter.bandLabel,
+            epoch=epoch,
         )
 
-        refSelection = self.referenceSelector.run(loadRes.refCat)
+        refSelection = self.referenceSelector.run(loadResult.refCat)
 
         matchMeta = self.refObjLoader.getMetadataBox(
-            bbox=expMd.bbox,
-            wcs=expMd.wcs,
-            filterName=expMd.filterName,
-            epoch=expMd.epoch,
+            bbox=exposure.getBBox(),
+            wcs=exposure.wcs,
+            filterName=exposure.filter.bandLabel,
+            epoch=epoch,
         )
 
         if debug.display:
@@ -250,7 +250,7 @@ class AstrometryTask(RefMatchTask):
                 refCat=refSelection.sourceCat,
                 sourceCat=sourceSelection.sourceCat,
                 exposure=exposure,
-                bbox=expMd.bbox,
+                bbox=exposure.getBBox(),
                 frame=frame,
                 title="Reference catalog",
             )
@@ -268,7 +268,7 @@ class AstrometryTask(RefMatchTask):
                         sourceCat=sourceCat,
                         goodSourceCat=sourceSelection.sourceCat,
                         refFluxField=loadRes.fluxField,
-                        bbox=expMd.bbox,
+                        bbox=exposure.getBBox(),
                         wcs=wcs,
                         exposure=exposure,
                         match_tolerance=match_tolerance,
