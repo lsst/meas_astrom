@@ -26,7 +26,7 @@ import math
 import unittest
 import glob
 
-from astropy import units
+import astropy.units as u
 import scipy.stats
 import numpy as np
 
@@ -267,6 +267,19 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
 
         return sourceCat
 
+    def testExceptions(self):
+        """Test that the custom astrometry exceptions are well behaved.
+        """
+        error = exceptions.AstrometryError("something", blah=10)
+        self.assertEqual(error.metadata["blah"], 10)
+        self.assertIn("something", str(error))
+        self.assertIn("'blah': 10", str(error))
+
+        # Metadata cannot contain an astropy unit.
+        error = exceptions.AstrometryError("something", blah=10*u.arcsecond)
+        with self.assertRaisesRegex(TypeError, "blah is of type <class 'astropy.units.quantity.Quantity'>"):
+            error.metadata
+
 
 class TestMagnitudeOutliers(lsst.utils.tests.TestCase):
     def testMagnitudeOutlierRejection(self):
@@ -304,7 +317,7 @@ class TestMagnitudeOutliers(lsst.utils.tests.TestCase):
         srcMag[-3] = (config.magnitudeOutlierRejectionNSigma + 0.1)*sigma + (20.0 - zp)
         srcMag[-4] = -(config.magnitudeOutlierRejectionNSigma + 0.1)*sigma + (20.0 - zp)
 
-        refCat['refFlux'] = (refMag*units.ABmag).to_value(units.nJy)
+        refCat['refFlux'] = (refMag*u.ABmag).to_value(u.nJy)
         srcCat['srcFlux'] = 10.0**(srcMag/(-2.5))
 
         # Deliberately poison some reference fluxes.

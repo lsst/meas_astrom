@@ -31,8 +31,8 @@ import lsst.geom as geom
 import lsst.afw.table as afwTable
 from lsst.utils.timer import timeMethod
 
+from . import exceptions
 from .matchOptimisticBTask import MatchTolerance
-
 from .pessimistic_pattern_matcher_b_3D import PessimisticPatternMatcherB
 
 
@@ -258,10 +258,8 @@ class MatchPessimisticBTask(pipeBase.Task):
         # it clear that this is a good/usable (cleaned) source catalog.
         goodSourceCat = sourceCat
 
-        numUsableSources = len(goodSourceCat)
-
-        if len(goodSourceCat) == 0:
-            raise pipeBase.TaskError("No sources are good")
+        if (numUsableSources := len(goodSourceCat)) == 0:
+            raise exceptions.MatcherFailure("No sources are good")
 
         minMatchedPairs = min(self.config.minMatchedPairs,
                               int(self.config.minFracMatchedPairs
@@ -270,15 +268,15 @@ class MatchPessimisticBTask(pipeBase.Task):
         if len(goodSourceCat) <= self.config.numPointsForShape:
             msg = (f"Not enough catalog objects ({len(goodSourceCat)}) to make a "
                    f"shape for the matcher (need {self.config.numPointsForShape}).")
-            raise RuntimeError(msg)
+            raise exceptions.MatcherFailure(msg)
         if len(refCat) <= self.config.numPointsForShape:
             msg = (f"Not enough refcat objects ({len(refCat)}) to make a "
                    f"shape for the matcher (need {self.config.numPointsForShape}).")
-            raise RuntimeError(msg)
+            raise exceptions.MatcherFailure(msg)
 
         if len(refCat) > self.config.maxRefObjects:
             self.log.warning(
-                "WARNING: Reference catalog larger that maximum allowed. "
+                "WARNING: Reference catalog larger than maximum allowed. "
                 "Trimming to %i", self.config.maxRefObjects)
             trimmedRefCat = self._filterRefCat(refCat, refFluxField)
         else:
@@ -298,12 +296,13 @@ class MatchPessimisticBTask(pipeBase.Task):
         matches = doMatchReturn.matches
         matchTolerance = doMatchReturn.matchTolerance
 
-        if len(matches) == 0:
-            raise RuntimeError("Unable to match sources")
+        if (nMatches := len(matches)) == 0:
+            raise exceptions.MatcherFailure("No matches found")
 
-        self.log.info("Matched %d sources", len(matches))
-        if len(matches) < minMatchedPairs:
-            self.log.warning("Number of matches is smaller than request")
+        self.log.info("Matched %d sources", nMatches)
+        if nMatches < minMatchedPairs:
+            self.log.warning("Number of matches (%s) is smaller than minimum requested (%s)",
+                             nMatches, minMatchedPairs)
 
         return pipeBase.Struct(
             matches=matches,
