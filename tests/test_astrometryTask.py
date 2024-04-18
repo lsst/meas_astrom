@@ -57,11 +57,6 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         filenames = sorted(glob.glob(os.path.join(refCatDir, 'ref_cats', 'cal_ref_cat', '??????.fits')))
         self.refObjLoader = MockReferenceObjectLoaderFromFiles(filenames, htmLevel=8)
 
-    def tearDown(self):
-        del self.tanWcs
-        del self.exposure
-        del self.refObjLoader
-
     def testTrivial(self):
         """Test fit with no distortion
         """
@@ -74,52 +69,26 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         """
         self.doTest(afwGeom.makeRadialTransform([0, 1.01, 1e-7]))
 
-    def testUsedFlag(self):
-        """Test that the solver will record number of sources used to table
-           if it is passed a schema on initialization.
+    def doTest(self, pixelsToTanPixels):
+        """Test using pixelsToTanPixels to distort the source positions.
         """
-        self.exposure.setWcs(self.tanWcs)
-        config = AstrometryTask.ConfigClass()
-        config.wcsFitter.order = 2
-        config.wcsFitter.numRejIter = 0
         schema = self._makeSourceCatalogSchema()
-        # schema must be passed to the solver task constructor
-        solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=schema)
-        sourceCat = self.makeSourceCat(self.tanWcs, schema)
-
-        results = solver.run(
-            sourceCat=sourceCat,
-            exposure=self.exposure,
-        )
-        # check that the used flag is set the right number of times
-        count = 0
-        for source in sourceCat:
-            if source.get('calib_astrometry_used'):
-                count += 1
-        self.assertEqual(count, len(results.matches))
-
-
-    def doTest(self, pixelsToTanPixels, order=3):
-        """Test using pixelsToTanPixels to distort the source positions
-        """
+        config = AstrometryTask.ConfigClass()
+        config.wcsFitter.order = 3
+        config.wcsFitter.numRejIter = 0
+        task = AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=schema)
         distortedWcs = afwGeom.makeModifiedWcs(pixelTransform=pixelsToTanPixels, wcs=self.tanWcs,
                                                modifyActualPixels=False)
         self.exposure.setWcs(distortedWcs)
-        sourceCat = self.makeSourceCat(distortedWcs, self._makeSourceCatalogSchema())
-        config = AstrometryTask.ConfigClass()
-        config.wcsFitter.order = order
-        config.wcsFitter.numRejIter = 0
+        sourceCat = self.makeSourceCat(distortedWcs, schema)
         # This test is from before rough magnitude rejection was implemented.
         config.doMagnitudeOutlierRejection = False
-        solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
-        results = solver.run(
-            sourceCat=sourceCat,
-            exposure=self.exposure,
-        )
-        fitWcs = self.exposure.getWcs()
-        self.assertRaises(Exception, self.assertWcsAlmostEqualOverBBox, fitWcs, distortedWcs)
-        self.assertWcsAlmostEqualOverBBox(distortedWcs, fitWcs, self.bbox,
+        results = task.run(sourceCat=sourceCat, exposure=self.exposure)
+
+        self.assertWcsAlmostEqualOverBBox(distortedWcs, self.exposure.wcs, self.bbox,
                                           maxDiffSky=0.01*lsst.geom.arcseconds, maxDiffPix=0.02)
+        # Test that the sources used in the fit are flagged in the catalog.
+        self.assertEqual(sum(sourceCat["calib_astrometry_used"]), len(results.matches))
 
         srcCoordKey = afwTable.CoordKey(sourceCat.schema["coord"])
         refCoordKey = afwTable.CoordKey(results.refCat.schema["coord"])
@@ -297,7 +266,7 @@ class TestMagnitudeOutliers(lsst.utils.tests.TestCase):
         config = AstrometryTask.ConfigClass()
         config.doMagnitudeOutlierRejection = True
         config.magnitudeOutlierRejectionNSigma = 4.0
-        solver = AstrometryTask(config=config, refObjLoader=None)
+        task = AstrometryTask(config=config, refObjLoader=None)
 
         nTest = 100
 
@@ -334,7 +303,7 @@ class TestMagnitudeOutliers(lsst.utils.tests.TestCase):
         for ref, src in zip(refCat, srcCat):
             matchesIn.append(lsst.afw.table.ReferenceMatch(first=ref, second=src, distance=0.0))
 
-        matchesOut = solver._removeMagnitudeOutliers('srcFlux', 'refFlux', matchesIn)
+        matchesOut = task._removeMagnitudeOutliers('srcFlux', 'refFlux', matchesIn)
 
         # We should lose the 4 outliers we created.
         self.assertEqual(len(matchesOut), len(matchesIn) - 4)
