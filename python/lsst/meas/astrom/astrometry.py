@@ -238,13 +238,6 @@ class AstrometryTask(RefMatchTask):
 
         refSelection = self.referenceSelector.run(loadResult.refCat)
 
-        matchMeta = self.refObjLoader.getMetadataBox(
-            bbox=exposure.getBBox(),
-            wcs=exposure.wcs,
-            filterName=exposure.filter.bandLabel,
-            epoch=epoch,
-        )
-
         if debug.display:
             frame = int(debug.frame)
             displayAstrometry(
@@ -312,6 +305,13 @@ class AstrometryTask(RefMatchTask):
             for m in result.matches:
                 m.second.set(self.usedKey, True)
 
+        matchMeta = self.refObjLoader.getMetadataBox(
+            bbox=exposure.getBBox(),
+            wcs=exposure.wcs,
+            filterName=exposure.filter.bandLabel,
+            epoch=epoch,
+        )
+
         return pipeBase.Struct(
             refCat=refSelection.sourceCat,
             matches=result.matches,
@@ -342,7 +342,7 @@ class AstrometryTask(RefMatchTask):
             a MatchTolerance object (or None) specifying
             internal tolerances to the matcher. See the MatchTolerance
             definition in the respective matcher for the class definition.
-        exposure : `lsst.afw.image.Exposure`
+        exposure : `lsst.afw.image.Exposure`, optional
             exposure whose WCS is to be fit, or None; used only for the debug
             display.
 
