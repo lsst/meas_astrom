@@ -347,7 +347,7 @@ class AstrometryTask(RefMatchTask):
         )
 
     @timeMethod
-    def _matchAndFitWcs(self, refCat, sourceCat, goodSourceCat, refFluxField, bbox, wcs, match_tolerance,
+    def _matchAndFitWcs(self, refCat, sourceCat, goodSourceCat, refFluxField, bbox, wcs, matchTolerance,
                         exposure=None):
         """Match sources to reference objects and fit a WCS.
 
@@ -365,7 +365,7 @@ class AstrometryTask(RefMatchTask):
             bounding box of exposure
         wcs : `lsst.afw.geom.SkyWcs`
             initial guess for WCS of exposure
-        match_tolerance : `lsst.meas.astrom.MatchTolerance`
+        matchTolerance : `lsst.meas.astrom.MatchTolerance`
             a MatchTolerance object (or None) specifying
             internal tolerances to the matcher. See the MatchTolerance
             definition in the respective matcher for the class definition.
@@ -395,7 +395,7 @@ class AstrometryTask(RefMatchTask):
             wcs=wcs,
             sourceFluxField=sourceFluxField,
             refFluxField=refFluxField,
-            match_tolerance=match_tolerance,
+            matchTolerance=matchTolerance,
         )
         self.log.debug("Found %s matches", len(matchRes.matches))
         if debug.display:
@@ -442,7 +442,7 @@ class AstrometryTask(RefMatchTask):
             matches=matches,
             wcs=fitWcs,
             scatterOnSky=scatterOnSky,
-            match_tolerance=matchRes.match_tolerance,
+            matchTolerance=matchRes.matchTolerance,
         )
 
     def _removeMagnitudeOutliers(self, sourceFluxField, refFluxField, matchesIn):
