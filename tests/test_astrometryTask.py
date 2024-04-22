@@ -79,14 +79,16 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         task = AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=schema)
         distortedWcs = afwGeom.makeModifiedWcs(pixelTransform=pixelsToTanPixels, wcs=self.tanWcs,
                                                modifyActualPixels=False)
-        self.exposure.setWcs(distortedWcs)
+        # Make the source catalog at the distorted positions, but keep the
+        # initial TAN WCS on the exposure, to check that the fitted WCS
+        # is close to the distorted one and different from the input.
         sourceCat = self.makeSourceCat(distortedWcs, schema)
         # This test is from before rough magnitude rejection was implemented.
         config.doMagnitudeOutlierRejection = False
         results = task.run(sourceCat=sourceCat, exposure=self.exposure)
 
         self.assertWcsAlmostEqualOverBBox(distortedWcs, self.exposure.wcs, self.bbox,
-                                          maxDiffSky=0.01*lsst.geom.arcseconds, maxDiffPix=0.02)
+                                          maxDiffSky=0.002*lsst.geom.arcseconds, maxDiffPix=0.02)
         # Test that the sources used in the fit are flagged in the catalog.
         self.assertEqual(sum(sourceCat["calib_astrometry_used"]), len(results.matches))
 
