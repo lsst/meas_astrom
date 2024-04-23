@@ -28,6 +28,7 @@ import scipy.stats
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from lsst.utils.timer import timeMethod
+from . import exceptions
 from .ref_match import RefMatchTask, RefMatchConfig
 from .fitTanSipWcs import FitTanSipWcsTask
 from .display import displayAstrometry
@@ -61,11 +62,11 @@ class AstrometryConfig(RefMatchConfig):
         min=0,
     )
     maxMeanDistanceArcsec = pexConfig.RangeField(
-        doc="Maximum mean on-sky distance (in arcsec) between matched source and rerference "
-            "objects post-fit.  A mean distance greater than this threshold raises a TaskError "
-            "and the WCS fit is considered a failure.  The default is set to the maximum tolerated "
-            "by the external global calibration (e.g. jointcal) step for conceivable recovery.  "
-            "Appropriate value will be dataset and workflow dependent.",
+        doc="Maximum mean on-sky distance (in arcsec) between matched source and reference "
+            "objects post-fit. A mean distance greater than this threshold raises BadAstrometryFit "
+            "and the WCS fit is considered a failure. The default is set to the maximum tolerated "
+            "by the external global calibration (e.g. jointcal) step for conceivable recovery; "
+            "the appropriate value will be dataset and workflow dependent.",
         dtype=float,
         default=0.5,
         min=0,
@@ -206,7 +207,7 @@ class AstrometryTask(RefMatchTask):
 
         Raises
         ------
-        TaskError
+        BadAstrometryFit
             If the measured mean on-sky distance between the matched source and
             reference objects is greater than
             ``self.config.maxMeanDistanceArcsec``.
@@ -220,7 +221,7 @@ class AstrometryTask(RefMatchTask):
         import lsstDebug
         debug = lsstDebug.Info(__name__)
 
-        expMd = self._getExposureMetadata(exposure)
+        epoch = exposure.visitInfo.date.toAstropy()
 
         sourceSelection = self.sourceSelector.run(sourceCat)
 
@@ -228,21 +229,14 @@ class AstrometryTask(RefMatchTask):
                       len(sourceCat) - len(sourceSelection.sourceCat),
                       len(sourceSelection.sourceCat))
 
-        loadRes = self.refObjLoader.loadPixelBox(
-            bbox=expMd.bbox,
-            wcs=expMd.wcs,
-            filterName=expMd.filterName,
-            epoch=expMd.epoch,
+        loadResult = self.refObjLoader.loadPixelBox(
+            bbox=exposure.getBBox(),
+            wcs=exposure.wcs,
+            filterName=exposure.filter.bandLabel,
+            epoch=epoch,
         )
 
-        refSelection = self.referenceSelector.run(loadRes.refCat)
-
-        matchMeta = self.refObjLoader.getMetadataBox(
-            bbox=expMd.bbox,
-            wcs=expMd.wcs,
-            filterName=expMd.filterName,
-            epoch=expMd.epoch,
-        )
+        refSelection = self.referenceSelector.run(loadResult.refCat)
 
         if debug.display:
             frame = int(debug.frame)
@@ -250,104 +244,83 @@ class AstrometryTask(RefMatchTask):
                 refCat=refSelection.sourceCat,
                 sourceCat=sourceSelection.sourceCat,
                 exposure=exposure,
-                bbox=expMd.bbox,
+                bbox=exposure.getBBox(),
                 frame=frame,
                 title="Reference catalog",
             )
 
-        res = None
-        wcs = expMd.wcs
-        match_tolerance = None
-        fitFailed = False
-        for i in range(self.config.maxIter):
-            if not fitFailed:
-                iterNum = i + 1
-                try:
-                    tryRes = self._matchAndFitWcs(
-                        refCat=refSelection.sourceCat,
-                        sourceCat=sourceCat,
-                        goodSourceCat=sourceSelection.sourceCat,
-                        refFluxField=loadRes.fluxField,
-                        bbox=expMd.bbox,
-                        wcs=wcs,
-                        exposure=exposure,
-                        match_tolerance=match_tolerance,
-                    )
-                except Exception as e:
-                    # If we have had a succeessful iteration then use that;
-                    # otherwise fail.
-                    if i > 0:
-                        self.log.info("Fit WCS iter %d failed; using previous iteration: %s", iterNum, e)
-                        iterNum -= 1
-                        break
-                    else:
-                        self.log.info("Fit WCS iter %d failed: %s" % (iterNum, e))
-                        fitFailed = True
+        result = pipeBase.Struct(matchTolerance=None)
+        maxMatchDistance = np.inf
+        i = 0
+        while (maxMatchDistance > self.config.minMatchDistanceArcSec and i < self.config.maxIter):
+            i += 1
+            try:
+                result = self._matchAndFitWcs(
+                    refCat=refSelection.sourceCat,
+                    sourceCat=sourceCat,
+                    goodSourceCat=sourceSelection.sourceCat,
+                    refFluxField=loadResult.fluxField,
+                    bbox=exposure.getBBox(),
+                    wcs=exposure.wcs,
+                    exposure=exposure,
+                    matchTolerance=result.matchTolerance,
+                )
+                exposure.setWcs(result.wcs)
+            except exceptions.AstrometryError as e:
+                e._metadata['iterations'] = i
+                sourceCat["coord_ra"] = np.nan
+                sourceCat["coord_dec"] = np.nan
+                exposure.setWcs(None)
+                self.log.error("Failure fitting astrometry. %s: %s", type(e).__name__, e)
+                raise
 
-            if not fitFailed:
-                match_tolerance = tryRes.match_tolerance
-                tryMatchDist = self._computeMatchStatsOnSky(tryRes.matches)
-                self.log.debug(
-                    "Match and fit WCS iteration %d: found %d matches with on-sky distance mean and "
-                    "scatter = %0.3f +- %0.3f arcsec; max match distance = %0.3f arcsec",
-                    iterNum, len(tryRes.matches), tryMatchDist.distMean.asArcseconds(),
-                    tryMatchDist.distStdDev.asArcseconds(), tryMatchDist.maxMatchDist.asArcseconds())
-
-                maxMatchDist = tryMatchDist.maxMatchDist
-                res = tryRes
-                wcs = res.wcs
-                if maxMatchDist.asArcseconds() < self.config.minMatchDistanceArcSec:
-                    self.log.debug(
-                        "Max match distance = %0.3f arcsec < %0.3f = config.minMatchDistanceArcSec; "
-                        "that's good enough",
-                        maxMatchDist.asArcseconds(), self.config.minMatchDistanceArcSec)
-                    break
-                match_tolerance.maxMatchDist = maxMatchDist
-
-        if not fitFailed:
-            self.log.info("Matched and fit WCS in %d iterations; "
-                          "found %d matches with mean and scatter = %0.3f +- %0.3f arcsec" %
-                          (iterNum, len(tryRes.matches), tryMatchDist.distMean.asArcseconds(),
-                           tryMatchDist.distStdDev.asArcseconds()))
-            if tryMatchDist.distMean.asArcseconds() > self.config.maxMeanDistanceArcsec:
-                self.log.info("Assigning as a fit failure: mean on-sky distance = %0.3f arcsec > %0.3f "
-                              "(maxMeanDistanceArcsec)" % (tryMatchDist.distMean.asArcseconds(),
-                                                           self.config.maxMeanDistanceArcsec))
-                fitFailed = True
-
-        if fitFailed:
-            self.log.warning("WCS fit failed.  Setting exposure's WCS to None and coord_ra & coord_dec "
-                             "cols in sourceCat to nan.")
-            sourceCat["coord_ra"] = np.nan
-            sourceCat["coord_dec"] = np.nan
-            exposure.setWcs(None)
-            matches = None
-            scatterOnSky = None
-        else:
-            for m in res.matches:
-                if self.usedKey:
-                    m.second.set(self.usedKey, True)
-            exposure.setWcs(res.wcs)
-            matches = res.matches
-            scatterOnSky = res.scatterOnSky
+            result.stats = self._computeMatchStatsOnSky(result.matches)
+            maxMatchDistance = result.stats.maxMatchDist.asArcseconds()
+            distMean = result.stats.distMean.asArcseconds()
+            distStdDev = result.stats.distMean.asArcseconds()
+            self.log.info("Astrometric fit iteration %d: found %d matches with mean separation "
+                          "= %0.3f +- %0.3f arcsec; max match distance = %0.3f arcsec.",
+                          i, len(result.matches), distMean, distStdDev, maxMatchDistance)
 
         # If fitter converged, record the scatter in the exposure metadata
         # even if the fit was deemed a failure according to the value of
         # the maxMeanDistanceArcsec config.
-        if res is not None:
-            md = exposure.getMetadata()
-            md['SFM_ASTROM_OFFSET_MEAN'] = tryMatchDist.distMean.asArcseconds()
-            md['SFM_ASTROM_OFFSET_STD'] = tryMatchDist.distStdDev.asArcseconds()
+        md = exposure.getMetadata()
+        md['SFM_ASTROM_OFFSET_MEAN'] = distMean
+        md['SFM_ASTROM_OFFSET_STD'] = distStdDev
+
+        # Poor quality fits are a failure.
+        if distMean > self.config.maxMeanDistanceArcsec:
+            exception = exceptions.BadAstrometryFit(nMatches=len(result.matches), iterations=i,
+                                                    distMean=distMean,
+                                                    maxMeanDist=self.config.maxMeanDistanceArcsec,
+                                                    distMedian=result.scatterOnSky.asArcseconds())
+            exposure.setWcs(None)
+            sourceCat["coord_ra"] = np.nan
+            sourceCat["coord_dec"] = np.nan
+            self.log.error(exception)
+            raise exception
+
+        if self.usedKey:
+            for m in result.matches:
+                m.second.set(self.usedKey, True)
+
+        matchMeta = self.refObjLoader.getMetadataBox(
+            bbox=exposure.getBBox(),
+            wcs=exposure.wcs,
+            filterName=exposure.filter.bandLabel,
+            epoch=epoch,
+        )
 
         return pipeBase.Struct(
             refCat=refSelection.sourceCat,
-            matches=matches,
-            scatterOnSky=scatterOnSky,
+            matches=result.matches,
+            scatterOnSky=result.scatterOnSky,
             matchMeta=matchMeta,
         )
 
     @timeMethod
-    def _matchAndFitWcs(self, refCat, sourceCat, goodSourceCat, refFluxField, bbox, wcs, match_tolerance,
+    def _matchAndFitWcs(self, refCat, sourceCat, goodSourceCat, refFluxField, bbox, wcs, matchTolerance,
                         exposure=None):
         """Match sources to reference objects and fit a WCS.
 
@@ -365,11 +338,11 @@ class AstrometryTask(RefMatchTask):
             bounding box of exposure
         wcs : `lsst.afw.geom.SkyWcs`
             initial guess for WCS of exposure
-        match_tolerance : `lsst.meas.astrom.MatchTolerance`
+        matchTolerance : `lsst.meas.astrom.MatchTolerance`
             a MatchTolerance object (or None) specifying
             internal tolerances to the matcher. See the MatchTolerance
             definition in the respective matcher for the class definition.
-        exposure : `lsst.afw.image.Exposure`
+        exposure : `lsst.afw.image.Exposure`, optional
             exposure whose WCS is to be fit, or None; used only for the debug
             display.
 
@@ -395,7 +368,7 @@ class AstrometryTask(RefMatchTask):
             wcs=wcs,
             sourceFluxField=sourceFluxField,
             refFluxField=refFluxField,
-            match_tolerance=match_tolerance,
+            matchTolerance=matchTolerance,
         )
         self.log.debug("Found %s matches", len(matchRes.matches))
         if debug.display:
@@ -442,7 +415,7 @@ class AstrometryTask(RefMatchTask):
             matches=matches,
             wcs=fitWcs,
             scatterOnSky=scatterOnSky,
-            match_tolerance=matchRes.match_tolerance,
+            matchTolerance=matchRes.matchTolerance,
         )
 
     def _removeMagnitudeOutliers(self, sourceFluxField, refFluxField, matchesIn):

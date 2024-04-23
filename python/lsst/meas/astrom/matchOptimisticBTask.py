@@ -149,7 +149,7 @@ class MatchOptimisticBTask(pipeBase.Task):
 
     @timeMethod
     def matchObjectsToSources(self, refCat, sourceCat, wcs, sourceFluxField, refFluxField,
-                              match_tolerance=None):
+                              matchTolerance=None):
         """Match sources to position reference stars.
 
         Parameters
@@ -165,7 +165,7 @@ class MatchOptimisticBTask(pipeBase.Task):
             Field of the sourceCat to use for flux
         refFluxField : `str`
             Field of the refCat to use for flux
-        match_tolerance : `lsst.meas.astrom.MatchTolerance`
+        matchTolerance : `lsst.meas.astrom.MatchTolerance`
             Object containing information from previous
             `lsst.meas.astrom.AstrometryTask` match/fit cycles for use in
             matching. If `None` is config defaults.
@@ -179,7 +179,7 @@ class MatchOptimisticBTask(pipeBase.Task):
               distance (`list` of `lsst.afw.table.ReferenceMatch`).
             - ``useableSourceCat`` : Catalog of sources matched and suited for
               WCS fitting (`lsst.afw.table.SourceCatalog`).
-            - ``match_tolerance`` : MatchTolerance object updated from this
+            - ``matchTolerance`` : MatchTolerance object updated from this
               match iteration (`lsst.meas.astrom.MatchTolerance`).
         """
         import lsstDebug
@@ -193,8 +193,8 @@ class MatchOptimisticBTask(pipeBase.Task):
             self.log.info("filterStars purged %d reference stars, leaving %d stars",
                           preNumObj - numRefObj, numRefObj)
 
-        if match_tolerance is None:
-            match_tolerance = MatchTolerance()
+        if matchTolerance is None:
+            matchTolerance = MatchTolerance()
 
         # Make a name alias here for consistency with older code, and to make
         # it clear that this is a good/usable (cleaned) source catalog.
@@ -216,7 +216,7 @@ class MatchOptimisticBTask(pipeBase.Task):
             refFluxField=refFluxField,
             numUsableSources=numUsableSources,
             minMatchedPairs=minMatchedPairs,
-            maxMatchDist=match_tolerance.maxMatchDist,
+            maxMatchDist=matchTolerance.maxMatchDist,
             sourceFluxField=sourceFluxField,
             verbose=debug.verbose,
         )
@@ -242,7 +242,7 @@ class MatchOptimisticBTask(pipeBase.Task):
         return pipeBase.Struct(
             matches=matches,
             usableSourceCat=usableSourceCat,
-            match_tolerance=match_tolerance,
+            matchTolerance=matchTolerance,
         )
 
     def _getIsGoodKeys(self, schema):

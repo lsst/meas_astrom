@@ -31,6 +31,7 @@ import lsst.afw.table as afwTable
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from lsst.utils.timer import timeMethod
+from . import exceptions
 from .setMatchDistance import setMatchDistance
 from .sip import makeCreateWcsWithSip
 
@@ -135,7 +136,7 @@ class FitTanSipWcsTask(pipeBase.Task):
             wcs = sipObject.getNewWcs()
             rejected = self.rejectMatches(matches, wcs, rejected)
             if rejected.sum() == len(rejected):
-                raise RuntimeError("All matches rejected in iteration %d" % (rej + 1,))
+                raise exceptions.AstrometryFitFailure(f"All matches rejected in fitter iteration {rej+1}")
             self.log.debug(
                 "Iteration %d of astrometry fitting: rejected %d outliers, out of %d total matches.",
                 rej, rejected.sum(), len(rejected)
@@ -170,7 +171,7 @@ class FitTanSipWcsTask(pipeBase.Task):
         scatterOnSky = sipObject.getScatterOnSky()
 
         if scatterOnSky.asArcseconds() > self.config.maxScatterArcsec:
-            raise pipeBase.TaskError(
+            raise exceptions.AstrometryFitFailure(
                 "Fit failed: median scatter on sky = %0.3f arcsec > %0.3f config.maxScatterArcsec" %
                 (scatterOnSky.asArcseconds(), self.config.maxScatterArcsec))
 

@@ -20,13 +20,12 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
-import logging
 import os.path
 import math
 import unittest
 import glob
 
-from astropy import units
+import astropy.units as u
 import scipy.stats
 import numpy as np
 
@@ -37,7 +36,8 @@ import lsst.afw.table as afwTable
 import lsst.afw.image as afwImage
 import lsst.meas.base as measBase
 from lsst.meas.algorithms.testUtils import MockReferenceObjectLoaderFromFiles
-from lsst.meas.astrom import AstrometryTask
+from lsst.meas.astrom import AstrometryTask, exceptions
+import lsst.pipe.base as pipeBase
 
 
 class TestAstrometricSolver(lsst.utils.tests.TestCase):
@@ -52,14 +52,10 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
                                          cdMatrix=afwGeom.makeCdMatrix(scale=5.1e-5*lsst.geom.degrees))
         self.exposure = afwImage.ExposureF(self.bbox)
         self.exposure.setWcs(self.tanWcs)
+        self.exposure.info.setVisitInfo(afwImage.VisitInfo(date=lsst.daf.base.DateTime(60000)))
         self.exposure.setFilter(afwImage.FilterLabel(band="r", physical="rTest"))
         filenames = sorted(glob.glob(os.path.join(refCatDir, 'ref_cats', 'cal_ref_cat', '??????.fits')))
         self.refObjLoader = MockReferenceObjectLoaderFromFiles(filenames, htmLevel=8)
-
-    def tearDown(self):
-        del self.tanWcs
-        del self.exposure
-        del self.refObjLoader
 
     def testTrivial(self):
         """Test fit with no distortion
@@ -73,84 +69,28 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         """
         self.doTest(afwGeom.makeRadialTransform([0, 1.01, 1e-7]))
 
-    def testUsedFlag(self):
-        """Test that the solver will record number of sources used to table
-           if it is passed a schema on initialization.
+    def doTest(self, pixelsToTanPixels):
+        """Test using pixelsToTanPixels to distort the source positions.
         """
-        self.exposure.setWcs(self.tanWcs)
+        schema = self._makeSourceCatalogSchema()
         config = AstrometryTask.ConfigClass()
-        config.wcsFitter.order = 2
+        config.wcsFitter.order = 3
         config.wcsFitter.numRejIter = 0
-        schema = self._makeSourceCatalogSchema()
-        # schema must be passed to the solver task constructor
-        solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=schema)
-        sourceCat = self.makeSourceCat(self.tanWcs, schema)
-
-        results = solver.run(
-            sourceCat=sourceCat,
-            exposure=self.exposure,
-        )
-        # check that the used flag is set the right number of times
-        count = 0
-        for source in sourceCat:
-            if source.get('calib_astrometry_used'):
-                count += 1
-        self.assertEqual(count, len(results.matches))
-
-    def testWcsFailure(self):
-        """In the case of a failed WCS fit, test that the exposure's WCS is set
-           to None and the coord_ra & coord_dec columns are set to nan in the
-           source catalog.
-        """
-        self.exposure.setWcs(self.tanWcs)
-        config = AstrometryTask.ConfigClass()
-        config.wcsFitter.order = 2
-        config.wcsFitter.maxScatterArcsec = 0.0  # To ensure a WCS failure
-
-        schema = self._makeSourceCatalogSchema()
-        # schema must be passed to the solver task constructor
-        solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=schema)
-        sourceCat = self.makeSourceCat(self.tanWcs, schema, doScatterCentroids=True)
-
-        with self.assertLogs(level=logging.WARNING) as cm:
-            results = solver.run(
-                sourceCat=sourceCat,
-                exposure=self.exposure,
-            )
-            logOutput = ";".join(cm.output)
-            self.assertIn("WCS fit failed.", logOutput)
-            self.assertIn("Setting exposure's WCS to None and coord_ra & coord_dec cols in sourceCat to nan.",
-                          logOutput)
-        # Check that matches is set to None, the sourceCat coord cols are all
-        # set to nan and that the WCS attached to the exposure is set to None.
-        self.assertTrue(results.matches is None)
-        self.assertTrue(np.all(np.isnan(sourceCat["coord_ra"])))
-        self.assertTrue(np.all(np.isnan(sourceCat["coord_dec"])))
-        self.assertTrue(self.exposure.getWcs() is None)
-        self.assertTrue(results.scatterOnSky is None)
-        self.assertTrue(results.matches is None)
-
-    def doTest(self, pixelsToTanPixels, order=3):
-        """Test using pixelsToTanPixels to distort the source positions
-        """
+        task = AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=schema)
         distortedWcs = afwGeom.makeModifiedWcs(pixelTransform=pixelsToTanPixels, wcs=self.tanWcs,
                                                modifyActualPixels=False)
-        self.exposure.setWcs(distortedWcs)
-        sourceCat = self.makeSourceCat(distortedWcs, self._makeSourceCatalogSchema())
-        config = AstrometryTask.ConfigClass()
-        config.wcsFitter.order = order
-        config.wcsFitter.numRejIter = 0
+        # Make the source catalog at the distorted positions, but keep the
+        # initial TAN WCS on the exposure, to check that the fitted WCS
+        # is close to the distorted one and different from the input.
+        sourceCat = self.makeSourceCat(distortedWcs, schema)
         # This test is from before rough magnitude rejection was implemented.
         config.doMagnitudeOutlierRejection = False
-        solver = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
-        results = solver.run(
-            sourceCat=sourceCat,
-            exposure=self.exposure,
-        )
-        fitWcs = self.exposure.getWcs()
-        self.assertRaises(Exception, self.assertWcsAlmostEqualOverBBox, fitWcs, distortedWcs)
-        self.assertWcsAlmostEqualOverBBox(distortedWcs, fitWcs, self.bbox,
-                                          maxDiffSky=0.01*lsst.geom.arcseconds, maxDiffPix=0.02)
+        results = task.run(sourceCat=sourceCat, exposure=self.exposure)
+
+        self.assertWcsAlmostEqualOverBBox(distortedWcs, self.exposure.wcs, self.bbox,
+                                          maxDiffSky=0.002*lsst.geom.arcseconds, maxDiffPix=0.02)
+        # Test that the sources used in the fit are flagged in the catalog.
+        self.assertEqual(sum(sourceCat["calib_astrometry_used"]), len(results.matches))
 
         srcCoordKey = afwTable.CoordKey(sourceCat.schema["coord"])
         refCoordKey = afwTable.CoordKey(results.refCat.schema["coord"])
@@ -267,6 +207,56 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
 
         return sourceCat
 
+    def testBadAstrometry(self):
+        """Test that an appropriately informative exception is raised for a
+        bad quality fit.
+        """
+        catalog = self.makeSourceCat(self.tanWcs, self._makeSourceCatalogSchema())
+        # Fake match list with 10" match distance for every source to force
+        # a bad quality fit result.
+        matches = [afwTable.ReferenceMatch(r, r, (10*u.arcsecond).to_value(u.radian)) for r in catalog]
+        result = pipeBase.Struct(
+            matches=matches,
+            wcs=None,
+            scatterOnSky=20.0*lsst.geom.arcseconds,
+            matchTolerance=None
+        )
+        with unittest.mock.patch("lsst.meas.astrom.AstrometryTask._matchAndFitWcs",
+                                 return_value=result, autospec=True):
+            with self.assertRaises(exceptions.BadAstrometryFit):
+                task = AstrometryTask(refObjLoader=self.refObjLoader)
+                task.run(catalog, self.exposure)
+            self.assertIsNone(self.exposure.wcs)
+            self.assertTrue(np.all(np.isnan(catalog["coord_ra"])))
+            self.assertTrue(np.all(np.isnan(catalog["coord_dec"])))
+
+    def testMatcherFails(self):
+        """Test that a matcher exception has additional metadata attached.
+        """
+        catalog = self.makeSourceCat(self.tanWcs, self._makeSourceCatalogSchema())
+        with unittest.mock.patch("lsst.meas.astrom.AstrometryTask._matchAndFitWcs", autospec=True,
+                                 side_effect=exceptions.MatcherFailure("some matcher problem")):
+            with self.assertRaises(exceptions.MatcherFailure) as cm:
+                task = AstrometryTask(refObjLoader=self.refObjLoader)
+                task.run(catalog, self.exposure)
+            self.assertEqual(cm.exception.metadata["iterations"], 1)
+            self.assertIsNone(self.exposure.wcs)
+            self.assertTrue(np.all(np.isnan(catalog["coord_ra"])))
+            self.assertTrue(np.all(np.isnan(catalog["coord_dec"])))
+
+    def testExceptions(self):
+        """Test that the custom astrometry exceptions are well behaved.
+        """
+        error = exceptions.AstrometryError("something", blah=10)
+        self.assertEqual(error.metadata["blah"], 10)
+        self.assertIn("something", str(error))
+        self.assertIn("'blah': 10", str(error))
+
+        # Metadata cannot contain an astropy unit.
+        error = exceptions.AstrometryError("something", blah=10*u.arcsecond)
+        with self.assertRaisesRegex(TypeError, "blah is of type <class 'astropy.units.quantity.Quantity'>"):
+            error.metadata
+
 
 class TestMagnitudeOutliers(lsst.utils.tests.TestCase):
     def testMagnitudeOutlierRejection(self):
@@ -278,7 +268,7 @@ class TestMagnitudeOutliers(lsst.utils.tests.TestCase):
         config = AstrometryTask.ConfigClass()
         config.doMagnitudeOutlierRejection = True
         config.magnitudeOutlierRejectionNSigma = 4.0
-        solver = AstrometryTask(config=config, refObjLoader=None)
+        task = AstrometryTask(config=config, refObjLoader=None)
 
         nTest = 100
 
@@ -304,7 +294,7 @@ class TestMagnitudeOutliers(lsst.utils.tests.TestCase):
         srcMag[-3] = (config.magnitudeOutlierRejectionNSigma + 0.1)*sigma + (20.0 - zp)
         srcMag[-4] = -(config.magnitudeOutlierRejectionNSigma + 0.1)*sigma + (20.0 - zp)
 
-        refCat['refFlux'] = (refMag*units.ABmag).to_value(units.nJy)
+        refCat['refFlux'] = (refMag*u.ABmag).to_value(u.nJy)
         srcCat['srcFlux'] = 10.0**(srcMag/(-2.5))
 
         # Deliberately poison some reference fluxes.
@@ -315,7 +305,7 @@ class TestMagnitudeOutliers(lsst.utils.tests.TestCase):
         for ref, src in zip(refCat, srcCat):
             matchesIn.append(lsst.afw.table.ReferenceMatch(first=ref, second=src, distance=0.0))
 
-        matchesOut = solver._removeMagnitudeOutliers('srcFlux', 'refFlux', matchesIn)
+        matchesOut = task._removeMagnitudeOutliers('srcFlux', 'refFlux', matchesIn)
 
         # We should lose the 4 outliers we created.
         self.assertEqual(len(matchesOut), len(matchesIn) - 4)

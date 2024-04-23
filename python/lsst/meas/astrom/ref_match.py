@@ -21,10 +21,7 @@
 
 __all__ = ['RefMatchConfig', 'RefMatchTask']
 
-import astropy.time
-
 import lsst.geom
-from lsst.daf.base import DateTime
 import lsst.afw.math as afwMath
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
@@ -145,35 +142,35 @@ class RefMatchTask(pipeBase.Task):
         import lsstDebug
         debug = lsstDebug.Info(__name__)
 
-        expMd = self._getExposureMetadata(exposure)
+        epoch = exposure.visitInfo.date.toAstropy()
 
         sourceSelection = self.sourceSelector.run(sourceCat)
 
         sourceFluxField = "slot_%sFlux_instFlux" % (self.config.sourceFluxType)
 
         loadRes = self.refObjLoader.loadPixelBox(
-            bbox=expMd.bbox,
-            wcs=expMd.wcs,
-            filterName=expMd.filterName,
-            epoch=expMd.epoch,
+            bbox=exposure.getBBox(),
+            wcs=exposure.wcs,
+            filterName=exposure.filter.bandLabel,
+            epoch=epoch,
         )
 
         refSelection = self.referenceSelector.run(loadRes.refCat)
 
         matchMeta = self.refObjLoader.getMetadataBox(
-            bbox=expMd.bbox,
-            wcs=expMd.wcs,
-            filterName=expMd.filterName,
-            epoch=expMd.epoch,
+            bbox=exposure.getBBox(),
+            wcs=exposure.wcs,
+            filterName=exposure.filter.bandLabel,
+            epoch=epoch,
         )
 
         matchRes = self.matcher.matchObjectsToSources(
             refCat=refSelection.sourceCat,
             sourceCat=sourceSelection.sourceCat,
-            wcs=expMd.wcs,
+            wcs=exposure.wcs,
             sourceFluxField=sourceFluxField,
             refFluxField=loadRes.fluxField,
-            match_tolerance=None,
+            matchTolerance=None,
         )
 
         distStats = self._computeMatchStatsOnSky(matchRes.matches)
@@ -189,7 +186,7 @@ class RefMatchTask(pipeBase.Task):
                 sourceCat=sourceSelection.sourceCat,
                 matches=matchRes.matches,
                 exposure=exposure,
-                bbox=expMd.bbox,
+                bbox=exposure.getBBox(),
                 frame=frame,
                 title="Matches",
             )
@@ -229,37 +226,4 @@ class RefMatchTask(pipeBase.Task):
             distMean=distMean,
             distStdDev=distStdDev,
             maxMatchDist=distMean + self.config.matchDistanceSigma * distStdDev,
-        )
-
-    def _getExposureMetadata(self, exposure):
-        """Extract metadata from an exposure.
-
-        Parameters
-        ----------
-        exposure : `lsst.afw.image.Exposure`
-
-        Returns
-        -------
-        result : `lsst.pipe.base.Struct`
-            Result struct with components:
-
-            - ``bbox`` : parent bounding box (`lsst.geom.Box2I`)
-            - ``wcs`` : exposure WCS (`lsst.afw.geom.SkyWcs`)
-            - ``photoCalib`` : photometric calibration (`lsst.afw.image.PhotoCalib`)
-            - ``filterName`` : name of filter band (`str`)
-            - ``epoch`` : date of exposure (`astropy.time.Time`)
-        """
-        filterLabel = exposure.info.getFilter()
-        filterName = filterLabel.bandLabel if filterLabel is not None else None
-        epoch = None
-        if exposure.info.hasVisitInfo():
-            epochTaiMjd = exposure.visitInfo.date.get(system=DateTime.MJD, scale=DateTime.TAI)
-            epoch = astropy.time.Time(epochTaiMjd, scale="tai", format="mjd")
-
-        return pipeBase.Struct(
-            bbox=exposure.getBBox(),
-            wcs=exposure.info.getWcs(),
-            photoCalib=exposure.info.getPhotoCalib(),
-            filterName=filterName,
-            epoch=epoch,
         )

@@ -35,6 +35,7 @@ from ._measAstromLib import (OutlierRejectionControl,
                              SipForwardTransform, SipReverseTransform,
                              makeMatchStatisticsInRadians, makeWcs)
 
+from . import exceptions
 from .setMatchDistance import setMatchDistance
 
 
@@ -252,7 +253,7 @@ class FitSipDistortionTask(lsst.pipe.base.Task):
         scatterOnSky = stats.getValue()*lsst.geom.radians
 
         if scatterOnSky.asArcseconds() > self.config.maxScatterArcsec:
-            raise lsst.pipe.base.TaskError(
+            raise exceptions.AstrometryFitFailure(
                 "Fit failed: median scatter on sky = %0.3f arcsec > %0.3f config.maxScatterArcsec" %
                 (scatterOnSky.asArcseconds(), self.config.maxScatterArcsec))
 
