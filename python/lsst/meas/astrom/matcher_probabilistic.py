@@ -682,7 +682,7 @@ class MatcherProbabilistic:
                 ref,
                 target,
                 target_row_match,
-                'reference',
+                'target',
             ),
             (
                 self.config.columns_target_copy,
@@ -691,7 +691,7 @@ class MatcherProbabilistic:
                 target,
                 ref,
                 ref_row_match,
-                'target',
+                'reference',
             ),
         ):
             matched = matches >= 0
