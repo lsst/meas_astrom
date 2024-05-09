@@ -170,6 +170,10 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
         default=31.4,
         doc='Magnitude zeropoint for reference catalog.',
     )
+    return_converted_coords = pexConfig.Field[float](
+        default=True,
+        doc='Whether to return converted coordinates for matching or only write them.',
+    )
 
     def format_catalogs(
         self,
@@ -178,7 +182,6 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
         select_ref: np.array = None,
         select_target: np.array = None,
         radec_to_xy_func: Callable = None,
-        return_converted_columns: bool = False,
         **kwargs,
     ):
         """Format matched catalogs that may require coordinate conversions.
@@ -197,9 +200,6 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
             Function taking equal-length ra, dec arrays and returning an ndarray of
             - ``x``: current parameter (`float`).
             - ``extra_args``: additional arguments (`dict`).
-        return_converted_columns : `bool`
-            Whether to return converted columns in the `coord1` and `coord2`
-            attributes, rather than keep the original values.
         kwargs
             Additional keyword arguments to pass to radec_to_xy_func.
 
@@ -238,9 +238,10 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
                 for idx_coord, column_out in enumerate(self.coords_ref_to_convert.values()):
                     coord = np.array([xy[idx_coord] for xy in xy_ref])
                     catalog[column_out] = coord
-            if convert_ref and return_converted_columns:
+            if convert_ref:
                 column1, column2 = self.coords_ref_to_convert.values()
-                coord1, coord2 = catalog[column1], catalog[column2]
+                if self.return_converted_coords:
+                    coord1, coord2 = catalog[column1], catalog[column2]
             if isinstance(coord1, pd.Series):
                 coord1 = coord1.values
             if isinstance(coord2, pd.Series):
