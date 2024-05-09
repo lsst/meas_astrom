@@ -123,60 +123,50 @@ class ComparableCatalog:
 class ConvertCatalogCoordinatesConfig(pexConfig.Config):
     """Configuration for the MatchProbabilistic matcher."""
 
-    column_ref_coord1 = pexConfig.Field(
-        dtype=str,
+    column_ref_coord1 = pexConfig.Field[str](
         default='ra',
         doc='The reference table column for the first spatial coordinate (usually x or ra).',
     )
-    column_ref_coord2 = pexConfig.Field(
-        dtype=str,
+    column_ref_coord2 = pexConfig.Field[str](
         default='dec',
         doc='The reference table column for the second spatial coordinate (usually y or dec).'
             'Units must match column_ref_coord1.',
     )
-    column_target_coord1 = pexConfig.Field(
-        dtype=str,
+    column_target_coord1 = pexConfig.Field[str](
         default='coord_ra',
         doc='The target table column for the first spatial coordinate (usually x or ra).'
             'Units must match column_ref_coord1.',
     )
-    column_target_coord2 = pexConfig.Field(
-        dtype=str,
+    column_target_coord2 = pexConfig.Field[str](
         default='coord_dec',
         doc='The target table column for the second spatial coordinate (usually y or dec).'
             'Units must match column_ref_coord2.',
     )
-    coords_spherical = pexConfig.Field(
-        dtype=bool,
+    coords_spherical = pexConfig.Field[bool](
         default=True,
-        doc='Whether column_*_coord[12] are spherical coordinates (ra/dec) or not (pixel x/y)',
+        doc='Whether column_*_coord[12] are spherical coordinates (ra/dec) or not (pixel x/y).',
     )
-    coords_ref_factor = pexConfig.Field(
-        dtype=float,
+    coords_ref_factor = pexConfig.Field[float](
         default=1.0,
         doc='Multiplicative factor for reference catalog coordinates.'
             'If coords_spherical is true, this must be the number of degrees per unit increment of '
             'column_ref_coord[12]. Otherwise, it must convert the coordinate to the same units'
             ' as the target coordinates.',
     )
-    coords_target_factor = pexConfig.Field(
-        dtype=float,
+    coords_target_factor = pexConfig.Field[float](
         default=1.0,
         doc='Multiplicative factor for target catalog coordinates.'
             'If coords_spherical is true, this must be the number of degrees per unit increment of '
             'column_target_coord[12]. Otherwise, it must convert the coordinate to the same units'
             ' as the reference coordinates.',
     )
-    coords_ref_to_convert = pexConfig.DictField(
+    coords_ref_to_convert = pexConfig.DictField[str, str](
         default=None,
         optional=True,
-        keytype=str,
-        itemtype=str,
         dictCheck=lambda x: len(x) == 2,
-        doc='Dict mapping sky coordinate columns to be converted to pixel columns',
+        doc='Dict mapping sky coordinate columns to be converted to pixel columns.',
     )
-    mag_zeropoint_ref = pexConfig.Field(
-        dtype=float,
+    mag_zeropoint_ref = pexConfig.Field[float](
         default=31.4,
         doc='Magnitude zeropoint for reference catalog.',
     )
@@ -211,6 +201,7 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
             Whether to return converted columns in the `coord1` and `coord2`
             attributes, rather than keep the original values.
         kwargs
+            Additional keyword arguments to pass to radec_to_xy_func.
 
         Returns
         -------
