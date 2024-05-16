@@ -34,8 +34,8 @@ class MatchProbabilisticConfigTestCase(lsst.utils.tests.TestCase):
             columns_target_meas=["x", "y"],
             columns_target_err=["xErr", "yErr"],
         )
-        configs_bad = {"too_few_finite": MatchProbabilisticConfig(**kwargs)}
-        self.config_good = MatchProbabilisticConfig(match_n_finite_min=2, **kwargs)
+        self.config_good = MatchProbabilisticConfig(**kwargs)
+        configs_bad = {}
         kwargs["columns_target_meas"] = ["x"]
         configs_bad["too_few_target_meas"] = MatchProbabilisticConfig(**kwargs)
         kwargs["columns_target_meas"] = ["x", "y", "z"]
