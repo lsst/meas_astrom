@@ -419,9 +419,9 @@ class MatchProbabilisticConfig(pexConfig.Config):
 def default_value(dtype):
     if dtype == str:
         return ''
-    elif dtype == np.signedinteger:
+    elif np.issubdtype(dtype, np.signedinteger):
         return np.Inf
-    elif dtype == np.unsignedinteger:
+    elif np.issubdtype(dtype, np.unsignedinteger):
         return -np.Inf
     return None
 
