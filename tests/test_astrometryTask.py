@@ -92,6 +92,17 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         # Test that the sources used in the fit are flagged in the catalog.
         self.assertEqual(sum(sourceCat["calib_astrometry_used"]), len(results.matches))
 
+        # The following tests that the measured mean astrometry offset is not
+        # equal to its standard deviation (within the default tolerances of
+        # double-precision epsilon).  While this condition is not strictly
+        # required to be true, in reality it would be highly unlikely and is
+        # certainly not the case for this test as configured.  The motivation
+        # for adding this check is that it would have caught a refactor that
+        # mistakenly set them both as the mean.
+        self.assertFloatsNotEqual(
+            self.exposure.metadata["SFM_ASTROM_OFFSET_MEAN"], self.exposure.metadata["SFM_ASTROM_OFFSET_STD"]
+        )
+
         srcCoordKey = afwTable.CoordKey(sourceCat.schema["coord"])
         refCoordKey = afwTable.CoordKey(results.refCat.schema["coord"])
         refCentroidKey = afwTable.Point2DKey(results.refCat.schema["centroid"])
