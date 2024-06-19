@@ -277,7 +277,7 @@ class AstrometryTask(RefMatchTask):
             result.stats = self._computeMatchStatsOnSky(result.matches)
             maxMatchDistance = result.stats.maxMatchDist.asArcseconds()
             distMean = result.stats.distMean.asArcseconds()
-            distStdDev = result.stats.distMean.asArcseconds()
+            distStdDev = result.stats.distStdDev.asArcseconds()
             self.log.info("Astrometric fit iteration %d: found %d matches with mean separation "
                           "= %0.3f +- %0.3f arcsec; max match distance = %0.3f arcsec.",
                           i, len(result.matches), distMean, distStdDev, maxMatchDistance)
