@@ -366,7 +366,7 @@ class MatchProbabilisticConfig(pexConfig.Config):
     )
     mag_faintest_ref = pexConfig.Field(
         dtype=float,
-        default=np.Inf,
+        default=np.inf,
         doc='Faint magnitude cutoff for selecting reference sources to match.'
             ' Ignored if column_ref_order is None.'
     )
@@ -420,9 +420,9 @@ def default_value(dtype):
     if dtype is str:
         return ''
     elif np.issubdtype(dtype, np.signedinteger):
-        return np.Inf
+        return np.inf
     elif np.issubdtype(dtype, np.unsignedinteger):
-        return -np.Inf
+        return -np.inf
     return None
 
 
