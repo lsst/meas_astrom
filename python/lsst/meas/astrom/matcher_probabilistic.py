@@ -366,7 +366,7 @@ class MatchProbabilisticConfig(pexConfig.Config):
     )
     mag_faintest_ref = pexConfig.Field(
         dtype=float,
-        default=np.Inf,
+        default=np.inf,
         doc='Faint magnitude cutoff for selecting reference sources to match.'
             ' Ignored if column_ref_order is None.'
     )
@@ -417,12 +417,12 @@ class MatchProbabilisticConfig(pexConfig.Config):
 
 
 def default_value(dtype):
-    if dtype == str:
+    if dtype is str:
         return ''
     elif np.issubdtype(dtype, np.signedinteger):
-        return np.Inf
+        return np.inf
     elif np.issubdtype(dtype, np.unsignedinteger):
-        return -np.Inf
+        return -np.inf
     return None
 
 
@@ -705,7 +705,7 @@ class MatcherProbabilistic:
                 dtype = in_original.catalog[column].dtype
 
                 # Pandas object columns can have mixed types - check for that
-                if dtype == object:
+                if dtype is object:
                     types = list(set((type(x) for x in values)))
                     if len(types) != 1:
                         raise RuntimeError(f'Column {column} dtype={dtype} has multiple types={types}')
@@ -714,7 +714,7 @@ class MatcherProbabilistic:
                 value_fill = default_value(dtype)
 
                 # Without this, the dtype would be '<U1' for an empty Unicode string
-                if dtype == str:
+                if dtype is str:
                     dtype = f'<U{max(len(x) for x in values)}'
 
                 column_match = np.full(in_matched.extras.n, value_fill, dtype=dtype)
