@@ -161,7 +161,7 @@ class RefMatchTask(pipeBase.Task):
             epoch=epoch,
         )
 
-        refSelection = self.referenceSelector.run(loadRes.refCat)
+        refSelection = self.referenceSelector.run(loadRes.refCat, exposure=exposure)
 
         matchMeta = self.refObjLoader.getMetadataBox(
             bbox=exposure.getBBox(),
