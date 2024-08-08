@@ -86,20 +86,8 @@ class AstrometryConfig(RefMatchConfig):
     )
 
     def setDefaults(self):
-        # Override the default source selector for astrometry tasks
-        self.sourceFluxType = "Psf"
-        # Configured to match the deprecated "matcher" selector: isolated,
-        # SN > 40, some bad flags, valid centroids.
-        self.sourceSelector["science"].doSignalToNoise = True
-        self.sourceSelector["science"].signalToNoise.minimum = 40
-        self.sourceSelector["science"].signalToNoise.fluxField = f"slot_{self.sourceFluxType}Flux_instFlux"
-        self.sourceSelector["science"].signalToNoise.errField = f"slot_{self.sourceFluxType}Flux_instFluxErr"
-        self.sourceSelector["science"].doFlags = True
-        self.sourceSelector["science"].flags.bad = ["base_PixelFlags_flag_edge",
-                                                    "base_PixelFlags_flag_interpolatedCenter",
-                                                    "base_PixelFlags_flag_saturated",
-                                                    "base_SdssCentroid_flag",
-                                                    ]
+        super().setDefaults()
+        # Astrometry needs sources to be isolated, too.
         self.sourceSelector["science"].doRequirePrimary = True
         self.sourceSelector["science"].doIsolated = True
 
