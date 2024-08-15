@@ -149,7 +149,7 @@ class MatchOptimisticBTask(pipeBase.Task):
 
     @timeMethod
     def matchObjectsToSources(self, refCat, sourceCat, wcs, sourceFluxField, refFluxField,
-                              matchTolerance=None):
+                              matchTolerance=None, bbox=None):
         """Match sources to position reference stars.
 
         Parameters
@@ -169,6 +169,10 @@ class MatchOptimisticBTask(pipeBase.Task):
             Object containing information from previous
             `lsst.meas.astrom.AstrometryTask` match/fit cycles for use in
             matching. If `None` is config defaults.
+        bbox : `lsst.geom.Box2I`, optional
+            Bounding box of the exposure for evaluating the local pixelScale
+            (defaults to the Sky Origin of the ``wcs`` provided if ``bbox``
+            is `None`).
 
         Returns
         -------
@@ -219,6 +223,7 @@ class MatchOptimisticBTask(pipeBase.Task):
             maxMatchDist=matchTolerance.maxMatchDist,
             sourceFluxField=sourceFluxField,
             verbose=debug.verbose,
+            bbox=bbox,
         )
 
         # cull non-good sources
@@ -280,7 +285,7 @@ class MatchOptimisticBTask(pipeBase.Task):
 
     @timeMethod
     def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numUsableSources, minMatchedPairs,
-                 maxMatchDist, sourceFluxField, verbose):
+                 maxMatchDist, sourceFluxField, verbose, bbox=None):
         """Implementation of matching sources to position reference stars.
 
         Unlike matchObjectsToSources, this method does not check if the sources
@@ -307,6 +312,10 @@ class MatchOptimisticBTask(pipeBase.Task):
             Name of source catalog flux field.
         verbose : `bool`
             Print diagnostic information std::cout
+        bbox : `lsst.geom.Box2I`, optional
+            Bounding box of the exposure for evaluating the local pixelScale
+            (defaults to the Sky Origin of the ``wcs`` provided if ``bbox``
+            is None).
 
         Returns
         -------
@@ -318,7 +327,13 @@ class MatchOptimisticBTask(pipeBase.Task):
             maxMatchDistArcSec = self.config.maxMatchDistArcSec
         else:
             maxMatchDistArcSec = min(maxMatchDist.asArcseconds(), self.config.maxMatchDistArcSec)
-        configMatchDistPix = maxMatchDistArcSec/wcs.getPixelScale().asArcseconds()
+
+        if bbox is not None:
+            pixelScale = wcs.getPixelScale(bbox.getCenter()).asArcseconds()
+        else:
+            pixelScale = wcs.getPixelScale().asArcseconds()
+
+        configMatchDistPix = maxMatchDistArcSec/pixelScale
 
         matchControl = MatchOptimisticBControl()
         matchControl.refFluxField = refFluxField
