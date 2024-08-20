@@ -225,11 +225,17 @@ class AstrometryTask(RefMatchTask):
         )
 
         refSelection = self.referenceSelector.run(loadResult.refCat)
+        # Some operations below require catalog contiguity, which is not
+        # guaranteed from the source selector.
+        if not refSelection.sourceCat.isContiguous():
+            refCat = refSelection.sourceCat.copy(deep=True)
+        else:
+            refCat = refSelection.sourceCat
 
         if debug.display:
             frame = int(debug.frame)
             displayAstrometry(
-                refCat=refSelection.sourceCat,
+                refCat=refCat,
                 sourceCat=sourceSelection.sourceCat,
                 exposure=exposure,
                 bbox=exposure.getBBox(),
@@ -244,7 +250,7 @@ class AstrometryTask(RefMatchTask):
             i += 1
             try:
                 result = self._matchAndFitWcs(
-                    refCat=refSelection.sourceCat,
+                    refCat=refCat,
                     sourceCat=sourceCat,
                     goodSourceCat=sourceSelection.sourceCat,
                     refFluxField=loadResult.fluxField,
@@ -301,7 +307,7 @@ class AstrometryTask(RefMatchTask):
         )
 
         return pipeBase.Struct(
-            refCat=refSelection.sourceCat,
+            refCat=refCat,
             matches=result.matches,
             scatterOnSky=result.scatterOnSky,
             matchMeta=matchMeta,
