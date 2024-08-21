@@ -207,7 +207,7 @@ class MatchPessimisticBTask(pipeBase.Task):
 
     @timeMethod
     def matchObjectsToSources(self, refCat, sourceCat, wcs, sourceFluxField, refFluxField,
-                              matchTolerance=None):
+                              matchTolerance=None, bbox=None):
         """Match sources to position reference stars
 
         refCat : `lsst.afw.table.SimpleCatalog`
@@ -232,6 +232,10 @@ class MatchPessimisticBTask(pipeBase.Task):
             AstrometryTask will also set the MatchTolerance class variable
             maxMatchDist based on the scatter AstrometryTask has found after
             fitting for the wcs.
+        bbox : `lsst.geom.Box2I`, optional
+            Bounding box of the exposure for evaluating the local pixelScale
+            (defaults to the Sky Origin of the ``wcs`` provided if ``bbox``
+            is `None`).
 
         Returns
         -------
@@ -292,6 +296,7 @@ class MatchPessimisticBTask(pipeBase.Task):
             matchTolerance=matchTolerance,
             sourceFluxField=sourceFluxField,
             verbose=debug.verbose,
+            bbox=bbox,
         )
         matches = doMatchReturn.matches
         matchTolerance = doMatchReturn.matchTolerance
@@ -345,7 +350,7 @@ class MatchPessimisticBTask(pipeBase.Task):
 
     @timeMethod
     def _doMatch(self, refCat, sourceCat, wcs, refFluxField, numUsableSources,
-                 minMatchedPairs, matchTolerance, sourceFluxField, verbose):
+                 minMatchedPairs, matchTolerance, sourceFluxField, verbose, bbox=None):
         """Implementation of matching sources to position reference objects
 
         Unlike matchObjectsToSources, this method does not check if the sources
@@ -373,10 +378,14 @@ class MatchPessimisticBTask(pipeBase.Task):
             Name of the flux field in the source catalog.
         verbose : `bool`
             Set true to print diagnostic information to std::cout
+        bbox : `lsst.geom.Box2I`, optional
+            Bounding box of the exposure for evaluating the local pixelScale
+            (defaults to the Sky Origin of the ``wcs`` provided if ``bbox``
+            is `None`).
 
         Returns
         -------
-        result :
+        result : `lsst.pipe.base.Struct`
             Results struct with components:
 
             - ``matches`` : a list the matches found
@@ -384,6 +393,10 @@ class MatchPessimisticBTask(pipeBase.Task):
             - ``matchTolerance`` : MatchTolerance containing updated values from
               this fit iteration (`lsst.meas.astrom.MatchTolerancePessimistic`)
         """
+        if bbox is not None:
+            pixelScale = wcs.getPixelScale(bbox.getCenter()).asArcseconds()
+        else:
+            pixelScale = wcs.getPixelScale().asArcseconds()
 
         # Load the source and reference catalog as spherical points
         # in numpy array. We do this rather than relying on internal
@@ -422,8 +435,7 @@ class MatchPessimisticBTask(pipeBase.Task):
             maxMatchDistArcSecRef = self._get_pair_pattern_statistics(
                 ref_array)
             maxMatchDistArcSec = np.max((
-                self.config.minMatchDistPixels
-                * wcs.getPixelScale().asArcseconds(),
+                self.config.minMatchDistPixels * pixelScale,
                 np.min((maxMatchDistArcSecSrc,
                         maxMatchDistArcSecRef))))
             matchTolerance.autoMaxMatchDist = geom.Angle(
@@ -432,15 +444,13 @@ class MatchPessimisticBTask(pipeBase.Task):
         # Set configurable defaults when we encounter None type or set
         # state based on previous run of AstrometryTask._matchAndFitWcs.
         if matchTolerance.maxShift is None:
-            maxShiftArcseconds = (self.config.maxOffsetPix
-                                  * wcs.getPixelScale().asArcseconds())
+            maxShiftArcseconds = self.config.maxOffsetPix * pixelScale
         else:
             # We don't want to clamp down too hard on the allowed shift so
             # we test that the smallest we ever allow is the pixel scale.
             maxShiftArcseconds = np.max(
                 (matchTolerance.maxShift.asArcseconds(),
-                 self.config.minMatchDistPixels
-                 * wcs.getPixelScale().asArcseconds()))
+                 self.config.minMatchDistPixels * pixelScale))
 
         # If our tolerances are not set from a previous run, estimate a
         # starting tolerance guess from the statistics of patterns we can
@@ -450,8 +460,7 @@ class MatchPessimisticBTask(pipeBase.Task):
             matchTolerance.maxMatchDist = matchTolerance.autoMaxMatchDist
         else:
             maxMatchDistArcSec = np.max(
-                (self.config.minMatchDistPixels
-                 * wcs.getPixelScale().asArcseconds(),
+                (self.config.minMatchDistPixels * pixelScale,
                  np.min((matchTolerance.maxMatchDist.asArcseconds(),
                          matchTolerance.autoMaxMatchDist.asArcseconds()))))
 
@@ -515,8 +524,7 @@ class MatchPessimisticBTask(pipeBase.Task):
                 matchTolerance.failedPatternList.append(
                     matchTolerance.lastMatchedPattern)
                 matchTolerance.lastMatchedPattern = None
-                maxShiftArcseconds = \
-                    self.config.maxOffsetPix * wcs.getPixelScale().asArcseconds()
+                maxShiftArcseconds = self.config.maxOffsetPix * pixelScale
             elif len(matcher_struct.match_ids) > 0:
                 # Match found, save a bit a state regarding this pattern
                 # in the match tolerance class object and exit.
@@ -546,7 +554,7 @@ class MatchPessimisticBTask(pipeBase.Task):
         distances_arcsec = np.degrees(matcher_struct.distances_rad) * 3600
         dist_cut_arcsec = np.max(
             (np.degrees(matcher_struct.max_dist_rad) * 3600,
-             self.config.minMatchDistPixels * wcs.getPixelScale().asArcseconds()))
+             self.config.minMatchDistPixels * pixelScale))
 
         # A match has been found, return our list of matches and
         # return.

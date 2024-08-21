@@ -177,6 +177,7 @@ class RefMatchTask(pipeBase.Task):
             sourceFluxField=sourceFluxField,
             refFluxField=loadRes.fluxField,
             matchTolerance=None,
+            bbox=exposure.getBBox(),
         )
 
         distStats = self._computeMatchStatsOnSky(matchRes.matches)

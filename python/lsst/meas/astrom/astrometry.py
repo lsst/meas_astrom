@@ -363,6 +363,7 @@ class AstrometryTask(RefMatchTask):
             sourceFluxField=sourceFluxField,
             refFluxField=refFluxField,
             matchTolerance=matchTolerance,
+            bbox=bbox,
         )
         self.log.debug("Found %s matches", len(matchRes.matches))
         if debug.display:
