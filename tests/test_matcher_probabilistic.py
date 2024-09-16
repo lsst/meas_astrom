@@ -51,7 +51,7 @@ class MatchProbabilisticConfigTestCase(lsst.utils.tests.TestCase):
         del self.config_good
         del self.configs_bad
 
-    def test_MatchProbabilisticTask(self):
+    def test_MatchProbabilisticConfig(self):
         for name, config in self.configs_bad.items():
             with self.assertRaises(ValueError, msg=f"expected {name} failure"):
                 config.validate()

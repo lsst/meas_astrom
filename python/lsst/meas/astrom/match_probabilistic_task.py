@@ -25,6 +25,7 @@ import lsst.pipe.base as pipeBase
 import lsst.utils as utils
 from .matcher_probabilistic import MatchProbabilisticConfig, MatcherProbabilistic
 
+import astropy.table
 import logging
 import numpy as np
 import pandas as pd
@@ -49,14 +50,14 @@ class MatchProbabilisticTask(pipeBase.Task):
 
     @staticmethod
     def _apply_select_bool(
-        catalog: pd.DataFrame,
+        catalog: astropy.table.Table | pd.DataFrame,
         columns_true: List[str],
         columns_false: List[str],
         selection: Optional[np.array],
     ) -> np.array:
         """Apply additional boolean selection columns.
 
-        catalog : `pandas.DataFrame`
+        catalog : `pandas.DataFrame` | `astropy.table.Table`
             The catalog to select from.
         columns_true : `list` [`str`]
             Columns that must be True for selection.
@@ -71,6 +72,7 @@ class MatchProbabilisticTask(pipeBase.Task):
             The final selection array.
 
         """
+        is_pd = isinstance(catalog, pd.DataFrame)
         select_additional = (len(columns_true) + len(columns_false)) > 0
         if select_additional:
             if selection is None:
@@ -78,10 +80,13 @@ class MatchProbabilisticTask(pipeBase.Task):
             for column in columns_true:
                 # This is intended for boolean columns, so the behaviour for non-boolean is not obvious
                 # More config options and/or using a ConfigurableActionField might be best
-                values = catalog[column].values
+                values = catalog[column]
+                if is_pd:
+                    values = values.values
                 selection &= (np.isfinite(values) & (values != 0))
             for column in columns_false:
-                selection &= (catalog[column].values == 0)
+                values = catalog[column]
+                selection &= ((values.values if is_pd else values) == 0)
         return selection
 
     @property
@@ -94,8 +99,8 @@ class MatchProbabilisticTask(pipeBase.Task):
 
     def match(
         self,
-        catalog_ref: pd.DataFrame,
-        catalog_target: pd.DataFrame,
+        catalog_ref: astropy.table.Table | pd.DataFrame,
+        catalog_target: astropy.table.Table | pd.DataFrame,
         select_ref: np.array = None,
         select_target: np.array = None,
         wcs: afwGeom.SkyWcs = None,
@@ -106,9 +111,9 @@ class MatchProbabilisticTask(pipeBase.Task):
 
         Parameters
         ----------
-        catalog_ref : `pandas.DataFrame`
+        catalog_ref : `pandas.DataFrame` | `astropy.table.Table`
             A reference catalog to match objects/sources from.
-        catalog_target : `pandas.DataFrame`
+        catalog_target : `pandas.DataFrame` | `astropy.table.Table`
             A target catalog to match reference objects/sources to.
         select_ref : `numpy.array`
             A boolean array of the same length as `catalog_ref` selecting the sources that can be matched.
@@ -124,20 +129,28 @@ class MatchProbabilisticTask(pipeBase.Task):
 
         Returns
         -------
-        catalog_out_ref : `pandas.DataFrame`
+        catalog_out_ref : `pandas.DataFrame` | `astropy.table.Table`
             Reference matched catalog with indices of target matches.
-        catalog_out_target : `pandas.DataFrame`
+        catalog_out_target : `pandas.DataFrame` | `astropy.table.Table`
             Reference matched catalog with indices of target matches.
         """
         if logger is None:
             logger = self.log
 
+        is_ref_pd = isinstance(catalog_ref, pd.DataFrame)
+        is_target_pd = isinstance(catalog_target, pd.DataFrame)
+        if is_ref_pd or is_target_pd:
+            logger.warning("pandas DataFrame inputs are deprecated")
+
         config = self.config
 
         if config.column_ref_order is None:
-            flux_tot = np.nansum(
-                catalog_ref.loc[:, config.columns_ref_flux].values, axis=1
+            fluxes = (
+                catalog_ref.loc[:, config.columns_ref_flux].values
+                if is_ref_pd else
+                [catalog_ref[key] for key in config.columns_ref_flux]
             )
+            flux_tot = np.nansum(fluxes, axis=1 if is_ref_pd else 0)
             catalog_ref["flux_total"] = flux_tot
             if config.mag_brightest_ref != -np.inf or config.mag_faintest_ref != np.inf:
                 mag_tot = (
@@ -190,8 +203,8 @@ class MatchProbabilisticTask(pipeBase.Task):
     @utils.timer.timeMethod
     def run(
         self,
-        catalog_ref: pd.DataFrame,
-        catalog_target: pd.DataFrame,
+        catalog_ref: astropy.table.Table | pd.DataFrame,
+        catalog_target: astropy.table.Table | pd.DataFrame,
         wcs: afwGeom.SkyWcs = None,
         **kwargs,
     ) -> pipeBase.Struct:
@@ -199,9 +212,9 @@ class MatchProbabilisticTask(pipeBase.Task):
 
         Parameters
         ----------
-        catalog_ref : `pandas.DataFrame`
+        catalog_ref : `pandas.DataFrame` | `astropy.table.Table`
             A reference catalog to match objects/sources from.
-        catalog_target : `pandas.DataFrame`
+        catalog_target : `pandas.DataFrame` | `astropy.table.Table`
             A target catalog to match reference objects/sources to.
         wcs : `lsst.afw.image.SkyWcs`
             A coordinate system to convert catalog positions to sky coordinates.
@@ -215,8 +228,14 @@ class MatchProbabilisticTask(pipeBase.Task):
             A struct with output_ref and output_target attribute containing the
             output matched catalogs, as well as a dict
         """
-        catalog_ref.reset_index(inplace=True)
-        catalog_target.reset_index(inplace=True)
+        is_ref_pd = isinstance(catalog_ref, pd.DataFrame)
+        is_target_pd = isinstance(catalog_target, pd.DataFrame)
+        if is_ref_pd:
+            catalog_ref.reset_index(inplace=True)
+        if is_target_pd:
+            catalog_target.reset_index(inplace=True)
+        if is_ref_pd or is_target_pd:
+            self.log.warning("pandas DataFrame inputs are deprecated")
         catalog_ref, catalog_target, exceptions = self.match(
             catalog_ref, catalog_target, wcs=wcs, **kwargs
         )
