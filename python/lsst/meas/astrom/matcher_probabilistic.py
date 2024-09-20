@@ -561,9 +561,9 @@ class MatcherProbabilistic:
             )
 
         # Pre-allocate outputs
-        target_row_match = np.full(target.extras.n, np.nan, dtype=np.int64)
+        target_row_match = np.full(target.extras.n, np.iinfo(np.int64).min, dtype=np.int64)
         ref_candidate_match = np.zeros(ref.extras.n, dtype=bool)
-        ref_row_match = np.full(ref.extras.n, np.nan, dtype=np.int64)
+        ref_row_match = np.full(ref.extras.n, np.iinfo(np.int64).min, dtype=np.int64)
         ref_match_count = np.zeros(ref.extras.n, dtype=np.int32)
         ref_match_meas_finite = np.zeros(ref.extras.n, dtype=np.int32)
         ref_chisq = np.full(ref.extras.n, np.nan, dtype=float)
