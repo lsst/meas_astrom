@@ -30,7 +30,7 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.table as afwTable
 import lsst.utils.tests
 import lsst.pex.exceptions as pexExcept
-from lsst.meas.algorithms import convertReferenceCatalog
+from lsst.meas.algorithms import convertReferenceCatalog, ScienceSourceSelectorTask
 import lsst.meas.astrom.sip.genDistortedImage as distort
 import lsst.meas.astrom as measAstrom
 import lsst.meas.astrom.matchOptimisticB as matchOptimisticB
@@ -88,11 +88,9 @@ class TestMatchOptimisticB(unittest.TestCase):
         refCat = self.computePosRefCatalog(sourceCat)
 
         # Apply source selector to sourceCat, using the astrometry config defaults
-        tempConfig = measAstrom.AstrometryTask.ConfigClass()
-        tempConfig.matcher.retarget(measAstrom.MatchOptimisticBTask)
-        tempConfig.sourceSelector["matcher"].excludePixelFlags = False
-        tempSolver = measAstrom.AstrometryTask(config=tempConfig, refObjLoader=None)
-        sourceSelection = tempSolver.sourceSelector.run(sourceCat)
+        tempConfig = ScienceSourceSelectorTask.ConfigClass()
+        tempSolver = ScienceSourceSelectorTask(config=tempConfig)
+        sourceSelection = tempSolver.run(sourceCat)
 
         distortedCat = distort.distortList(sourceSelection.sourceCat, distortFunc)
 
