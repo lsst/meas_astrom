@@ -19,7 +19,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ['ConvertCatalogCoordinatesConfig', 'MatchProbabilisticConfig', 'MatcherProbabilistic']
+__all__ = [
+    "CatalogExtras", "ComparableCatalog", "ConvertCatalogCoordinatesConfig", "MatchProbabilisticConfig",
+    "MatcherProbabilistic",
+]
 
 from dataclasses import dataclass
 import logging
