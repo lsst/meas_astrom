@@ -19,17 +19,20 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from typing import Dict, List, Optional, Set, Tuple
+import warnings
+
+import astropy.table
+import logging
 import lsst.afw.geom as afwGeom
 import lsst.geom as geom
 import lsst.pipe.base as pipeBase
 import lsst.utils as utils
-from .matcher_probabilistic import MatchProbabilisticConfig, MatcherProbabilistic
-
-import astropy.table
-import logging
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Set, Tuple
+
+from .matcher_probabilistic import MatchProbabilisticConfig, MatcherProbabilistic
+
 
 __all__ = ["MatchProbabilisticTask", "radec_to_xy"]
 

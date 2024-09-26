@@ -21,11 +21,14 @@
 
 __all__ = ['ConvertCatalogCoordinatesConfig', 'MatchProbabilisticConfig', 'MatcherProbabilistic']
 
-import lsst.pex.config as pexConfig
-
-import astropy.table
 from dataclasses import dataclass
 import logging
+import time
+from typing import Callable, Set
+import warnings
+
+import astropy.table
+import lsst.pex.config as pexConfig
 import numpy as np
 import pandas as pd
 from scipy.spatial import cKDTree
