@@ -36,8 +36,6 @@ import numpy as np
 import pandas as pd
 from scipy.spatial import cKDTree
 from smatch.matcher import Matcher
-import time
-from typing import Callable, Set
 
 logger_default = logging.getLogger(__name__)
 
@@ -220,7 +218,7 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
         compcat_ref, compcat_target : `ComparableCatalog`
             Comparable catalogs corresponding to the input reference and target.
         """
-        logger = kwargs.get("logger", logger_default)
+        # TODO: Remove pandas support in DM-46523
         is_ref_pd = isinstance(catalog_ref, pd.DataFrame)
         is_target_pd = isinstance(catalog_target, pd.DataFrame)
         if is_ref_pd:
@@ -228,7 +226,8 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
         if is_target_pd:
             catalog_target = astropy.table.Table.from_pandas(catalog_target)
         if is_ref_pd or is_target_pd:
-            logger.warning("pandas DataFrame inputs are deprecated")
+            warnings.warn("pandas usage in MatchProbabilisticTask is deprecated; it will be removed "
+                          " in favour of astropy.table after release 28.0.0", category=FutureWarning)
 
         convert_ref = self.coords_ref_to_convert
         if convert_ref and not callable(radec_to_xy_func):
@@ -508,6 +507,7 @@ class MatcherProbabilistic:
         if logger is None:
             logger = logger_default
 
+        # TODO: Remove pandas support in DM-46523
         is_ref_pd = isinstance(catalog_ref, pd.DataFrame)
         is_target_pd = isinstance(catalog_target, pd.DataFrame)
         if is_ref_pd:
@@ -515,7 +515,8 @@ class MatcherProbabilistic:
         if is_target_pd:
             catalog_target = astropy.table.Table.from_pandas(catalog_target)
         if is_ref_pd or is_target_pd:
-            logger.warning("pandas DataFrame inputs are deprecated")
+            warnings.warn("pandas usage in MatchProbabilisticTask is deprecated; it will be removed "
+                          " in favour of astropy.table after release 28.0.0", category=FutureWarning)
 
         t_init = time.process_time()
         config = self.config
@@ -528,17 +529,18 @@ class MatcherProbabilistic:
         # For the rest of this function, the selection arrays will be used,
         # but the indices of the original, unfiltered catalog will also be
         # output, so some further indexing steps are needed.
-        ref, target = config.coord_format.format_catalogs(
-            catalog_ref=catalog_ref, catalog_target=catalog_target,
-            select_ref=select_ref, select_target=select_target,
-            **kwargs
-        )
+        with warnings.catch_warnings():
+            # We already issued a deprecation warning; no need to repeat it.
+            warnings.filterwarnings(action="ignore", category=FutureWarning)
+            ref, target = config.coord_format.format_catalogs(
+                catalog_ref=catalog_ref, catalog_target=catalog_target,
+                select_ref=select_ref, select_target=select_target,
+                **kwargs
+            )
 
         # If no order is specified, take nansum of all flux columns for a 'total flux'
         # Note: it won't actually be a total flux if bands overlap significantly
         # (or it might define a filter with >100% efficiency
-        # Also, this is done on the original dataframe as it's harder to accomplish
-        # just with a recarray
         column_order = (
             catalog_ref[config.column_ref_order][ref.extras.select]
             if config.column_ref_order is not None else

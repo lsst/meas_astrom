@@ -75,7 +75,11 @@ class MatchProbabilisticTask(pipeBase.Task):
             The final selection array.
 
         """
+        # TODO: Remove pandas support in DM-46523
         is_pd = isinstance(catalog, pd.DataFrame)
+        if is_pd:
+            warnings.warn("pandas usage in MatchProbabilisticTask is deprecated; it will be removed "
+                          " in favour of astropy.table after release 28.0.0", category=FutureWarning)
         select_additional = (len(columns_true) + len(columns_false)) > 0
         if select_additional:
             if selection is None:
@@ -83,13 +87,11 @@ class MatchProbabilisticTask(pipeBase.Task):
             for column in columns_true:
                 # This is intended for boolean columns, so the behaviour for non-boolean is not obvious
                 # More config options and/or using a ConfigurableActionField might be best
-                values = catalog[column]
-                if is_pd:
-                    values = values.values
+                values = catalog[column] if not is_pd else catalog[column].values
                 selection &= (np.isfinite(values) & (values != 0))
             for column in columns_false:
-                values = catalog[column]
-                selection &= ((values.values if is_pd else values) == 0)
+                values = catalog[column] if not is_pd else catalog[column].values
+                selection &= (values == 0)
         return selection
 
     @property
@@ -140,10 +142,12 @@ class MatchProbabilisticTask(pipeBase.Task):
         if logger is None:
             logger = self.log
 
+        # TODO: Remove pandas support in DM-46523
         is_ref_pd = isinstance(catalog_ref, pd.DataFrame)
         is_target_pd = isinstance(catalog_target, pd.DataFrame)
         if is_ref_pd or is_target_pd:
-            logger.warning("pandas DataFrame inputs are deprecated")
+            warnings.warn("pandas usage in MatchProbabilisticTask is deprecated; it will be removed "
+                          " in favour of astropy.table after release 28.0.0", category=FutureWarning)
 
         config = self.config
 
@@ -169,18 +173,21 @@ class MatchProbabilisticTask(pipeBase.Task):
             else:
                 select_ref &= select_mag
 
-        select_ref = self._apply_select_bool(
-            catalog=catalog_ref,
-            columns_true=config.columns_ref_select_true,
-            columns_false=config.columns_ref_select_false,
-            selection=select_ref,
-        )
-        select_target = self._apply_select_bool(
-            catalog=catalog_target,
-            columns_true=config.columns_target_select_true,
-            columns_false=config.columns_target_select_false,
-            selection=select_target,
-        )
+        with warnings.catch_warnings():
+            # We already issued a deprecation warning; no need to repeat it.
+            warnings.filterwarnings(action="ignore", category=FutureWarning)
+            select_ref = self._apply_select_bool(
+                catalog=catalog_ref,
+                columns_true=config.columns_ref_select_true,
+                columns_false=config.columns_ref_select_false,
+                selection=select_ref,
+            )
+            select_target = self._apply_select_bool(
+                catalog=catalog_target,
+                columns_true=config.columns_target_select_true,
+                columns_false=config.columns_target_select_false,
+                selection=select_target,
+            )
 
         logger.info(
             "Beginning MatcherProbabilistic.match with %d/%d ref sources selected vs %d/%d target",
@@ -231,6 +238,7 @@ class MatchProbabilisticTask(pipeBase.Task):
             A struct with output_ref and output_target attribute containing the
             output matched catalogs, as well as a dict
         """
+        # TODO: Remove pandas support in DM-46523
         is_ref_pd = isinstance(catalog_ref, pd.DataFrame)
         is_target_pd = isinstance(catalog_target, pd.DataFrame)
         if is_ref_pd:
@@ -238,10 +246,15 @@ class MatchProbabilisticTask(pipeBase.Task):
         if is_target_pd:
             catalog_target.reset_index(inplace=True)
         if is_ref_pd or is_target_pd:
-            self.log.warning("pandas DataFrame inputs are deprecated")
-        catalog_ref, catalog_target, exceptions = self.match(
-            catalog_ref, catalog_target, wcs=wcs, **kwargs
-        )
+            warnings.warn("pandas usage in MatchProbabilisticTask is deprecated; it will be removed "
+                          " in favour of astropy.table after release 28.0.0", category=FutureWarning)
+        with warnings.catch_warnings():
+            # We already issued a deprecation warning; no need to repeat it.
+            warnings.filterwarnings(action="ignore", category=FutureWarning)
+            catalog_ref, catalog_target, exceptions = self.match(
+                catalog_ref, catalog_target, wcs=wcs, **kwargs
+            )
+
         return pipeBase.Struct(
             cat_output_ref=catalog_ref,
             cat_output_target=catalog_target,
