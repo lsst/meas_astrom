@@ -26,8 +26,9 @@ import lsst.utils.tests
 import lsst.afw.geom as afwGeom
 from lsst.meas.astrom import ConvertCatalogCoordinatesConfig, MatchProbabilisticConfig, MatchProbabilisticTask
 
+import astropy.table
 import numpy as np
-import pandas as pd
+import pytest
 
 
 class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
@@ -58,7 +59,7 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
             columns_flux[0]: fluxes[0][::-1],
             columns_flux[1]: fluxes[1][::-1],
         }
-        self.catalog_ref = pd.DataFrame(data=data_ref)
+        self.catalog_ref = astropy.table.Table(data=data_ref)
 
         columns_target_meas = [
             coord_format.column_target_coord1.default,
@@ -79,7 +80,7 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
             MatchProbabilisticConfig.columns_target_select_true.default[0]: flags,
             MatchProbabilisticConfig.columns_target_select_false.default[0]: ~flags,
         }
-        self.catalog_target = pd.DataFrame(data=data_target)
+        self.catalog_target = astropy.table.Table(data=data_target)
 
         self.task = MatchProbabilisticTask(config=MatchProbabilisticConfig(
             columns_ref_flux=columns_flux,
@@ -111,8 +112,17 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
             wcs=self.wcs,
             logging_n_rows=2,
         )
-        indices_target = list(result.cat_output_target.match_row.values)
+        indices_target = list(result.cat_output_target["match_row"])
         self.assertEqual(indices_target, list(np.arange(len(indices_target))[::-1]))
+        # TODO: Remove pandas support in DM-46523
+        with pytest.warns(FutureWarning):
+            result_pd = self.task.run(
+                catalog_ref=self.catalog_ref.to_pandas(),
+                catalog_target=self.catalog_target.to_pandas(),
+                wcs=self.wcs,
+                logging_n_rows=2,
+            )
+            self.assertEqual(indices_target, list(result_pd.cat_output_target["match_row"]))
 
 
 class MemoryTester(lsst.utils.tests.MemoryTestCase):

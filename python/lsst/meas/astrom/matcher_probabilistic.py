@@ -19,18 +19,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ['ConvertCatalogCoordinatesConfig', 'MatchProbabilisticConfig', 'MatcherProbabilistic']
-
-import lsst.pex.config as pexConfig
+__all__ = [
+    "CatalogExtras", "ComparableCatalog", "ConvertCatalogCoordinatesConfig", "MatchProbabilisticConfig",
+    "MatcherProbabilistic",
+]
 
 from dataclasses import dataclass
 import logging
+import time
+from typing import Callable, Set
+import warnings
+
+import astropy.table
+import lsst.pex.config as pexConfig
 import numpy as np
 import pandas as pd
 from scipy.spatial import cKDTree
 from smatch.matcher import Matcher
-import time
-from typing import Callable, Set
 
 logger_default = logging.getLogger(__name__)
 
@@ -87,7 +92,12 @@ class CatalogExtras:
 
     coordinate_factor: float = None
 
-    def __init__(self, catalog: pd.DataFrame, select: np.array = None, coordinate_factor: float = None):
+    def __init__(
+        self,
+        catalog: astropy.table.Table | pd.DataFrame,
+        select: np.array = None,
+        coordinate_factor: float = None,
+    ):
         self.n = len(catalog)
         self.select = np.ones(self.n, dtype=bool) if select is None else select
         self.indices = np.flatnonzero(select) if select is not None else np.arange(self.n)
@@ -112,7 +122,7 @@ class ComparableCatalog:
         Extra cached (meta)data for the `catalog`.
     """
 
-    catalog: pd.DataFrame
+    catalog: astropy.table.Table | pd.DataFrame
     column_coord1: str
     column_coord2: str
     coord1: np.array
@@ -177,8 +187,8 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
 
     def format_catalogs(
         self,
-        catalog_ref: pd.DataFrame,
-        catalog_target: pd.DataFrame,
+        catalog_ref: astropy.table.Table | pd.DataFrame,
+        catalog_target: astropy.table.Table | pd.DataFrame,
         select_ref: np.array = None,
         select_target: np.array = None,
         radec_to_xy_func: Callable = None,
@@ -208,6 +218,17 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
         compcat_ref, compcat_target : `ComparableCatalog`
             Comparable catalogs corresponding to the input reference and target.
         """
+        # TODO: Remove pandas support in DM-46523
+        is_ref_pd = isinstance(catalog_ref, pd.DataFrame)
+        is_target_pd = isinstance(catalog_target, pd.DataFrame)
+        if is_ref_pd:
+            catalog_ref = astropy.table.Table.from_pandas(catalog_ref)
+        if is_target_pd:
+            catalog_target = astropy.table.Table.from_pandas(catalog_target)
+        if is_ref_pd or is_target_pd:
+            warnings.warn("pandas usage in MatchProbabilisticTask is deprecated; it will be removed "
+                          " in favour of astropy.table after release 28.0.0", category=FutureWarning)
+
         convert_ref = self.coords_ref_to_convert
         if convert_ref and not callable(radec_to_xy_func):
             raise TypeError('radec_to_xy_func must be callable if converting ref coords')
@@ -252,7 +273,7 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
                 coord1=coord1, coord2=coord2, extras=extras,
             ))
 
-        return tuple(compcats)
+        return compcats[0], compcats[1]
 
 
 class MatchProbabilisticConfig(pexConfig.Config):
@@ -445,8 +466,8 @@ class MatcherProbabilistic:
 
     def match(
         self,
-        catalog_ref: pd.DataFrame,
-        catalog_target: pd.DataFrame,
+        catalog_ref: astropy.table.Table | pd.DataFrame,
+        catalog_target: astropy.table.Table | pd.DataFrame,
         select_ref: np.array = None,
         select_target: np.array = None,
         logger: logging.Logger = None,
@@ -457,9 +478,9 @@ class MatcherProbabilistic:
 
         Parameters
         ----------
-        catalog_ref : `pandas.DataFrame`
+        catalog_ref : `pandas.DataFrame` | `astropy.table.Table`
             A reference catalog to match in order of a given column (i.e. greedily).
-        catalog_target : `pandas.DataFrame`
+        catalog_target : `pandas.DataFrame` | `astropy.table.Table`
             A target catalog for matching sources from `catalog_ref`. Must contain measurements with errors.
         select_ref : `numpy.array`
             A boolean array of the same length as `catalog_ref` selecting the sources that can be matched.
@@ -486,6 +507,17 @@ class MatcherProbabilistic:
         if logger is None:
             logger = logger_default
 
+        # TODO: Remove pandas support in DM-46523
+        is_ref_pd = isinstance(catalog_ref, pd.DataFrame)
+        is_target_pd = isinstance(catalog_target, pd.DataFrame)
+        if is_ref_pd:
+            catalog_ref = astropy.table.Table.from_pandas(catalog_ref)
+        if is_target_pd:
+            catalog_target = astropy.table.Table.from_pandas(catalog_target)
+        if is_ref_pd or is_target_pd:
+            warnings.warn("pandas usage in MatchProbabilisticTask is deprecated; it will be removed "
+                          " in favour of astropy.table after release 28.0.0", category=FutureWarning)
+
         t_init = time.process_time()
         config = self.config
 
@@ -497,21 +529,22 @@ class MatcherProbabilistic:
         # For the rest of this function, the selection arrays will be used,
         # but the indices of the original, unfiltered catalog will also be
         # output, so some further indexing steps are needed.
-        ref, target = config.coord_format.format_catalogs(
-            catalog_ref=catalog_ref, catalog_target=catalog_target,
-            select_ref=select_ref, select_target=select_target,
-            **kwargs
-        )
+        with warnings.catch_warnings():
+            # We already issued a deprecation warning; no need to repeat it.
+            warnings.filterwarnings(action="ignore", category=FutureWarning)
+            ref, target = config.coord_format.format_catalogs(
+                catalog_ref=catalog_ref, catalog_target=catalog_target,
+                select_ref=select_ref, select_target=select_target,
+                **kwargs
+            )
 
         # If no order is specified, take nansum of all flux columns for a 'total flux'
         # Note: it won't actually be a total flux if bands overlap significantly
         # (or it might define a filter with >100% efficiency
-        # Also, this is done on the original dataframe as it's harder to accomplish
-        # just with a recarray
         column_order = (
-            catalog_ref.loc[ref.extras.select, config.column_ref_order]
+            catalog_ref[config.column_ref_order][ref.extras.select]
             if config.column_ref_order is not None else
-            np.nansum(catalog_ref.loc[ref.extras.select, config.columns_ref_flux], axis=1)
+            np.nansum([catalog_ref[col][ref.extras.select] for col in config.columns_ref_flux], axis=0)
         )
         order = np.argsort(column_order if config.order_ascending else -column_order)
 
@@ -575,11 +608,16 @@ class MatcherProbabilistic:
         columns_convert = config.coord_format.coords_ref_to_convert
         if columns_convert is None:
             columns_convert = {}
-        data_ref = ref.catalog[
-            [columns_convert.get(column, column) for column in config.columns_ref_meas]
-        ].iloc[ref.extras.indices[order]]
-        data_target = target.catalog[config.columns_target_meas][target.extras.select]
-        errors_target = target.catalog[config.columns_target_err][target.extras.select]
+        data_ref = np.array([
+            ref.catalog[columns_convert.get(column, column)][ref.extras.indices[order]]
+            for column in config.columns_ref_meas
+        ])
+        data_target = np.array([
+            target.catalog[col][target.extras.select] for col in config.columns_target_meas
+        ])
+        errors_target = np.array([
+            target.catalog[col][target.extras.select] for col in config.columns_target_err
+        ])
 
         exceptions = {}
         # The kdTree uses len(inputs) as a sentinel value for no match
@@ -595,12 +633,11 @@ class MatcherProbabilistic:
         matched_ref = idxs_target_select[order, 0] != n_target_select
         order = order[matched_ref]
         idx_first = idxs_target_select[order, 0]
-        chi_0 = (data_target.iloc[idx_first].values - data_ref.iloc[matched_ref].values)/(
-            errors_target.iloc[idx_first].values)
+        chi_0 = (data_target[:, idx_first] - data_ref[:, matched_ref])/errors_target[:, idx_first]
         chi_finite_0 = np.isfinite(chi_0)
-        n_finite_0 = np.sum(chi_finite_0, axis=1)
+        n_finite_0 = np.sum(chi_finite_0, axis=0)
         chi_0[~chi_finite_0] = 0
-        chisq_sum_0 = np.sum(chi_0*chi_0, axis=1)
+        chisq_sum_0 = np.sum(chi_0*chi_0, axis=0)
 
         logger.info('Disambiguating %d/%d matches/targets', len(order), len(ref.catalog))
         for index_n, index_row_select in enumerate(order):
@@ -624,19 +661,16 @@ class MatcherProbabilistic:
                 if n_found == 0:
                     continue
                 # This is an ndarray of n_found rows x len(data_ref/target) columns
-                chi = (
-                    (data_target.iloc[found].values - data_ref.iloc[index_n].values)
-                    / errors_target.iloc[found].values
-                )
+                chi = (data_target[:, found] - data_ref[:, index_n])/errors_target[:, found]
                 finite = np.isfinite(chi)
-                n_finite = np.sum(finite, axis=1)
+                n_finite = np.sum(finite, axis=0)
                 # Require some number of finite chi_sq to match
                 chisq_good = n_finite >= config.match_n_finite_min
                 if not any(chisq_good):
                     continue
                 try:
                     chisq_sum = np.zeros(n_found, dtype=float)
-                    chisq_sum[chisq_good] = np.nansum(chi[chisq_good, :] ** 2, axis=1)
+                    chisq_sum[chisq_good] = np.nansum(chi[chisq_good, :] ** 2, axis=0)
                     idx_chisq_min = np.nanargmin(chisq_sum / n_finite)
                     n_finite = n_finite[idx_chisq_min]
                     n_matched = len(chisq_good)
@@ -727,7 +761,17 @@ class MatcherProbabilistic:
             time.process_time() - t_init,
         )
 
-        catalog_out_ref = pd.DataFrame(data_ref)
-        catalog_out_target = pd.DataFrame(data_target)
+        catalog_out_ref = (pd.DataFrame if is_ref_pd else astropy.table.Table)(data_ref)
+        if not is_ref_pd:
+            for column, description in {
+                'match_candidate': 'Whether the object was selected as a candidate for matching',
+                'match_row': 'The index of the best matched row in the target table, if any',
+                'match_count': 'The number of candidate matching target objects, i.e. those within the match'
+                               ' distance but excluding objects already matched to a  ref object',
+                'match_chisq': 'The sum of all finite reduced chi-squared values over all match columns',
+                'match_n_chisq_finite': 'The number of match columns with finite chisq',
+            }.items():
+                catalog_out_ref[column].description = description
+        catalog_out_target = (pd.DataFrame if is_target_pd else astropy.table.Table)(data_target)
 
         return catalog_out_ref, catalog_out_target, exceptions
