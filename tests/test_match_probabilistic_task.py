@@ -34,10 +34,11 @@ import pytest
 class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
     """MatchProbabilisticTask test case."""
     def setUp(self):
-        ra = np.array([-0.1, -0.2, 0., 0.1, 0.2])
-        dec = np.array([-0.15, 0.15, 0, 0.15, -0.15])
-        mag_g = np.array([23., 24., 25., 25.5, 26.])
-        mag_r = mag_g + [0.5, -0.2, -0.8, -0.5, -1.5]
+        # Add an extra target with a small spatial offset at the end
+        ra = np.array([-0.1, -0.2, 0., 0.1, 0.2, 0.2+1e-10])
+        dec = np.array([-0.15, 0.15, 0, 0.15, -0.15, -0.15-1e-10])
+        mag_g = np.array([23., 24., 25., 25.5, 26., 27.])
+        mag_r = mag_g + [0.5, -0.2, -0.8, -0.5, -1.5, 0.1]
         coord_format = ConvertCatalogCoordinatesConfig
         zeropoint = coord_format.mag_zeropoint_ref.default
         fluxes = tuple(-0.4*10**(mag - zeropoint) for mag in (mag_g, mag_r))
@@ -52,14 +53,26 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
             coord_format.column_ref_coord2.default,
         ] + columns_flux
 
+        n_target = len(ra)
+        # Exclude the extra target from the ref cat
+        # This makes it a spurious detection and gives this ref object two
+        # candidates to match to
+        n_exclude = 1
+        self.n_exclude = 1
+        # This removes the last n_exclude elements and then reversing
+        slice_ref = slice(-n_exclude - 1, None, -1)
         data_ref = {
-            name_index: np.arange(len(ra)),
-            columns_ref_meas[0]: ra[::-1],
-            columns_ref_meas[1]: dec[::-1],
-            columns_flux[0]: fluxes[0][::-1],
-            columns_flux[1]: fluxes[1][::-1],
+            name_index: np.arange(n_target - n_exclude),
+            columns_ref_meas[0]: ra[slice_ref],
+            columns_ref_meas[1]: dec[slice_ref],
+            columns_flux[0]: fluxes[0][slice_ref],
+            columns_flux[1]: fluxes[1][slice_ref],
         }
         self.catalog_ref = astropy.table.Table(data=data_ref)
+        value_unmatched = np.iinfo(data_ref[name_index].dtype).min
+        self.indices_expected = np.concatenate(
+            (np.arange(n_target - n_exclude - 1, -1, -1), np.full(self.n_exclude, value_unmatched))
+        )
 
         columns_target_meas = [
             coord_format.column_target_coord1.default,
@@ -97,6 +110,8 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
     def tearDown(self):
         del self.catalog_ref
         del self.catalog_target
+        del self.indices_expected
+        del self.n_exclude
         del self.task
         del self.wcs
 
@@ -112,8 +127,8 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
             wcs=self.wcs,
             logging_n_rows=2,
         )
-        indices_target = list(result.cat_output_target["match_row"])
-        self.assertEqual(indices_target, list(np.arange(len(indices_target))[::-1]))
+        indices_target = result.cat_output_target["match_row"]
+        np.testing.assert_array_equal(indices_target, self.indices_expected)
         # TODO: Remove pandas support in DM-46523
         with pytest.warns(FutureWarning):
             result_pd = self.task.run(
@@ -122,7 +137,7 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
                 wcs=self.wcs,
                 logging_n_rows=2,
             )
-            self.assertEqual(indices_target, list(result_pd.cat_output_target["match_row"]))
+            np.testing.assert_array_equal(indices_target, result_pd.cat_output_target["match_row"])
 
 
 class MemoryTester(lsst.utils.tests.MemoryTestCase):
