@@ -638,6 +638,7 @@ class MatcherProbabilistic:
         n_finite_0 = np.sum(chi_finite_0, axis=0)
         chi_0[~chi_finite_0] = 0
         chisq_sum_0 = np.sum(chi_0*chi_0, axis=0)
+        n_meas = len(config.columns_ref_meas)
 
         logger.info('Disambiguating %d/%d matches/targets', len(order), len(ref.catalog))
         for index_n, index_row_select in enumerate(order):
@@ -661,7 +662,9 @@ class MatcherProbabilistic:
                 if n_found == 0:
                     continue
                 # This is an ndarray of n_found rows x len(data_ref/target) columns
-                chi = (data_target[:, found] - data_ref[:, index_n])/errors_target[:, found]
+                chi = (
+                    data_target[:, found] - data_ref[:, index_n].reshape((n_meas, 1))
+                )/errors_target[:, found]
                 finite = np.isfinite(chi)
                 n_finite = np.sum(finite, axis=0)
                 # Require some number of finite chi_sq to match
@@ -670,7 +673,7 @@ class MatcherProbabilistic:
                     continue
                 try:
                     chisq_sum = np.zeros(n_found, dtype=float)
-                    chisq_sum[chisq_good] = np.nansum(chi[chisq_good, :] ** 2, axis=0)
+                    chisq_sum[chisq_good] = np.nansum(chi[:, chisq_good] ** 2, axis=0)
                     idx_chisq_min = np.nanargmin(chisq_sum / n_finite)
                     n_finite = n_finite[idx_chisq_min]
                     n_matched = len(chisq_good)
