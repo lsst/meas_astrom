@@ -69,6 +69,7 @@ class RefMatchConfig(pexConfig.Config):
         self.sourceSelector["science"].signalToNoise.errField = f"slot_{self.sourceFluxType}Flux_instFluxErr"
         self.sourceSelector["science"].doFlags = True
         self.sourceSelector["science"].flags.bad = ["base_PixelFlags_flag_edge",
+                                                    "base_PixelFlags_flag_nodata",
                                                     "base_PixelFlags_flag_interpolatedCenter",
                                                     "base_PixelFlags_flag_saturated",
                                                     "base_SdssCentroid_flag",

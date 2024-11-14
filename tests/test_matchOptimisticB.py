@@ -82,6 +82,8 @@ class TestMatchOptimisticB(unittest.TestCase):
 
         # Apply source selector to sourceCat, using the astrometry config defaults
         tempConfig = measAstrom.AstrometryTask.ConfigClass()
+        # This field isn't in the old test catalog.
+        tempConfig.sourceSelector["science"].flags.bad.remove("base_PixelFlags_flag_nodata")
         tempConfig.matcher.retarget(measAstrom.MatchOptimisticBTask)
         tempConfig.sourceSelector["matcher"].excludePixelFlags = False
         tempSolver = measAstrom.AstrometryTask(config=tempConfig, refObjLoader=None)

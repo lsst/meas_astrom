@@ -95,6 +95,8 @@ class TestMatchPessimisticB(unittest.TestCase):
 
         # Apply source selector to sourceCat, using the astrometry config defaults
         tempConfig = measAstrom.AstrometryTask.ConfigClass()
+        # This field isn't in the old test catalog.
+        tempConfig.sourceSelector["science"].flags.bad.remove("base_PixelFlags_flag_nodata")
         tempSolver = measAstrom.AstrometryTask(config=tempConfig, refObjLoader=None)
         sourceSelection = tempSolver.sourceSelector.run(sourceCat)
 
@@ -166,6 +168,8 @@ class TestMatchPessimisticB(unittest.TestCase):
 
         # Apply source selector to sourceCat, using the astrometry config defaults
         tempConfig = measAstrom.AstrometryTask.ConfigClass()
+        # This field isn't in the old test catalog.
+        tempConfig.sourceSelector["science"].flags.bad.remove("base_PixelFlags_flag_nodata")
         tempSolver = measAstrom.AstrometryTask(config=tempConfig, refObjLoader=None)
         sourceSelection = tempSolver.sourceSelector.run(sourceCat)
 
@@ -219,6 +223,8 @@ class TestMatchPessimisticB(unittest.TestCase):
 
         # Apply source selector to sourceCat, using the astrometry config defaults
         tempConfig = measAstrom.AstrometryTask.ConfigClass()
+        # This field isn't in the old test catalog.
+        tempConfig.sourceSelector["science"].flags.bad.remove("base_PixelFlags_flag_nodata")
         tempSolver = measAstrom.AstrometryTask(config=tempConfig, refObjLoader=None)
         sourceSelection = tempSolver.sourceSelector.run(sourceCat)
 
