@@ -61,12 +61,6 @@ class TestMatchPessimisticB(unittest.TestCase):
         # these three objects are missing in the testReferenceFilter test.
         self.expectedMatches = 183
 
-    def tearDown(self):
-        del self.config
-        del self.MatchPessimisticB
-        del self.wcs
-        del self.distortedWcs
-
     def testLinearXDistort(self):
         self.singleTestInstance(self.filename, genDistortedImage.linearXDistort)
 
