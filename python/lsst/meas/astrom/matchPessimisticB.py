@@ -171,7 +171,7 @@ class MatchPessimisticBConfig(pexConfig.Config):
         doc="Maximum number of reference objects to use for the matcher. The "
             "absolute maximum allowed for is 2 ** 16 for memory reasons.",
         dtype=int,
-        default=2**16,
+        default=2**13,
         min=0,
         max=2**16 + 1,
     )
