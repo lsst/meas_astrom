@@ -262,6 +262,7 @@ class AstrometryTask(RefMatchTask):
             filterName=exposure.filter.bandLabel,
             epoch=epoch,
         )
+        import ipdb; ipdb.set_trace()
         # loadResult.refCat.writeFits("{}refCat_full.fits".format(dataDir))
         refSelection = self.referenceSelector.run(loadResult.refCat, exposure=exposure)
         # refSelection.sourceCat.writeFits("{}refCat_selected.fits".format(dataDir))
@@ -288,6 +289,10 @@ class AstrometryTask(RefMatchTask):
             refCat = refCat[(refMag > sourceMagMin) & (refMag < sourceMagMax)]
             self.log.info("Selected %d/%d reference sources based on fiducial zeropoint culling.",
                           len(refCat), nRefCatPreCull)
+            if not refSelection.sourceCat.isContiguous():
+                refCat = refSelection.sourceCat.copy(deep=True)
+            else:
+                refCat = refSelection.sourceCat
         # refCat.writeFits("{}refCat_final.fits".format(dataDir))
 
         if debug.display:
