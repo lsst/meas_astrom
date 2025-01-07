@@ -25,3 +25,4 @@ doc/html/
 doc/*.tag
 version.py
 bin/generateANetCache.py
+python/*.dist-info/
