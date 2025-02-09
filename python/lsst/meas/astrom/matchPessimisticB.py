@@ -280,7 +280,7 @@ class MatchPessimisticBTask(pipeBase.Task):
 
         if len(refCat) > self.config.maxRefObjects:
             self.log.warning(
-                "WARNING: Reference catalog larger than maximum allowed. "
+                "Reference catalog larger than maximum allowed. "
                 "Trimming to %i", self.config.maxRefObjects)
             trimmedRefCat = self._filterRefCat(refCat, refFluxField)
         else:
