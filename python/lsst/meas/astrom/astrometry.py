@@ -333,18 +333,7 @@ class AstrometryTask(RefMatchTask):
         md = exposure.getMetadata()
         md['SFM_ASTROM_OFFSET_MEAN'] = distMean
         md['SFM_ASTROM_OFFSET_STD'] = distStdDev
-
-        # Poor quality fits are a failure.
-        if distMean > self.config.maxMeanDistanceArcsec:
-            exception = exceptions.BadAstrometryFit(nMatches=len(result.matches), iterations=i,
-                                                    distMean=distMean,
-                                                    maxMeanDist=self.config.maxMeanDistanceArcsec,
-                                                    distMedian=result.scatterOnSky.asArcseconds())
-            exposure.setWcs(None)
-            sourceCat["coord_ra"] = np.nan
-            sourceCat["coord_dec"] = np.nan
-            self.log.error(exception)
-            raise exception
+        md['SFM_ASTROM_OFFSET_MEDIAN'] = result.scatterOnSky.asArcseconds()
 
         if self.usedKey:
             for m in result.matches:
@@ -363,6 +352,46 @@ class AstrometryTask(RefMatchTask):
             scatterOnSky=result.scatterOnSky,
             matchMeta=matchMeta,
         )
+
+    def check(self, exposure, sourceCat, nMatches):
+        """Validate the astrometric fit against the maxMeanDistance threshold.
+
+        If the distMean metric does not satisfy the requirement of being less
+        than the value set in config.maxMeanDistanceArcsec, the WCS on the
+        exposure will be set to None and the coordinate values in the
+        source catalog will be set to NaN to reflect a failed astrometric fit.
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            The exposure whose astrometric fit is being evaluated.
+        sourceCat : `lsst.afw.table.SourceCatalog`
+            The catalog of sources associated with the exposure.
+        nMatches : `int`
+            The number of matches that were found and used during
+            the astrometric fit (for logging purposes only).
+
+        Raises
+        ------
+        BadAstrometryFit
+            If the measured mean on-sky distance between the matched source and
+            reference objects is greater than
+            ``self.config.maxMeanDistanceArcsec``.
+        """
+        # Poor quality fits are a failure.
+        md = exposure.getMetadata()
+        distMean = md['SFM_ASTROM_OFFSET_MEAN']
+        distMedian = md['SFM_ASTROM_OFFSET_MEDIAN']
+        if distMean > self.config.maxMeanDistanceArcsec:
+            exception = exceptions.BadAstrometryFit(nMatches=nMatches, distMean=distMean,
+                                                    maxMeanDist=self.config.maxMeanDistanceArcsec,
+                                                    distMedian=distMedian)
+            exposure.setWcs(None)
+            sourceCat["coord_ra"] = np.nan
+            sourceCat["coord_dec"] = np.nan
+            self.log.error(exception)
+            raise exception
+        return
 
     @timeMethod
     def _matchAndFitWcs(self, refCat, sourceCat, goodSourceCat, refFluxField, bbox, wcs, matchTolerance,
