@@ -228,7 +228,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         matches = [afwTable.ReferenceMatch(r, r, (10*u.arcsecond).to_value(u.radian)) for r in catalog]
         result = pipeBase.Struct(
             matches=matches,
-            wcs=None,
+            wcs=self.exposure.wcs,
             scatterOnSky=20.0*lsst.geom.arcseconds,
             matchTolerance=None
         )
@@ -237,6 +237,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
             with self.assertRaises(exceptions.BadAstrometryFit):
                 task = AstrometryTask(refObjLoader=self.refObjLoader)
                 task.run(catalog, self.exposure)
+                task.check(self.exposure, catalog, len(matches))
             self.assertIsNone(self.exposure.wcs)
             self.assertTrue(np.all(np.isnan(catalog["coord_ra"])))
             self.assertTrue(np.all(np.isnan(catalog["coord_dec"])))

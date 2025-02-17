@@ -84,12 +84,42 @@ class AstrometryConfig(RefMatchConfig):
              "iteration."),
         default=3.0,
     )
+    fiducialZeroPoint = pexConfig.DictField(
+        keytype=str,
+        itemtype=float,
+        doc="Fiducial zeropoint values, keyed by band.",
+        default=None,
+        optional=True,
+    )
+    doFiducialZeroPointCull = pexConfig.Field(
+        dtype=bool,
+        doc="If True, use the obs_package-defined fiducial zeropoint values to compute the "
+        "expected zeropoint for the current exposure.  This is for use in culling reference "
+        "objects down to the approximate magnitude range of the detection source catalog "
+        "used for astrometric calibration.",
+        default=False,
+    )
+    cullMagBuffer = pexConfig.Field(
+        dtype=float,
+        doc="Generous buffer on the fiducial zero point culling to account for observing "
+        "condition variations and uncertainty of the fiducial values.",
+        default=0.3,
+        optional=True,
+    )
 
     def setDefaults(self):
         super().setDefaults()
         # Astrometry needs sources to be isolated, too.
         self.sourceSelector["science"].doRequirePrimary = True
         self.sourceSelector["science"].doIsolated = True
+        self.referenceSelector.doCullFromMaskedRegion = True
+
+    def validate(self):
+        super().validate()
+        if self.doFiducialZeroPointCull and self.fiducialZeroPoint is None:
+            msg = "doFiducialZeroPointCull=True requires `fiducialZeroPoint`, a dict of the "
+            "fiducial zeropoints measured for the camera/filter, be set."
+            raise pexConfig.FieldValidationError(AstrometryConfig.fiducialZeroPoint, self, msg)
 
 
 class AstrometryTask(RefMatchTask):
@@ -216,6 +246,11 @@ class AstrometryTask(RefMatchTask):
         self.log.info("Purged %d sources, leaving %d good sources",
                       len(sourceCat) - len(sourceSelection.sourceCat),
                       len(sourceSelection.sourceCat))
+        if len(sourceSelection.sourceCat) == 0:
+            raise exceptions.AstrometryError(
+                "No good sources selected for astrometry.",
+                lenSourceSelectionCat=len(sourceSelection.sourceCat)
+            )
 
         loadResult = self.refObjLoader.loadPixelBox(
             bbox=exposure.getBBox(),
@@ -223,14 +258,30 @@ class AstrometryTask(RefMatchTask):
             filterName=exposure.filter.bandLabel,
             epoch=epoch,
         )
+        refSelection = self.referenceSelector.run(loadResult.refCat, exposure=exposure)
+        refCat = refSelection.sourceCat
 
-        refSelection = self.referenceSelector.run(loadResult.refCat)
+        if self.config.doFiducialZeroPointCull:
+            nRefCatPreCull = len(refCat)
+            # Compute rough limiting magnitudes of selected sources
+            psfFlux = sourceSelection.sourceCat["base_PsfFlux_instFlux"]
+            expTime = exposure.visitInfo.getExposureTime()
+            fiducialZeroPoint = self.config.fiducialZeroPoint[exposure.filter.bandLabel]
+            psfMag = -2.5*np.log10(psfFlux) + fiducialZeroPoint + 2.5*np.log10(expTime)
+            sourceMagMin = min(psfMag) - self.config.cullMagBuffer
+            sourceMagMax = max(psfMag) + self.config.cullMagBuffer
+            self.log.info("sourceMagMin = %0.3f sourceMagMax = %0.3f", sourceMagMin, sourceMagMax)
+
+            refCat = refCat[np.isfinite(refCat[loadResult.fluxField])]
+            refMag = (refCat[loadResult.fluxField]*units.nJy).to_value(units.ABmag)
+            refCat = refCat[(refMag > sourceMagMin) & (refMag < sourceMagMax)]
+            self.log.info("Selected %d/%d reference sources based on fiducial zeropoint culling.",
+                          len(refCat), nRefCatPreCull)
+
         # Some operations below require catalog contiguity, which is not
         # guaranteed from the source selector.
-        if not refSelection.sourceCat.isContiguous():
-            refCat = refSelection.sourceCat.copy(deep=True)
-        else:
-            refCat = refSelection.sourceCat
+        if not refCat.isContiguous():
+            refCat = refCat.copy(deep=True)
 
         if debug.display:
             frame = int(debug.frame)
@@ -282,18 +333,7 @@ class AstrometryTask(RefMatchTask):
         md = exposure.getMetadata()
         md['SFM_ASTROM_OFFSET_MEAN'] = distMean
         md['SFM_ASTROM_OFFSET_STD'] = distStdDev
-
-        # Poor quality fits are a failure.
-        if distMean > self.config.maxMeanDistanceArcsec:
-            exception = exceptions.BadAstrometryFit(nMatches=len(result.matches), iterations=i,
-                                                    distMean=distMean,
-                                                    maxMeanDist=self.config.maxMeanDistanceArcsec,
-                                                    distMedian=result.scatterOnSky.asArcseconds())
-            exposure.setWcs(None)
-            sourceCat["coord_ra"] = np.nan
-            sourceCat["coord_dec"] = np.nan
-            self.log.error(exception)
-            raise exception
+        md['SFM_ASTROM_OFFSET_MEDIAN'] = result.scatterOnSky.asArcseconds()
 
         if self.usedKey:
             for m in result.matches:
@@ -312,6 +352,46 @@ class AstrometryTask(RefMatchTask):
             scatterOnSky=result.scatterOnSky,
             matchMeta=matchMeta,
         )
+
+    def check(self, exposure, sourceCat, nMatches):
+        """Validate the astrometric fit against the maxMeanDistance threshold.
+
+        If the distMean metric does not satisfy the requirement of being less
+        than the value set in config.maxMeanDistanceArcsec, the WCS on the
+        exposure will be set to None and the coordinate values in the
+        source catalog will be set to NaN to reflect a failed astrometric fit.
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            The exposure whose astrometric fit is being evaluated.
+        sourceCat : `lsst.afw.table.SourceCatalog`
+            The catalog of sources associated with the exposure.
+        nMatches : `int`
+            The number of matches that were found and used during
+            the astrometric fit (for logging purposes only).
+
+        Raises
+        ------
+        BadAstrometryFit
+            If the measured mean on-sky distance between the matched source and
+            reference objects is greater than
+            ``self.config.maxMeanDistanceArcsec``.
+        """
+        # Poor quality fits are a failure.
+        md = exposure.getMetadata()
+        distMean = md['SFM_ASTROM_OFFSET_MEAN']
+        distMedian = md['SFM_ASTROM_OFFSET_MEDIAN']
+        if distMean > self.config.maxMeanDistanceArcsec:
+            exception = exceptions.BadAstrometryFit(nMatches=nMatches, distMean=distMean,
+                                                    maxMeanDist=self.config.maxMeanDistanceArcsec,
+                                                    distMedian=distMedian)
+            exposure.setWcs(None)
+            sourceCat["coord_ra"] = np.nan
+            sourceCat["coord_dec"] = np.nan
+            self.log.error(exception)
+            raise exception
+        return
 
     @timeMethod
     def _matchAndFitWcs(self, refCat, sourceCat, goodSourceCat, refFluxField, bbox, wcs, matchTolerance,
