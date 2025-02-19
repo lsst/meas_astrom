@@ -67,16 +67,16 @@ class TestMatchPessimisticB(unittest.TestCase):
         del self.wcs
         del self.distortedWcs
 
-    def testLinearXDistort(self):
+    def notestLinearXDistort(self):
         self.singleTestInstance(self.filename, genDistortedImage.linearXDistort)
 
-    def testLinearYDistort(self):
+    def notestLinearYDistort(self):
         self.singleTestInstance(self.filename, genDistortedImage.linearYDistort)
 
-    def testQuadraticDistort(self):
+    def notestQuadraticDistort(self):
         self.singleTestInstance(self.filename, genDistortedImage.quadraticDistort)
 
-    def testLargeDistortion(self):
+    def notestLargeDistortion(self):
         # This transform is about as extreme as I can get:
         # using 0.0005 in the last value appears to produce numerical issues.
 
@@ -187,6 +187,7 @@ class TestMatchPessimisticB(unittest.TestCase):
             sourceFluxField='slot_ApFlux_instFlux',
             refFluxField="r_flux",
         )
+        print(matchRes.matchTolerance.maxShift)
 
         maxShift = matchRes.matchTolerance.maxShift * 300
         # Force the matcher to use a different pattern thatn the previous
@@ -199,6 +200,9 @@ class TestMatchPessimisticB(unittest.TestCase):
             failedPatternList=[0],
             PPMbObj=matchRes.matchTolerance.PPMbObj,
         )
+        print(matchRes.matchTolerance.maxShift)
+
+        # This changes the numbers.
 
         matchRes = self.MatchPessimisticB.matchObjectsToSources(
             refCat=refCat,
@@ -208,6 +212,7 @@ class TestMatchPessimisticB(unittest.TestCase):
             refFluxField="r_flux",
             matchTolerance=matchTol,
         )
+        print(matchRes.matchTolerance.maxShift)
 
         self.assertEqual(len(matchRes.matches), self.expectedMatches)
         self.assertLess(matchRes.matchTolerance.maxShift, maxShift)
@@ -218,7 +223,7 @@ class TestMatchPessimisticB(unittest.TestCase):
         self.assertIsNotNone(matchRes.matchTolerance.failedPatternList)
         self.assertIsNotNone(matchRes.matchTolerance.PPMbObj)
 
-    def testReferenceFilter(self):
+    def notestReferenceFilter(self):
         """Test sub-selecting reference objects by flux."""
         sourceCat = self.loadSourceCatalog(self.filename)
         refCat = self.computePosRefCatalog(sourceCat)

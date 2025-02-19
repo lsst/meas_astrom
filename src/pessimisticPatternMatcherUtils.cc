@@ -23,6 +23,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "stdio.h"
 #include <cmath>
 #include "ndarray/eigen.h"
 #include "lsst/meas/astrom/pessimisticPatternMatcherUtils.h"
@@ -68,6 +69,9 @@ PatternResult construct_pattern_and_shift_rot_matrix(
             ndarray::Array<double, 1, 1> ref_center = reference_array[ref_id];
             double cos_shift =
                     ndarray::asEigenMatrix(src_pattern_array[0]).dot(ndarray::asEigenMatrix(ref_center));
+            fprintf(stdout, "ref_center = %.20f, %.20f\n", ref_center[0], ref_center[1]);
+            fprintf(stdout, "src_pattern = %.20f, %.20f\n", src_pattern_array[0][0], src_pattern_array[0][1]);
+            fprintf(stdout, "cos_shift = %.20f, %.20f\n", cos_shift, max_cos_theta_shift);
             if (cos_shift < max_cos_theta_shift) {
                 continue;
             }

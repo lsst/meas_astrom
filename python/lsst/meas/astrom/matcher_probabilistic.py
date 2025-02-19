@@ -441,9 +441,9 @@ def default_value(dtype):
     if dtype is str:
         return ''
     elif np.issubdtype(dtype, np.signedinteger):
-        return np.inf
+        return np.iinfo(dtype).max
     elif np.issubdtype(dtype, np.unsignedinteger):
-        return -np.inf
+        return np.iinfo(dtype).min
     return None
 
 

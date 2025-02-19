@@ -286,6 +286,8 @@ class MatchPessimisticBTask(pipeBase.Task):
         else:
             trimmedRefCat = refCat
 
+        print("before: ", matchTolerance.maxShift)
+
         doMatchReturn = self._doMatch(
             refCat=trimmedRefCat,
             sourceCat=goodSourceCat,
@@ -300,6 +302,7 @@ class MatchPessimisticBTask(pipeBase.Task):
         )
         matches = doMatchReturn.matches
         matchTolerance = doMatchReturn.matchTolerance
+        print("Near end: ", matchTolerance.maxShift)
 
         if (nMatches := len(matches)) == 0:
             raise exceptions.MatcherFailure("No matches found")
@@ -309,6 +312,7 @@ class MatchPessimisticBTask(pipeBase.Task):
             self.log.warning("Number of matches (%s) is smaller than minimum requested (%s)",
                              nMatches, minMatchedPairs)
 
+        print("At end: ", matchTolerance.maxShift)
         return pipeBase.Struct(
             matches=matches,
             usableSourceCat=goodSourceCat,
@@ -444,13 +448,16 @@ class MatchPessimisticBTask(pipeBase.Task):
         # Set configurable defaults when we encounter None type or set
         # state based on previous run of AstrometryTask._matchAndFitWcs.
         if matchTolerance.maxShift is None:
+            print("NONE")
             maxShiftArcseconds = self.config.maxOffsetPix * pixelScale
         else:
+            print("NOT NONE")
             # We don't want to clamp down too hard on the allowed shift so
             # we test that the smallest we ever allow is the pixel scale.
             maxShiftArcseconds = np.max(
                 (matchTolerance.maxShift.asArcseconds(),
                  self.config.minMatchDistPixels * pixelScale))
+        print(maxShiftArcseconds)
 
         # If our tolerances are not set from a previous run, estimate a
         # starting tolerance guess from the statistics of patterns we can
@@ -511,6 +518,8 @@ class MatchPessimisticBTask(pipeBase.Task):
                 pattern_skip_array=np.array(
                     matchTolerance.failedPatternList)
             )
+            print("matcher_struct.shift")
+            print(matcher_struct.shift)
 
             if soften_dist == 0 and \
                len(matcher_struct.match_ids) == 0 and \
@@ -525,6 +534,7 @@ class MatchPessimisticBTask(pipeBase.Task):
                     matchTolerance.lastMatchedPattern)
                 matchTolerance.lastMatchedPattern = None
                 maxShiftArcseconds = self.config.maxOffsetPix * pixelScale
+                print("Another not none?")
             elif len(matcher_struct.match_ids) > 0:
                 # Match found, save a bit a state regarding this pattern
                 # in the match tolerance class object and exit.
@@ -533,6 +543,7 @@ class MatchPessimisticBTask(pipeBase.Task):
                 matchTolerance.lastMatchedPattern = \
                     matcher_struct.pattern_idx
                 match_found = True
+                print("Updating maxShift = ", matchTolerance.maxShift)
                 break
 
         # If we didn't find a match, exit early.
