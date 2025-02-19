@@ -68,6 +68,7 @@ PatternResult construct_pattern_and_shift_rot_matrix(
             ndarray::Array<double, 1, 1> ref_center = reference_array[ref_id];
             double cos_shift =
                     ndarray::asEigenMatrix(src_pattern_array[0]).dot(ndarray::asEigenMatrix(ref_center));
+            cos_shift = std::clamp(cos_shift, -1.0, 1.0);
             if (cos_shift < max_cos_theta_shift) {
                 continue;
             }
