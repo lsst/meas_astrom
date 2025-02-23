@@ -39,7 +39,6 @@ import lsst.meas.astrom.matchOptimisticB as matchOptimisticB
 class TestMatchOptimisticB(unittest.TestCase):
 
     def setUp(self):
-
         self.config = measAstrom.MatchOptimisticBTask.ConfigClass()
         self.matchOptimisticB = measAstrom.MatchOptimisticBTask(config=self.config)
         self.wcs = afwGeom.makeSkyWcs(crpix=lsst.geom.Point2D(791.4, 559.7),
@@ -50,12 +49,6 @@ class TestMatchOptimisticB(unittest.TestCase):
         self.filename = os.path.join(os.path.dirname(__file__), "cat.xy.fits")
         self.tolArcsec = .4
         self.tolPixel = .1
-
-    def tearDown(self):
-        del self.config
-        del self.matchOptimisticB
-        del self.wcs
-        del self.distortedWcs
 
     def testLinearXDistort(self):
         self.singleTestInstance(self.filename, distort.linearXDistort)
@@ -89,6 +82,8 @@ class TestMatchOptimisticB(unittest.TestCase):
 
         # Apply source selector to sourceCat, using the astrometry config defaults
         tempConfig = measAstrom.AstrometryTask.ConfigClass()
+        # This field isn't in the old test catalog.
+        tempConfig.sourceSelector["science"].flags.bad.remove("base_PixelFlags_flag_nodata")
         tempConfig.matcher.retarget(measAstrom.MatchOptimisticBTask)
         tempConfig.sourceSelector["matcher"].excludePixelFlags = False
         tempSolver = measAstrom.AstrometryTask(config=tempConfig, refObjLoader=None)
