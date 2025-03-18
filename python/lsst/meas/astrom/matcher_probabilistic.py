@@ -409,6 +409,7 @@ class MatchProbabilisticConfig(pexConfig.Config):
         default=2,
         optional=True,
         doc='Minimum number of columns with a finite value to measure match likelihood',
+        check=lambda x: x >= 2,
     )
     order_ascending = pexConfig.Field(
         dtype=bool,
