@@ -174,10 +174,10 @@ class MatchProbabilisticTask(pipeBase.Task):
 
         logger.info(
             "Beginning MatcherProbabilistic.match with %d/%d ref sources selected vs %d/%d target",
-            np.sum(select_ref),
-            len(select_ref),
-            np.sum(select_target),
-            len(select_target),
+            len(catalog_ref) if select_ref is None else np.sum(select_ref),
+            len(catalog_ref),
+            len(catalog_target) if select_target is None else np.sum(select_target),
+            len(catalog_target),
         )
 
         catalog_out_ref, catalog_out_target, exceptions = self.matcher.match(
