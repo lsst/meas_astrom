@@ -367,12 +367,12 @@ class MatchProbabilisticConfig(pexConfig.Config):
     )
     columns_target_select_true = pexConfig.ListField(
         dtype=str,
-        default=('detect_isPrimary',),
+        default=[],
         doc='Target table columns to require to be True for selecting sources',
     )
     columns_target_select_false = pexConfig.ListField(
         dtype=str,
-        default=('merge_peak_sky',),
+        default=[],
         doc='Target table columns to require to be False for selecting sources',
     )
     coord_format = pexConfig.ConfigField(
