@@ -295,6 +295,11 @@ class AstrometryTask(RefMatchTask):
                           len(refCat), nRefCatPreCull)
 
             if self.config.doRandomDownsample and len(refCat) > self.config.randomDownsampleMaxObjects:
+                self.log.info(
+                    "Down-sampling from %d to %d reference objects",
+                    len(refCat),
+                    self.config.randomDownsampleMaxObjects,
+                )
                 if not refCat.isContiguous():
                     refCat = refCat.copy(deep=True)
 
