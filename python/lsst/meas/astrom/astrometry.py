@@ -106,6 +106,19 @@ class AstrometryConfig(RefMatchConfig):
         default=0.3,
         optional=True,
     )
+    doRandomDownsample = pexConfig.Field(
+        dtype=bool,
+        doc="Do random downsampling of reference catalog objects to send to the "
+            "matcher task? This can only be used if doFiducialZeroPointCull=True "
+            "to ensure that the random downsampling is using an appropriate "
+            "magnitude range.",
+        default=False,
+    )
+    randomDownsampleMaxObjects = pexConfig.Field(
+        dtype=int,
+        doc="Maximum number of objects to use in random downsampling.",
+        default=2048,
+    )
 
     def setDefaults(self):
         super().setDefaults()
@@ -119,6 +132,9 @@ class AstrometryConfig(RefMatchConfig):
         if self.doFiducialZeroPointCull and self.fiducialZeroPoint is None:
             msg = "doFiducialZeroPointCull=True requires `fiducialZeroPoint`, a dict of the "
             "fiducial zeropoints measured for the camera/filter, be set."
+            raise pexConfig.FieldValidationError(AstrometryConfig.fiducialZeroPoint, self, msg)
+        if self.doRandomDownsample and not self.doFiducialZeroPointCull:
+            msg = "doRandomDownsample=True requires doFiducialZeroPointCull=True."
             raise pexConfig.FieldValidationError(AstrometryConfig.fiducialZeroPoint, self, msg)
 
 
@@ -278,8 +294,24 @@ class AstrometryTask(RefMatchTask):
             self.log.info("Selected %d/%d reference sources based on fiducial zeropoint culling.",
                           len(refCat), nRefCatPreCull)
 
+            if self.config.doRandomDownsample and len(refCat) > self.config.randomDownsampleMaxObjects:
+                if not refCat.isContiguous():
+                    refCat = refCat.copy(deep=True)
+
+                if exposure.info.id is None:
+                    # Fallback seed in case something is missing.
+                    seed = 12345
+                else:
+                    seed = exposure.info.id & 0xFFFFFFFF
+                rng = np.random.RandomState(seed=seed)
+
+                sel = np.zeros(len(refCat), dtype=np.bool_)
+                inds = rng.choice(len(refCat), size=self.config.randomDownsampleMaxObjects, replace=False)
+                sel[inds] = True
+                refCat = refCat[sel]
+
         # Some operations below require catalog contiguity, which is not
-        # guaranteed from the source selector.
+        # guaranteed from the source selector/culling/downsampling.
         if not refCat.isContiguous():
             refCat = refCat.copy(deep=True)
 
