@@ -180,7 +180,6 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         """
         schema = afwTable.SourceTable.makeMinimalSchema()
         measBase.SingleFrameMeasurementTask(schema=schema)  # expand the schema
-        afwTable.CoordKey.addErrorFields(schema)
         schema.addField("deblend_nChild", type=np.int32,
                         doc="Number of children this object has (defaults to 0)")
         schema.addField("detect_isPrimary", type=np.int32,

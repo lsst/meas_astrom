@@ -63,7 +63,6 @@ class BaseTestCase:
         self.refCat = afwTable.SimpleCatalog(refSchema)
         srcSchema = afwTable.SourceTable.makeMinimalSchema()
         SingleFrameMeasurementTask(schema=srcSchema)
-        afwTable.CoordKey.addErrorFields(srcSchema)
         self.srcCoordKey = afwTable.CoordKey(srcSchema["coord"])
         self.srcCentroidKey = afwTable.Point2DKey(srcSchema["slot_Centroid"])
         self.srcCentroidKey_xErr = srcSchema["slot_Centroid_xErr"].asKey()
