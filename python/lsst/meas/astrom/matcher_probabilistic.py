@@ -33,7 +33,6 @@ import warnings
 import astropy.table
 import lsst.pex.config as pexConfig
 import numpy as np
-import pandas as pd
 from scipy.spatial import cKDTree
 from smatch.matcher import Matcher
 
@@ -79,8 +78,8 @@ class CatalogExtras:
 
     Parameters
     ----------
-    catalog : `pandas.DataFrame`
-        A pandas catalog to store extra information for.
+    catalog : `astropy.table.Table`
+        A Table to store extra information for.
     select : `numpy.array`
         A numpy boolean array of the same length as catalog to be used for
         target selection.
@@ -94,7 +93,7 @@ class CatalogExtras:
 
     def __init__(
         self,
-        catalog: astropy.table.Table | pd.DataFrame,
+        catalog: astropy.table.Table,
         select: np.array = None,
         coordinate_factor: float = None,
     ):
@@ -108,7 +107,7 @@ class CatalogExtras:
 class ComparableCatalog:
     """A catalog with sources with coordinate columns in some standard format/units.
 
-    catalog : `pandas.DataFrame`
+    catalog : `astropy.table.Table`
         A catalog with comparable coordinate columns.
     column_coord1 : `str`
         The first spatial coordinate column name.
@@ -122,7 +121,7 @@ class ComparableCatalog:
         Extra cached (meta)data for the `catalog`.
     """
 
-    catalog: astropy.table.Table | pd.DataFrame
+    catalog: astropy.table.Table
     column_coord1: str
     column_coord2: str
     coord1: np.array
@@ -187,8 +186,8 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
 
     def format_catalogs(
         self,
-        catalog_ref: astropy.table.Table | pd.DataFrame,
-        catalog_target: astropy.table.Table | pd.DataFrame,
+        catalog_ref: astropy.table.Table,
+        catalog_target: astropy.table.Table,
         select_ref: np.array = None,
         select_target: np.array = None,
         radec_to_xy_func: Callable = None,
@@ -198,9 +197,9 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
 
         Parameters
         ----------
-        catalog_ref : `pandas.DataFrame`
+        catalog_ref : `astropy.table.Table`
             A reference catalog for comparison to `catalog_target`.
-        catalog_target : `pandas.DataFrame`
+        catalog_target : `astropy.table.Table`
             A target catalog with measurements for comparison to `catalog_ref`.
         select_ref : `numpy.ndarray`, (Nref,)
             A boolean array of len `catalog_ref`, True for valid match candidates.
@@ -218,17 +217,6 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
         compcat_ref, compcat_target : `ComparableCatalog`
             Comparable catalogs corresponding to the input reference and target.
         """
-        # TODO: Remove pandas support in DM-46523
-        is_ref_pd = isinstance(catalog_ref, pd.DataFrame)
-        is_target_pd = isinstance(catalog_target, pd.DataFrame)
-        if is_ref_pd:
-            catalog_ref = astropy.table.Table.from_pandas(catalog_ref)
-        if is_target_pd:
-            catalog_target = astropy.table.Table.from_pandas(catalog_target)
-        if is_ref_pd or is_target_pd:
-            warnings.warn("pandas usage in MatchProbabilisticTask is deprecated; it will be removed "
-                          " in favour of astropy.table after release 28.0.0", category=FutureWarning)
-
         convert_ref = self.coords_ref_to_convert
         if convert_ref and not callable(radec_to_xy_func):
             raise TypeError('radec_to_xy_func must be callable if converting ref coords')
@@ -263,10 +251,6 @@ class ConvertCatalogCoordinatesConfig(pexConfig.Config):
                 column1, column2 = self.coords_ref_to_convert.values()
                 if self.return_converted_coords:
                     coord1, coord2 = catalog[column1], catalog[column2]
-            if isinstance(coord1, pd.Series):
-                coord1 = coord1.values
-            if isinstance(coord2, pd.Series):
-                coord2 = coord2.values
 
             compcats.append(ComparableCatalog(
                 catalog=catalog, column_coord1=column1, column_coord2=column2,
@@ -467,8 +451,8 @@ class MatcherProbabilistic:
 
     def match(
         self,
-        catalog_ref: astropy.table.Table | pd.DataFrame,
-        catalog_target: astropy.table.Table | pd.DataFrame,
+        catalog_ref: astropy.table.Table,
+        catalog_target: astropy.table.Table,
         select_ref: np.array = None,
         select_target: np.array = None,
         logger: logging.Logger = None,
@@ -479,9 +463,9 @@ class MatcherProbabilistic:
 
         Parameters
         ----------
-        catalog_ref : `pandas.DataFrame` | `astropy.table.Table`
+        catalog_ref : `astropy.table.Table`
             A reference catalog to match in order of a given column (i.e. greedily).
-        catalog_target : `pandas.DataFrame` | `astropy.table.Table`
+        catalog_target : `astropy.table.Table`
             A target catalog for matching sources from `catalog_ref`. Must contain measurements with errors.
         select_ref : `numpy.array`
             A boolean array of the same length as `catalog_ref` selecting the sources that can be matched.
@@ -496,10 +480,10 @@ class MatcherProbabilistic:
 
         Returns
         -------
-        catalog_out_ref : `pandas.DataFrame`
+        catalog_out_ref : `astropy.table.Table`
             A catalog of identical length to `catalog_ref`, containing match information for rows selected by
             `select_ref` (including the matching row index in `catalog_target`).
-        catalog_out_target : `pandas.DataFrame`
+        catalog_out_target : `astropy.table.Table`
             A catalog of identical length to `catalog_target`, containing the indices of matching rows in
             `catalog_ref`.
         exceptions : `dict` [`int`, `Exception`]
@@ -507,17 +491,6 @@ class MatcherProbabilistic:
         """
         if logger is None:
             logger = logger_default
-
-        # TODO: Remove pandas support in DM-46523
-        is_ref_pd = isinstance(catalog_ref, pd.DataFrame)
-        is_target_pd = isinstance(catalog_target, pd.DataFrame)
-        if is_ref_pd:
-            catalog_ref = astropy.table.Table.from_pandas(catalog_ref)
-        if is_target_pd:
-            catalog_target = astropy.table.Table.from_pandas(catalog_target)
-        if is_ref_pd or is_target_pd:
-            warnings.warn("pandas usage in MatchProbabilisticTask is deprecated; it will be removed "
-                          " in favour of astropy.table after release 28.0.0", category=FutureWarning)
 
         t_init = time.process_time()
         config = self.config
@@ -765,17 +738,16 @@ class MatcherProbabilistic:
             time.process_time() - t_init,
         )
 
-        catalog_out_ref = (pd.DataFrame if is_ref_pd else astropy.table.Table)(data_ref)
-        if not is_ref_pd:
-            for column, description in {
-                'match_candidate': 'Whether the object was selected as a candidate for matching',
-                'match_row': 'The index of the best matched row in the target table, if any',
-                'match_count': 'The number of candidate matching target objects, i.e. those within the match'
-                               ' distance but excluding objects already matched to a  ref object',
-                'match_chisq': 'The sum of all finite reduced chi-squared values over all match columns',
-                'match_n_chisq_finite': 'The number of match columns with finite chisq',
-            }.items():
-                catalog_out_ref[column].description = description
-        catalog_out_target = (pd.DataFrame if is_target_pd else astropy.table.Table)(data_target)
+        catalog_out_ref = astropy.table.Table(data_ref)
+        for column, description in {
+            'match_candidate': 'Whether the object was selected as a candidate for matching',
+            'match_row': 'The index of the best matched row in the target table, if any',
+            'match_count': 'The number of candidate matching target objects, i.e. those within the match'
+                           ' distance but excluding objects already matched to a  ref object',
+            'match_chisq': 'The sum of all finite reduced chi-squared values over all match columns',
+            'match_n_chisq_finite': 'The number of match columns with finite chisq',
+        }.items():
+            catalog_out_ref[column].description = description
+        catalog_out_target = astropy.table.Table(data_target)
 
         return catalog_out_ref, catalog_out_target, exceptions
