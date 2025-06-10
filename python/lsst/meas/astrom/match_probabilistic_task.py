@@ -29,7 +29,6 @@ import lsst.geom as geom
 import lsst.pipe.base as pipeBase
 import lsst.utils as utils
 import numpy as np
-import pandas as pd
 
 from .matcher_probabilistic import MatchProbabilisticConfig, MatcherProbabilistic
 
@@ -53,14 +52,14 @@ class MatchProbabilisticTask(pipeBase.Task):
 
     @staticmethod
     def _apply_select_bool(
-        catalog: astropy.table.Table | pd.DataFrame,
+        catalog: astropy.table.Table,
         columns_true: List[str],
         columns_false: List[str],
         selection: Optional[np.array],
     ) -> np.array:
         """Apply additional boolean selection columns.
 
-        catalog : `pandas.DataFrame` | `astropy.table.Table`
+        catalog : `astropy.table.Table`
             The catalog to select from.
         columns_true : `list` [`str`]
             Columns that must be True for selection.
@@ -75,11 +74,6 @@ class MatchProbabilisticTask(pipeBase.Task):
             The final selection array.
 
         """
-        # TODO: Remove pandas support in DM-46523
-        is_pd = isinstance(catalog, pd.DataFrame)
-        if is_pd:
-            warnings.warn("pandas usage in MatchProbabilisticTask is deprecated; it will be removed "
-                          " in favour of astropy.table after release 28.0.0", category=FutureWarning)
         select_additional = (len(columns_true) + len(columns_false)) > 0
         if select_additional:
             if selection is None:
@@ -87,10 +81,10 @@ class MatchProbabilisticTask(pipeBase.Task):
             for column in columns_true:
                 # This is intended for boolean columns, so the behaviour for non-boolean is not obvious
                 # More config options and/or using a ConfigurableActionField might be best
-                values = catalog[column] if not is_pd else catalog[column].values
+                values = catalog[column]
                 selection &= (np.isfinite(values) & (values != 0))
             for column in columns_false:
-                values = catalog[column] if not is_pd else catalog[column].values
+                values = catalog[column]
                 selection &= (values == 0)
         return selection
 
@@ -104,21 +98,21 @@ class MatchProbabilisticTask(pipeBase.Task):
 
     def match(
         self,
-        catalog_ref: astropy.table.Table | pd.DataFrame,
-        catalog_target: astropy.table.Table | pd.DataFrame,
+        catalog_ref: astropy.table.Table,
+        catalog_target: astropy.table.Table,
         select_ref: np.array = None,
         select_target: np.array = None,
         wcs: afwGeom.SkyWcs = None,
         logger: logging.Logger = None,
         logging_n_rows: int = None,
-    ) -> Tuple[pd.DataFrame, pd.DataFrame, Dict[int, str]]:
+    ) -> Tuple[astropy.table.Table, astropy.table.Table, Dict[int, str]]:
         """Match sources in a reference tract catalog with a target catalog.
 
         Parameters
         ----------
-        catalog_ref : `pandas.DataFrame` | `astropy.table.Table`
+        catalog_ref : `astropy.table.Table`
             A reference catalog to match objects/sources from.
-        catalog_target : `pandas.DataFrame` | `astropy.table.Table`
+        catalog_target : `astropy.table.Table`
             A target catalog to match reference objects/sources to.
         select_ref : `numpy.array`
             A boolean array of the same length as `catalog_ref` selecting the sources that can be matched.
@@ -134,30 +128,19 @@ class MatchProbabilisticTask(pipeBase.Task):
 
         Returns
         -------
-        catalog_out_ref : `pandas.DataFrame` | `astropy.table.Table`
+        catalog_out_ref : `astropy.table.Table`
             Reference matched catalog with indices of target matches.
-        catalog_out_target : `pandas.DataFrame` | `astropy.table.Table`
+        catalog_out_target : `astropy.table.Table`
             Reference matched catalog with indices of target matches.
         """
         if logger is None:
             logger = self.log
 
-        # TODO: Remove pandas support in DM-46523
-        is_ref_pd = isinstance(catalog_ref, pd.DataFrame)
-        is_target_pd = isinstance(catalog_target, pd.DataFrame)
-        if is_ref_pd or is_target_pd:
-            warnings.warn("pandas usage in MatchProbabilisticTask is deprecated; it will be removed "
-                          " in favour of astropy.table after release 28.0.0", category=FutureWarning)
-
         config = self.config
 
         if config.column_ref_order is None:
-            fluxes = (
-                catalog_ref.loc[:, config.columns_ref_flux].values
-                if is_ref_pd else
-                [catalog_ref[key] for key in config.columns_ref_flux]
-            )
-            flux_tot = np.nansum(fluxes, axis=1 if is_ref_pd else 0)
+            fluxes = [catalog_ref[key] for key in config.columns_ref_flux]
+            flux_tot = np.nansum(fluxes, axis=0)
             catalog_ref["flux_total"] = flux_tot
             if config.mag_brightest_ref != -np.inf or config.mag_faintest_ref != np.inf:
                 mag_tot = (
@@ -213,8 +196,8 @@ class MatchProbabilisticTask(pipeBase.Task):
     @utils.timer.timeMethod
     def run(
         self,
-        catalog_ref: astropy.table.Table | pd.DataFrame,
-        catalog_target: astropy.table.Table | pd.DataFrame,
+        catalog_ref: astropy.table.Table,
+        catalog_target: astropy.table.Table,
         wcs: afwGeom.SkyWcs = None,
         **kwargs,
     ) -> pipeBase.Struct:
@@ -222,9 +205,9 @@ class MatchProbabilisticTask(pipeBase.Task):
 
         Parameters
         ----------
-        catalog_ref : `pandas.DataFrame` | `astropy.table.Table`
+        catalog_ref : `astropy.table.Table`
             A reference catalog to match objects/sources from.
-        catalog_target : `pandas.DataFrame` | `astropy.table.Table`
+        catalog_target : `astropy.table.Table`
             A target catalog to match reference objects/sources to.
         wcs : `lsst.afw.image.SkyWcs`
             A coordinate system to convert catalog positions to sky coordinates.
@@ -238,16 +221,6 @@ class MatchProbabilisticTask(pipeBase.Task):
             A struct with output_ref and output_target attribute containing the
             output matched catalogs, as well as a dict
         """
-        # TODO: Remove pandas support in DM-46523
-        is_ref_pd = isinstance(catalog_ref, pd.DataFrame)
-        is_target_pd = isinstance(catalog_target, pd.DataFrame)
-        if is_ref_pd:
-            catalog_ref.reset_index(inplace=True)
-        if is_target_pd:
-            catalog_target.reset_index(inplace=True)
-        if is_ref_pd or is_target_pd:
-            warnings.warn("pandas usage in MatchProbabilisticTask is deprecated; it will be removed "
-                          " in favour of astropy.table after release 28.0.0", category=FutureWarning)
         with warnings.catch_warnings():
             # We already issued a deprecation warning; no need to repeat it.
             warnings.filterwarnings(action="ignore", category=FutureWarning)

@@ -28,7 +28,6 @@ from lsst.meas.astrom import ConvertCatalogCoordinatesConfig, MatchProbabilistic
 
 import astropy.table
 import numpy as np
-import pytest
 
 
 class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
@@ -129,15 +128,6 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
         )
         indices_target = result.cat_output_target["match_row"]
         np.testing.assert_array_equal(indices_target, self.indices_expected)
-        # TODO: Remove pandas support in DM-46523
-        with pytest.warns(FutureWarning):
-            result_pd = self.task.run(
-                catalog_ref=self.catalog_ref.to_pandas(),
-                catalog_target=self.catalog_target.to_pandas(),
-                wcs=self.wcs,
-                logging_n_rows=2,
-            )
-            np.testing.assert_array_equal(indices_target, result_pd.cat_output_target["match_row"])
 
 
 class MemoryTester(lsst.utils.tests.MemoryTestCase):
