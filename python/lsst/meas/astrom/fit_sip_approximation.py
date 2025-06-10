@@ -23,11 +23,12 @@ from __future__ import annotations
 
 __all__ = ()
 
+import math
 from typing import ClassVar
 
 import numpy as np
 
-from lsst.afw.geom import SkyWcs, getIntermediateWorldCoordsToSky, SipApproximation, makeTanSipMetadata
+from lsst.afw.geom import SkyWcs, getIntermediateWorldCoordsToSky, SipApproximation, makeTanSipWcs
 from lsst.afw.cameraGeom import Detector, FIELD_ANGLE, PIXELS
 from lsst.geom import (
     Angle,
@@ -67,7 +68,7 @@ class FitSipApproximationConfig(Config):
     sip_order = Field[int](
         doc="Polynomial order for the SIP approximation.",
         dtype=int,
-        default=4,
+        default=5,
     )
 
 
@@ -80,37 +81,54 @@ class FitSipApproximationTask(Task):
         boresight, orientation = self.fit_pointing(
             true_wcs=true_wcs, detector=detector, instrument=instrument
         )
-        repointed_raw_wcs = self.make_raw_wcs(
+        repointed_raw_wcs, _ = self.make_raw_wcs(
             boresight, orientation, detector=detector, instrument=instrument
         )
-        fits_wcs = self.fit_sip_approximation(
+        sip_approx = self.fit_sip_approximation(
             true_wcs=true_wcs, repointed_raw_wcs=repointed_raw_wcs, detector=detector
+        )
+        fits_wcs = makeTanSipWcs(
+            sip_approx.getPixelOrigin(),
+            repointed_raw_wcs.getSkyOrigin(),
+            sip_approx.getCdMatrix(),
+            sip_approx.getA(),
+            sip_approx.getB(),
+            sip_approx.getAP(),
+            sip_approx.getBP(),
         )
         return Struct(
             wcs=true_wcs.withFitsApproximation(fits_wcs),
             boresight=boresight,
+            orientation=orientation,
             repointed_raw_wcs=repointed_raw_wcs,
         )
 
     def fit_pointing(
         self, *, true_wcs: SkyWcs, detector: Detector, instrument: Instrument
     ) -> tuple[SpherePoint, Angle]:
+        start = true_wcs.pixelToSky(Point2D(0.0, 0.0))
         unpointed_raw_wcs, flip_x = self.make_raw_wcs(
-            SpherePoint(0.0, 0.0, degrees), 0.0 * degrees, detector=detector, instrument=instrument
+            start, 0.0 * degrees, detector=detector, instrument=instrument
         )
         pixel_x, pixel_y = self._make_pointing_grid(detector)
-        unpointed_longitude, unpointed_latitude = unpointed_raw_wcs.pixelToSkyArray(pixel_x, pixel_y)
-        ra, dec = true_wcs.pixelToSkyArray(pixel_x, pixel_y)
+        start_ra, start_dec = unpointed_raw_wcs.pixelToSkyArray(pixel_x, pixel_y)
+        start_uv = np.stack(
+            SpherePoint.toUnitXYZ(longitude=start_ra, latitude=start_dec, units=radians),
+            axis=1,
+        )
+        true_ra, true_dec = true_wcs.pixelToSkyArray(pixel_x, pixel_y)
+        true_uv = np.stack(
+            SpherePoint.toUnitXYZ(longitude=true_ra, latitude=true_dec, units=radians),
+            axis=1,
+        )
         unpointed_y_axis_point = unpointed_raw_wcs.pixelToSky(
             detector.transform(Point2D(0.0, np.pi / 180.0), FIELD_ANGLE, PIXELS)
         )
-        transform = SphereTransform.fit_sphere_points(
-            unpointed_longitude, unpointed_latitude, ra, dec, radians
-        )
-        boresight = transform(SpherePoint(0.0, 0.0, degrees))
+        transform = SphereTransform.fit_unit_vectors(start_uv, true_uv)
+        boresight = transform(start)
         transformed_y_axis_point = transform(unpointed_y_axis_point)
         orientation = Angle(90, degrees) - boresight.bearingTo(transformed_y_axis_point)
-        if not flip_x:
+        if flip_x:
             raise NotImplementedError("flip_x=True is not implemented yet")
         return boresight, orientation
 
@@ -118,7 +136,7 @@ class FitSipApproximationTask(Task):
         self, *, true_wcs: SkyWcs, repointed_raw_wcs: SkyWcs, detector: Detector
     ) -> SkyWcs:
         pixels_to_iwc = true_wcs.getTransform().then(
-            getIntermediateWorldCoordsToSky(repointed_raw_wcs).inverted()
+            getIntermediateWorldCoordsToSky(repointed_raw_wcs, simplify=True).inverted()
         )
         pixel_bbox = Box2D(detector.getBBox())
         grid_shape = Extent2I(
@@ -135,16 +153,7 @@ class FitSipApproximationTask(Task):
             grid_shape,
             self.config.sip_order,
         )
-        md = makeTanSipMetadata(
-            sip_approx.getPixelOrigin(),
-            repointed_raw_wcs.getSkyOrigin(),
-            sip_approx.getCdMatrix(),
-            sip_approx.getA(),
-            sip_approx.getB(),
-            sip_approx.getAP(),
-            sip_approx.getBP(),
-        )
-        return SkyWcs(md)
+        return sip_approx
 
     def make_raw_wcs(
         self, boresight: SpherePoint, orientation: Angle, *, detector: Detector, instrument: Instrument
@@ -157,12 +166,12 @@ class FitSipApproximationTask(Task):
 
     def _make_pointing_grid(self, detector: Detector) -> tuple[np.ndarray, np.ndarray]:
         pixel_bbox = Box2D(detector.getBBox())
-        n_x = np.ceil(pixel_bbox.width / self.config.pointing_grid_spacing)
-        n_y = np.ceil(pixel_bbox.height / self.config.pointing_grid_spacing)
+        n_x = math.ceil(pixel_bbox.width / self.config.pointing_grid_spacing)
+        n_y = math.ceil(pixel_bbox.height / self.config.pointing_grid_spacing)
         x, y = np.meshgrid(
             # We add one to the dimensions since there's a point the min and
             # max in each dimension.
-            np.linspace(pixel_bbox.x.begin, pixel_bbox.x.end, n_x + 1),
-            np.linspace(pixel_bbox.y.begin, pixel_bbox.y.end, n_y + 1),
+            np.linspace(pixel_bbox.x.min, pixel_bbox.x.max, n_x + 1),
+            np.linspace(pixel_bbox.y.min, pixel_bbox.y.max, n_y + 1),
         )
         return x.ravel(), y.ravel()
