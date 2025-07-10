@@ -37,7 +37,7 @@ namespace astrom {
 namespace {
 
 void declareSipTransformBase(lsst::cpputils::python::WrapperCollection &wrappers) {
-    using PySipTransformBase = py::class_<SipTransformBase>;
+    using PySipTransformBase = py::classh<SipTransformBase>;
 
     wrappers.wrapType(PySipTransformBase(wrappers.module, "_SipTransformBase"), [](auto &mod, auto &cls) {
         cls.def("getPixelOrigin", &SipTransformBase::getPixelOrigin, py::return_value_policy::copy);
@@ -48,7 +48,7 @@ void declareSipTransformBase(lsst::cpputils::python::WrapperCollection &wrappers
 
 void declareSipForwardTransform(lsst::cpputils::python::WrapperCollection &wrappers) {
     using PySipForwardTransform =
-            py::class_<SipForwardTransform, SipTransformBase>;
+            py::classh<SipForwardTransform, SipTransformBase>;
 
     wrappers.wrapType(PySipForwardTransform(wrappers.module, "SipForwardTransform"), [](auto &mod, auto &cls) {
         cls.def(py::init<geom::Point2D const &, geom::LinearTransform const &, PolynomialTransform const &>(),
@@ -78,7 +78,7 @@ void declareSipForwardTransform(lsst::cpputils::python::WrapperCollection &wrapp
 
 void declareSipReverseTransform(lsst::cpputils::python::WrapperCollection &wrappers) {
     using PySipReverseTransform =
-            py::class_<SipReverseTransform, SipTransformBase>;
+            py::classh<SipReverseTransform, SipTransformBase>;
 
     wrappers.wrapType(PySipReverseTransform(wrappers.module, "SipReverseTransform"), [](auto &mod, auto &cls) {
         cls.def(py::init<geom::Point2D const &, geom::LinearTransform const &, PolynomialTransform const &>(),

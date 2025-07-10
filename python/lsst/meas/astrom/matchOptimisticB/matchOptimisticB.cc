@@ -39,7 +39,7 @@ namespace astrom {
 namespace {
 
 void declareRecordProxy(lsst::cpputils::python::WrapperCollection &wrappers) {
-    using PyRecordProxy = py::class_<RecordProxy> ;
+    using PyRecordProxy = py::classh<RecordProxy> ;
     wrappers.wrapType(PyRecordProxy(wrappers.module, "RecordProxy"), [](auto &mod, auto &cls) {
         cls.def_readwrite("record", &RecordProxy::record);
         cls.def_readwrite("position", &RecordProxy::position);
@@ -59,7 +59,7 @@ void declareRecordProxy(lsst::cpputils::python::WrapperCollection &wrappers) {
 }
 
 void declareProxyPair(lsst::cpputils::python::WrapperCollection &wrappers) {
-    using PyProxyPair =  py::class_<ProxyPair>;
+    using PyProxyPair =  py::classh<ProxyPair>;
     wrappers.wrapType(PyProxyPair(wrappers.module, "ProxyPair"), [](auto &mod, auto &cls) {
         cls.def_readwrite("first", &ProxyPair::first);
         cls.def_readwrite("second", &ProxyPair::second);
