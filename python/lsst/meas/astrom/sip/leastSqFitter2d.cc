@@ -41,7 +41,7 @@ namespace {
 
 template <typename FittingFunc>
 void declareLeastSqFitter2d(lsst::cpputils::python::WrapperCollection &wrappers, std::string const &name) {
-    using PyLeastSqFitter2d = py::class_<LeastSqFitter2d<FittingFunc>, std::shared_ptr<LeastSqFitter2d<FittingFunc>>>;
+    using PyLeastSqFitter2d = py::classh<LeastSqFitter2d<FittingFunc>>;
 
     wrappers.wrapType(PyLeastSqFitter2d(wrappers.module, name.c_str()), [](auto &mod, auto &cls) {
         cls.def(py::init<std::vector<double> const &, std::vector<double> const &, std::vector<double> const &,
