@@ -175,3 +175,110 @@ class FitSipApproximationTask(Task):
             np.linspace(pixel_bbox.y.min, pixel_bbox.y.max, n_y + 1),
         )
         return x.ravel(), y.ravel()
+
+
+import astropy.table
+import click
+import asyncio
+import tqdm
+import multiprocessing
+from concurrent.futures import ProcessPoolExecutor
+from lsst.daf.butler import Butler, DatasetRef, DatasetProvenance, DataCoordinate
+from lsst.obs.base import Instrument
+
+
+class Runner:
+
+    def __init__(self, root: str, collections: str, run: str):
+        self.butler = Butler.from_config(root, collections=collections, run=run)
+        self.task = FitSipApproximationTask()
+        self.instrument = Instrument.fromName("LSSTComCam", self.butler.registry)
+        self.camera = self.butler.get("camera", instrument=self.instrument.getName())
+
+    instance: ClassVar[Runner]
+
+    @staticmethod
+    def initialize(root: str, collections: str, run: str) -> None:
+        Runner.instance = Runner(root, collections, run)
+
+    def run(self, *refs: DatasetRef) -> tuple[DataCoordinate, float, float]:
+        approx_wcs = None
+        for ref in refs:
+            exposure = self.butler.get(ref)
+            exposure.metadata["BUNIT"] = "nJy"
+            if approx_wcs is None:
+                detector_id = ref.dataId["detector"]
+                results = self.task.run(true_wcs=exposure.wcs, detector=self.camera[detector_id], instrument=self.instrument)
+                bbox = self.camera[detector_id].getBBox()
+                x, y = np.meshgrid(np.linspace(bbox.x.min, bbox.x.max, 20), np.linspace(bbox.y.min, bbox.y.max, 20))
+                true_ra, true_dec = results.wcs.pixelToSkyArray(x.ravel(), y.ravel())
+                approx_ra, approx_dec = results.wcs.getFitsApproximation().pixelToSkyArray(x.ravel(), y.ravel())
+                x1, y1 = results.wcs.getFitsApproximation().skyToPixelArray(true_ra, true_dec)
+                x2, y2 = results.wcs.skyToPixelArray(approx_ra, approx_dec)
+                delta1 = ((x.ravel() - x1)**2 + (y.ravel() - y1)**2)**0.5
+                delta2 = ((x.ravel() - x2)**2 + (y.ravel() - y2)**2)**0.5
+                approx_wcs = results.wcs
+            exposure.setWcs(approx_wcs)
+            provenance, _ = DatasetProvenance.from_flat_dict(exposure.metadata, self.butler)
+            self.butler.put(exposure, ref.datasetType, ref.dataId, provenance=provenance)
+        return ref.dataId, float(delta1.max()), float(delta2.max())
+
+    @staticmethod
+    def run_in_pool(refs: list[DatasetRef]) -> tuple[DataCoordinate, float, float]:
+        return Runner.instance.run(*refs)
+
+    @staticmethod
+    async def query_and_fix(*, root: str, collections: str, run: str, jobs: int) -> None:
+        butler = Butler.from_config(root, collections=collections, run=run)
+        visit_image_refs = {ref.dataId: ref for ref in butler.query_datasets("visit_image", limit=None)}
+        for ref in butler.query_datasets("visit_image", limit=None, collections=run):
+            del visit_image_refs[ref.dataId]
+        difference_image_refs = {ref.dataId: ref for ref in butler.query_datasets("difference_image", limit=None)}
+        for ref in butler.query_datasets("difference_image", limit=None, collections=run):
+            del difference_image_refs[ref.dataId]
+        pairs = {
+            data_id: ([visit_image_refs[data_id]] if data_id in visit_image_refs else [])
+                + ([difference_image_refs[data_id]] if data_id in difference_image_refs else [])
+            for data_id in visit_image_refs.keys() | difference_image_refs.keys()
+        }
+        with ProcessPoolExecutor(
+            max_workers=jobs,
+            mp_context=multiprocessing.get_context("spawn"),
+            initializer=Runner.initialize,
+            initargs=(root, collections, run),
+        ) as executor:
+            loop = asyncio.get_running_loop()
+            work: set[asyncio.Future[tuple[DataCoordinate, float, float]]] = set()
+            for pair in pairs.values():
+                work.add(loop.run_in_executor(executor, Runner.run_in_pool, pair))
+            stats = []
+            with tqdm.tqdm(asyncio.as_completed(work), total=len(pairs)) as pbar:
+                for f in pbar:
+                    data_id, delta1, delta2 = await f
+                    if not delta1 < 0.01 or not delta2 < 0.01:
+                        pbar.write(f"{data_id}: {delta1:0.5f} {delta2:0.5f}")
+                    stats.append(data_id.required_values + (delta1, delta2))
+        t = astropy.table.Table(rows=stats, names=list(data_id.dimensions.required) + ["delta1", "delta2"])
+        t.write("stats.ecsv", overwrite=True)
+
+@click.group()
+def main() -> None:
+    pass
+
+@main.command()
+@click.argument("butler")
+@click.argument("collections")
+@click.argument("run")
+@click.option("-j", "--jobs", default=1, type=int)
+def fix_visit_images(
+    *,
+    butler: str,
+    collections: str,
+    run: str,
+    jobs: int = 1,
+) -> None:
+    asyncio.run(Runner.query_and_fix(root=butler, collections=collections, run=run, jobs=jobs))
+
+
+if __name__ == "__main__":
+    main()
