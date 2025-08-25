@@ -268,13 +268,12 @@ class AstrometryTask(RefMatchTask):
             expTime = exposure.visitInfo.getExposureTime()
             fiducialZeroPoint = self.config.fiducialZeroPoint[exposure.filter.bandLabel]
             psfMag = -2.5*np.log10(psfFlux) + fiducialZeroPoint + 2.5*np.log10(expTime)
-            sourceMagMin = min(psfMag) - self.config.cullMagBuffer
             sourceMagMax = max(psfMag) + self.config.cullMagBuffer
-            self.log.info("sourceMagMin = %0.3f sourceMagMax = %0.3f", sourceMagMin, sourceMagMax)
+            self.log.info("sourceMagMax = %0.3f", sourceMagMax)
 
             refCat = refCat[np.isfinite(refCat[loadResult.fluxField])]
             refMag = (refCat[loadResult.fluxField]*units.nJy).to_value(units.ABmag)
-            refCat = refCat[(refMag > sourceMagMin) & (refMag < sourceMagMax)]
+            refCat = refCat[(refMag < sourceMagMax)]
             self.log.info("Selected %d/%d reference sources based on fiducial zeropoint culling.",
                           len(refCat), nRefCatPreCull)
 
