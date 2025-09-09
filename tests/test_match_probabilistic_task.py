@@ -89,8 +89,8 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
             columns_flux[1]: fluxes[1] - eps_flux,
             f'{columns_flux[0]}Err': eps_flux,
             f'{columns_flux[1]}Err': eps_flux,
-            MatchProbabilisticConfig.columns_target_select_true.default[0]: flags,
-            MatchProbabilisticConfig.columns_target_select_false.default[0]: ~flags,
+            "detect_isPrimary": flags,
+            "merge_peak_sky": ~flags,
         }
         self.catalog_target = astropy.table.Table(data=data_target)
 
@@ -101,6 +101,8 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
             columns_target_meas=columns_target_meas,
             columns_target_err=columns_target_err,
             columns_target_copy=[name_index],
+            columns_target_select_true=["detect_isPrimary"],
+            columns_target_select_false=["merge_peak_sky"],
         ))
         self.wcs = afwGeom.makeSkyWcs(crpix=lsst.geom.Point2D(9000, 9000),
                                       crval=lsst.geom.SpherePoint(180., 0., lsst.geom.degrees),
