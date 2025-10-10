@@ -84,6 +84,7 @@ class TestMatchOptimisticB(unittest.TestCase):
         tempConfig = measAstrom.AstrometryTask.ConfigClass()
         # This field isn't in the old test catalog.
         tempConfig.sourceSelector["science"].flags.bad.remove("base_PixelFlags_flag_nodata")
+        tempConfig.sourceSelector["science"].doCentroidErrorLimit = False
         tempConfig.matcher.retarget(measAstrom.MatchOptimisticBTask)
         tempSolver = measAstrom.AstrometryTask(config=tempConfig, refObjLoader=None)
         sourceSelection = tempSolver.sourceSelector.run(sourceCat)
