@@ -76,6 +76,7 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         config = AstrometryTask.ConfigClass()
         config.wcsFitter.order = 3
         config.wcsFitter.numRejIter = 0
+        config.sourceSelector["science"].doCentroidErrorLimit = False
         task = AstrometryTask(config=config, refObjLoader=self.refObjLoader, schema=schema)
         distortedWcs = afwGeom.makeModifiedWcs(pixelTransform=pixelsToTanPixels, wcs=self.tanWcs,
                                                modifyActualPixels=False)
@@ -234,7 +235,9 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         with unittest.mock.patch("lsst.meas.astrom.AstrometryTask._matchAndFitWcs",
                                  return_value=result, autospec=True):
             with self.assertRaises(exceptions.BadAstrometryFit):
-                task = AstrometryTask(refObjLoader=self.refObjLoader)
+                config = AstrometryTask.ConfigClass()
+                config.sourceSelector["science"].doCentroidErrorLimit = False
+                task = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
                 task.run(catalog, self.exposure)
                 task.check(self.exposure, catalog, len(matches))
             self.assertIsNone(self.exposure.wcs)
@@ -248,7 +251,9 @@ class TestAstrometricSolver(lsst.utils.tests.TestCase):
         with unittest.mock.patch("lsst.meas.astrom.AstrometryTask._matchAndFitWcs", autospec=True,
                                  side_effect=exceptions.MatcherFailure("some matcher problem")):
             with self.assertRaises(exceptions.MatcherFailure) as cm:
-                task = AstrometryTask(refObjLoader=self.refObjLoader)
+                config = AstrometryTask.ConfigClass()
+                config.sourceSelector["science"].doCentroidErrorLimit = False
+                task = AstrometryTask(config=config, refObjLoader=self.refObjLoader)
                 task.run(catalog, self.exposure)
             self.assertEqual(cm.exception.metadata["iterations"], 1)
             self.assertIsNone(self.exposure.wcs)
