@@ -106,12 +106,34 @@ class AstrometryConfig(RefMatchConfig):
         default=0.3,
         optional=True,
     )
+    maxRefToSourceRatio = pexConfig.Field(
+        dtype=float,
+        doc="Maximum ratio of loaded reference objects to detected sources in play. If exceded "
+        "the source catalog will be trimmed to the minimum (i.e. brightest) mag of the "
+        "reference catalog.",
+        default=20.0,
+    )
+    filterMap = pexConfig.DictField(
+        doc="Mapping from physical filter label to reference filter name.",
+        keytype=str,
+        itemtype=str,
+        default={},
+    )
+    refColorDeltaDefaults = pexConfig.DictField(
+        doc="Fallback values for color differences between the reference band and the "
+        "physical filter of the observation (note that these values apply to LSSTCam "
+        "filters and may not be appropriate for others).",
+        keytype=str,
+        itemtype=float,
+        default={"u": -1.5, "g": -0.6, "r": 0.0, "i": 0.5, "z": 0.6},
+    )
 
     def setDefaults(self):
         super().setDefaults()
         # Astrometry needs sources to be isolated, too.
         self.sourceSelector["science"].doRequirePrimary = True
         self.sourceSelector["science"].doIsolated = True
+        self.sourceSelector["science"].doCentroidErrorLimit = True
         self.referenceSelector.doCullFromMaskedRegion = True
 
     def validate(self):
@@ -240,6 +262,7 @@ class AstrometryTask(RefMatchTask):
         debug = lsstDebug.Info(__name__)
 
         epoch = exposure.visitInfo.date.toAstropy()
+        band = exposure.filter.bandLabel
 
         sourceSelection = self.sourceSelector.run(sourceCat)
 
@@ -255,28 +278,20 @@ class AstrometryTask(RefMatchTask):
         loadResult = self.refObjLoader.loadPixelBox(
             bbox=exposure.getBBox(),
             wcs=exposure.wcs,
-            filterName=exposure.filter.bandLabel,
+            filterName=band,
             epoch=epoch,
         )
+
         refSelection = self.referenceSelector.run(loadResult.refCat, exposure=exposure)
         refCat = refSelection.sourceCat
 
         if self.config.doFiducialZeroPointCull:
-            nRefCatPreCull = len(refCat)
-            # Compute rough limiting magnitudes of selected sources
-            psfFlux = sourceSelection.sourceCat["base_PsfFlux_instFlux"]
-            expTime = exposure.visitInfo.getExposureTime()
-            fiducialZeroPoint = self.config.fiducialZeroPoint[exposure.filter.bandLabel]
-            psfMag = -2.5*np.log10(psfFlux) + fiducialZeroPoint + 2.5*np.log10(expTime)
-            sourceMagMin = min(psfMag) - self.config.cullMagBuffer
-            sourceMagMax = max(psfMag) + self.config.cullMagBuffer
-            self.log.info("sourceMagMin = %0.3f sourceMagMax = %0.3f", sourceMagMin, sourceMagMax)
-
-            refCat = refCat[np.isfinite(refCat[loadResult.fluxField])]
-            refMag = (refCat[loadResult.fluxField]*units.nJy).to_value(units.ABmag)
-            refCat = refCat[(refMag > sourceMagMin) & (refMag < sourceMagMax)]
-            self.log.info("Selected %d/%d reference sources based on fiducial zeropoint culling.",
-                          len(refCat), nRefCatPreCull)
+            refCat, sourceSelection.sourceCat = self._do_fiducial_zeropoint_culling(
+                band,
+                loadResult.fluxField,
+                refCat, sourceSelection.sourceCat,
+                exposure.visitInfo.getExposureTime()
+            )
 
         # Some operations below require catalog contiguity, which is not
         # guaranteed from the source selector.
@@ -342,7 +357,7 @@ class AstrometryTask(RefMatchTask):
         matchMeta = self.refObjLoader.getMetadataBox(
             bbox=exposure.getBBox(),
             wcs=exposure.wcs,
-            filterName=exposure.filter.bandLabel,
+            filterName=band,
             epoch=epoch,
         )
 
@@ -542,3 +557,136 @@ class AstrometryTask(RefMatchTask):
         matchesOut = [matchesIn[idx] for idx in goodStars]
 
         return matchesOut
+
+    def _compute_ref_src_filter_diff(self, band, refFluxField, refCat):
+        """Compute the median ref flux - source filter color difference.
+
+        The median difference in color between the flux field used for
+        selection and that of the observations being calibrated is computed
+        from the values for each in the reference catalog.
+
+        Parameters
+        ----------
+        band : `str`
+            Bandpass of observed data.
+        refFluxField : `str`
+            Name of the flux field used in the reference catalog.
+        refCat : `lsst.afw.table.SimpleCatalog`
+            Catalog of reference objects from which to compute the color
+            offset.
+
+        Returns
+        -------
+        refColorDelta : `float`
+            The median color difference.
+        """
+        if band in self.config.filterMap:
+            refFilterNameForBand = self.config.filterMap.get(band) + "_flux"
+            refCatTemp = refCat[(np.isfinite(refCat[refFluxField])
+                                 & np.isfinite(refCat[refFilterNameForBand]))].copy(deep=True)
+            if len(refCatTemp) < 3:
+                refColorDeltaDefaults = self.config.refColorDeltaDefaults
+                if band in refColorDeltaDefaults:
+                    refColorDelta = refColorDeltaDefaults[band]
+                self.log.warning("Not enough reference sources with finite fluxes in %s and %s, "
+                                 "so can't compute color shift; a default vaulue of %.2f will "
+                                 "be applied.", refFluxField, refFilterNameForBand, refColorDelta)
+            else:
+                refMag = (refCatTemp[refFluxField]*units.nJy).to_value(units.ABmag)
+                refMagSrcBand = (refCatTemp[refFilterNameForBand]*units.nJy).to_value(units.ABmag)
+                refColorDelta = np.nanmedian(refMag - refMagSrcBand)
+                self.log.info("Adjusting refCat cutoffs for color shift: %s - %s = %.2f.",
+                              refFluxField, refFilterNameForBand, refColorDelta)
+        else:
+            refColorDelta = 0.0
+            self.log.warning("Band %s not found in filterMap: %s.  No adjustment for filter "
+                             "differences between reference and source catalogs attempted.",
+                             band, self.config.filterMap)
+        return refColorDelta
+
+    def _do_fiducial_zeropoint_culling(self, band, refFluxField, refCat, sourceCat, expTime):
+        """Perform a culling of the catalogs to attempt to match their
+        effective magnitude ranges.
+
+        This uses a fiducial zeropoint along with the exposure time for
+        the observations to compute our best-guess magnitudes.  Also,
+        accommodation is made for the  median difference in color between
+        the flux field used for selection and that of the observations being
+        calibrated, which is computed from the values for each in the reference
+        catalog.
+
+        Parameters
+        ----------
+        band : `str`
+            Bandpass of observed data.
+        refFluxField : `str`
+            Name of the flux field used in the reference catalog.
+        refCat : `lsst.afw.table.SimpleCatalog`
+            Catalog of reference objects to be passed to the matcher. Modified
+            in place.
+        sourceCat : `lsst.afw.table.SourceCatalog`
+            Catalog of observed sources to be passed to the matcher. Modified
+            in place.
+        expTime : `float`
+            Exposure time of the observation being calibrated.
+
+        Returns
+        -------
+        refColorDelta : `float`
+            The median color difference.
+        """
+        nRefCatPreCull = len(refCat)
+        nSelectedSourceCat = len(sourceCat)
+        # Compute rough limiting magnitudes of selected sources
+        psfFlux = sourceCat["base_PsfFlux_instFlux"]
+        fiducialZeroPoint = self.config.fiducialZeroPoint[band]
+        psfMag = -2.5*np.log10(psfFlux) + fiducialZeroPoint + 2.5*np.log10(expTime)
+        sourceMagMin = min(psfMag) - self.config.cullMagBuffer
+        sourceMagMax = max(psfMag) + self.config.cullMagBuffer
+
+        # Try to account for median ref flux - source band color difference.
+        refColorDelta = 0.0
+        refColorDelta = self._compute_ref_src_filter_diff(band, refFluxField, refCat)
+        if refColorDelta > self.config.cullMagBuffer:
+            # Start shifting by just half of the median color difference.
+            sourceMagMin += 0.5*refColorDelta
+            sourceMagMax += 0.5*refColorDelta
+            if refColorDelta > 3.0*self.config.cullMagBuffer:
+                # Shift even further if color difference is large compared
+                # with the cullMagBuffer.
+                sourceMagMin = np.nanmin((refCat[refFluxField]*units.nJy).to_value(units.ABmag))
+                sourceMagMax += 0.5*refColorDelta
+        if refColorDelta < -1.0*self.config.cullMagBuffer:
+            # If the color difference is negative (i.e. sources are fainter
+            # in the observed filter), allow full bright end, and shift to
+            # fainter limit.
+            sourceMagMin = np.nanmin((refCat[refFluxField]*units.nJy).to_value(units.ABmag))
+            sourceMagMax += refColorDelta
+        self.log.debug("Number of sources = %d;  Number of refs = %d; refs/source = %.2f.",
+                       nSelectedSourceCat, nRefCatPreCull, nRefCatPreCull/nSelectedSourceCat)
+
+        # Include full bright end of reference catalog if there are very
+        # few sources compared to references loaded (this often occurs when
+        # there is a large amount of exctinction and/or scattering from
+        # from bright stars).
+        if nRefCatPreCull/nSelectedSourceCat > self.config.maxRefToSourceRatio:
+            sourceMagMin = np.nanmin((refCat[refFluxField]*units.nJy).to_value(units.ABmag))
+
+        self.log.info("Source selection: sourceMag (min, max) = (%.3f, %.3f)", sourceMagMin, sourceMagMax)
+        refCat = refCat[np.isfinite(refCat[refFluxField])]
+        refMag = (refCat[refFluxField]*units.nJy).to_value(units.ABmag)
+        refCat = refCat[(refMag < sourceMagMax) & (refMag > sourceMagMin)]
+        refMagMin = np.nanmin(refMag)
+        refMagMax = np.nanmax(refMag)
+        # Now make sure source cat doesn't extend beyond refCat limits.
+        goodSources = ((psfMag < refMagMax - refColorDelta) & (psfMag > refMagMin - refColorDelta))
+        if len(goodSources) < np.sum(goodSources):
+            sourceCat = sourceCat[goodSources].copy(deep=True)
+        nSelectedSourceCat = len(sourceCat)
+        self.log.debug("Number of sources = %d;  Number of refs = %d; refs/source = %.2f.",
+                       nSelectedSourceCat, nRefCatPreCull, nRefCatPreCull/nSelectedSourceCat)
+
+        self.log.info("Final: Selected %d/%d reference sources based on fiducial zeropoint culling. "
+                      "Mag range in %s = (%.2f, %.2f)", len(refCat), nRefCatPreCull,
+                      refFluxField, refMagMin, refMagMax)
+        return refCat, sourceCat
