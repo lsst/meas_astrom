@@ -99,6 +99,17 @@ class RefitPointingConfig(Config):
         dtype=float,
         default=1.0,
     )
+    wcs_nulling_threshold = Field(
+        doc=(
+            "If the distance between the target WCS position and fallback WCS exceeds this value (in "
+            "arcseconds), set the WCS to `None` to ensure no downstream code uses it.  If "
+            "``add_wcs_fallbacks`` is `True`, the fallback WCS is used.  The quantity this threshold is "
+            "applied to is saved in the wcs_visit_pointing_residual column."
+        ),
+        dtype=float,
+        default=None,
+        optional=True,
+    )
 
 
 class RefitPointingTask(Task):
@@ -164,6 +175,10 @@ class RefitPointingTask(Task):
             )
         self._detector_pointing_rejection_threshold = (
             self.config.detector_pointing_rejection_threshold*arcseconds
+        )
+        self._wcs_nulling_threshold = (
+            self.config.wcs_nulling_threshold*arcseconds
+            if self.config.wcs_nulling_threshold is not None else None
         )
 
     def run(self, *, catalog, camera):
@@ -352,6 +367,14 @@ class RefitPointingTask(Task):
                     detector.transform(Point2D(0.0, np.pi / 180.0), FIELD_ANGLE, PIXELS)
                 )
         if not detectors_kept:
+            if self._wcs_nulling_threshold is not None:
+                # We've been asked to null out WCSs that are too inconsistent
+                # with the fallback, but they're all so bad we can't even fit
+                # the pointing to determine a fallback; this means we need to
+                # null out all of the WCSs before we raise in case we're
+                # writing partial outputs.
+                for record in catalog:
+                    record.setWcs(None)
             raise NoVisitWcs("No valid target WCSs found for visit.")
         # Fit the spherical rotation that maps the points in the arbitrary
         # start WCS to the target WCS, using all kept detectors.
@@ -364,11 +387,21 @@ class RefitPointingTask(Task):
         for record in catalog:
             detector_id = record.getId()
             if detector_id not in start_xyz:
+                # This detector already doesn't have a WCS.
                 continue
-            record.set(
-                self._visit_pointing_residual_key,
-                self._compute_pointing_residual(transform, start_xyz[detector_id], target_xyz[detector_id])
+            visit_pointing_residual = self._compute_pointing_residual(
+                transform, start_xyz[detector_id], target_xyz[detector_id]
             )
+            record.set(self._visit_pointing_residual_key, visit_pointing_residual)
+            if (
+                self._wcs_nulling_threshold is not None
+                and visit_pointing_residual > self._wcs_nulling_threshold
+            ):
+                self.log.warning(
+                    'Nulling WCS for detector %d with visit pointing residual %0.2g".',
+                    detector_id, visit_pointing_residual.asArcseconds()
+                )
+                record.setWcs(None)
         # If we apply that same rotation to our arbitrary start boresight, we
         # get the boresight predicted by the target WCSs.
         boresight = transform(start_boresight)
