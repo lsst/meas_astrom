@@ -36,6 +36,7 @@ from lsst.geom import (
     Point2D,
     SpherePoint,
     SphereTransform,
+    arcseconds,
     degrees,
     radians,
 )
@@ -87,6 +88,17 @@ class RefitPointingConfig(Config):
         dtype=bool,
         default=False,
     )
+    detector_pointing_rejection_threshold = Field(
+        doc=(
+            "If the distance between the target WCS position and the position predicted by the camera "
+            "geometry after refitting the pointing using just one detector exceeds this value (in "
+            "arcseconds) at any point on the pointing-fit grid, that detector is rejected from the pointing "
+            "fit.  The quantity this threshold is applied to is saved in the wcs_detector_pointing_residual "
+            "column."
+        ),
+        dtype=float,
+        default=1.0,
+    )
 
 
 class RefitPointingTask(Task):
@@ -112,6 +124,29 @@ class RefitPointingTask(Task):
                         "as opposed to something actually fit from stars."
                     )
                 )
+            self._detector_pointing_residual_key = schema.addField(
+                "wcs_detector_pointing_residual", type="Angle",
+                doc=(
+                    "Maximum difference (on the pointing-fit grid) between the target WCS position and "
+                    "the position predicted by camera geometry, after re-pointing using the target WCS "
+                    "for this detector only."
+                )
+            )
+            self._visit_pointing_residual_key = schema.addField(
+                "wcs_visit_pointing_residual", type="Angle",
+                doc=(
+                    "Maximum difference (on the pointing-fit grid) between the target WCS position and "
+                    "the position predicted by camera geometry, after re-pointing using the target WCS "
+                    "of all non-rejected detectors in the visit."
+                )
+            )
+            self._detector_pointing_rejected_key = schema.addField(
+                "wcs_detector_pointing_rejected", type="Flag",
+                doc=(
+                    "Flag set if this detector was rejected from the pointing fit due to its "
+                    "wcs_detector_pointing_residual value."
+                )
+            )
             self._delta1_key = schema.addField(
                 "wcs_approx_delta1", type="Angle",
                 doc=(
@@ -127,6 +162,9 @@ class RefitPointingTask(Task):
                     "on a grid offset from the one used to fit the SIP approximation."
                 )
             )
+        self._detector_pointing_rejection_threshold = (
+            self.config.detector_pointing_rejection_threshold*arcseconds
+        )
 
     def run(self, *, catalog, camera):
         """Re-fit the pointing from the WCSs in a visit.
@@ -242,18 +280,20 @@ class RefitPointingTask(Task):
         orientation : `lsst.geom.Angle`
             New orientation angle.
         """
-        start_arrays = []
-        target_arrays = []
         start_boresight: SpherePoint | None = None
         start_orientation = 0.0*degrees
         start_y_axis_point: SpherePoint | None = None
+        detectors_kept: list[int] = []
+        start_xyz: dict[int, np.ndarray] = {}
+        target_xyz: dict[int, np.ndarray] = {}
         for record in catalog:
+            detector_id = record.getId()
             # We call the WCSs that were actually fit to the stars the "true"
             # WCSs.
             target_wcs = record.getWcs()
             if target_wcs is None:
                 continue
-            detector = camera[record.getId()]
+            detector = camera[detector_id]
             if start_boresight is None:
                 # We just need some semi-arbitrary point on the sky that lets
                 # extract the camera geometry part of a raw WCS.  Might be
@@ -269,19 +309,37 @@ class RefitPointingTask(Task):
             # xyz unit-vector form.
             pixel_x, pixel_y = self._make_grid(detector, self.config.pointing_grid_spacing)
             start_ra, start_dec = start_wcs.pixelToSkyArray(pixel_x, pixel_y)
-            start_arrays.append(
-                np.stack(
-                    SpherePoint.toUnitXYZ(longitude=start_ra, latitude=start_dec, units=radians),
-                    axis=1,
-                )
+            start_xyz[detector_id] = np.stack(
+                SpherePoint.toUnitXYZ(longitude=start_ra, latitude=start_dec, units=radians),
+                axis=1,
             )
             target_ra, target_dec = target_wcs.pixelToSkyArray(pixel_x, pixel_y)
-            target_arrays.append(
-                np.stack(
-                    SpherePoint.toUnitXYZ(longitude=target_ra, latitude=target_dec, units=radians),
-                    axis=1,
-                )
+            target_xyz[detector_id] = np.stack(
+                SpherePoint.toUnitXYZ(longitude=target_ra, latitude=target_dec, units=radians),
+                axis=1,
             )
+            # Fit the pointing using just the grid for this detector to see if
+            # the residuals are any good; they won't be if the target WCS is
+            # bonkers and makes the detector non-rectangular on the sky.
+            detector_transform = SphereTransform.fit_unit_vectors(
+                start_xyz[detector_id],
+                target_xyz[detector_id],
+            )
+            detector_pointing_residual = self._compute_pointing_residual(
+                detector_transform, start_xyz[detector_id], target_xyz[detector_id]
+            )
+            record.set(self._detector_pointing_residual_key, detector_pointing_residual)
+            if detector_pointing_residual > self._detector_pointing_rejection_threshold:
+                record.set(self._detector_pointing_rejected_key, True)
+                if not detectors_kept:
+                    # This was the first detector we saw; need to reset.
+                    start_boresight = None
+                self.log.warning(
+                    'Dropping detector %d with detector pointing residual %0.2g" from pointing fit.',
+                    detector_id, detector_pointing_residual.asArcseconds()
+                )
+                continue
+            detectors_kept.append(detector_id)
             if start_y_axis_point is None:
                 # Define a point at (0, 1deg) in the FIELD_ANGLE system,
                 # according to the raw WCS, to let us fit the rotation angle.
@@ -293,24 +351,46 @@ class RefitPointingTask(Task):
                 start_y_axis_point = start_wcs.pixelToSky(
                     detector.transform(Point2D(0.0, np.pi / 180.0), FIELD_ANGLE, PIXELS)
                 )
-        if not start_arrays or not target_arrays:
-            raise NoVisitWcs("No fitted WCSs found for visit.")
+        if not detectors_kept:
+            raise NoVisitWcs("No valid target WCSs found for visit.")
         # Fit the spherical rotation that maps the points in the arbitrary
-        # raw-like WCS to the true WCS.
-        start_concat = np.concatenate(start_arrays)
-        target_concat = np.concatenate(target_arrays)
-        transform = SphereTransform.fit_unit_vectors(start_concat, target_concat)
+        # start WCS to the target WCS, using all kept detectors.
+        transform = SphereTransform.fit_unit_vectors(
+            np.concatenate([start_xyz[i] for i in detectors_kept]),
+            np.concatenate([target_xyz[i] for i in detectors_kept]),
+        )
+        # Compute and record the residuals for each detector with this
+        # transform.
+        for record in catalog:
+            detector_id = record.getId()
+            if detector_id not in start_xyz:
+                continue
+            record.set(
+                self._visit_pointing_residual_key,
+                self._compute_pointing_residual(transform, start_xyz[detector_id], target_xyz[detector_id])
+            )
         # If we apply that same rotation to our arbitrary start boresight, we
-        # get the boresight predicted by the true WCSs.
+        # get the boresight predicted by the target WCSs.
         boresight = transform(start_boresight)
         # If we apply that rotation to our point on the FIELD_ANGLE y-axis, we
-        # can similarly recover the orientation angle predicted by the true
+        # can similarly recover the orientation angle predicted by the target
         # WCSs.
         transformed_y_axis_point = transform(start_y_axis_point)
         orientation = Angle(90, degrees) - boresight.bearingTo(transformed_y_axis_point)
         if camera.getFocalPlaneParity():
             raise NotImplementedError("Cameras with focal plane parity flips are not yet supported.")
         return boresight, orientation
+
+    def _compute_pointing_residual(self, transform, from_xyz, to_xyz):
+        # Apply the transform to the start positions and subtract the
+        # target positions (all in 3-vector space) to get the residual
+        # 3-vectors.
+        residual_vecs = np.dot(transform.matrix, from_xyz.transpose()).transpose()
+        residual_vecs -= to_xyz
+        # Compute the squared chord length of the residual vectors, find
+        # the maximum of that over the grid (since everything else we do
+        # is monotonic), then translate that into an angle.
+        return 2.0*np.arcsin(0.5*np.sum(residual_vecs**2, axis=1).max()**0.5) * radians
 
     def _fit_sip_approximation(self, target_wcs, fallback_wcs, detector):
         """Fit a SIP approximation to a WCS.
