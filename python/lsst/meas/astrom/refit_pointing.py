@@ -27,7 +27,7 @@ import math
 
 import numpy as np
 
-from lsst.afw.geom import getIntermediateWorldCoordsToSky, SipApproximation, makeTanSipWcs
+from lsst.afw.geom import getIntermediateWorldCoordsToSky, SipApproximation, SkyWcs, makeTanSipWcs
 from lsst.afw.cameraGeom import FIELD_ANGLE, PIXELS
 from lsst.geom import (
     Angle,
@@ -152,6 +152,8 @@ class RefitPointingTask(Task):
               was passed in, after modification in-place.
             - regions (`lsst.obs.base.VisitGeometry`): updated regions for the
               visit and all detectors.
+            - fallbacks (`dict`): dictionary of "fallback" (new pointing +
+              camera geometry) WCSs, keyed by detector ID.
 
         Raises
         ------
@@ -175,10 +177,12 @@ class RefitPointingTask(Task):
             self.log.info("Re-fit pointing is %s, orientation=%0.2f deg.", boresight, orientation.asDegrees())
         max_delta1 = None
         max_delta2 = None
+        fallbacks: dict[int, SkyWcs] = {}
         for record in catalog:
             target_wcs = record.getWcs()
             detector = camera[record.getId()]
             fallback_wcs = createInitialSkyWcsFromBoresight(boresight, orientation, detector=detector)
+            fallbacks[detector.getId()] = fallback_wcs
             if target_wcs is None:
                 if self.config.add_wcs_fallbacks:
                     self.log.info(
@@ -211,12 +215,13 @@ class RefitPointingTask(Task):
             max_delta1.asArcseconds() * 1000,
             max_delta2.asArcseconds() * 1000,
         )
-        regions = self._make_visit_geometry(boresight, orientation, catalog, camera)
+        regions = self._make_visit_geometry(boresight, orientation, catalog, camera, fallbacks)
         return Struct(
             boresight=boresight,
             orientation=orientation,
             catalog=catalog,
             regions=regions,
+            fallbacks=fallbacks,
         )
 
     def _fit_pointing(self, catalog, camera):
@@ -387,7 +392,7 @@ class RefitPointingTask(Task):
         )
         return delta1, delta2
 
-    def _make_visit_geometry(self, boresight, orientation, catalog, camera):
+    def _make_visit_geometry(self, boresight, orientation, catalog, camera, fallbacks):
         """Create new sky regions for the visit and its detectors.
 
         Parameters
@@ -402,6 +407,10 @@ class RefitPointingTask(Task):
             catalog or for which the catalog record does not have a WCS.
         camera : `lsst.afw.cameraGeom.Camera`
             Camera geometry.
+        fallbacks : `dict`
+            Dictionary mapping detector ID to its fallback WCS.  If any
+            detectors are missing from this dictionary they will be added
+            in place.
 
         Returns
         -------
@@ -415,7 +424,10 @@ class RefitPointingTask(Task):
             if (record := catalog.find(detector.getId())) is not None:
                 wcs = record.getWcs()
             if wcs is None:
-                wcs = createInitialSkyWcsFromBoresight(boresight, orientation, detector)
+                wcs = fallbacks.get(detector.getId())
+                if wcs is None:
+                    wcs = createInitialSkyWcsFromBoresight(boresight, orientation, detector)
+                    fallbacks[detector.getId()] = wcs
             corners = wcs.pixelToSky(detector.getCorners(PIXELS))
             vertices = [sp.getVector() for sp in corners]
             detector_regions[detector.getId()] = ConvexPolygon(vertices)
