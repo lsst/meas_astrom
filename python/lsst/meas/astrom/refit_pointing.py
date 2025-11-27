@@ -115,7 +115,7 @@ class RefitPointingTask(Task):
             self._delta1_key = schema.addField(
                 "wcs_approx_delta1", type="Angle",
                 doc=(
-                    "Maximum of ``|true.pixelToSky(p) - approx.pixelToSky(p)|`` on a "
+                    "Maximum of ``|target.pixelToSky(p) - approx.pixelToSky(p)|`` on a "
                     "grid offset from the one used to fit the SIP approximation."
                 )
             )
@@ -123,7 +123,7 @@ class RefitPointingTask(Task):
                 "wcs_approx_delta2", type="Angle",
                 doc=(
                     "Maximum of "
-                    "``|true.pixelToSky(p) - true.pixelToSky(approx.skyToPixel(true.pixelToSky(p)))|`` "
+                    "``|target.pixelToSky(p) - target.pixelToSky(approx.skyToPixel(target.pixelToSky(p)))|`` "
                     "on a grid offset from the one used to fit the SIP approximation."
                 )
             )
@@ -176,30 +176,30 @@ class RefitPointingTask(Task):
         max_delta1 = None
         max_delta2 = None
         for record in catalog:
-            true_wcs = record.getWcs()
+            target_wcs = record.getWcs()
             detector = camera[record.getId()]
-            repointed_raw_wcs = createInitialSkyWcsFromBoresight(boresight, orientation, detector=detector)
-            if true_wcs is None:
+            fallback_wcs = createInitialSkyWcsFromBoresight(boresight, orientation, detector=detector)
+            if target_wcs is None:
                 if self.config.add_wcs_fallbacks:
                     self.log.info(
                         "Installing a re-pointed raw-like fallback WCS for detector %d.", record.getId()
                     )
-                    true_wcs = repointed_raw_wcs
+                    target_wcs = fallback_wcs
                     if self._flag_key is not None:
                         record.set(self._flag_key, True)
                 else:
                     continue
-            sip_approx = self._fit_sip_approximation(true_wcs, repointed_raw_wcs, detector=detector)
+            sip_approx = self._fit_sip_approximation(target_wcs, fallback_wcs, detector=detector)
             fits_wcs = makeTanSipWcs(
                 sip_approx.getPixelOrigin(),
-                repointed_raw_wcs.getSkyOrigin(),
+                fallback_wcs.getSkyOrigin(),
                 sip_approx.getCdMatrix(),
                 sip_approx.getA(),
                 sip_approx.getB(),
                 sip_approx.getAP(),
                 sip_approx.getBP(),
             )
-            record.setWcs(true_wcs.copyWithFitsApproximation(fits_wcs))
+            record.setWcs(target_wcs.copyWithFitsApproximation(fits_wcs))
             delta1, delta2 = self._validate_sip_approximation(record, detector)
             if max_delta1 is None or max_delta1 < delta1:
                 max_delta1 = delta1
@@ -238,15 +238,15 @@ class RefitPointingTask(Task):
             New orientation angle.
         """
         start_arrays = []
-        true_arrays = []
+        target_arrays = []
         start_boresight: SpherePoint | None = None
         start_orientation = 0.0*degrees
         start_y_axis_point: SpherePoint | None = None
         for record in catalog:
             # We call the WCSs that were actually fit to the stars the "true"
             # WCSs.
-            true_wcs = record.getWcs()
-            if true_wcs is None:
+            target_wcs = record.getWcs()
+            if target_wcs is None:
                 continue
             detector = camera[record.getId()]
             if start_boresight is None:
@@ -254,26 +254,26 @@ class RefitPointingTask(Task):
                 # extract the camera geometry part of a raw WCS.  Might be
                 # helpful to have it in the right hemisphere, but otherwise it
                 # shouldn't matter.
-                start_boresight = true_wcs.pixelToSky(Point2D(0.0, 0.0))
+                start_boresight = target_wcs.pixelToSky(Point2D(0.0, 0.0))
             # Make a raw-like WCS at the arbitrary boresight and orientation.
-            unpointed_raw_wcs = createInitialSkyWcsFromBoresight(
+            start_wcs = createInitialSkyWcsFromBoresight(
                 start_boresight, start_orientation, detector=detector
             )
             # Make a grid of positions for the detector and map them to the sky
             # via both the true WCS and the arbitrary raw-like one, but in
             # xyz unit-vector form.
             pixel_x, pixel_y = self._make_grid(detector, self.config.pointing_grid_spacing)
-            start_ra, start_dec = unpointed_raw_wcs.pixelToSkyArray(pixel_x, pixel_y)
+            start_ra, start_dec = start_wcs.pixelToSkyArray(pixel_x, pixel_y)
             start_arrays.append(
                 np.stack(
                     SpherePoint.toUnitXYZ(longitude=start_ra, latitude=start_dec, units=radians),
                     axis=1,
                 )
             )
-            true_ra, true_dec = true_wcs.pixelToSkyArray(pixel_x, pixel_y)
-            true_arrays.append(
+            target_ra, target_dec = target_wcs.pixelToSkyArray(pixel_x, pixel_y)
+            target_arrays.append(
                 np.stack(
-                    SpherePoint.toUnitXYZ(longitude=true_ra, latitude=true_dec, units=radians),
+                    SpherePoint.toUnitXYZ(longitude=target_ra, latitude=target_dec, units=radians),
                     axis=1,
                 )
             )
@@ -285,16 +285,16 @@ class RefitPointingTask(Task):
                 # raw WCS goes from pixels to field angle to sky, because that
                 # minimizes how much this code knows about how the rotation
                 # angle is defined.
-                start_y_axis_point = unpointed_raw_wcs.pixelToSky(
+                start_y_axis_point = start_wcs.pixelToSky(
                     detector.transform(Point2D(0.0, np.pi / 180.0), FIELD_ANGLE, PIXELS)
                 )
-        if not start_arrays or not true_arrays:
+        if not start_arrays or not target_arrays:
             raise NoVisitWcs("No fitted WCSs found for visit.")
         # Fit the spherical rotation that maps the points in the arbitrary
         # raw-like WCS to the true WCS.
         start_concat = np.concatenate(start_arrays)
-        true_concat = np.concatenate(true_arrays)
-        transform = SphereTransform.fit_unit_vectors(start_concat, true_concat)
+        target_concat = np.concatenate(target_arrays)
+        transform = SphereTransform.fit_unit_vectors(start_concat, target_concat)
         # If we apply that same rotation to our arbitrary start boresight, we
         # get the boresight predicted by the true WCSs.
         boresight = transform(start_boresight)
@@ -307,17 +307,17 @@ class RefitPointingTask(Task):
             raise NotImplementedError("Cameras with focal plane parity flips are not yet supported.")
         return boresight, orientation
 
-    def _fit_sip_approximation(self, true_wcs, repointed_raw_wcs, detector):
+    def _fit_sip_approximation(self, target_wcs, fallback_wcs, detector):
         """Fit a SIP approximation to a WCS.
 
         Parameters
         ----------
-        true_wcs : `lsst.afw.geom.SkyWcs`
+        target_wcs : `lsst.afw.geom.SkyWcs`
             The WCS to approximate.  This is generally a WCS fit to stars, but
             it may just be the repointed raw WCS (in which case this method
             will effectively just fit a polynomial approximation to the camera
             geometry transforms).
-        repointed_raw_wcs : `lsst.afw.geom.SkyWcs`
+        fallback_wcs : `lsst.afw.geom.SkyWcs`
             A raw-like WCS using the updated boresight and rotation angle.
         detector : `lsst.afw.cameraGeom.Detector`
             Camera geometry for this detector.
@@ -327,8 +327,8 @@ class RefitPointingTask(Task):
         sip_wcs : `lsst.afw.geom.SkyWcs`
             Approximation to the given WCS.
         """
-        pixels_to_iwc = true_wcs.getTransform().then(
-            getIntermediateWorldCoordsToSky(repointed_raw_wcs, simplify=True).inverted()
+        pixels_to_iwc = target_wcs.getTransform().then(
+            getIntermediateWorldCoordsToSky(fallback_wcs, simplify=True).inverted()
         )
         pixel_bbox = Box2D(detector.getBBox())
         grid_shape = Extent2I(
@@ -339,8 +339,8 @@ class RefitPointingTask(Task):
         )
         sip_approx = SipApproximation(
             pixels_to_iwc,
-            repointed_raw_wcs.getPixelOrigin(),
-            repointed_raw_wcs.getCdMatrix(),
+            fallback_wcs.getPixelOrigin(),
+            fallback_wcs.getCdMatrix(),
             pixel_bbox,
             grid_shape,
             self.config.sip_order,
@@ -365,15 +365,15 @@ class RefitPointingTask(Task):
         delta2 : `lsst.geom.Angle`
             Maximum error in the skyToPixel approximation.
         """
-        true_wcs = record.getWcs()
-        approx_wcs = true_wcs.getFitsApproximation()
+        target_wcs = record.getWcs()
+        approx_wcs = target_wcs.getFitsApproximation()
         x, y = self._make_grid(detector, self.config.sip_grid_spacing, offset=True)
-        true_ra, true_dec = true_wcs.pixelToSkyArray(x, y)
+        target_ra, target_dec = target_wcs.pixelToSkyArray(x, y)
         approx1_ra, approx1_dec = approx_wcs.pixelToSkyArray(x, y)
-        delta1 = float(np.max(np.hypot(true_ra - approx1_ra, true_dec - approx1_dec))) * radians
-        approx2_x, approx2_y = approx_wcs.skyToPixelArray(true_ra, true_dec)
-        approx2_ra, approx2_dec = true_wcs.pixelToSkyArray(approx2_x, approx2_y)
-        delta2 = float(np.max(np.hypot(true_ra - approx2_ra, true_dec - approx2_dec))) * radians
+        delta1 = float(np.max(np.hypot(target_ra - approx1_ra, target_dec - approx1_dec))) * radians
+        approx2_x, approx2_y = approx_wcs.skyToPixelArray(target_ra, target_dec)
+        approx2_ra, approx2_dec = target_wcs.pixelToSkyArray(approx2_x, approx2_y)
+        delta2 = float(np.max(np.hypot(target_ra - approx2_ra, target_dec - approx2_dec))) * radians
         if self._delta1_key is not None:
             record.set(self._delta1_key, delta1)
         if self._delta2_key is not None:
