@@ -233,7 +233,11 @@ class RefitPointingTask(Task):
         fallbacks: dict[int, SkyWcs] = {}
         for record in catalog:
             target_wcs = record.getWcs()
-            detector = camera[record.getId()]
+            try:
+                detector = camera[record.getId()]
+            except LookupError:
+                # We'll have already warned in _fit_pointing.
+                continue
             fallback_wcs = createInitialSkyWcsFromBoresight(boresight, orientation, detector=detector)
             fallbacks[detector.getId()] = fallback_wcs
             if target_wcs is None:
@@ -308,7 +312,11 @@ class RefitPointingTask(Task):
             target_wcs = record.getWcs()
             if target_wcs is None:
                 continue
-            detector = camera[detector_id]
+            try:
+                detector = camera[detector_id]
+            except LookupError:
+                self.log.warning('Detector %d has no camera geometry; skipping it.', detector_id)
+                continue
             if start_boresight is None:
                 # We just need some semi-arbitrary point on the sky that lets
                 # extract the camera geometry part of a raw WCS.  Might be
