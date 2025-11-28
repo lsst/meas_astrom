@@ -28,7 +28,7 @@ import math
 import numpy as np
 
 from lsst.afw.geom import getIntermediateWorldCoordsToSky, SipApproximation, SkyWcs, makeTanSipWcs
-from lsst.afw.cameraGeom import FIELD_ANGLE, PIXELS
+from lsst.afw.cameraGeom import PIXELS
 from lsst.geom import (
     Angle,
     Box2D,
@@ -363,17 +363,6 @@ class RefitPointingTask(Task):
                 )
                 continue
             detectors_kept.append(detector_id)
-            if start_y_axis_point is None:
-                # Define a point at (0, 1deg) in the FIELD_ANGLE system,
-                # according to the raw WCS, to let us fit the rotation angle.
-                # We could do this with any detector and get the same answer.
-                # We're going from field angle to pixels to sky even though the
-                # raw WCS goes from pixels to field angle to sky, because that
-                # minimizes how much this code knows about how the rotation
-                # angle is defined.
-                start_y_axis_point = start_wcs.pixelToSky(
-                    detector.transform(Point2D(0.0, np.pi / 180.0), FIELD_ANGLE, PIXELS)
-                )
         if not detectors_kept:
             if self._wcs_nulling_threshold is not None:
                 # We've been asked to null out WCSs that are too inconsistent
@@ -413,9 +402,10 @@ class RefitPointingTask(Task):
         # If we apply that same rotation to our arbitrary start boresight, we
         # get the boresight predicted by the target WCSs.
         boresight = transform(start_boresight)
-        # If we apply that rotation to our point on the FIELD_ANGLE y-axis, we
+        # If we apply that rotation to a point on the FIELD_ANGLE y-axis, we
         # can similarly recover the orientation angle predicted by the target
         # WCSs.
+        start_y_axis_point = start_boresight.offset(90*degrees, 1.0*degrees)
         transformed_y_axis_point = transform(start_y_axis_point)
         orientation = Angle(90, degrees) - boresight.bearingTo(transformed_y_axis_point)
         if camera.getFocalPlaneParity():
