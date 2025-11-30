@@ -101,6 +101,11 @@ class RefitPointingConfig(Config):
         default=None,
         optional=True,
     )
+    schema_prefix = Field(
+        doc="Prefix for all schema fields.",
+        dtype=str,
+        default="",
+    )
 
 
 class RefitPointingTask(Task):
@@ -118,7 +123,7 @@ class RefitPointingTask(Task):
         self._delta2_key = None
         if schema is not None:
             self._detector_pointing_residual_key = schema.addField(
-                "wcs_detector_pointing_residual", type="Angle",
+                self.config.schema_prefix + "wcs_detector_pointing_residual", type="Angle",
                 doc=(
                     "Maximum difference (on the pointing-fit grid) between the target WCS position and "
                     "the position predicted by camera geometry, after re-pointing using the target WCS "
@@ -126,7 +131,7 @@ class RefitPointingTask(Task):
                 )
             )
             self._visit_pointing_residual_key = schema.addField(
-                "wcs_visit_pointing_residual", type="Angle",
+                self.config.schema_prefix + "wcs_visit_pointing_residual", type="Angle",
                 doc=(
                     "Maximum difference (on the pointing-fit grid) between the target WCS position and "
                     "the position predicted by camera geometry, after re-pointing using the target WCS "
@@ -134,21 +139,21 @@ class RefitPointingTask(Task):
                 )
             )
             self._detector_pointing_rejected_key = schema.addField(
-                "wcs_detector_pointing_rejected", type="Flag",
+                self.config.schema_prefix + "wcs_detector_pointing_rejected", type="Flag",
                 doc=(
                     "Flag set if this detector was rejected from the pointing fit due to its "
                     "wcs_detector_pointing_residual value."
                 )
             )
             self._delta1_key = schema.addField(
-                "wcs_approx_delta1", type="Angle",
+                self.config.schema_prefix + "wcs_approx_delta1", type="Angle",
                 doc=(
                     "Maximum of ``|target.pixelToSky(p) - approx.pixelToSky(p)|`` on a "
                     "grid offset from the one used to fit the SIP approximation."
                 )
             )
             self._delta2_key = schema.addField(
-                "wcs_approx_delta2", type="Angle",
+                self.config.schema_prefix + "wcs_approx_delta2", type="Angle",
                 doc=(
                     "Maximum of "
                     "``|target.pixelToSky(p) - target.pixelToSky(approx.skyToPixel(target.pixelToSky(p)))|`` "
