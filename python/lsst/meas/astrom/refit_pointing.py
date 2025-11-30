@@ -80,14 +80,6 @@ class RefitPointingConfig(Config):
         dtype=int,
         default=5,
     )
-    add_wcs_fallbacks = Field[bool](
-        doc=(
-            "If True, add a fallback WCS (a raw-like camera geometry one, with an updated pointing) "
-            "for any detector in the given summary catalog that does not already have a WCS.",
-        ),
-        dtype=bool,
-        default=False,
-    )
     detector_pointing_rejection_threshold = Field(
         doc=(
             "If the distance between the target WCS position and the position predicted by the camera "
@@ -102,9 +94,8 @@ class RefitPointingConfig(Config):
     wcs_nulling_threshold = Field(
         doc=(
             "If the distance between the target WCS position and fallback WCS exceeds this value (in "
-            "arcseconds), set the WCS to `None` to ensure no downstream code uses it.  If "
-            "``add_wcs_fallbacks`` is `True`, the fallback WCS is used.  The quantity this threshold is "
-            "applied to is saved in the wcs_visit_pointing_residual column."
+            "arcseconds), set the WCS to `None` to ensure no downstream code uses it.  The quantity this "
+            "threshold is applied to is saved in the wcs_visit_pointing_residual column."
         ),
         dtype=float,
         default=None,
@@ -123,18 +114,9 @@ class RefitPointingTask(Task):
 
     def __init__(self, config=None, *, schema=None, **kwargs):
         super().__init__(config, **kwargs)
-        self._flag_key = None
         self._delta1_key = None
         self._delta2_key = None
         if schema is not None:
-            if self.config.add_wcs_fallbacks:
-                self._flag_key = schema.addField(
-                    "wcs_is_fallback", type="Flag",
-                    doc=(
-                        "Whether the WCS for this detector is just a re-pointed raw WCS, "
-                        "as opposed to something actually fit from stars."
-                    )
-                )
             self._detector_pointing_residual_key = schema.addField(
                 "wcs_detector_pointing_residual", type="Angle",
                 doc=(
@@ -189,8 +171,8 @@ class RefitPointingTask(Task):
         catalog : `lsst.afw.table.ExposureCatalog`
             A catalog of per-detector records for the visit.  WCS components
             are updated in-place: FITS-compatible SIP approximations are added,
-            and re-pointed raw-like WCSs are added for detectors that had no
-            fitted WCS if `~RefitPointingConfig.add_wcs_fallbacks` is `True`.
+            and WCSs may be set to `None` if they do not satisfy the
+            `~RefitPointingConfig.wcs_nulling_threshold`.
         camera : `lsst.afw.cameraGeom.Camera`
             Camera geometry.
 
@@ -241,15 +223,7 @@ class RefitPointingTask(Task):
             fallback_wcs = createInitialSkyWcsFromBoresight(boresight, orientation, detector=detector)
             fallbacks[detector.getId()] = fallback_wcs
             if target_wcs is None:
-                if self.config.add_wcs_fallbacks:
-                    self.log.info(
-                        "Installing a re-pointed raw-like fallback WCS for detector %d.", record.getId()
-                    )
-                    target_wcs = fallback_wcs
-                    if self._flag_key is not None:
-                        record.set(self._flag_key, True)
-                else:
-                    continue
+                continue
             sip_approx = self._fit_sip_approximation(target_wcs, fallback_wcs, detector=detector)
             fits_wcs = makeTanSipWcs(
                 sip_approx.getPixelOrigin(),
