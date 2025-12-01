@@ -80,7 +80,7 @@ class RefitPointingConfig(Config):
         dtype=int,
         default=5,
     )
-    detector_pointing_rejection_threshold = Field(
+    pointing_rejection_threshold = Field(
         doc=(
             "If the distance between the target WCS position and the position predicted by the camera "
             "geometry after refitting the pointing using just one detector exceeds this value (in "
@@ -90,6 +90,12 @@ class RefitPointingConfig(Config):
         ),
         dtype=float,
         default=1.0,
+    )
+    pointing_rejection_input_flag = Field(
+        doc="An input flag field that indicates that a detector should be rejected from the pointing fit.",
+        dtype=str,
+        optional=True,
+        default=None,
     )
     wcs_nulling_threshold = Field(
         doc=(
@@ -160,8 +166,8 @@ class RefitPointingTask(Task):
                     "on a grid offset from the one used to fit the SIP approximation."
                 )
             )
-        self._detector_pointing_rejection_threshold = (
-            self.config.detector_pointing_rejection_threshold*arcseconds
+        self._pointing_rejection_threshold = (
+            self.config.pointing_rejection_threshold*arcseconds
         )
         self._wcs_nulling_threshold = (
             self.config.wcs_nulling_threshold*arcseconds
@@ -331,7 +337,13 @@ class RefitPointingTask(Task):
                 detector_transform, start_xyz[detector_id], target_xyz[detector_id]
             )
             record.set(self._detector_pointing_residual_key, detector_pointing_residual)
-            if detector_pointing_residual > self._detector_pointing_rejection_threshold:
+            if self.config.pointing_rejection_input_flag is not None:
+                if record[self.config.pointing_rejection_input_flag]:
+                    if not detectors_kept:
+                        # This was the first detector we saw; need to reset.
+                        start_boresight = None
+                    continue
+            if detector_pointing_residual > self._pointing_rejection_threshold:
                 record.set(self._detector_pointing_rejected_key, True)
                 if not detectors_kept:
                     # This was the first detector we saw; need to reset.
