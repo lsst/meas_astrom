@@ -124,10 +124,11 @@ class RefitPointingTestCase(lsst.utils.tests.TestCase):
                 record.setWcs(bad_wcs)
         result = task.run(catalog=catalog, camera=self.camera)
         # Test that the residuals are large for the bad detector, and that we
-        # rejected it.
+        # rejected it, and that we nulled that WCS.
         self.assertGreater(catalog[bad_id]["wcs_detector_pointing_residual"].asArcseconds(), 10.0)
         self.assertGreater(catalog[bad_id]["wcs_visit_pointing_residual"].asArcseconds(), 10.0)
         self.assertTrue(catalog[bad_id]["wcs_detector_pointing_rejected"])
+        self.assertIsNone(catalog[bad_id].getWcs())
         # Check that we recover the input pointing (one detector is
         # sufficient).
         self.assertAlmostEqual(result.regions.boresight_ra, boresight.getRa().asDegrees())

@@ -73,6 +73,16 @@ class RefitPointingConfig(Config):
         dtype=float,
         default=1.0,
     )
+    nulling_threshold = Field(
+        doc=(
+            "If the distance between the target WCS position and the position predicted by the camera "
+            "geometry after refitting the pointing using all detectors exceeds this value (in arcseconds) "
+            "at any point on the pointing-fit grid, that detector's WCS is set to None in the catalog.  "
+            "The quantity this threshold is applied to is saved in the wcs_visit_pointing_residual column."
+        ),
+        dtype=float,
+        default=60.0,
+    )
     schema_prefix = Field(
         doc="Prefix for all schema fields.",
         dtype=str,
@@ -125,6 +135,7 @@ class RefitPointingTask(Task):
             ),
         )
         self._rejection_threshold = self.config.rejection_threshold * arcseconds
+        self._nulling_threshold = self.config.nulling_threshold * arcseconds
 
     def run(self, *, catalog, camera):
         """Re-fit the pointing from the WCSs in a visit.
@@ -170,6 +181,7 @@ class RefitPointingTask(Task):
             )
         else:
             self.log.info("Re-fit pointing is %s, orientation=%0.2f deg.", boresight, orientation.asDegrees())
+        self._null_bad(catalog)
         regions = self._make_visit_geometry(boresight, orientation, catalog, camera)
         return Struct(
             boresight=boresight,
@@ -262,7 +274,11 @@ class RefitPointingTask(Task):
                 continue
             detectors_kept.append(detector_id)
         if not detectors_kept:
-            raise NoVisitWcs("No valid target WCSs found for visit.")
+            # Since we can't apply the nulling-threshold test, set all WCSs to
+            # None.
+            for record in catalog:
+                record.setWcs(None)
+            raise NoVisitWcs("No valid target WCSs were left after rejection.")
         # Fit the spherical rotation that maps the points in the arbitrary
         # start WCS to the target WCS, using all kept detectors.
         transform = SphereTransform.fit_unit_vectors(
@@ -303,6 +319,17 @@ class RefitPointingTask(Task):
         # the maximum of that over the grid (since everything else we do
         # is monotonic), then translate that into an angle.
         return 2.0 * np.arcsin(0.5 * np.sum(residual_vecs**2, axis=1).max() ** 0.5) * radians
+
+    def _null_bad(self, catalog):
+        for record in catalog:
+            visit_pointing_residual = record.get(self._visit_pointing_residual_key)
+            if visit_pointing_residual > self._nulling_threshold:
+                self.log.warning(
+                    'Setting WCS to None for detector %d with visit pointing residual %0.2g".',
+                    record.getId(),
+                    visit_pointing_residual.asArcseconds(),
+                )
+                record.setWcs(None)
 
     def _make_visit_geometry(self, boresight, orientation, catalog, camera):
         """Create new sky regions for the visit and its detectors.
