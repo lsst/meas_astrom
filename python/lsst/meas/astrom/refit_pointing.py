@@ -71,7 +71,7 @@ class RefitPointingConfig(Config):
             "column."
         ),
         dtype=float,
-        default=1.0,
+        default=10.0,
     )
     nulling_threshold = Field(
         doc=(
