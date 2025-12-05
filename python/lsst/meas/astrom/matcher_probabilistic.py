@@ -677,8 +677,8 @@ class MatcherProbabilistic:
             'match_candidate': ref_candidate_match,
             'match_row': ref_row_match,
             'match_count': ref_match_count,
-            'match_chisq': ref_chisq,
-            'match_n_chisq_finite': ref_match_meas_finite,
+            'match_chi2': ref_chisq,
+            'match_n_chi2_finite': ref_match_meas_finite,
         }
         data_target = {
             'match_candidate': target.extras.select if target.extras.select is not None else (
@@ -744,8 +744,8 @@ class MatcherProbabilistic:
             'match_row': 'The index of the best matched row in the target table, if any',
             'match_count': 'The number of candidate matching target objects, i.e. those within the match'
                            ' distance but excluding objects already matched to a  ref object',
-            'match_chisq': 'The sum of all finite reduced chi-squared values over all match columns',
-            'match_n_chisq_finite': 'The number of match columns with finite chisq',
+            'match_chi2': 'The sum of all finite reduced chi-squared values over all match columns',
+            'match_n_chi2_finite': 'The number of match columns with finite chi-squared',
         }.items():
             catalog_out_ref[column].description = description
         catalog_out_target = astropy.table.Table(data_target)
