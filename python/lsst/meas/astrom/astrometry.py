@@ -32,6 +32,7 @@ from . import exceptions
 from .ref_match import RefMatchTask, RefMatchConfig
 from .fitTanSipWcs import FitTanSipWcsTask
 from .display import displayAstrometry
+from .fit_sip_approximation import FitSipApproximationTask
 
 
 class AstrometryConfig(RefMatchConfig):
@@ -127,6 +128,15 @@ class AstrometryConfig(RefMatchConfig):
         itemtype=float,
         default={"u": -1.5, "g": -0.6, "r": 0.0, "i": 0.5, "z": 0.6},
     )
+    doFitSipApproximation = pexConfig.Field(
+        "Whether to fit a TAN-SIP approximation to the true WCS for use in FITS headers.",
+        dtype=bool,
+        default=True,
+    )
+    fitSipApproximation = pexConfig.ConfigurableField(
+        "Configuration for fitting a TAN-SIP approximation to the true WCS for use in FITS headers.",
+        target=FitSipApproximationTask,
+    )
 
     def setDefaults(self):
         super().setDefaults()
@@ -176,6 +186,8 @@ class AstrometryTask(RefMatchTask):
             self.usedKey = None
 
         self.makeSubtask("wcsFitter")
+        if self.config.doFitSipApproximation:
+            self.makeSubtask("fitSipApproximation")
 
     @timeMethod
     def run(self, sourceCat, exposure):
@@ -216,6 +228,8 @@ class AstrometryTask(RefMatchTask):
               (`lsst.afw.geom.Angle`) or `None` if config.forceKnownWcs True
             - ``matchMeta`` :  metadata needed to unpersist matches
               (`lsst.daf.base.PropertyList`)
+            - ``sip`` : a nested struct returned by
+              `FitSipApproximationTask.run`.
         """
         if self.refObjLoader is None:
             raise RuntimeError("Running matcher task with no refObjLoader set in __init__ or setRefObjLoader")
@@ -224,6 +238,9 @@ class AstrometryTask(RefMatchTask):
             res.scatterOnSky = None
         else:
             res = self.solve(exposure=exposure, sourceCat=sourceCat)
+        if self.config.doFitSipApproximation:
+            res.sip = self.fitSipApproximation.run(wcs=exposure.getWcs(), bbox=exposure.getBBox())
+            exposure.setWcs(res.sip.wcs)
         return res
 
     @timeMethod
