@@ -126,7 +126,7 @@ class AstrometryConfig(RefMatchConfig):
         "filters and may not be appropriate for others).",
         keytype=str,
         itemtype=float,
-        default={"u": -1.5, "g": -0.6, "r": 0.0, "i": 0.5, "z": 0.6},
+        default={"u": -1.5, "g": -0.6, "r": 0.0, "i": 0.5, "z": 0.6, "y": 0.8},
     )
     doFitSipApproximation = pexConfig.Field(
         "Whether to fit a TAN-SIP approximation to the true WCS for use in FITS headers.",
@@ -605,6 +605,11 @@ class AstrometryTask(RefMatchTask):
                 refColorDeltaDefaults = self.config.refColorDeltaDefaults
                 if band in refColorDeltaDefaults:
                     refColorDelta = refColorDeltaDefaults[band]
+                else:
+                    self.log.warning("Band %s was not found in refColorDeltaDefaults dict "
+                                     "(currently set as: %s.  Will use a default of 0.0 (i.e. "
+                                     "no color shift).", band, self.config.refColorDeltaDefaults)
+                    refColorDelta = 0.0
                 self.log.warning("Not enough reference sources with finite fluxes in %s and %s, "
                                  "so can't compute color shift; a default vaulue of %.2f will "
                                  "be applied.", refFluxField, refFilterNameForBand, refColorDelta)
