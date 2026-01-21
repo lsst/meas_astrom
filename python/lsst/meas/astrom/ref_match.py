@@ -61,6 +61,7 @@ class RefMatchConfig(pexConfig.Config):
     )
 
     def setDefaults(self):
+        super().setDefaults()
         # Configured to match the deprecated "matcher" selector:
         # SN > 40, some bad flags, valid centroids.
         self.sourceSelector["science"].doSignalToNoise = True
