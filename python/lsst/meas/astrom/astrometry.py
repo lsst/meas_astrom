@@ -190,7 +190,7 @@ class AstrometryTask(RefMatchTask):
             self.makeSubtask("fitSipApproximation")
 
     @timeMethod
-    def run(self, sourceCat, exposure):
+    def run(self, sourceCat, exposure, exposure_region=None):
         """Load reference objects, match sources and optionally fit a WCS.
 
         This is a thin layer around solve or loadAndMatch, depending on
@@ -199,20 +199,22 @@ class AstrometryTask(RefMatchTask):
         Parameters
         ----------
         exposure : `lsst.afw.image.Exposure`
-            exposure whose WCS is to be fit
+            The exposure whose WCS is to be fit.
             The following are read only:
-
             - bbox
             - filter (may be unset)
             - detector (if wcs is pure tangent; may be absent)
 
             The following are updated:
-
             - wcs (the initial value is used as an initial guess, and is
               required)
-
         sourceCat : `lsst.afw.table.SourceCatalog`
-            catalog of sources detected on the exposure
+            The catalog of sources detected on the exposure.
+        exposure_region : `lsst.sphgeom.Region`, optional
+            The exposure region to use for the for the reference catalog
+            filtering. If `None`, this region will be set as a padded bbox +
+            current WCS of the exposure.
+
 
         Returns
         -------
@@ -237,16 +239,35 @@ class AstrometryTask(RefMatchTask):
             res = self.loadAndMatch(exposure=exposure, sourceCat=sourceCat)
             res.scatterOnSky = None
         else:
-            res = self.solve(exposure=exposure, sourceCat=sourceCat)
+            res = self.solve(exposure=exposure, sourceCat=sourceCat, exposure_region=exposure_region)
         if self.config.doFitSipApproximation:
             res.sip = self.fitSipApproximation.run(wcs=exposure.getWcs(), bbox=exposure.getBBox())
             exposure.setWcs(res.sip.wcs)
         return res
 
     @timeMethod
-    def solve(self, exposure, sourceCat):
+    def solve(self, exposure, sourceCat, exposure_region=None):
         """Load reference objects overlapping an exposure, match to sources and
         fit a WCS
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            The exposure whose WCS is to be fit
+            The following are read only:
+            - bbox
+            - filter (may be unset)
+            - detector (if wcs is pure tangent; may be absent)
+
+            The following are updated:
+            - wcs (the initial value is used as an initial guess, and is
+              required)
+        sourceCat : `lsst.afw.table.SourceCatalog`
+            The catalog of sources detected on the exposure.
+        exposure_region : `lsst.sphgeom.Region`, optional
+            The exposure region to use for the for the reference catalog
+            filtering. If `None`, this region will be set as a padded bbox +
+            current WCS of the exposure.
 
         Returns
         -------
@@ -292,12 +313,25 @@ class AstrometryTask(RefMatchTask):
                 lenSourceSelectionCat=len(sourceSelection.sourceCat)
             )
 
-        loadResult = self.refObjLoader.loadPixelBox(
-            bbox=exposure.getBBox(),
-            wcs=exposure.wcs,
-            filterName=band,
-            epoch=epoch,
-        )
+        if exposure_region is not None:
+            loadResult = self.refObjLoader.loadRegion(
+                region=exposure_region,
+                filterName=band,
+                epoch=epoch,
+                wcsForCentroids=exposure.wcs,
+            )
+            if self.refObjLoader.config.pixelMargin > 0:
+                self.log.warning("Note that the astrometry_ref_loader.pixelMargin (currently "
+                                 "set to %d) is ignored when loading the reference catalog "
+                                 "with an exposure_region (i.e. the region is used as is, with "
+                                 "no additional padding).", self.refObjLoader.config.pixelMargin)
+        else:
+            loadResult = self.refObjLoader.loadPixelBox(
+                bbox=exposure.getBBox(),
+                wcs=exposure.wcs,
+                filterName=band,
+                epoch=epoch,
+            )
 
         refSelection = self.referenceSelector.run(loadResult.refCat, exposure=exposure)
         refCat = refSelection.sourceCat
