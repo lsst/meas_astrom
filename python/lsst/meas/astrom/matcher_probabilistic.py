@@ -607,7 +607,8 @@ class MatcherProbabilistic:
         matched_ref = idxs_target_select[order, 0] != n_target_select
         order = order[matched_ref]
         idx_first = idxs_target_select[order, 0]
-        chi_0 = (data_target[:, idx_first] - data_ref[:, matched_ref])/errors_target[:, idx_first]
+        data_ref_matched = data_ref[:, matched_ref]
+        chi_0 = (data_target[:, idx_first] - data_ref_matched)/errors_target[:, idx_first]
         chi_finite_0 = np.isfinite(chi_0)
         n_finite_0 = np.sum(chi_finite_0, axis=0)
         chi_0[~chi_finite_0] = 0
@@ -637,7 +638,7 @@ class MatcherProbabilistic:
                     continue
                 # This is an ndarray of n_found rows x len(data_ref/target) columns
                 chi = (
-                    data_target[:, found] - data_ref[:, index_n].reshape((n_meas, 1))
+                    data_target[:, found] - data_ref_matched[:, index_n].reshape((n_meas, 1))
                 )/errors_target[:, found]
                 finite = np.isfinite(chi)
                 n_finite = np.sum(finite, axis=0)
