@@ -86,10 +86,10 @@ class DirectMatchTask(Task):
         """
         if self.refObjLoader is None:
             raise RuntimeError("Running matcher task with no refObjLoader set in __ini__ or setRefObjLoader")
-        circle = self.calculateCircle(catalog)
+        sourceSelection = self.sourceSelection.run(catalog)
+        circle = self.calculateCircle(sourceSelection.sourceCat)
         matchMeta = self.refObjLoader.getMetadataCircle(circle.center, circle.radius, filterName, epoch=epoch)
         emptyResult = Struct(matches=[], matchMeta=matchMeta)
-        sourceSelection = self.sourceSelection.run(catalog)
         if len(sourceSelection.sourceCat) == 0:
             self.log.warning("No objects selected from %d objects in source catalog", len(catalog))
             return emptyResult
