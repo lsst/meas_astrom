@@ -614,6 +614,7 @@ class MatcherProbabilistic:
         chi_0[~chi_finite_0] = 0
         chisq_sum_0 = np.sum(chi_0*chi_0, axis=0)
         n_meas = len(config.columns_ref_meas)
+        n_ambiguous = 0
 
         logger.info('Disambiguating %d/%d matches/targets', len(order), len(ref.catalog))
         for index_n, index_row_select in enumerate(order):
@@ -653,6 +654,7 @@ class MatcherProbabilistic:
                     n_finite = n_finite[idx_chisq_min]
                     n_matched = len(chisq_good)
                     chisq_sum = chisq_sum[idx_chisq_min]
+                    n_ambiguous += 1
                 except Exception as error:
                     # Can't foresee any exceptions, but they shouldn't prevent
                     # matching subsequent sources
@@ -734,9 +736,10 @@ class MatcherProbabilistic:
                 out_matched[f'match_{column}'] = column_match
 
         logger.info(
-            'Completed match disambiguating in %.2fs (total %.2fs)',
+            'Completed match disambiguating in %.2fs (total %.2fs) with %d disambiguated',
             time.process_time() - t_begin,
             time.process_time() - t_init,
+            n_ambiguous,
         )
 
         catalog_out_ref = astropy.table.Table(data_ref)
