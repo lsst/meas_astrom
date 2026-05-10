@@ -190,7 +190,7 @@ class AstrometryTask(RefMatchTask):
             self.makeSubtask("fitSipApproximation")
 
     @timeMethod
-    def run(self, sourceCat, exposure, exposure_region=None):
+    def run(self, sourceCat, exposure, exposure_region=None, load_result=None):
         """Load reference objects, match sources and optionally fit a WCS.
 
         This is a thin layer around solve or loadAndMatch, depending on
@@ -214,7 +214,9 @@ class AstrometryTask(RefMatchTask):
             The exposure region to use for the for the reference catalog
             filtering. If `None`, this region will be set as a padded bbox +
             current WCS of the exposure.
-
+        load_result : `lsst.pipe.base.Struct`, optional
+           A pre-loaded reference catalog struct to use instead of loading
+           one here.
 
         Returns
         -------
@@ -239,14 +241,19 @@ class AstrometryTask(RefMatchTask):
             res = self.loadAndMatch(exposure=exposure, sourceCat=sourceCat)
             res.scatterOnSky = None
         else:
-            res = self.solve(exposure=exposure, sourceCat=sourceCat, exposure_region=exposure_region)
+            res = self.solve(
+                exposure=exposure,
+                sourceCat=sourceCat,
+                exposure_region=exposure_region,
+                load_result=load_result,
+            )
         if self.config.doFitSipApproximation:
             res.sip = self.fitSipApproximation.run(wcs=exposure.getWcs(), bbox=exposure.getBBox())
             exposure.setWcs(res.sip.wcs)
         return res
 
     @timeMethod
-    def solve(self, exposure, sourceCat, exposure_region=None):
+    def solve(self, exposure, sourceCat, exposure_region=None, load_result=None):
         """Load reference objects overlapping an exposure, match to sources and
         fit a WCS
 
@@ -268,6 +275,9 @@ class AstrometryTask(RefMatchTask):
             The exposure region to use for the for the reference catalog
             filtering. If `None`, this region will be set as a padded bbox +
             current WCS of the exposure.
+        load_result : `lsst.pipe.base.Struct`, optional
+           A pre-loaded reference catalog struct to use instead of loading
+           one here.
 
         Returns
         -------
@@ -294,8 +304,9 @@ class AstrometryTask(RefMatchTask):
         -----
         ignores config.forceKnownWcs
         """
-        if self.refObjLoader is None:
-            raise RuntimeError("Running matcher task with no refObjLoader set in __init__ or setRefObjLoader")
+        if self.refObjLoader is None and load_result is None:
+            raise RuntimeError("Running matcher task with no refObjLoader set in __init__ or "
+                               "setRefObjLoader and no pre-loaded reference catalog provided.")
         import lsstDebug
         debug = lsstDebug.Info(__name__)
 
@@ -313,33 +324,16 @@ class AstrometryTask(RefMatchTask):
                 lenSourceSelectionCat=len(sourceSelection.sourceCat)
             )
 
-        if exposure_region is not None:
-            loadResult = self.refObjLoader.loadRegion(
-                region=exposure_region,
-                filterName=band,
-                epoch=epoch,
-                wcsForCentroids=exposure.wcs,
-            )
-            if self.refObjLoader.config.pixelMargin > 0:
-                self.log.warning("Note that the astrometry_ref_loader.pixelMargin (currently "
-                                 "set to %d) is ignored when loading the reference catalog "
-                                 "with an exposure_region (i.e. the region is used as is, with "
-                                 "no additional padding).", self.refObjLoader.config.pixelMargin)
-        else:
-            loadResult = self.refObjLoader.loadPixelBox(
-                bbox=exposure.getBBox(),
-                wcs=exposure.wcs,
-                filterName=band,
-                epoch=epoch,
-            )
+        if load_result is None:
+            load_result = self.load_reference_catalog(exposure, exposure_region=exposure_region)
 
-        refSelection = self.referenceSelector.run(loadResult.refCat, exposure=exposure)
+        refSelection = self.referenceSelector.run(load_result.refCat, exposure=exposure)
         refCat = refSelection.sourceCat
 
         if self.config.doFiducialZeroPointCull:
             refCat, sourceSelection.sourceCat = self._do_fiducial_zeropoint_culling(
                 band,
-                loadResult.fluxField,
+                load_result.fluxField,
                 refCat, sourceSelection.sourceCat,
                 exposure.visitInfo.getExposureTime()
             )
@@ -370,7 +364,7 @@ class AstrometryTask(RefMatchTask):
                     refCat=refCat,
                     sourceCat=sourceCat,
                     goodSourceCat=sourceSelection.sourceCat,
-                    refFluxField=loadResult.fluxField,
+                    refFluxField=load_result.fluxField,
                     bbox=exposure.getBBox(),
                     wcs=exposure.wcs,
                     exposure=exposure,
@@ -418,6 +412,46 @@ class AstrometryTask(RefMatchTask):
             scatterOnSky=result.scatterOnSky,
             matchMeta=matchMeta,
         )
+
+    def load_reference_catalog(self, exposure, exposure_region=None):
+        """Load the reference catalog.
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            The exposure whose astrometric fit is being evaluated.
+        exposure_region : `lsst.sphgeom.Region`, optional
+            The exposure region to use for the for the reference catalog
+            filtering. If `None`, this region will be set as a padded bbox +
+            current WCS of the exposure.
+
+        Returns
+        -------
+        load_result : `lsst.pipe.base.Struct`
+           The loaded reference catalog struct.
+        """
+        epoch = exposure.visitInfo.date.toAstropy()
+        band = exposure.filter.bandLabel
+        if exposure_region is not None:
+            load_result = self.refObjLoader.loadRegion(
+                region=exposure_region,
+                filterName=band,
+                epoch=epoch,
+                wcsForCentroids=exposure.wcs,
+            )
+            if self.refObjLoader.config.pixelMargin > 0:
+                self.log.warning("Note that the astrometry_ref_loader.pixelMargin (currently "
+                                 "set to %d) is ignored when loading the reference catalog "
+                                 "with an exposure_region (i.e. the region is used as is, with "
+                                 "no additional padding).", self.refObjLoader.config.pixelMargin)
+        else:
+            load_result = self.refObjLoader.loadPixelBox(
+                bbox=exposure.getBBox(),
+                wcs=exposure.wcs,
+                filterName=band,
+                epoch=epoch,
+            )
+        return load_result
 
     def check(self, exposure, sourceCat, nMatches):
         """Validate the astrometric fit against the maxMeanDistance threshold.
