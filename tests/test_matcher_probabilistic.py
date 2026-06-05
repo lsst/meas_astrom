@@ -33,6 +33,7 @@ class MatchProbabilisticConfigTestCase(lsst.utils.tests.TestCase):
             columns_ref_meas=["x", "y"],
             columns_target_meas=["x", "y"],
             columns_target_err=["xErr", "yErr"],
+            column_ref_order="x",
         )
         self.config_good = MatchProbabilisticConfig(**kwargs)
         configs_bad = {}

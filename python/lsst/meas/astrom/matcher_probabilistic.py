@@ -418,6 +418,9 @@ class MatchProbabilisticConfig(pexConfig.Config):
             errors.append(
                 f"{len(self.columns_ref_meas)=} !>= {self.match_n_finite_min=}, no matches possible"
             )
+        if self.column_ref_order is None:
+            if len(self.columns_ref_flux) == 0:
+                errors.append("Must specify one of columns_ref_flux or column_ref_order")
         if errors:
             raise ValueError("\n".join(errors))
 
