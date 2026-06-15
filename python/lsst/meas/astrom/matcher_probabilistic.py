@@ -27,7 +27,7 @@ __all__ = [
 from dataclasses import dataclass
 import logging
 import time
-from typing import Callable, Set
+from typing import Callable
 import warnings
 
 import astropy.table
@@ -272,7 +272,11 @@ class MatchProbabilisticConfig(pexConfig.Config):
     )
 
     @property
-    def columns_in_ref(self) -> Set[str]:
+    def columns_in_ref(self) -> set[str]:
+        return set(self.columns_ordered_in_ref)
+
+    @property
+    def columns_ordered_in_ref(self) -> dict[str, None]:
         columns_all = [
             self.coord_format.column_ref_coord1,
             self.coord_format.column_ref_coord2,
@@ -288,10 +292,14 @@ class MatchProbabilisticConfig(pexConfig.Config):
         if self.column_ref_order:
             columns_all.append(self.column_ref_order)
 
-        return set(columns_all)
+        return {k: None for k in columns_all}
 
     @property
-    def columns_in_target(self) -> Set[str]:
+    def columns_in_target(self) -> set[str]:
+        return set(self.columns_ordered_in_target)
+
+    @property
+    def columns_ordered_in_target(self) -> dict[str, None]:
         columns_all = [
             self.coord_format.column_target_coord1,
             self.coord_format.column_target_coord2,
@@ -304,7 +312,7 @@ class MatchProbabilisticConfig(pexConfig.Config):
             self.columns_target_copy,
         ):
             columns_all.extend(columns)
-        return set(columns_all)
+        return {k: None for k in columns_all}
 
     columns_ref_copy = pexConfig.ListField(
         dtype=str,
