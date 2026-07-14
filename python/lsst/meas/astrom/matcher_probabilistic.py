@@ -27,7 +27,7 @@ __all__ = [
 from dataclasses import dataclass
 import logging
 import time
-from typing import Callable, Set
+from typing import Callable
 import warnings
 
 import astropy.table
@@ -272,7 +272,11 @@ class MatchProbabilisticConfig(pexConfig.Config):
     )
 
     @property
-    def columns_in_ref(self) -> Set[str]:
+    def columns_in_ref(self) -> set[str]:
+        return set(self.columns_ordered_in_ref)
+
+    @property
+    def columns_ordered_in_ref(self) -> dict[str, None]:
         columns_all = [
             self.coord_format.column_ref_coord1,
             self.coord_format.column_ref_coord2,
@@ -288,10 +292,14 @@ class MatchProbabilisticConfig(pexConfig.Config):
         if self.column_ref_order:
             columns_all.append(self.column_ref_order)
 
-        return set(columns_all)
+        return {k: None for k in columns_all}
 
     @property
-    def columns_in_target(self) -> Set[str]:
+    def columns_in_target(self) -> set[str]:
+        return set(self.columns_ordered_in_target)
+
+    @property
+    def columns_ordered_in_target(self) -> dict[str, None]:
         columns_all = [
             self.coord_format.column_target_coord1,
             self.coord_format.column_target_coord2,
@@ -304,7 +312,7 @@ class MatchProbabilisticConfig(pexConfig.Config):
             self.columns_target_copy,
         ):
             columns_all.extend(columns)
-        return set(columns_all)
+        return {k: None for k in columns_all}
 
     columns_ref_copy = pexConfig.ListField(
         dtype=str,
@@ -351,12 +359,12 @@ class MatchProbabilisticConfig(pexConfig.Config):
     )
     columns_target_select_true = pexConfig.ListField(
         dtype=str,
-        default=('detect_isPrimary',),
+        default=[],
         doc='Target table columns to require to be True for selecting sources',
     )
     columns_target_select_false = pexConfig.ListField(
         dtype=str,
-        default=('merge_peak_sky',),
+        default=[],
         doc='Target table columns to require to be False for selecting sources',
     )
     coord_format = pexConfig.ConfigField(
@@ -418,6 +426,9 @@ class MatchProbabilisticConfig(pexConfig.Config):
             errors.append(
                 f"{len(self.columns_ref_meas)=} !>= {self.match_n_finite_min=}, no matches possible"
             )
+        if self.column_ref_order is None:
+            if len(self.columns_ref_flux) == 0:
+                errors.append("Must specify one of columns_ref_flux or column_ref_order")
         if errors:
             raise ValueError("\n".join(errors))
 
@@ -607,12 +618,14 @@ class MatcherProbabilistic:
         matched_ref = idxs_target_select[order, 0] != n_target_select
         order = order[matched_ref]
         idx_first = idxs_target_select[order, 0]
-        chi_0 = (data_target[:, idx_first] - data_ref[:, matched_ref])/errors_target[:, idx_first]
+        data_ref_matched = data_ref[:, matched_ref]
+        chi_0 = (data_target[:, idx_first] - data_ref_matched)/errors_target[:, idx_first]
         chi_finite_0 = np.isfinite(chi_0)
         n_finite_0 = np.sum(chi_finite_0, axis=0)
         chi_0[~chi_finite_0] = 0
         chisq_sum_0 = np.sum(chi_0*chi_0, axis=0)
         n_meas = len(config.columns_ref_meas)
+        n_ambiguous = 0
 
         logger.info('Disambiguating %d/%d matches/targets', len(order), len(ref.catalog))
         for index_n, index_row_select in enumerate(order):
@@ -637,7 +650,7 @@ class MatcherProbabilistic:
                     continue
                 # This is an ndarray of n_found rows x len(data_ref/target) columns
                 chi = (
-                    data_target[:, found] - data_ref[:, index_n].reshape((n_meas, 1))
+                    data_target[:, found] - data_ref_matched[:, index_n].reshape((n_meas, 1))
                 )/errors_target[:, found]
                 finite = np.isfinite(chi)
                 n_finite = np.sum(finite, axis=0)
@@ -652,6 +665,7 @@ class MatcherProbabilistic:
                     n_finite = n_finite[idx_chisq_min]
                     n_matched = len(chisq_good)
                     chisq_sum = chisq_sum[idx_chisq_min]
+                    n_ambiguous += 1
                 except Exception as error:
                     # Can't foresee any exceptions, but they shouldn't prevent
                     # matching subsequent sources
@@ -733,9 +747,10 @@ class MatcherProbabilistic:
                 out_matched[f'match_{column}'] = column_match
 
         logger.info(
-            'Completed match disambiguating in %.2fs (total %.2fs)',
+            'Completed match disambiguating in %.2fs (total %.2fs) with %d disambiguated',
             time.process_time() - t_begin,
             time.process_time() - t_init,
+            n_ambiguous,
         )
 
         catalog_out_ref = astropy.table.Table(data_ref)
