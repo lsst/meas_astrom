@@ -19,7 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from typing import Dict, List, Optional, Set, Tuple
 import warnings
 
 import astropy.table
@@ -50,50 +49,12 @@ class MatchProbabilisticTask(pipeBase.Task):
     ConfigClass = MatchProbabilisticConfig
     _DefaultName = "matchProbabilistic"
 
-    @staticmethod
-    def _apply_select_bool(
-        catalog: astropy.table.Table,
-        columns_true: List[str],
-        columns_false: List[str],
-        selection: Optional[np.array],
-    ) -> np.array:
-        """Apply additional boolean selection columns.
-
-        catalog : `astropy.table.Table`
-            The catalog to select from.
-        columns_true : `list` [`str`]
-            Columns that must be True for selection.
-        columns_false : `list` [`str`]
-            Columns that must be False for selection.
-        selection : `numpy.array`
-            A prior selection array. Default all true.
-
-        Returns
-        -------
-        selection : `numpy.array`
-            The final selection array.
-
-        """
-        select_additional = (len(columns_true) + len(columns_false)) > 0
-        if select_additional:
-            if selection is None:
-                selection = np.ones(len(catalog), dtype=bool)
-            for column in columns_true:
-                # This is intended for boolean columns, so the behaviour for non-boolean is not obvious
-                # More config options and/or using a ConfigurableActionField might be best
-                values = catalog[column]
-                selection &= (np.isfinite(values) & (values != 0))
-            for column in columns_false:
-                values = catalog[column]
-                selection &= (values == 0)
-        return selection
-
     @property
-    def columns_in_ref(self) -> Set[str]:
+    def columns_in_ref(self) -> set[str]:
         return self.config.columns_in_ref
 
     @property
-    def columns_in_target(self) -> Set[str]:
+    def columns_in_target(self) -> set[str]:
         return self.config.columns_in_target
 
     def match(
@@ -105,7 +66,7 @@ class MatchProbabilisticTask(pipeBase.Task):
         wcs: afwGeom.SkyWcs = None,
         logger: logging.Logger = None,
         logging_n_rows: int = None,
-    ) -> Tuple[astropy.table.Table, astropy.table.Table, Dict[int, str]]:
+    ) -> tuple[astropy.table.Table, astropy.table.Table, dict[int, str]]:
         """Match sources in a reference tract catalog with a target catalog.
 
         Parameters
@@ -155,22 +116,6 @@ class MatchProbabilisticTask(pipeBase.Task):
                 select_ref = select_mag
             else:
                 select_ref &= select_mag
-
-        with warnings.catch_warnings():
-            # We already issued a deprecation warning; no need to repeat it.
-            warnings.filterwarnings(action="ignore", category=FutureWarning)
-            select_ref = self._apply_select_bool(
-                catalog=catalog_ref,
-                columns_true=config.columns_ref_select_true,
-                columns_false=config.columns_ref_select_false,
-                selection=select_ref,
-            )
-            select_target = self._apply_select_bool(
-                catalog=catalog_target,
-                columns_true=config.columns_target_select_true,
-                columns_false=config.columns_target_select_false,
-                selection=select_target,
-            )
 
         logger.info(
             "Beginning MatcherProbabilistic.match with %d/%d ref sources selected vs %d/%d target",

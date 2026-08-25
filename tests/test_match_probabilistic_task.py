@@ -33,17 +33,21 @@ import numpy as np
 class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
     """MatchProbabilisticTask test case."""
     def setUp(self):
+        # Add some values to ignore via flags
         # Add an extra target with a small spatial offset at the end
-        ra = np.array([-0.1, -0.2, 0., 0.1, 0.2, 0.2+1e-10])
-        dec = np.array([-0.15, 0.15, 0, 0.15, -0.15, -0.15-1e-10])
-        mag_g = np.array([23., 24., 25., 25.5, 26., 27.])
-        mag_r = mag_g + [0.5, -0.2, -0.8, -0.5, -1.5, 0.1]
+        ra = np.array([-0.1, -0.2, 0., 0.1, 0.2, np.nan, np.nan, 0.2+1e-10])
+        dec = np.array([-0.15, 0.15, 0, 0.15, -0.15, np.nan, np.nan, -0.15-1e-10])
+        mag_g = np.array([23., 24., 25., 25.5, 26., 50, 50, 27.])
+        mag_r = mag_g + [0.5, -0.2, -0.8, -0.5, -1.5, 0, 0, 0.1]
         coord_format = ConvertCatalogCoordinatesConfig
         zeropoint = coord_format.mag_zeropoint_ref.default
         fluxes = tuple(-0.4*10**(mag - zeropoint) for mag in (mag_g, mag_r))
         eps_coord = np.full_like(ra, lsst.geom.Angle(0.2, lsst.geom.arcseconds).asDegrees())
         eps_flux = np.full_like(eps_coord, 10)
-        flags = np.ones_like(eps_coord, dtype=bool)
+        flag_true = np.ones_like(eps_coord, dtype=bool)
+        flag_true[-3] = False
+        flag_false = np.zeros_like(eps_coord, dtype=bool)
+        flag_false[-2] = True
         name_index = 'index'
 
         columns_flux = ['flux_g', 'flux_r']
@@ -53,12 +57,12 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
         ] + columns_flux
 
         n_target = len(ra)
-        # Exclude the extra target from the ref cat
+        # Exclude the bad values and extra target from the ref cat
         # This makes it a spurious detection and gives this ref object two
         # candidates to match to
-        n_exclude = 1
-        self.n_exclude = 1
-        # This removes the last n_exclude elements and then reversing
+        n_exclude = 3
+        self.n_exclude = 3
+        # This removes the last n_exclude elements and then reverses them
         slice_ref = slice(-n_exclude - 1, None, -1)
         data_ref = {
             name_index: np.arange(n_target - n_exclude),
@@ -72,6 +76,7 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
         self.indices_expected = np.concatenate(
             (np.arange(n_target - n_exclude - 1, -1, -1), np.full(self.n_exclude, value_unmatched))
         )
+        self.select_ref_expected = np.ones_like(len(self.catalog_ref), dtype=bool)
 
         columns_target_meas = [
             coord_format.column_target_coord1.default,
@@ -89,10 +94,11 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
             columns_flux[1]: fluxes[1] - eps_flux,
             f'{columns_flux[0]}Err': eps_flux,
             f'{columns_flux[1]}Err': eps_flux,
-            "detect_isPrimary": flags,
-            "merge_peak_sky": ~flags,
+            "detect_isPrimary": flag_true,
+            "merge_peak_sky": flag_false,
         }
         self.catalog_target = astropy.table.Table(data=data_target)
+        self.select_target_expected = flag_true & ~flag_false
 
         self.task = MatchProbabilisticTask(config=MatchProbabilisticConfig(
             columns_ref_flux=columns_flux,
@@ -130,6 +136,14 @@ class MatchProbabilisticTaskTestCase(lsst.utils.tests.TestCase):
         )
         indices_target = result.cat_output_target["match_row"]
         np.testing.assert_array_equal(indices_target, self.indices_expected)
+        np.testing.assert_array_equal(
+            result.cat_output_ref["match_candidate"],
+            self.select_ref_expected,
+        )
+        np.testing.assert_array_equal(
+            result.cat_output_target["match_candidate"],
+            self.select_target_expected,
+        )
 
 
 class MemoryTester(lsst.utils.tests.MemoryTestCase):

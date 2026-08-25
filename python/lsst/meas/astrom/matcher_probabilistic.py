@@ -286,9 +286,11 @@ class MatchProbabilisticConfig(pexConfig.Config):
             self.columns_ref_meas,
             self.columns_ref_select_false,
             self.columns_ref_select_true,
+            self.columns_ref_values_allowed.keys() if self.columns_ref_values_allowed else None,
             self.columns_ref_copy,
         ):
-            columns_all.extend(columns)
+            if columns:
+                columns_all.extend(columns)
         if self.column_ref_order:
             columns_all.append(self.column_ref_order)
 
@@ -309,9 +311,11 @@ class MatchProbabilisticConfig(pexConfig.Config):
             self.columns_target_err,
             self.columns_target_select_false,
             self.columns_target_select_true,
+            self.columns_target_values_allowed.keys() if self.columns_target_values_allowed else None,
             self.columns_target_copy,
         ):
-            columns_all.extend(columns)
+            if columns:
+                columns_all.extend(columns)
         return {k: None for k in columns_all}
 
     columns_ref_copy = pexConfig.ListField(
@@ -342,6 +346,11 @@ class MatchProbabilisticConfig(pexConfig.Config):
         default=tuple(),
         doc='Reference table columns to require to be False for selecting sources',
     )
+    columns_ref_values_allowed = pexConfig.DictField[str, str](
+        doc='Reference table columns with values that must match a given string.'
+            'Multiple allowed values must be comma-separated.',
+        optional=True,
+    )
     columns_target_copy = pexConfig.ListField(
         dtype=str,
         default=[],
@@ -366,6 +375,11 @@ class MatchProbabilisticConfig(pexConfig.Config):
         dtype=str,
         default=[],
         doc='Target table columns to require to be False for selecting sources',
+    )
+    columns_target_values_allowed = pexConfig.DictField[str, str](
+        doc='Target table columns with values that must match a given string.'
+            'Multiple allowed values must be comma-separated.',
+        optional=True,
     )
     coord_format = pexConfig.ConfigField(
         dtype=ConvertCatalogCoordinatesConfig,
@@ -432,6 +446,53 @@ class MatchProbabilisticConfig(pexConfig.Config):
         if errors:
             raise ValueError("\n".join(errors))
 
+    @staticmethod
+    def apply_select_bool(
+        catalog: astropy.table.Table,
+        columns_true: list[str],
+        columns_false: list[str],
+        columns_values_allowed: dict[str, str] | None = None,
+        selection: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Apply additional boolean selection columns.
+
+        catalog : `astropy.table.Table`
+            The catalog to select from.
+        columns_true : `list` [`str`]
+            Columns that must be True for selection.
+        columns_false : `list` [`str`]
+            Columns that must be False for selection.
+        selection : `numpy.array`
+            A prior selection array. Default all true.
+
+        Returns
+        -------
+        selection : `numpy.ndarray` | None
+            The final selection array, or None if no selection criteria
+            specified.
+        """
+        select_additional = (len(columns_true) > 0) or (len(columns_false) > 0) or columns_values_allowed
+        if select_additional:
+            if selection is None:
+                selection = np.ones(len(catalog), dtype=bool)
+            for column in columns_true:
+                # This is intended for boolean columns, so the behaviour for non-boolean is not obvious
+                # More config options and/or using a ConfigurableActionField might be best
+                values = catalog[column]
+                selection &= (np.isfinite(values) & (values != 0))
+            for column in columns_false:
+                values = catalog[column]
+                selection &= (values == 0)
+            if columns_values_allowed:
+                for column, allowed_string in columns_values_allowed.items():
+                    values_allowed = allowed_string.split(",")
+                    values = catalog[column]
+                    select_allowed = values == values_allowed[0]
+                    for value_allowed in values_allowed[1:]:
+                        select_allowed |= values == value_allowed
+                    selection &= select_allowed
+        return selection
+
 
 def default_value(dtype):
     if dtype is str:
@@ -467,8 +528,8 @@ class MatcherProbabilistic:
         self,
         catalog_ref: astropy.table.Table,
         catalog_target: astropy.table.Table,
-        select_ref: np.array = None,
-        select_target: np.array = None,
+        select_ref: np.ndarray = None,
+        select_target: np.ndarray = None,
         logger: logging.Logger = None,
         logging_n_rows: int = None,
         **kwargs
@@ -508,6 +569,30 @@ class MatcherProbabilistic:
 
         t_init = time.process_time()
         config = self.config
+
+        selects = {"ref": select_ref, "target": select_target}
+        for select_key, catalog, columns_select_false, columns_select_true, columns_values_allowed in (
+            (
+                "ref", catalog_ref,
+                config.columns_ref_select_false, config.columns_ref_select_true,
+                config.columns_ref_values_allowed,
+            ),
+            (
+                "target", catalog_target,
+                config.columns_target_select_false, config.columns_target_select_true,
+                config.columns_target_values_allowed,
+            ),
+        ):
+            if columns_select_false or columns_select_true or columns_values_allowed:
+                select = config.apply_select_bool(
+                    catalog=catalog,
+                    columns_true=columns_select_true, columns_false=columns_select_false,
+                    columns_values_allowed=columns_values_allowed,
+                    selection=selects[select_key],
+                )
+                selects[select_key] = select
+
+        select_ref, select_target = (selects[key] for key in ("ref", "target"))
 
         # Transform any coordinates, if required
         # Note: The returned objects contain the original catalogs, as well as
@@ -630,7 +715,10 @@ class MatcherProbabilistic:
         n_meas = len(config.columns_ref_meas)
         n_ambiguous = 0
 
-        logger.info('Disambiguating %d/%d matches/targets', len(order), len(ref.catalog))
+        logger.info(
+            'Disambiguating %d/%d matches/targets (%d ref)',
+            len(order), n_target_select, n_ref_select,
+        )
         for index_n, index_row_select in enumerate(order):
             index_row = idx_orig_ref[index_row_select]
             found = idxs_target_select[index_row_select, :]
