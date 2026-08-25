@@ -537,7 +537,7 @@ class MatcherProbabilistic:
 
         coords_spherical = config.coord_format.coords_spherical
         coords_ref, coords_target = (
-            (cat.coord1[cat.extras.select], cat.coord2[cat.extras.select])
+            tuple(np.asarray(coord[cat.extras.select]) for coord in (cat.coord1, cat.coord2))
             for cat in (ref, target)
         )
 
