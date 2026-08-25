@@ -437,9 +437,12 @@ def default_value(dtype):
     if dtype is str:
         return ''
     elif np.issubdtype(dtype, np.signedinteger):
-        return np.inf
+        # Note most other packages use -1 as a sentinel, but this choice is
+        # long-standing and would need some consideration to change
+        # (in fact, it was np.inf which would overflow to the minimum value)
+        return np.iinfo(np.dtype(dtype)).min
     elif np.issubdtype(dtype, np.unsignedinteger):
-        return -np.inf
+        return np.iinfo(np.dtype(dtype)).max
     return None
 
 
