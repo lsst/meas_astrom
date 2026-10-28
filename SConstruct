@@ -1,3 +1,3 @@
 # -*- python -*-
 from lsst.sconsUtils import scripts
-scripts.BasicSConstruct("meas_astrom")
+scripts.BasicSConstruct("meas_astrom", noCfgFile=True)
